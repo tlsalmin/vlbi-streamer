@@ -31,7 +31,7 @@ static int fanout_id;
 //volatile struct tpacket_hdr * ps_header_start;
 #define RING_BLOCKSIZE 16384
 #define RING_FRAME_SIZE 8192
-#define RING_BLOCK_NR 512
+#define RING_BLOCK_NR 16384
 /*
 #define RING_BLOCKSIZE 4096
 #define RING_BLOCK_NR 4
@@ -49,7 +49,7 @@ static int fanout_id;
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 6
+#define THREADS 12
 #endif
 #define PACKET_NUM 1000000
 #define BUFSIZE 65536
@@ -179,26 +179,29 @@ static void fanout_thread(void)
       //1 file descriptor for infinte time
       err = poll(&pfd, 1, -1);
     }
-    limit--;
+    //limit--;
     //TODO:Packet processing
     
-    if (header->tp_status & TP_STATUS_COPY)
-      incomplete++;
-    else if (header->tp_status & TP_STATUS_LOSING)
-      dropped++;
-    else
-      total_captured += header->tp_len;
+    while((header->tp_status & TP_STATUS_USER)){
+      --limit;
+      if (header->tp_status & TP_STATUS_COPY)
+	incomplete++;
+      else if (header->tp_status & TP_STATUS_LOSING)
+	dropped++;
+      else
+	total_captured += header->tp_len;
 
-    //Release frame back to kernel use
-    header->tp_status = 0;
+      //Release frame back to kernel use
+      header->tp_status = 0;
 
-    //Update header point
-    //header = (header + 1) & ((struct tpacket_hdr *)(RING_FRAME_NR -1 ));
-    if(i>=RING_FRAME_NR-1)
-      i = 0;
-    else 
-      i++;
-    header = (void *) ps_header_start + i * RING_FRAME_SIZE;
+      //Update header point
+      //header = (header + 1) & ((struct tpacket_hdr *)(RING_FRAME_NR -1 ));
+      if(i>=RING_FRAME_NR-1)
+	i = 0;
+      else 
+	i++;
+      header = (void *) ps_header_start + i * RING_FRAME_SIZE;
+    }
     //header = ((void *)(header + 1)) & ((void*)(RING_FRAME_NR -1));
 
 #else 
