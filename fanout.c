@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <time.h>
 #ifdef MMAP_TECH
 #include <sys/mman.h>
 #include <sys/poll.h>
@@ -49,7 +50,7 @@ static int fanout_id;
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 12
+#define THREADS 6
 #endif
 #define PACKET_NUM 1000000
 #define BUFSIZE 65536
@@ -68,7 +69,7 @@ static int setup_socket(void)
   struct sockaddr_ll ll;
   struct ifreq ifr;
   int fanout_arg;
-  int o_rcvbuf;
+  //int o_rcvbuf;
 
   if (fd < 0) {
     perror("socket");
@@ -118,6 +119,10 @@ static void fanout_thread(void)
 {
   int fd = setup_socket();
   int limit = PACKET_NUM;
+  clock_t t_start;
+  double t_total = 0;
+  int clock_started = 0;
+  //t_start = NULL;
   //int x = sizeof(SA);
   //SAI * remend =NULL;
   //Changed to polling for mmap
@@ -179,6 +184,11 @@ static void fanout_thread(void)
       //1 file descriptor for infinte time
       err = poll(&pfd, 1, -1);
     }
+    //First capture. Lets start the clock
+    if(!clock_started){
+      clock_started = 1;
+      t_start = clock();
+    }
     //limit--;
     //TODO:Packet processing
     
@@ -222,11 +232,13 @@ static void fanout_thread(void)
       fprintf(stdout, "(%d) \n", getpid());
 #endif
   }
+  //clock_t stop = clock();
+  t_total = (double)(clock()-t_start)/CLOCKS_PER_SEC;
 
-  fprintf(stdout, "%d: Received %d packets\n", getpid(), PACKET_NUM);
+  fprintf(stderr, "%d: Received %d packets in %f seconds\n", getpid(), PACKET_NUM,t_total );
 
 #ifdef MMAP_TECH
-  fprintf(stdout, "Captured: %u bytes, with %u dropped and %u incomplete\n", total_captured, dropped, incomplete);
+  fprintf(stderr, "Captured: %u bytes, with %u dropped and %u incomplete\n", total_captured, dropped, incomplete);
   munmap(header, RING_BLOCKSIZE*RING_BLOCK_NR);
 #endif
   close(fd);
@@ -235,7 +247,7 @@ static void fanout_thread(void)
 
 int main(int argc, char **argp)
 {
-  int fd, err;
+  //int fd, err;
   int i;
 
   if (argc != 3) {

@@ -1,5 +1,5 @@
 CC = gcc 
-CFLAGS = -g -O2
+CFLAGS = -g -O2 -Wall
 OBJECTS = 
 EXEC = fanout
 SRC = fanout.c
