@@ -1,0 +1,12 @@
+#!/bin/bash
+DRIVES=(sdb1 sdc1 sdd1 sde1 sdf1 sdg1 sdh1 sdj1 sdi1 sdm1 sdn1 sdk1 sdl1 sdo1)
+k=0
+for i in $DRIVES
+do
+  if [ ! -d "/mnt/disk$k" ]; then
+    mkdir /mnt/disk$k
+  fi
+  k=$k+1
+done
+
+exit 0

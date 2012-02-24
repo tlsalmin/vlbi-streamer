@@ -1,7 +1,36 @@
+//Create  THREADS threads to receive fanouts
 #define THREADED
 //#define OUTPUT
 #define MMAP_TECH
 
+#ifdef MMAP_TECH
+//volatile struct tpacket_hdr * ps_header_start;
+#define RING_BLOCKSIZE 65536
+#define RING_FRAME_SIZE 8192
+#define RING_BLOCK_NR 1024
+//Note that somewhere around 5650 bytes, the ksoftirqd starts
+//hogging cpu, but after that it disappears.
+/*
+#define RING_BLOCKSIZE 4096
+#define RING_BLOCK_NR 4
+#define RING_FRAME_SIZE 2048
+*/
+
+#define RING_FRAME_NR  RING_BLOCKSIZE / RING_FRAME_SIZE * RING_BLOCK_NR
+#endif
+
+#ifndef PACKET_FANOUT
+#define PACKET_FANOUT		18
+#define PACKET_FANOUT_HASH		0
+#define PACKET_FANOUT_LB		1
+#endif
+#ifndef THREADED
+#define THREADS 1
+#else
+#define THREADS 32
+#endif
+#define PACKET_NUM 100000
+#define BUFSIZE 65536
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,40 +53,11 @@
 #include <arpa/inet.h>
 
 #include <net/if.h>
+#include "fanout.h"
 
 static const char *device_name;
 static int fanout_type;
 static int fanout_id;
-#ifdef MMAP_TECH
-//volatile struct tpacket_hdr * ps_header_start;
-#define RING_BLOCKSIZE 16384
-#define RING_FRAME_SIZE 8192
-#define RING_BLOCK_NR 16384
-/*
-#define RING_BLOCKSIZE 4096
-#define RING_BLOCK_NR 4
-#define RING_FRAME_SIZE 2048
-*/
-
-#define RING_FRAME_NR  RING_BLOCKSIZE / RING_FRAME_SIZE * RING_BLOCK_NR
-#endif
-
-#ifndef PACKET_FANOUT
-#define PACKET_FANOUT		18
-#define PACKET_FANOUT_HASH		0
-#define PACKET_FANOUT_LB		1
-#endif
-#ifndef THREADED
-#define THREADS 1
-#else
-#define THREADS 6
-#endif
-#define PACKET_NUM 1000000
-#define BUFSIZE 65536
-//From netcat
-#define SA struct sockaddr	/* socket overgeneralization braindeath */
-#define SAI struct sockaddr_in	/* ... whoever came up with this model */
-#define IA struct in_addr	/* ... should be taken out and shot, */
 
 
 //This is a pretty silly way to do this
@@ -122,10 +122,7 @@ static void fanout_thread(void)
   clock_t t_start;
   double t_total = 0;
   int clock_started = 0;
-  //t_start = NULL;
-  //int x = sizeof(SA);
-  //SAI * remend =NULL;
-  //Changed to polling for mmap
+
 #ifdef MMAP_TECH
   uint64_t total_captured = 0;
   int err;
