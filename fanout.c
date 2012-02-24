@@ -27,7 +27,7 @@
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 32
+#define THREADS 6
 #endif
 #define PACKET_NUM 100000
 #define BUFSIZE 65536

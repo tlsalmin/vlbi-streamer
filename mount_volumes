@@ -1,12 +1,38 @@
 #!/bin/bash
-DRIVES=(sdb1 sdc1 sdd1 sde1 sdf1 sdg1 sdh1 sdj1 sdi1 sdm1 sdn1 sdk1 sdl1 sdo1)
+#Careful with this script, or you'll wipe data off disks
+PARTED=parted
+MKFS=mkfs.ext4
+TUNE=tune2fs
+#Ripped from Mark6
+#noatime disabled access time recording
+#nodiratime same thing for directories
+#writeback rumoured to be fastest option
+MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
+DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 k=0
-for i in $DRIVES
+for i in "${DRIVES[@]}"
 do
   if [ ! -d "/mnt/disk$k" ]; then
     mkdir /mnt/disk$k
   fi
-  k=$k+1
+  if [ $(mount | grep -c /mnt/disk$k) \< 1 ]; then
+    mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk$k
+    if [ $? ]; then
+      echo "^ Error from $i"
+      ${PARTED} -s /dev/${i} mklabel msdos
+      ${PARTED} -s /dev/${i} mkpart primary ext4 0% 100%
+      ${MKFS} /dev/${i}1
+      #Ripped from Mark6-project disktool
+      ${TUNE} -o journal_data_writeback /dev/${i}1
+      ${TUNE} -O ^has_journal /dev/${i}1
+
+      mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk$k
+    fi
+  else
+    umount /mnt/disk$k
+    mount -o ${MOUNT_OPTS} /dev/$i /mnt/disk$k
+  fi
+  k=$((k+1))
 done
 
 exit 0
