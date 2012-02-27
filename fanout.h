@@ -12,7 +12,18 @@
 #define THREADS 6
 #endif
 
-static int setup_socket(void);
-static void fanout_thread(void);
-static int close_fanout(void);
+//Gatherer specific options
+struct opts
+{
+  int fd;
+  int fanout_arg;
+  char* filename;
+  char* device_name;
+  int root_pid;
+  int time;
+  int fanout_type;
+};
+void * setup_socket(void *opt);
+void fanout_thread(void *opt);
+int close_fanout(void *opt);
 #endif //FANOUT

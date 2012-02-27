@@ -3,36 +3,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include "streamer.h"
 #include "fanout.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_TODO 1
 
+extern char *optarg;
+extern int optind, optopt;
 
-struct opt_s
-{
-  char *filename;
-  char *device_name;
-  int capture_type;
-  int root_pid;
-  int fanout_type;
-  int time;
-};
-
-//Generic struct for a streamer entity
-struct streamer_entity
-{
-  int (*open)(void);
-  void (*start)(void);
-  int (*close)(void);
-  struct opt_s *opt;
-  int fd;
-  /*
-  char *device_name;
-  int parent_pid;
-  int fanout_type;
-  */
-
-};
 
 static struct opt_s opt;
 /*
@@ -63,7 +41,7 @@ static void parse_options(int argc, char **argv){
   opt.fanout_type = PACKET_FANOUT_LB;
   opt.root_pid = getpid();
   for(;;){
-    ret = getopt(argc, argv, "i:t:a");
+    ret = getopt(argc, argv, "i:t:a:");
     if(ret == -1){
       break;
     }
@@ -141,9 +119,11 @@ int main(int argc, char **argv)
 	//threads[i].parent_pid = fanout_id;
 	//threads[i].fanout_type = fanout_type;
 	threads[i].open = setup_socket;
+	//threads[i].open = setup_socket(&opt);
 	threads[i].start = fanout_thread;
-	threads[i].close = close_fanout;;
-	threads[i].opt = &opt;
+	threads[i].close = close_fanout;
+	threads[i].opt = threads[i].open((void*)&opt);
+	//threads[i].opt = &opt;
 	break;
       case CAPTURE_W_TODO:
 	break;

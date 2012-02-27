@@ -43,64 +43,66 @@
 
 #include <net/if.h>
 #include "fanout.h"
+#include "streamer.h"
 
 
 
-static int setup_socket(void)
+void * setup_socket(void* options)
 {
-  int err, fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+  struct opt_s *opt = (struct opt_s *)options;
+  struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
+  spec_ops->device_name = opt->device_name;
+  spec_ops->filename = opt->filename;
+  spec_ops->root_pid = opt->root_pid;
+  spec_ops->time = opt->time;
+  spec_ops->fanout_type = opt->fanout_type;
+  //spec_ops->fanout_arg = opt->fanout_arg;
+  int err; 
+  spec_ops->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
   //int err, fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
   struct sockaddr_ll ll;
   struct ifreq ifr;
-  int fanout_arg;
+  //int fanout_arg;
   //int o_rcvbuf;
 
-  if (fd < 0) {
+  if (spec_ops->fd < 0) {
     perror("socket");
-    return EXIT_FAILURE;
+    return NULL;;
   }
 
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, device_name);
-  err = ioctl(fd, SIOCGIFINDEX, &ifr);
+  strcpy(ifr.ifr_name, spec_ops->device_name);
+  err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
   if (err < 0) {
     perror("SIOCGIFINDEX");
-    return EXIT_FAILURE;
+    return NULL;
   }
 
   memset(&ll, 0, sizeof(ll));
   ll.sll_family = AF_PACKET;
   //ll.sll_protocol = ETH_P_ALL;
   ll.sll_ifindex = ifr.ifr_ifindex;
-  err = bind(fd, (struct sockaddr *) &ll, sizeof(ll));
+  err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
   if (err < 0) {
     perror("bind");
-    return EXIT_FAILURE;
+    return NULL;
   }
 
 #ifdef THREADED
-  fanout_arg = (fanout_id | (fanout_type << 16));
-  err = setsockopt(fd, SOL_PACKET, PACKET_FANOUT,
-      &fanout_arg, sizeof(fanout_arg));
+  spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (spec_ops->fanout_type << 16));
+  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_FANOUT,
+      &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));
   if (err) {
     perror("setsockopt");
-    return EXIT_FAILURE;
+    return NULL;
   }
 #endif //THREADED
-  return fd;
+  return spec_ops;
 }
-  /*
-     o_rcvbuf = 131071;
-     err = setsockopt(fd, SOL_PACKET, SO_RCVBUF, &o_rcvbuf, sizeof(o_rcvbuf));
-     if (err) {
-     perror("RCVBUF augment failed");
-     return EXIT_FAILURE;
-     }
-     */
 
-
-static void fanout_thread(void)
+void fanout_thread(void *opt)
 {
+  struct opts *spec_ops = (struct opts *)opt;
   //int fd = setup_socket();
   int limit = PACKET_NUM;
   clock_t t_start;
@@ -125,7 +127,7 @@ static void fanout_thread(void)
   req.tp_frame_size = RING_FRAME_SIZE;
   req.tp_block_nr = RING_BLOCK_NR;
   req.tp_frame_nr = RING_FRAME_NR;
-  err = setsockopt(fd, SOL_PACKET, PACKET_RX_RING, (void*) &req, sizeof(req));
+  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &req, sizeof(req));
   if (err) {
     perror("PACKET_RX_RING failed");
     //return EXIT_FAILURE;
@@ -133,7 +135,7 @@ static void fanout_thread(void)
 
   //MMap the packet ring
   //TODO: Remember to close ring
-  ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, spec_ops->fd, 0);
   if (!ps_header_start)
   {
     perror("mmap");
@@ -144,8 +146,8 @@ static void fanout_thread(void)
   struct tpacket_hdr *header;
   uint64_t incomplete = 0;
   uint64_t dropped = 0;
-  uint64_t i;
-  pfd.fd = fd;
+  uint64_t i=0;
+  pfd.fd = spec_ops->fd;
   pfd.revents = 0;
   //POLLRDNORM specced as == POLLIN and doesn't work
   //pfd.events = POLLIN|POLLRDNORM|POLLERR;
@@ -155,11 +157,11 @@ static void fanout_thread(void)
 
 #endif //MMAP_TECH
 
-  if (fd < 0)
-    exit(fd);
+  if (spec_ops->fd < 0)
+    exit(spec_ops->fd);
 
   while (limit > 0) {
-    int err;
+    int err = 0;
 #ifdef MMAP_TECH
     while(!(header->tp_status & TP_STATUS_USER)){
       //1 file descriptor for infinte time
@@ -198,7 +200,7 @@ static void fanout_thread(void)
 #else 
     char buf[1600];
     //fprintf(stdout, "STATUS: (%d) \n", getpid());
-    err = recv(fd, buf, BUFSIZE, 0);
+    err = recv(spec_ops->fd, buf, BUFSIZE, 0);
 #endif
     if(err < 0){
       perror("poll or read");
@@ -222,6 +224,12 @@ static void fanout_thread(void)
   fprintf(stderr, "Captured: %u bytes, with %u dropped and %u incomplete\n", total_captured, dropped, incomplete);
   munmap(header, RING_BLOCKSIZE*RING_BLOCK_NR);
 #endif
-  close(fd);
+  close(spec_ops->fd);
   exit(0);
+}
+int close_fanout(void *opt){
+  struct opts *options = (struct opts *)opt;
+  //TODO: close socket and ring
+  free(options);
+  return 0;
 }
