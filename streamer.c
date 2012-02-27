@@ -105,10 +105,16 @@ int main(int argc, char **argv)
   parse_options(argc,argv);
 
   struct streamer_entity threads[THREADS];
+  pthread_t pthreads_array[THREADS];
+  //pthread_attr_t attr;
+  void *status;
+  int rc;
 
   //device_name = argv[1];
   //fanout_id = getpid() & 0xffff;
 
+  //pthread_attr_init(&attr);
+  //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   //Init all threads
   for(i=0;i<THREADS;i++){
     switch(opt.capture_type)
@@ -130,32 +136,46 @@ int main(int argc, char **argv)
     }
 
   }
-  /*
-     for (i = 0; i < THREADS; i++) {
-#ifdef THREADED
-//pid_t pid = fork();
+  for(i=0;i<THREADS;i++){
+    switch(opt.capture_type)
+    {
+      case CAPTURE_W_FANOUT:
+	printf("In main, starting thread %d\n", i);
+	//rc = pthread_create(&pthreads_array[i], &attr, (void*)&threads[i].start, threads[i].opt);
+	rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, threads[i].opt);
+	if (rc){
+	  printf("ERROR; return code from pthread_create() is %d\n", rc);
+	  exit(-1);
+	}
+	break;
+      case CAPTURE_W_TODO:
+	break;
+    }
+  }
+  //pthread_attr_destroy(&attr);
+  for (i = 0; i < THREADS; i++) {
+    rc = pthread_join(pthreads_array[i], NULL);
+    if (rc) {
+      printf("ERROR; return code from pthread_join() is %d\n", rc);
+      exit(-1);
+    }
+    //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
+  }
+  //int status;
 
-switch (pid) {
-case 0:
-fanout_thread();
+  //wait(&status);
+  //Close all threads
+  for(i=0;i<THREADS;i++){
+    switch(opt.capture_type)
+    {
+      case CAPTURE_W_FANOUT:
+	threads[i].close(threads[i].opt);
+	break;
+      case CAPTURE_W_TODO:
+	break;
+    }
+  }
 
-case -1:
-perror("fork");
-exit(EXIT_FAILURE);
+  //return 0;
+  pthread_exit(NULL);
 }
-#else	
-fanout_thread();
-#endif //THREADED
-}
-*/
-
-/*
-   for (i = 0; i < THREADS; i++) {
-   int status;
-
-   wait(&status);
-   }
-   */
-
-   return 0;
-   }

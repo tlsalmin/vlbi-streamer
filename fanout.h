@@ -11,6 +11,9 @@
 #else
 #define THREADS 6
 #endif
+#include <net/if.h>
+#include <poll.h>
+#include <linux/if_packet.h>
 
 //Gatherer specific options
 struct opts
@@ -22,8 +25,12 @@ struct opts
   int root_pid;
   int time;
   int fanout_type;
+  struct tpacket_req req;
+  struct tpacket_hdr * ps_header_start;
+  struct tpacket_hdr * header;
+  struct pollfd pfd;
 };
 void * setup_socket(void *opt);
-void fanout_thread(void *opt);
+void *fanout_thread(void *opt);
 int close_fanout(void *opt);
 #endif //FANOUT

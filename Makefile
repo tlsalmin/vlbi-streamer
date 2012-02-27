@@ -3,11 +3,11 @@ CC = gcc
 CFLAGS = -g -O2 -Wall
 OBJECTS = fanout.o streamer.o
 EXEC = streamer
-LIBS= -pthread
+LIBS= -lpthread
 SRC = fanout.h fanout.c streamer.c streamer.h
 
 all : $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $(EXEC)
+	$(CC) $(CFLAGS) $(LIBS) $(OBJECTS) -o $(EXEC)
 
 %.o : %.c %.h
 	$(CC) $(CFLAGS) $(LIBS) -c $<

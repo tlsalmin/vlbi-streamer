@@ -18,7 +18,7 @@
 #define RING_FRAME_NR  RING_BLOCKSIZE / RING_FRAME_SIZE * RING_BLOCK_NR
 #endif
 
-#define PACKET_NUM 100000
+#define PACKET_NUM 1000000
 #define BUFSIZE 65536
 #include <stddef.h>
 #include <stdlib.h>
@@ -33,6 +33,7 @@
 #ifdef MMAP_TECH
 #include <sys/mman.h>
 #include <sys/poll.h>
+#include <pthread.h>
 #endif
 
 #include <unistd.h>
@@ -97,22 +98,8 @@ void * setup_socket(void* options)
     return NULL;
   }
 #endif //THREADED
-  return spec_ops;
-}
-
-void fanout_thread(void *opt)
-{
-  struct opts *spec_ops = (struct opts *)opt;
-  //int fd = setup_socket();
-  int limit = PACKET_NUM;
-  clock_t t_start;
-  double t_total = 0;
-  int clock_started = 0;
-
 #ifdef MMAP_TECH
-  uint64_t total_captured = 0;
-  int err;
-  struct tpacket_hdr * ps_header_start;
+  //struct tpacket_hdr * ps_header_start;
   /*
   req.tp_block_size= 4096;
     req.tp_frame_size= 2048;
@@ -121,41 +108,55 @@ void fanout_thread(void *opt)
   //Set a ringbuffer for mmap
   */
   //for MMAP_TECH-buffer
-  struct tpacket_req req;
+  //struct tpacket_req req;
 
-  req.tp_block_size = RING_BLOCKSIZE;
-  req.tp_frame_size = RING_FRAME_SIZE;
-  req.tp_block_nr = RING_BLOCK_NR;
-  req.tp_frame_nr = RING_FRAME_NR;
-  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &req, sizeof(req));
+  spec_ops->req.tp_block_size = RING_BLOCKSIZE;
+  spec_ops->req.tp_frame_size = RING_FRAME_SIZE;
+  spec_ops->req.tp_block_nr = RING_BLOCK_NR;
+  spec_ops->req.tp_frame_nr = RING_FRAME_NR;
+  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &(spec_ops->req), sizeof(spec_ops->req));
   if (err) {
     perror("PACKET_RX_RING failed");
-    //return EXIT_FAILURE;
+    return NULL;
   }
 
   //MMap the packet ring
   //TODO: Remember to close ring
-  ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, spec_ops->fd, 0);
-  if (!ps_header_start)
+  spec_ops->ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, spec_ops->fd, 0);
+  if (!spec_ops->ps_header_start)
   {
     perror("mmap");
-    //return EXIT_FAILURE;
+    return NULL;
   }
 
-  struct pollfd pfd;
-  struct tpacket_hdr *header;
+  //struct pollfd pfd;
+  //struct tpacket_hdr *header;
+  spec_ops->pfd.fd = spec_ops->fd;
+  spec_ops->pfd.revents = 0;
+  //POLLRDNORM specced as == POLLIN and doesn't work
+  //pfd.events = POLLIN|POLLRDNORM|POLLERR;
+  spec_ops->pfd.events = POLLIN|POLLERR;
+
+  spec_ops->header = (void *) spec_ops->ps_header_start;
+
+#endif //MMAP_TECH
+  return spec_ops;
+}
+
+void *fanout_thread(void *opt)
+{
+      //fprintf(stdout, "First packet capture!\n");
+  struct opts *spec_ops = (struct opts *)opt;
+  //int fd = setup_socket();
+  int limit = PACKET_NUM;
+  clock_t t_start;
+  double t_total = 0;
+  int clock_started = 0;
+  uint64_t total_captured = 0;
   uint64_t incomplete = 0;
   uint64_t dropped = 0;
   uint64_t i=0;
-  pfd.fd = spec_ops->fd;
-  pfd.revents = 0;
-  //POLLRDNORM specced as == POLLIN and doesn't work
-  //pfd.events = POLLIN|POLLRDNORM|POLLERR;
-  pfd.events = POLLIN|POLLERR;
 
-  header = (void *) ps_header_start;
-
-#endif //MMAP_TECH
 
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
@@ -163,9 +164,9 @@ void fanout_thread(void *opt)
   while (limit > 0) {
     int err = 0;
 #ifdef MMAP_TECH
-    while(!(header->tp_status & TP_STATUS_USER)){
+    while(!(spec_ops->header->tp_status & TP_STATUS_USER)){
       //1 file descriptor for infinte time
-      err = poll(&pfd, 1, -1);
+      err = poll(&(spec_ops->pfd), 1, -1);
     }
     //First capture. Lets start the clock
     if(!clock_started){
@@ -175,17 +176,17 @@ void fanout_thread(void *opt)
     //limit--;
     //TODO:Packet processing
     
-    while((header->tp_status & TP_STATUS_USER)){
+    while((spec_ops->header->tp_status & TP_STATUS_USER)){
       --limit;
-      if (header->tp_status & TP_STATUS_COPY)
+      if (spec_ops->header->tp_status & TP_STATUS_COPY)
 	incomplete++;
-      else if (header->tp_status & TP_STATUS_LOSING)
+      else if (spec_ops->header->tp_status & TP_STATUS_LOSING)
 	dropped++;
       else
-	total_captured += header->tp_len;
+	total_captured += spec_ops->header->tp_len;
 
       //Release frame back to kernel use
-      header->tp_status = 0;
+      spec_ops->header->tp_status = 0;
 
       //Update header point
       //header = (header + 1) & ((struct tpacket_hdr *)(RING_FRAME_NR -1 ));
@@ -193,7 +194,7 @@ void fanout_thread(void *opt)
 	i = 0;
       else 
 	i++;
-      header = (void *) ps_header_start + i * RING_FRAME_SIZE;
+      spec_ops->header = (void *) spec_ops->ps_header_start + i * RING_FRAME_SIZE;
     }
     //header = ((void *)(header + 1)) & ((void*)(RING_FRAME_NR -1));
 
@@ -222,14 +223,15 @@ void fanout_thread(void *opt)
 
 #ifdef MMAP_TECH
   fprintf(stderr, "Captured: %u bytes, with %u dropped and %u incomplete\n", total_captured, dropped, incomplete);
-  munmap(header, RING_BLOCKSIZE*RING_BLOCK_NR);
 #endif
-  close(spec_ops->fd);
-  exit(0);
+  //exit(0);
+  pthread_exit(NULL);
 }
 int close_fanout(void *opt){
-  struct opts *options = (struct opts *)opt;
+  struct opts *spec_ops = (struct opts *)opt;
+  munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
+  close(spec_ops->fd);
   //TODO: close socket and ring
-  free(options);
+  free(spec_ops);
   return 0;
 }
