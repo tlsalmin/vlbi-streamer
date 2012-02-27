@@ -6,7 +6,7 @@
 //volatile struct tpacket_hdr * ps_header_start;
 #define RING_BLOCKSIZE 65536
 #define RING_FRAME_SIZE 8192
-#define RING_BLOCK_NR 1024
+#define RING_BLOCK_NR 4096
 //Note that somewhere around 5650 bytes, the ksoftirqd starts
 //hogging cpu, but after that it disappears.
 /*

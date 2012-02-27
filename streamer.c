@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,7 @@
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_TODO 1
 
+#define CORES 6
 extern char *optarg;
 extern int optind, optopt;
 
@@ -89,7 +91,7 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   //int fd, err;
-  int i;
+  int i, err;
 
   /*
    * TODO: Make proper arg parsing
@@ -107,9 +109,13 @@ int main(int argc, char **argv)
   struct streamer_entity threads[THREADS];
   pthread_t pthreads_array[THREADS];
   //pthread_attr_t attr;
-  void *status;
   int rc;
+  long processors = sysconf(_SC_NPROCESSORS_ONLN);
 
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  //for(j = 0;j<6;j++)
+    //CPU_SET(j,&cpuset);
   //device_name = argv[1];
   //fanout_id = getpid() & 0xffff;
 
@@ -141,12 +147,22 @@ int main(int argc, char **argv)
     {
       case CAPTURE_W_FANOUT:
 	printf("In main, starting thread %d\n", i);
-	//rc = pthread_create(&pthreads_array[i], &attr, (void*)&threads[i].start, threads[i].opt);
+
+	//TODO: Check how to poll this from system
 	rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, threads[i].opt);
 	if (rc){
 	  printf("ERROR; return code from pthread_create() is %d\n", rc);
 	  exit(-1);
 	}
+	//Spread processes out to n cores
+	//NOTE: setaffinity should be used after thread has been started
+	CPU_SET(i%processors,&cpuset);
+
+	err = pthread_setaffinity_np(pthreads_array[i], sizeof(cpu_set_t), &cpuset);
+	if(err != 0)
+	  printf("Error: setting affinity");
+	CPU_ZERO(&cpuset);
+
 	break;
       case CAPTURE_W_TODO:
 	break;
