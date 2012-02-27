@@ -1,5 +1,4 @@
 //Create  THREADS threads to receive fanouts
-#define THREADED
 //#define OUTPUT
 #define MMAP_TECH
 
@@ -19,16 +18,6 @@
 #define RING_FRAME_NR  RING_BLOCKSIZE / RING_FRAME_SIZE * RING_BLOCK_NR
 #endif
 
-#ifndef PACKET_FANOUT
-#define PACKET_FANOUT		18
-#define PACKET_FANOUT_HASH		0
-#define PACKET_FANOUT_LB		1
-#endif
-#ifndef THREADED
-#define THREADS 1
-#else
-#define THREADS 6
-#endif
 #define PACKET_NUM 100000
 #define BUFSIZE 65536
 #include <stddef.h>
@@ -55,16 +44,11 @@
 #include <net/if.h>
 #include "fanout.h"
 
-static const char *device_name;
-static int fanout_type;
-static int fanout_id;
 
 
-//This is a pretty silly way to do this
 static int setup_socket(void)
 {
   int err, fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
-  //int err, fd = socket(AF_PACKET, SOCK_RAW, 16);
   //int err, fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
   struct sockaddr_ll ll;
   struct ifreq ifr;
@@ -117,7 +101,7 @@ static int setup_socket(void)
 
 static void fanout_thread(void)
 {
-  int fd = setup_socket();
+  //int fd = setup_socket();
   int limit = PACKET_NUM;
   clock_t t_start;
   double t_total = 0;
@@ -240,52 +224,4 @@ static void fanout_thread(void)
 #endif
   close(fd);
   exit(0);
-}
-
-int main(int argc, char **argp)
-{
-  //int fd, err;
-  int i;
-
-  if (argc != 3) {
-    fprintf(stderr, "Usage: %s INTERFACE {hash|lb}\n", argp[0]);
-    return EXIT_FAILURE;
-  }
-
-  if (!strcmp(argp[2], "hash"))
-    fanout_type = PACKET_FANOUT_HASH;
-  else if (!strcmp(argp[2], "lb"))
-    fanout_type = PACKET_FANOUT_LB;
-  else {
-    fprintf(stderr, "Unknown fanout type [%s]\n", argp[2]);
-    exit(EXIT_FAILURE);
-  }
-
-  device_name = argp[1];
-  fanout_id = getpid() & 0xffff;
-
-  for (i = 0; i < THREADS; i++) {
-#ifdef THREADED
-    pid_t pid = fork();
-
-    switch (pid) {
-      case 0:
-	fanout_thread();
-
-      case -1:
-	perror("fork");
-	exit(EXIT_FAILURE);
-    }
-#else	
-    fanout_thread();
-#endif //THREADED
-  }
-
-  for (i = 0; i < THREADS; i++) {
-    int status;
-
-    wait(&status);
-  }
-
-  return 0;
 }
