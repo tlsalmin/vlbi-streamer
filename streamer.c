@@ -33,6 +33,21 @@ static void usage(char *binary){
       "-a {lb|hash}	Fanout type\n"
       ,binary);
 }
+void init_stat(struct stats *stats){
+  stats->total_bytes = 0;
+  stats->incomplete = 0;
+  stats->total_packets = 0;
+  stats->dropped = 0;
+}
+void print_stats(struct stats *stats, struct opt_s * opts){
+  fprintf(stdout, "Stats for %s "
+      "Packets: %u"
+      "Bytes: %u"
+      "Dropped: %u"
+      "Incomplete: %u"
+      "Time: %d"
+      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, opts->time );
+}
 static void parse_options(int argc, char **argv){
   int ret;
 
@@ -93,21 +108,11 @@ int main(int argc, char **argv)
   //int fd, err;
   int i, err;
 
-  /*
-   * TODO: Make proper arg parsing
-   * TODO: Make time dependent capture and add argument spot
-   */
-  /*
-     if (argc != 4) {
-     fprintf(stderr, "Usage: %s INTERFACE {fanout|TODO} {hash|lb}\n", argv[0]);
-     return EXIT_FAILURE;
-     }
-     */
-
   parse_options(argc,argv);
 
   struct streamer_entity threads[THREADS];
   pthread_t pthreads_array[THREADS];
+  struct stats stats;
   //pthread_attr_t attr;
   int rc;
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
@@ -168,18 +173,18 @@ int main(int argc, char **argv)
 	break;
     }
   }
-  //pthread_attr_destroy(&attr);
+
+  init_stat(&stats);
+
   for (i = 0; i < THREADS; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
     if (rc) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
       exit(-1);
     }
+    get_stats(threads[i].opt, &stats);
     //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
   }
-  //int status;
-
-  //wait(&status);
   //Close all threads
   for(i=0;i<THREADS;i++){
     switch(opt.capture_type)
@@ -191,6 +196,7 @@ int main(int argc, char **argv)
 	break;
     }
   }
+  print_stats(&stats, &opt);
 
   //return 0;
   pthread_exit(NULL);

@@ -31,8 +31,13 @@ struct opts
   struct tpacket_hdr * ps_header_start;
   struct tpacket_hdr * header;
   struct pollfd pfd;
+  unsigned int total_captured_bytes;
+  unsigned int incomplete;
+  unsigned int dropped;
+  unsigned int total_captured_packets;
 };
 void * setup_socket(void *opt);
-void *fanout_thread(void *opt);
+void * fanout_thread(void *opt);
+void get_stats(void *opt, void *stats);
 int close_fanout(void *opt);
 #endif //FANOUT

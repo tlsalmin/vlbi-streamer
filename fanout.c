@@ -57,6 +57,7 @@ void * setup_socket(void* options)
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
   spec_ops->fanout_type = opt->fanout_type;
+
   //spec_ops->fanout_arg = opt->fanout_arg;
   int err; 
   //Open socket for AF_PACKET raw packet capture
@@ -145,19 +146,19 @@ void * setup_socket(void* options)
 #endif //MMAP_TECH
   return spec_ops;
 }
-void handle_captured_packets(uint64_t *total_captured, uint64_t *total_captured_packets, uint64_t *incomplete, uint64_t *dropped, uint64_t *i, struct opts * spec_ops, int full){
+void handle_captured_packets(uint64_t *i, struct opts * spec_ops, int full){
   while((spec_ops->header->tp_status & TP_STATUS_USER) | (full && (*i)<RING_FRAME_NR)){
     if (spec_ops->header->tp_status & TP_STATUS_COPY){
-      (*incomplete)++;
-      (*total_captured_packets)++;
+      spec_ops->incomplete++;
+      spec_ops->total_captured_packets++;
     }
     else if (spec_ops->header->tp_status & TP_STATUS_LOSING){
-      (*dropped)++;
-      (*total_captured_packets)++;
+      spec_ops->dropped++;
+      spec_ops->total_captured_packets++;
     }
     else{
-      (*total_captured) += spec_ops->header->tp_len;
-      (*total_captured_packets)++;
+      spec_ops->total_captured_bytes += spec_ops->header->tp_len;
+      spec_ops->total_captured_packets++;
     }
     //TODO:Packet processing
 
@@ -179,10 +180,10 @@ void *fanout_thread(void *opt)
   struct opts *spec_ops = (struct opts *)opt;
   time_t t_start;
   double time_left=0;
-  uint64_t total_captured = 0;
-  uint64_t total_captured_packets = 0;
-  uint64_t incomplete = 0;
-  uint64_t dropped = 0;
+  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_captured_packets = 0;
+  spec_ops->incomplete = 0;
+  spec_ops->dropped = 0;
   uint64_t i=0;
 
 
@@ -199,7 +200,7 @@ void *fanout_thread(void *opt)
       err = poll(&(spec_ops->pfd), 1, time_left*1000);
     }
 
-    handle_captured_packets(&total_captured, &total_captured_packets, &incomplete, &dropped, &i, spec_ops, CHECK_UP_TO_NEXT_RESERVED);
+    handle_captured_packets(&i, spec_ops, CHECK_UP_TO_NEXT_RESERVED);
 #else 
     char buf[1600];
     err = recv(spec_ops->fd, buf, BUFSIZE, 0);
@@ -211,13 +212,21 @@ void *fanout_thread(void *opt)
 
   }
   //Go through whole buffer one last time
-  handle_captured_packets(&total_captured,&total_captured_packets,  &incomplete, &dropped, &i, spec_ops, CHECK_UP_ALL);
+  handle_captured_packets(&i, spec_ops, CHECK_UP_ALL);
 
 #ifdef MMAP_TECH
-  fprintf(stderr, "Captured: %u bytes, in %u packets, with %u dropped and %u incomplete\n", total_captured,total_captured_packets ,dropped, incomplete);
+  //fprintf(stderr, "Captured: %u bytes, in %u packets, with %u dropped and %u incomplete\n", total_captured,total_captured_packets ,dropped, incomplete);
 #endif
   //exit(0);
   pthread_exit(NULL);
+}
+void get_stats(void *opt, void *stats){
+  struct opts *spec_ops = (struct opts *)opt;
+  struct stats *stat = (struct stats * ) stats;
+  stat->total_packets += spec_ops->total_captured_packets;
+  stat->total_bytes += spec_ops->total_captured_bytes;
+  stat->incomplete += spec_ops->incomplete;
+  stat->total_packets += spec_ops->dropped;
 }
 int close_fanout(void *opt){
   struct opts *spec_ops = (struct opts *)opt;
