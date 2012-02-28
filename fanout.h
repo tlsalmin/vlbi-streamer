@@ -9,8 +9,10 @@
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 6
+#define THREADS 13
 #endif
+#define CHECK_UP_TO_NEXT_RESERVED 0
+#define CHECK_UP_ALL 1
 #include <net/if.h>
 #include <poll.h>
 #include <linux/if_packet.h>

@@ -59,6 +59,7 @@ void * setup_socket(void* options)
   spec_ops->fanout_type = opt->fanout_type;
   //spec_ops->fanout_arg = opt->fanout_arg;
   int err; 
+  //Open socket for AF_PACKET raw packet capture
   spec_ops->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
   //int err, fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
   struct sockaddr_ll ll;
@@ -71,6 +72,7 @@ void * setup_socket(void* options)
     return NULL;;
   }
 
+  //Get the interface index
   memset(&ifr, 0, sizeof(ifr));
   strcpy(ifr.ifr_name, spec_ops->device_name);
   err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
@@ -79,6 +81,7 @@ void * setup_socket(void* options)
     return NULL;
   }
 
+  //Bind to a socket
   memset(&ll, 0, sizeof(ll));
   ll.sll_family = AF_PACKET;
   //ll.sll_protocol = ETH_P_ALL;
@@ -90,6 +93,7 @@ void * setup_socket(void* options)
   }
 
 #ifdef THREADED
+  //Set the fanout option
   spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (spec_ops->fanout_type << 16));
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_FANOUT,
       &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));
@@ -110,6 +114,7 @@ void * setup_socket(void* options)
   //for MMAP_TECH-buffer
   //struct tpacket_req req;
 
+  //Make the socket send packets to the ring
   spec_ops->req.tp_block_size = RING_BLOCKSIZE;
   spec_ops->req.tp_frame_size = RING_FRAME_SIZE;
   spec_ops->req.tp_block_nr = RING_BLOCK_NR;
@@ -121,7 +126,6 @@ void * setup_socket(void* options)
   }
 
   //MMap the packet ring
-  //TODO: Remember to close ring
   spec_ops->ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, spec_ops->fd, 0);
   if (!spec_ops->ps_header_start)
   {
@@ -131,10 +135,9 @@ void * setup_socket(void* options)
 
   //struct pollfd pfd;
   //struct tpacket_hdr *header;
+  //Prepare the polling struct
   spec_ops->pfd.fd = spec_ops->fd;
   spec_ops->pfd.revents = 0;
-  //POLLRDNORM specced as == POLLIN and doesn't work
-  //pfd.events = POLLIN|POLLRDNORM|POLLERR;
   spec_ops->pfd.events = POLLIN|POLLERR;
 
   spec_ops->header = (void *) spec_ops->ps_header_start;
@@ -142,17 +145,42 @@ void * setup_socket(void* options)
 #endif //MMAP_TECH
   return spec_ops;
 }
+void handle_captured_packets(uint64_t *total_captured, uint64_t *total_captured_packets, uint64_t *incomplete, uint64_t *dropped, uint64_t *i, struct opts * spec_ops, int full){
+  while((spec_ops->header->tp_status & TP_STATUS_USER) | (full && (*i)<RING_FRAME_NR)){
+    if (spec_ops->header->tp_status & TP_STATUS_COPY){
+      (*incomplete)++;
+      (*total_captured_packets)++;
+    }
+    else if (spec_ops->header->tp_status & TP_STATUS_LOSING){
+      (*dropped)++;
+      (*total_captured_packets)++;
+    }
+    else{
+      (*total_captured) += spec_ops->header->tp_len;
+      (*total_captured_packets)++;
+    }
+    //TODO:Packet processing
+
+    //Release frame back to kernel use
+    spec_ops->header->tp_status = 0;
+
+    //Update header point
+    //header = (header + 1) & ((struct tpacket_hdr *)(RING_FRAME_NR -1 ));
+    if((*i)>=RING_FRAME_NR-1 && !full)
+      (*i) = 0;
+    else 
+      (*i)++;
+    spec_ops->header = (void *) spec_ops->ps_header_start + (*i) * RING_FRAME_SIZE;
+  }
+}
 
 void *fanout_thread(void *opt)
 {
-      //fprintf(stdout, "First packet capture!\n");
   struct opts *spec_ops = (struct opts *)opt;
-  //int fd = setup_socket();
-  int limit = PACKET_NUM;
-  clock_t t_start;
-  double t_total = 0;
-  int clock_started = 0;
+  time_t t_start;
+  double time_left=0;
   uint64_t total_captured = 0;
+  uint64_t total_captured_packets = 0;
   uint64_t incomplete = 0;
   uint64_t dropped = 0;
   uint64_t i=0;
@@ -161,68 +189,32 @@ void *fanout_thread(void *opt)
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
-  while (limit > 0) {
+  time(&t_start);
+  
+  while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     int err = 0;
 #ifdef MMAP_TECH
-    while(!(spec_ops->header->tp_status & TP_STATUS_USER)){
-      //1 file descriptor for infinte time
-      err = poll(&(spec_ops->pfd), 1, -1);
+    if(!(spec_ops->header->tp_status & TP_STATUS_USER)){
+      //Change seconds to milliseconds in third param
+      err = poll(&(spec_ops->pfd), 1, time_left*1000);
     }
-    //First capture. Lets start the clock
-    if(!clock_started){
-      clock_started = 1;
-      t_start = clock();
-    }
-    //limit--;
-    //TODO:Packet processing
-    
-    while((spec_ops->header->tp_status & TP_STATUS_USER)){
-      --limit;
-      if (spec_ops->header->tp_status & TP_STATUS_COPY)
-	incomplete++;
-      else if (spec_ops->header->tp_status & TP_STATUS_LOSING)
-	dropped++;
-      else
-	total_captured += spec_ops->header->tp_len;
 
-      //Release frame back to kernel use
-      spec_ops->header->tp_status = 0;
-
-      //Update header point
-      //header = (header + 1) & ((struct tpacket_hdr *)(RING_FRAME_NR -1 ));
-      if(i>=RING_FRAME_NR-1)
-	i = 0;
-      else 
-	i++;
-      spec_ops->header = (void *) spec_ops->ps_header_start + i * RING_FRAME_SIZE;
-    }
-    //header = ((void *)(header + 1)) & ((void*)(RING_FRAME_NR -1));
-
+    handle_captured_packets(&total_captured, &total_captured_packets, &incomplete, &dropped, &i, spec_ops, CHECK_UP_TO_NEXT_RESERVED);
 #else 
     char buf[1600];
-    //fprintf(stdout, "STATUS: (%d) \n", getpid());
     err = recv(spec_ops->fd, buf, BUFSIZE, 0);
 #endif
     if(err < 0){
       perror("poll or read");
       //TODO: Handle error
-      //break;
     }
 
-    //err = read(fd, buf, sizeof(buf));
-    //err = recv(fd, buf, BUFSIZE, MSG_WAITALL);
-#ifdef OUTPUT
-    if ((limit % 1000) == 0)
-      fprintf(stdout, "(%d) \n", getpid());
-#endif
   }
-  //clock_t stop = clock();
-  t_total = (double)(clock()-t_start)/CLOCKS_PER_SEC;
-
-  fprintf(stderr, "%d: Received %d packets in %f seconds\n", getpid(), PACKET_NUM,t_total );
+  //Go through whole buffer one last time
+  handle_captured_packets(&total_captured,&total_captured_packets,  &incomplete, &dropped, &i, spec_ops, CHECK_UP_ALL);
 
 #ifdef MMAP_TECH
-  fprintf(stderr, "Captured: %u bytes, with %u dropped and %u incomplete\n", total_captured, dropped, incomplete);
+  fprintf(stderr, "Captured: %u bytes, in %u packets, with %u dropped and %u incomplete\n", total_captured,total_captured_packets ,dropped, incomplete);
 #endif
   //exit(0);
   pthread_exit(NULL);
