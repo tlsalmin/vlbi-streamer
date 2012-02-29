@@ -9,7 +9,7 @@
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 13
+#define THREADS 6
 #endif
 #define CHECK_UP_TO_NEXT_RESERVED 0
 #define CHECK_UP_ALL 1
@@ -17,25 +17,6 @@
 #include <poll.h>
 #include <linux/if_packet.h>
 
-//Gatherer specific options
-struct opts
-{
-  int fd;
-  int fanout_arg;
-  char* filename;
-  char* device_name;
-  int root_pid;
-  int time;
-  int fanout_type;
-  struct tpacket_req req;
-  struct tpacket_hdr * ps_header_start;
-  struct tpacket_hdr * header;
-  struct pollfd pfd;
-  unsigned int total_captured_bytes;
-  unsigned int incomplete;
-  unsigned int dropped;
-  unsigned int total_captured_packets;
-};
 void * setup_socket(void *opt);
 void * fanout_thread(void *opt);
 void get_stats(void *opt, void *stats);
