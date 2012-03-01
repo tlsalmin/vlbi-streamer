@@ -1,6 +1,6 @@
 #ifndef UDP_STREAMER
 #define UDP_STREAMER
-#define UDP_STREAM_THREADS 1
+#define UDP_STREAM_THREADS 12
 /*
 #ifndef PACKET_FANOUT
 #define PACKET_FANOUT		18

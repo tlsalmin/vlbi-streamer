@@ -8,6 +8,7 @@ struct opt_s
   int root_pid;
   int fanout_type;
   int time;
+  int port;
   int socket;
 };
 

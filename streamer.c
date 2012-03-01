@@ -61,7 +61,8 @@ static void parse_options(int argc, char **argv){
   opt.capture_type = CAPTURE_W_FANOUT;
   opt.fanout_type = PACKET_FANOUT_LB;
   opt.root_pid = getpid();
-  opt.socket = 2222;
+  opt.port = 2222;
+  opt.socket = 0;
   for(;;){
     ret = getopt(argc, argv, "i:t:a:s:");
     if(ret == -1){
@@ -97,7 +98,7 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
       case 's':
-	opt.socket = atoi(optarg);
+	opt.port = atoi(optarg);
 	break;
       default:
 	usage(argv[0]);

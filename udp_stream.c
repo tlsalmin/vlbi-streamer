@@ -17,8 +17,8 @@
 #ifdef MMAP_TECH
 #include <sys/mman.h>
 #include <sys/poll.h>
-#include <pthread.h>
 #endif
+#include <pthread.h>
 
 #include <unistd.h>
 
@@ -45,12 +45,12 @@ struct opts
   int time;
   int port;
   /*
-  int fanout_type;
-  struct tpacket_req req;
-  struct tpacket_hdr * ps_header_start;
-  struct tpacket_hdr * header;
-  struct pollfd pfd;
-  */
+     int fanout_type;
+     struct tpacket_req req;
+     struct tpacket_hdr * ps_header_start;
+     struct tpacket_hdr * header;
+     struct pollfd pfd;
+     */
   unsigned long int total_captured_bytes;
   unsigned long int incomplete;
   unsigned long int dropped;
@@ -66,98 +66,101 @@ void * setup_udp_socket(void* options)
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
   //spec_ops->fanout_type = opt->fanout_type;
-  spec_ops->port = opt->socket;
-  int buflength;
-
-  //spec_ops->fanout_arg = opt->fanout_arg;
+  spec_ops->port = opt->port;
   int err; 
-  //Open socket for AF_PACKET raw packet capture
-  //spec_ops->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
-  spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
-  //int err, fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
-  //int fanout_arg;
-  //int o_rcvbuf;
+  //int buflength;
 
-  if (spec_ops->fd < 0) {
-    perror("socket");
-    return NULL;;
+  //If socket ready, just set it
+  if(!opt->socket == 0){
+    spec_ops->fd = opt->socket;
+  //If we're the initializing thread, init socket and share
   }
+  else{
+    spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
+    opt->socket = spec_ops->fd;
 
-  //struct sockaddr_ll ll;
-  struct ifreq ifr;
-  //Get the interface index
-  memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->device_name);
-  err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
-  if (err < 0) {
-    perror("SIOCGIFINDEX");
-    return NULL;
-  }
+
+    if (spec_ops->fd < 0) {
+      perror("socket");
+      return NULL;;
+    }
+
+    //struct sockaddr_ll ll;
+    struct ifreq ifr;
+    //Get the interface index
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, spec_ops->device_name);
+    err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
+    if (err < 0) {
+      perror("SIOCGIFINDEX");
+      return NULL;
+    }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-  //Stolen from http://seclists.org/tcpdump/2010/q2/99
-  struct hwtstamp_config hwconfig;
-  //struct ifreq ifr;
+    //Stolen from http://seclists.org/tcpdump/2010/q2/99
+    struct hwtstamp_config hwconfig;
+    //struct ifreq ifr;
 
-  memset(&hwconfig, 0, sizeof(hwconfig));
-  hwconfig.tx_type = HWTSTAMP_TX_ON;
-  hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
+    memset(&hwconfig, 0, sizeof(hwconfig));
+    hwconfig.tx_type = HWTSTAMP_TX_ON;
+    hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
-  memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->device_name);
-  ifr.ifr_data = (void *)&hwconfig;
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, spec_ops->device_name);
+    ifr.ifr_data = (void *)&hwconfig;
 
-  if(ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr)<  0) {
-    fprintf(stderr, "Cant set hardware timestamping");
-    /*
-       snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-       "can't set SIOCSHWTSTAMP %d: %d-%s",
-       handle->fd, errno, pcap_strerror(errno));
-       */
-  }
+    if(ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr)<  0) {
+      fprintf(stderr, "Cant set hardware timestamping");
+      /*
+	 snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
+	 "can't set SIOCSHWTSTAMP %d: %d-%s",
+	 handle->fd, errno, pcap_strerror(errno));
+	 */
+    }
 #endif
-  //NOTE: Has no effect
-  /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
-  /*
-  //socklen_t optlen = BUFSIZE;
-  buflength = BUFSIZE;
-  setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
-  */
+    //NOTE: Has no effect
+    /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
+    /*
+    //socklen_t optlen = BUFSIZE;
+    buflength = BUFSIZE;
+    setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
+    */
 
-  //prep port
-  struct sockaddr_in my_addr;
-  //socklen_t len = sizeof(struct sockaddr_in);
-  memset(&my_addr, 0, sizeof(my_addr));   
-  my_addr.sin_family = AF_INET;           
-  my_addr.sin_port = htons(spec_ops->port);    
-  //TODO: check if IF binding helps
-  my_addr.sin_addr.s_addr = INADDR_ANY;
+    //prep port
+    struct sockaddr_in my_addr;
+    //socklen_t len = sizeof(struct sockaddr_in);
+    memset(&my_addr, 0, sizeof(my_addr));   
+    my_addr.sin_family = AF_INET;           
+    my_addr.sin_port = htons(spec_ops->port);    
+    //TODO: check if IF binding helps
+    my_addr.sin_addr.s_addr = INADDR_ANY;
 
-  //Bind to a socket
-  err = bind(spec_ops->fd, (struct sockaddr *) &my_addr, sizeof(my_addr));
-  if (err < 0) {
-    perror("bind");
-    return NULL;
-  }
+    //Bind to a socket
+    err = bind(spec_ops->fd, (struct sockaddr *) &my_addr, sizeof(my_addr));
+    if (err < 0) {
+      perror("bind");
+      return NULL;
+    }
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-  //set hardware timestamping
-  int req = 0;
-  req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-  setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
+    //set hardware timestamping
+    int req = 0;
+    req |= SOF_TIMESTAMPING_SYS_HARDWARE;
+    setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
 #endif
 
-    //struct pollfd pfd;
-    //struct tpacket_hdr *header;
-    //Prepare the polling struct
-    /*
-       spec_ops->pfd.fd = spec_ops->fd;
-       spec_ops->pfd.revents = 0;
-       spec_ops->pfd.events = POLLIN|POLLERR;
+      //struct pollfd pfd;
+      //struct tpacket_hdr *header;
+      //Prepare the polling struct
+      /*
+	 spec_ops->pfd.fd = spec_ops->fd;
+	 spec_ops->pfd.revents = 0;
+	 spec_ops->pfd.events = POLLIN|POLLERR;
 
-       spec_ops->header = (void *) spec_ops->ps_header_start;
+	 spec_ops->header = (void *) spec_ops->ps_header_start;
 
 */
-    return spec_ops;
+  }
+  return spec_ops;
 }
 void handle_packets_udp(int recv, struct opts * spec_ops){
   spec_ops->total_captured_bytes +=(unsigned int) recv;
@@ -194,7 +197,6 @@ void* udp_streamer(void *opt)
     //err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
     err = read(spec_ops->fd, (void*)&buf, BUFSIZE);
 
-    fprintf(stdout, "Got %d size packet\n", err);
     handle_packets_udp(err, spec_ops);
     if(err < 0){
       fprintf(stdout, "RECV error");
@@ -202,6 +204,8 @@ void* udp_streamer(void *opt)
     }
 
   }
+  //fprintf(stdout, "This thread got %lu bytes\n", spec_ops->total_captured_bytes);
+  fprintf(stdout, "%lu +", spec_ops->total_captured_bytes);
 
   pthread_exit(NULL);
 }
@@ -213,9 +217,9 @@ void get_udp_stats(void *opt, void *stats){
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
 }
-int close_udp_streamer(void *opt, void *stats){
-  struct opts *spec_ops = (struct opts *)opt;
-  get_udp_stats(opt, stats);
+int close_udp_streamer(void *opt_own, void *stats){
+  struct opts *spec_ops = (struct opts *)opt_own;
+  get_udp_stats(opt_own, stats);
 
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
