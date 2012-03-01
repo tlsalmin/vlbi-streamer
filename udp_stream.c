@@ -2,7 +2,6 @@
 //#define OUTPUT
 //#define MMAP_TECH
 
-#define PACKET_NUM 1000000
 #define BUFSIZE 65536
 #include <stddef.h>
 #include <stdlib.h>
@@ -52,10 +51,10 @@ struct opts
   struct tpacket_hdr * header;
   struct pollfd pfd;
   */
-  unsigned int total_captured_bytes;
-  unsigned int incomplete;
-  unsigned int dropped;
-  unsigned int total_captured_packets;
+  unsigned long int total_captured_bytes;
+  unsigned long int incomplete;
+  unsigned long int dropped;
+  unsigned long int total_captured_packets;
 };
 
 void * setup_udp_socket(void* options)
@@ -68,6 +67,7 @@ void * setup_udp_socket(void* options)
   spec_ops->time = opt->time;
   //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->socket;
+  int buflength;
 
   //spec_ops->fanout_arg = opt->fanout_arg;
   int err; 
@@ -115,6 +115,13 @@ void * setup_udp_socket(void* options)
        */
   }
 #endif
+  //NOTE: Has no effect
+  /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
+  /*
+  //socklen_t optlen = BUFSIZE;
+  buflength = BUFSIZE;
+  setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
+  */
 
   //prep port
   struct sockaddr_in my_addr;
@@ -139,21 +146,21 @@ void * setup_udp_socket(void* options)
   setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
 #endif
 
-  //struct pollfd pfd;
-  //struct tpacket_hdr *header;
-  //Prepare the polling struct
-  /*
-  spec_ops->pfd.fd = spec_ops->fd;
-  spec_ops->pfd.revents = 0;
-  spec_ops->pfd.events = POLLIN|POLLERR;
+    //struct pollfd pfd;
+    //struct tpacket_hdr *header;
+    //Prepare the polling struct
+    /*
+       spec_ops->pfd.fd = spec_ops->fd;
+       spec_ops->pfd.revents = 0;
+       spec_ops->pfd.events = POLLIN|POLLERR;
 
-  spec_ops->header = (void *) spec_ops->ps_header_start;
+       spec_ops->header = (void *) spec_ops->ps_header_start;
 
 */
-  return spec_ops;
+    return spec_ops;
 }
 void handle_packets_udp(int recv, struct opts * spec_ops){
-  spec_ops->total_captured_bytes += recv;
+  spec_ops->total_captured_bytes +=(unsigned int) recv;
   spec_ops->total_captured_packets += 1;
 }
 
@@ -164,7 +171,7 @@ void* udp_streamer(void *opt)
   double time_left=0;
   //struct sockaddr_in client;
   //unsigned int clilen = sizeof(client);
-  int fd;
+  //int fd;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
@@ -184,10 +191,11 @@ void* udp_streamer(void *opt)
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     int err = 0;
 
-    err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
+    //err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
+    err = read(spec_ops->fd, (void*)&buf, BUFSIZE);
 
-    handle_packets_udp(err, spec_ops);
     fprintf(stdout, "Got %d size packet\n", err);
+    handle_packets_udp(err, spec_ops);
     if(err < 0){
       fprintf(stdout, "RECV error");
       //TODO: Handle error
@@ -205,8 +213,9 @@ void get_udp_stats(void *opt, void *stats){
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
 }
-int close_udp_streamer(void *opt){
+int close_udp_streamer(void *opt, void *stats){
   struct opts *spec_ops = (struct opts *)opt;
+  get_udp_stats(opt, stats);
 
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt

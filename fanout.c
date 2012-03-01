@@ -176,6 +176,7 @@ void * setup_socket(void* options)
   }
 
   //MMap the packet ring
+  //TODO: Try MAP_LCOKED for writing to fs
   spec_ops->ps_header_start = mmap(0, RING_BLOCKSIZE*RING_BLOCK_NR, PROT_READ|PROT_WRITE, MAP_SHARED, spec_ops->fd, 0);
   if (!spec_ops->ps_header_start)
   {
@@ -281,8 +282,9 @@ void get_stats(void *opt, void *stats){
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
 }
-int close_fanout(void *opt){
+int close_fanout(void *opt, void *stats){
   struct opts *spec_ops = (struct opts *)opt;
+  get_stats(opt,stats);
 
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt

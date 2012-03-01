@@ -16,7 +16,7 @@ struct streamer_entity
 {
   void* (*open)(void*);
   void* (*start)(void*);
-  int (*close)(void*);
+  int (*close)(void*,void*);
   void *opt;
 };
 struct stats

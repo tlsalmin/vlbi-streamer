@@ -9,7 +9,7 @@
 #ifndef THREADED
 #define THREADS 1
 #else
-#define THREADS 6
+#define THREADS 5
 #endif
 #define CHECK_UP_TO_NEXT_RESERVED 0
 #define CHECK_UP_ALL 1
@@ -20,5 +20,5 @@
 void * setup_socket(void *opt);
 void * fanout_thread(void *opt);
 void get_stats(void *opt, void *stats);
-int close_fanout(void *opt);
+int close_fanout(void *opt, void *stats);
 #endif //FANOUT

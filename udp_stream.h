@@ -1,5 +1,6 @@
 #ifndef UDP_STREAMER
 #define UDP_STREAMER
+#define UDP_STREAM_THREADS 1
 /*
 #ifndef PACKET_FANOUT
 #define PACKET_FANOUT		18
@@ -14,5 +15,5 @@
 void * setup_udp_socket(void *opt);
 void * udp_streamer(void *opt);
 void get_udp_stats(void *opt, void *stats);
-int close_udp_streamer(void *opt);
+int close_udp_streamer(void *opt,void *stats);
 #endif //UDP_STREAMER

@@ -10,6 +10,7 @@
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
+#define TUNE_AFFINITY
 
 #define CORES 6
 extern char *optarg;
@@ -114,8 +115,7 @@ static void parse_options(int argc, char **argv){
 }
 int main(int argc, char **argv)
 {
-  //int fd, err;
-  int i, err, n_threads=1;
+  int i,  n_threads=1;
 
   parse_options(argc,argv);
 
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	n_threads = THREADS;
 	break;
       case CAPTURE_W_UDPSTREAM:
-	n_threads = 1;
+	n_threads = UDP_STREAM_THREADS;
 	break;
   }
   struct streamer_entity threads[n_threads];
@@ -132,10 +132,14 @@ int main(int argc, char **argv)
   struct stats stats;
   //pthread_attr_t attr;
   int rc;
+#ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 
+#ifdef TUNE_AFFINITY
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
+#endif
   //for(j = 0;j<6;j++)
     //CPU_SET(j,&cpuset);
   //device_name = argv[1];
@@ -179,12 +183,14 @@ int main(int argc, char **argv)
     }
     //Spread processes out to n cores
     //NOTE: setaffinity should be used after thread has been started
+#ifdef TUNE_AFFINITY
     CPU_SET(i%processors,&cpuset);
 
-    err = pthread_setaffinity_np(pthreads_array[i], sizeof(cpu_set_t), &cpuset);
-    if(err != 0)
+    rc = pthread_setaffinity_np(pthreads_array[i], sizeof(cpu_set_t), &cpuset);
+    if(rc != 0)
       printf("Error: setting affinity");
     CPU_ZERO(&cpuset);
+#endif
 
   }
 
@@ -196,12 +202,12 @@ int main(int argc, char **argv)
       printf("ERROR; return code from pthread_join() is %d\n", rc);
       exit(-1);
     }
-    get_stats(threads[i].opt, &stats);
+    //get_stats(threads[i].opt, &stats);
     //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
   }
   //Close all threads
   for(i=0;i<n_threads;i++){
-    threads[i].close(threads[i].opt);
+    threads[i].close(threads[i].opt, &stats);
   }
   print_stats(&stats, &opt);
 
