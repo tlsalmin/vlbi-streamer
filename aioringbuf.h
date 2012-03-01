@@ -11,17 +11,17 @@ struct ringbuf{
   void* tail;
   */
   //This might just be easier with uints
-  unsigned int pwriter_head;
-  unsigned int hdwriter_head;
-  unsigned int tail;
+  int pwriter_head;
+  int hdwriter_head;
+  int tail;
   void* buffer;
-  unsigned int elem_size;
-  unsigned int num_elems;
+  int elem_size;
+  int num_elems;
 };
 
 //Increments pwriter head. Returns negative, if 
 //buffer is full
-void rbuf_init(struct ringbuf * rbuf, unsigned int elem_size, unsigned int num_elems);
+void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems);
 //Increment head, but not over restraint. If can't go further, return -1
-int increment(struct ringbuf * rbuf, unsigned int * head, unsigned int* restraint, int amount);
+void increment_amount(struct ringbuf * rbuf, int * head, int amount);
 #endif
