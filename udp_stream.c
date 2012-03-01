@@ -2,7 +2,9 @@
 //#define OUTPUT
 //#define MMAP_TECH
 
-#define BUFSIZE 65536
+//64 MB ring buffer
+#define BUF_ELEM_SIZE 8192
+#define BUF_NUM_ELEMS 8192
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,6 +34,7 @@
 
 #include <net/if.h>
 #include "streamer.h"
+#include "aioringbuf.h"
 
 
 //Gatherer specific options
@@ -44,6 +47,7 @@ struct opts
   int root_pid;
   int time;
   int port;
+  struct ringbuf rbuf;
   /*
      int fanout_type;
      struct tpacket_req req;
@@ -67,6 +71,7 @@ void * setup_udp_socket(void* options)
   spec_ops->time = opt->time;
   //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->port;
+  rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
   int err; 
   //int buflength;
 
@@ -165,6 +170,8 @@ void * setup_udp_socket(void* options)
 void handle_packets_udp(int recv, struct opts * spec_ops){
   spec_ops->total_captured_bytes +=(unsigned int) recv;
   spec_ops->total_captured_packets += 1;
+  if(spec_ops->rbuf.ready_to_write)
+    dummy_write(&(spec_ops->rbuf));
 }
 
 void* udp_streamer(void *opt)
@@ -179,9 +186,6 @@ void* udp_streamer(void *opt)
   spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
-  //uint64_t i=0;
-  char buf[BUFSIZE];
-
 
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
@@ -195,7 +199,13 @@ void* udp_streamer(void *opt)
     int err = 0;
 
     //err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
-    err = read(spec_ops->fd, (void*)&buf, BUFSIZE);
+    if(get_a_packet(&(spec_ops->rbuf))){
+      void * buf = get_buf_to_write(&(spec_ops->rbuf));
+      err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
+    }
+    //Buffer full. Sleep for now. TODO: make wakeup
+    else
+      usleep(10);
 
     handle_packets_udp(err, spec_ops);
     if(err < 0){
@@ -225,6 +235,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
   close(spec_ops->fd);
 
+  rbuf_close(&(spec_ops->rbuf));
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
   free(spec_ops);
   return 0;
