@@ -6,6 +6,9 @@ struct rec_point
   char *filename;
   int fd;
   int taken;
+  void * iostruct;
+  //int (*init)(void*);
+  //int (*write)(void*);
 };
 struct opt_s
 {

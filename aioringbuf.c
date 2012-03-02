@@ -3,9 +3,13 @@
 #include "aioringbuf.h"
 
 void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
+  //int err;
   rbuf->num_elems = num_elems;
   rbuf->elem_size = elem_size;
-  rbuf->buffer = (void*) malloc(rbuf->num_elems*rbuf->elem_size);
+  //Moved buffer init to writer(Choosable by netreader-thread)
+  //TODO: Make custom writer to enable changing of writetech easily
+  //rbuf->buffer = (void*) malloc(rbuf->num_elems*rbuf->elem_size);
+  //err = posix_memalign((void**)&(rbuf->buffer), sysconf(__SC
   rbuf->writer_head = 0;
   rbuf->tail = rbuf->hdwriter_head = rbuf->num_elems;
   rbuf->ready_to_write = 1;

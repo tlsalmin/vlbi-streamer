@@ -25,6 +25,7 @@
 #include <sys/mman.h>
 #include <sys/poll.h>
 #endif
+
 #include <pthread.h>
 
 #include <unistd.h>
@@ -40,6 +41,7 @@
 #include <net/if.h>
 #include "streamer.h"
 #include "aioringbuf.h"
+#include "aiowriter.h"
 
 
 //Gatherer specific options
@@ -54,6 +56,7 @@ struct opts
   int port;
   struct ringbuf rbuf;
   struct rec_point * rp;
+  //int (*write)(struct ringbuf *buf);
   /*
      int fanout_type;
      struct tpacket_req req;
@@ -78,6 +81,9 @@ void * setup_udp_socket(void* options)
   spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
+
+  //init the ring buffer
+  rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
   for(i=0;i<opt->n_threads;i++){
     if(!opt->points[i].taken){
 
@@ -107,14 +113,18 @@ void * setup_udp_socket(void* options)
       prealloc_bytes = prealloc_bytes*1024*1024;
       //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
       err = fallocate(spec_ops->rp->fd, 0,0, prealloc_bytes);
-      if(err == -1)
+      if(err == -1){
 	fprintf(stderr, "Fallocate failed on %s", spec_ops->rp->filename);
+	return NULL;
+      }
+      //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
+      aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
+      
       break;
     }
   }
   //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->port;
-  rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
   //int buflength;
 
   //If socket ready, just set it
