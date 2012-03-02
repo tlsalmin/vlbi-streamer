@@ -11,6 +11,7 @@
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
 #define TUNE_AFFINITY
+//How many gbit/s. Used for fallocate
 
 #define CORES 6
 extern char *optarg;
@@ -18,12 +19,6 @@ extern int optind, optopt;
 
 
 static struct opt_s opt;
-/*
-static const char *device_name;
-static int fanout_type;
-static int fanout_id;
-static int capture_type;
-*/
 
 /*
  * Stuff stolen from lindis sendfileudp
@@ -34,6 +29,7 @@ static void usage(char *binary){
       "-i INTERFACE	Which interface to capture from\n"
       "-t {fanout|udpstream|TODO	Capture type(fanout only one available atm)\n"
       "-a {lb|hash}	Fanout type\n"
+      "-n NUM	        Number of threads\n"
       "-s SOCKET	Socket number\n"
       ,binary);
 }
@@ -45,15 +41,16 @@ void init_stat(struct stats *stats){
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
   fprintf(stdout, "Stats for %s \n"
-      "Packets: %u\n"
-      "Bytes: %u\n"
-      "Dropped: %u\n"
-      "Incomplete: %u\n"
+      "Packets: %lu\n"
+      "Bytes: %lu\n"
+      "Dropped: %lu\n"
+      "Incomplete: %lu\n"
       "Time: %d\n"
-      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, opts->time );
+      "Speed: %luMB/s\n"
+      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, opts->time, (stats->total_bytes*8)/(1024*1024*opts->time) );
 }
 static void parse_options(int argc, char **argv){
-  int ret;
+  int ret,i;
 
   memset(&opt, 0, sizeof(struct opt_s));
   opt.filename = NULL;
@@ -62,9 +59,10 @@ static void parse_options(int argc, char **argv){
   opt.fanout_type = PACKET_FANOUT_LB;
   opt.root_pid = getpid();
   opt.port = 2222;
+  opt.n_threads = 1;
   opt.socket = 0;
   for(;;){
-    ret = getopt(argc, argv, "i:t:a:s:");
+    ret = getopt(argc, argv, "i:t:a:s:n:");
     if(ret == -1){
       break;
     }
@@ -100,6 +98,9 @@ static void parse_options(int argc, char **argv){
       case 's':
 	opt.port = atoi(optarg);
 	break;
+      case 'n':
+	opt.n_threads = atoi(optarg);
+	break;
       default:
 	usage(argv[0]);
 	exit(1);
@@ -112,14 +113,21 @@ static void parse_options(int argc, char **argv){
   argv +=optind;
   argc -=optind;
   opt.filename = argv[0];
+  opt.points = (struct rec_point *)calloc(opt.n_threads, sizeof(struct rec_point));
+  //TODO: read diskspots from config file. Hardcoded for testing
+  for(i=0;i<opt.n_threads;i++){
+    opt.points[i].filename = (char*)malloc(FILENAME_MAX);
+    sprintf(opt.points[i].filename, "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
+  }
   opt.time = atoi(argv[1]);
 }
 int main(int argc, char **argv)
 {
-  int i,  n_threads=1;
+  int i;
 
   parse_options(argc,argv);
 
+  /*
   switch(opt.capture_type){
       case CAPTURE_W_FANOUT:
 	n_threads = THREADS;
@@ -128,8 +136,9 @@ int main(int argc, char **argv)
 	n_threads = UDP_STREAM_THREADS;
 	break;
   }
-  struct streamer_entity threads[n_threads];
-  pthread_t pthreads_array[n_threads];
+  */
+  struct streamer_entity threads[opt.n_threads];
+  pthread_t pthreads_array[opt.n_threads];
   struct stats stats;
   //pthread_attr_t attr;
   int rc;
@@ -149,7 +158,7 @@ int main(int argc, char **argv)
   //pthread_attr_init(&attr);
   //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   //Init all threads
-  for(i=0;i<n_threads;i++){
+  for(i=0;i<opt.n_threads;i++){
     switch(opt.capture_type)
     {
       /*
@@ -173,7 +182,7 @@ int main(int argc, char **argv)
     }
 
   }
-  for(i=0;i<n_threads;i++){
+  for(i=0;i<opt.n_threads;i++){
     printf("In main, starting thread %d\n", i);
 
     //TODO: Check how to poll this from system
@@ -197,7 +206,7 @@ int main(int argc, char **argv)
 
   init_stat(&stats);
   //sleep(opt.time);
-  for (i = 0; i < n_threads; i++) {
+  for (i = 0; i < opt.n_threads; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
     if (rc) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
@@ -207,7 +216,7 @@ int main(int argc, char **argv)
     //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
   }
   //Close all threads
-  for(i=0;i<n_threads;i++){
+  for(i=0;i<opt.n_threads;i++){
     threads[i].close(threads[i].opt, &stats);
   }
   print_stats(&stats, &opt);

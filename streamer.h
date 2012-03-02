@@ -1,5 +1,12 @@
 #ifndef STREAMER
 #define STREAMER
+#define RATE 10
+struct rec_point
+{
+  char *filename;
+  int fd;
+  int taken;
+};
 struct opt_s
 {
   char *filename;
@@ -7,9 +14,11 @@ struct opt_s
   int capture_type;
   int root_pid;
   int fanout_type;
-  int time;
+  unsigned int time;
   int port;
   int socket;
+  int n_threads;
+  struct rec_point * points;
 };
 
 //Generic struct for a streamer entity
@@ -22,9 +31,9 @@ struct streamer_entity
 };
 struct stats
 {	
-  unsigned int total_bytes;
-  unsigned int incomplete;
-  unsigned int dropped;
-  unsigned int total_packets;
+  unsigned long total_bytes;
+  unsigned long incomplete;
+  unsigned long dropped;
+  unsigned long total_packets;
 };
 #endif

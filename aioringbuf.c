@@ -33,12 +33,7 @@ int diff_max(int a , int b, int max){
     return b-a;
 }
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
-  /*
-  if(*head == *restrainer)
-    return 0;
-    */
   if(diff_max(*head, *restrainer, rbuf->num_elems-1) == 1){
-    //*head = *restrainer;
     return 0;
   }
   else{

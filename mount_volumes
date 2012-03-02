@@ -9,6 +9,9 @@ TUNE=tune2fs
 #writeback rumoured to be fastest option
 MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
+#Hey guys
+GROUP=mark6
+USER=oper
 k=0
 for i in "${DRIVES[@]}"
 do
@@ -32,6 +35,8 @@ do
     umount /mnt/disk$k
     mount -o ${MOUNT_OPTS} /dev/$i /mnt/disk$k
   fi
+  chown $USER:$GROUP /mnt/disk$k/
+  chmod ug+rw /mnt/disk$k/
   k=$((k+1))
 done
 

@@ -3,11 +3,15 @@
 //#define MMAP_TECH
 
 //64 MB ring buffer
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define BUF_ELEM_SIZE 8192
 #define BUF_NUM_ELEMS 8192
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 
@@ -15,6 +19,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <time.h>
 #ifdef MMAP_TECH
 #include <sys/mman.h>
@@ -48,6 +53,7 @@ struct opts
   int time;
   int port;
   struct ringbuf rbuf;
+  struct rec_point * rp;
   /*
      int fanout_type;
      struct tpacket_req req;
@@ -63,16 +69,52 @@ struct opts
 
 void * setup_udp_socket(void* options)
 {
+  int i,err;
+  int f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+  struct stat statinfo;
   struct opt_s *opt = (struct opt_s *)options;
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
   spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
+  for(i=0;i<opt->n_threads;i++){
+    if(!opt->points[i].taken){
+
+      opt->points[i].taken = 1;
+      spec_ops->rp = &(opt->points[i]);
+
+      //Check if file exists
+      err = stat(spec_ops->rp->filename, &statinfo);
+      if (err < 0) 
+	if (errno == ENOENT){
+	  f_flags |= O_CREAT;
+	  //fprintf(stdout, "file doesn't exist\");
+	}
+	  
+
+      //This will overwrite existing file.TODO: Check what is the desired default behaviour 
+      //TODO: Doesn't give g+w permissions
+      spec_ops->rp->fd = open(spec_ops->rp->filename, f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+      if(spec_ops->rp->fd == -1){
+	fprintf(stderr,"Error %s on %s\n",strerror(errno), spec_ops->rp->filename);
+	return NULL;
+      }
+      //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
+      //for s seconds.
+      loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+      //Split kb/gb stuff to avoid overflow warning
+      prealloc_bytes = prealloc_bytes*1024*1024;
+      //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
+      err = fallocate(spec_ops->rp->fd, 0,0, prealloc_bytes);
+      if(err == -1)
+	fprintf(stderr, "Fallocate failed on %s", spec_ops->rp->filename);
+      break;
+    }
+  }
   //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->port;
   rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
-  int err; 
   //int buflength;
 
   //If socket ready, just set it
@@ -172,6 +214,9 @@ void handle_packets_udp(int recv, struct opts * spec_ops){
   spec_ops->total_captured_packets += 1;
   if(spec_ops->rbuf.ready_to_write)
     dummy_write(&(spec_ops->rbuf));
+  //No space in buffer. TODO: Implement wakeup
+  else if (recv == 0)
+    usleep(10);
 }
 
 void* udp_streamer(void *opt)
@@ -205,17 +250,15 @@ void* udp_streamer(void *opt)
     }
     //Buffer full. Sleep for now. TODO: make wakeup
     else
-      usleep(10);
-
-    handle_packets_udp(err, spec_ops);
+      err = 0;
     if(err < 0){
       fprintf(stdout, "RECV error");
       //TODO: Handle error
     }
 
+    handle_packets_udp(err, spec_ops);
+
   }
-  //fprintf(stdout, "This thread got %lu bytes\n", spec_ops->total_captured_bytes);
-  fprintf(stdout, "%lu +", spec_ops->total_captured_bytes);
 
   pthread_exit(NULL);
 }
@@ -234,6 +277,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
   close(spec_ops->fd);
+  close(spec_ops->rp->fd);
 
   rbuf_close(&(spec_ops->rbuf));
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
