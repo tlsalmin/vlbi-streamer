@@ -26,8 +26,12 @@ void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems);
 void rbuf_close(struct ringbuf *rbuf);
 //Increment head, but not over restraint. If can't go further, return -1
 void increment_amount(struct ringbuf * rbuf, int * head, int amount);
+int diff_max(int a , int b, int max);
+struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void* iovecs);
 inline int get_a_packet(struct ringbuf *rbuf);
 inline void * get_buf_to_write(struct ringbuf *rbuf);
-inline void dummy_write(struct ringbuf *rbuf);
+//TODO: Change to configurable calls initialized in the ringbuf struct
+int dummy_write(struct ringbuf *rbuf);
 inline void dummy_return_from_write(struct ringbuf *rbuf);
+int rbuf_aio_write(struct ringbuf *rbuf, void *rp);
 #endif

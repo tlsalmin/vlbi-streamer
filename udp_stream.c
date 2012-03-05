@@ -82,6 +82,9 @@ void * setup_udp_socket(void* options)
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
+#endif
   //init the ring buffer
   rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
   for(i=0;i<opt->n_threads;i++){
@@ -90,6 +93,9 @@ void * setup_udp_socket(void* options)
       opt->points[i].taken = 1;
       spec_ops->rp = &(opt->points[i]);
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Initializing write point\n");
+#endif
       //Check if file exists
       err = stat(spec_ops->rp->filename, &statinfo);
       if (err < 0) 
@@ -106,6 +112,12 @@ void * setup_udp_socket(void* options)
 	fprintf(stderr,"Error %s on %s\n",strerror(errno), spec_ops->rp->filename);
 	return NULL;
       }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: File opened\n");
+#endif
+      //TODO: Set offset accordingly if file already exists. Not sure if
+      //needed, since data consistency would take a hit anyway
+      spec_ops->rp->offset = 0;
       //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
       //for s seconds.
       loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
@@ -117,8 +129,14 @@ void * setup_udp_socket(void* options)
 	fprintf(stderr, "Fallocate failed on %s", spec_ops->rp->filename);
 	return NULL;
       }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: File preallocated\n");
+#endif
       //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
       aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: AIOW initialized\n");
+#endif
       
       break;
     }
@@ -219,14 +237,44 @@ void * setup_udp_socket(void* options)
   }
   return spec_ops;
 }
-void handle_packets_udp(int recv, struct opts * spec_ops){
+int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   spec_ops->total_captured_bytes +=(unsigned int) recv;
   spec_ops->total_captured_packets += 1;
-  if(spec_ops->rbuf.ready_to_write)
-    dummy_write(&(spec_ops->rbuf));
-  //No space in buffer. TODO: Implement wakeup
-  else if (recv == 0)
-    usleep(10);
+  int err;
+  if(spec_ops->rbuf.ready_to_write == 0){
+    if (aiow_check((void*)spec_ops->rp)>0){
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: Write complete. Cleared write block\n");
+#endif
+      spec_ops->rbuf.ready_to_write = 1;
+    }
+  }
+  //fprintf(stdout,"ready to write is %d\n", spec_ops->rbuf.ready_to_write);
+  //No space in buffer. TODO: Implement wait on aio
+  else if (recv == 0){
+    err = aiow_wait_for_write((void*)spec_ops->rp, time_left);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: Woke up\n");
+#endif
+    if(err < 0){
+      perror("Waking from aio-sleep");
+      return err;
+    }
+  }
+  //usleep(10);
+  //Write
+  else{
+    //spec_ops->rbuf.ready_to_write = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
+    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
+    //writing = dummy_write(&(spec_ops->rbuf));
+    if(err < 0)
+      return err;
+#ifdef DEBUG_OUTPUT
+    else if(err == 0)
+      fprintf(stdout, "UDP_STREAMER: Write request submitted\n");
+#endif
+  }
+  return 0;
 }
 
 void* udp_streamer(void *opt)
@@ -259,14 +307,22 @@ void* udp_streamer(void *opt)
       err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
     }
     //Buffer full. Sleep for now. TODO: make wakeup
-    else
+    else{
       err = 0;
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: Buffer full!\n");
+#endif
+    }
+
     if(err < 0){
       fprintf(stdout, "RECV error");
       //TODO: Handle error
     }
 
-    handle_packets_udp(err, spec_ops);
+    err = handle_packets_udp(err, spec_ops, time_left);
+
+    if(err < 0)
+      break;
 
   }
 

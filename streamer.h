@@ -1,11 +1,13 @@
 #ifndef STREAMER
 #define STREAMER
 #define RATE 10
+#define DEBUG_OUTPUT
 struct rec_point
 {
   char *filename;
   int fd;
   int taken;
+  long long offset;
   void * iostruct;
   //int (*init)(void*);
   //int (*write)(void*);

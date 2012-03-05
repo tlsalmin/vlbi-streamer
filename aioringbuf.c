@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <malloc.h>
+#include <sys/uio.h>
 #include "aioringbuf.h"
+#include "aiowriter.h"
+#define HD_WRITE_N_SIZE 16
 
 void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
   //int err;
@@ -45,6 +48,33 @@ int increment(struct ringbuf * rbuf, int *head, int *restrainer){
     return 1;
   }
 }
+struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void *iovecs){
+
+  //If we need to scatter
+  if(rbuf->hdwriter_head > rbuf->writer_head && rbuf->writer_head > 1)
+    *count = 2;
+  else 
+    *count = 1;
+  
+  struct iovec * iov = (struct iovec * )iovecs;
+
+  //NOTE: Buffer diffs checked already when calling 
+  //this func
+  iov[0].iov_base = rbuf->buffer + (rbuf->elem_size*rbuf->writer_head);
+  //If we haven't gone past the buffer end
+  if(rbuf->writer_head > rbuf->writer_head){
+    iov[0].iov_len = rbuf->elem_size * (rbuf->writer_head - rbuf->hdwriter_head);
+  }
+  else
+  {
+    iov[0].iov_len = rbuf->elem_size * (rbuf->num_elems - rbuf->hdwriter_head);
+    if(rbuf->writer_head > 1){
+      iov[1].iov_base = rbuf->buffer; 
+      iov[1].iov_len = rbuf->elem_size * rbuf->writer_head;
+    }
+  }
+  return iov;
+}
 //alias for moving packet writer head
 inline int get_a_packet(struct ringbuf * rbuf){
   return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
@@ -53,12 +83,24 @@ inline void * get_buf_to_write(struct ringbuf *rbuf){
   return rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
 }
 //alias for scheduling packets for writing
-inline void dummy_write(struct ringbuf *rbuf){
+int dummy_write(struct ringbuf *rbuf){
+  fprintf(stdout, "USing dummy\n");
   int writable = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
   increment_amount(rbuf, &(rbuf->hdwriter_head), writable);
   rbuf->ready_to_write = 0;
   //Dummy write completes right away
   dummy_return_from_write(rbuf);
+  return 1;
+}
+int rbuf_aio_write(struct ringbuf *rbuf, void * rp){
+  int ret = 1;
+  if(diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems) > HD_WRITE_N_SIZE){
+    rbuf->ready_to_write = 0;
+    fprintf(stdout, "Does this atleast get executed?\n");
+    ret = aiow_write((void*) rbuf, rp);
+  }
+  return ret;
+  //Return not used yet, but saved for error handling
 }
 //alias for completiong from asynchronous write
 inline void dummy_return_from_write(struct ringbuf *rbuf){

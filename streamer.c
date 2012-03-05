@@ -125,6 +125,9 @@ int main(int argc, char **argv)
 {
   int i;
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Reading parameters\n");
+#endif
   parse_options(argc,argv);
 
   /*
@@ -158,6 +161,9 @@ int main(int argc, char **argv)
   //pthread_attr_init(&attr);
   //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   //Init all threads
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Initializing threads\n");
+#endif
   for(i=0;i<opt.n_threads;i++){
     switch(opt.capture_type)
     {
@@ -183,7 +189,9 @@ int main(int argc, char **argv)
 
   }
   for(i=0;i<opt.n_threads;i++){
-    printf("In main, starting thread %d\n", i);
+#ifdef DEBUG_OUTPUT
+    printf("STREAMER: In main, starting thread %d\n", i);
+#endif
 
     //TODO: Check how to poll this from system
     rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, threads[i].opt);
