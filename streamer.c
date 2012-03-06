@@ -36,6 +36,7 @@ static void usage(char *binary){
 void init_stat(struct stats *stats){
   stats->total_bytes = 0;
   stats->incomplete = 0;
+  stats->total_written = 0;
   stats->total_packets = 0;
   stats->dropped = 0;
 }
@@ -45,9 +46,11 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Bytes: %lu\n"
       "Dropped: %lu\n"
       "Incomplete: %lu\n"
+      "Written: %lu\n"
       "Time: %d\n"
-      "Speed: %luMB/s\n"
-      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, opts->time, (stats->total_bytes*8)/(1024*1024*opts->time) );
+      "Net receive Speed: %luMB/s\n"
+      "HD write Speed: %luMB/s\n"
+      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
 }
 static void parse_options(int argc, char **argv){
   int ret,i;

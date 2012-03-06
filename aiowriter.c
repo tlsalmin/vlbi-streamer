@@ -55,6 +55,8 @@ int aiow_init(void * ringbuf, void * recpoint){
   struct rec_point * rp = (struct rec_point *)recpoint;
   int ret;
   void * errpoint;
+
+  rp->bytes_written = 0;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Memaligning buffer\n");
 #endif
@@ -181,7 +183,7 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
   }
 #endif
   //free(iov);
-  return 0;
+  return requests;
 }
 int aiow_check(void * recpoint){
   //Just poll, so we can keep receiving more packets
@@ -192,10 +194,12 @@ int aiow_check(void * recpoint){
   struct io_event event;
   int ret = io_getevents(ioi->ctx, 0, 1, &event, &timeout);
   //
+  if(ret > 0){
+    rp->bytes_written += event.res;
 #ifdef DEBUG_OUTPUT
-  if(ret > 0)
     fprintf(stdout, "AIOW: Check return %d\n", ret);
 #endif
+    }
   /*
    * TODO: Change implementation for reads also
    * Might need a unified writer backend to
@@ -207,10 +211,15 @@ int aiow_check(void * recpoint){
 }
 //Not used, since can't update status etc.
 //Using queue-stuff instead
-int aiow_wait_for_write(void * recpoint, double timeout){
+int aiow_wait_for_write(void * recpoint){
   struct rec_point * rp = (struct rec_point *) recpoint;
   struct io_info * ioi = (struct io_info *)rp->iostruct;
+  //Needs to be static so ..durr
   //TODO: Implement timeout
+  static struct timespec timeout = { 0, 100 };
+  //Not sure if this works, since io_queue_run doesn't
+  //work (have to use io_getevents), or then I just
+  //don't know how to use it
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Buffer full. Going to sleep\n");
 #endif

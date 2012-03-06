@@ -3,7 +3,7 @@
 #include <sys/uio.h>
 #include "aioringbuf.h"
 #include "aiowriter.h"
-#define HD_WRITE_N_SIZE 16
+#define HD_WRITE_N_SIZE 2048
 
 void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
   //int err;
@@ -97,12 +97,14 @@ int dummy_write(struct ringbuf *rbuf){
   dummy_return_from_write(rbuf);
   return 1;
 }
-int rbuf_aio_write(struct ringbuf *rbuf, void * rp){
-  int ret = 1;
+//TODO: Add a field to the rbuf for storing amount of writable blocks
+int rbuf_aio_write(struct ringbuf *rbuf, void * rp, int force){
+  int ret = 0;
   int diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
-  if(diff > HD_WRITE_N_SIZE){
+  if(diff > HD_WRITE_N_SIZE || force == FORCE_WRITE){
     //rbuf->ready_to_write = 0;
     ret = aiow_write((void*) rbuf, rp, diff);
+    increment_amount(rbuf, &(rbuf->hdwriter_head), diff);
   }
   return ret;
   //Return not used yet, but saved for error handling

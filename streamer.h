@@ -9,6 +9,7 @@ struct rec_point
   int taken;
   long long offset;
   void * iostruct;
+  unsigned long bytes_written;
   //int (*init)(void*);
   //int (*write)(void*);
 };
@@ -37,6 +38,7 @@ struct streamer_entity
 struct stats
 {	
   unsigned long total_bytes;
+  unsigned long total_written;
   unsigned long incomplete;
   unsigned long dropped;
   unsigned long total_packets;

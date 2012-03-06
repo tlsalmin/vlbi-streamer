@@ -3,6 +3,8 @@
 #define INC_PWRITER 0
 #define INC_HDWRITER 1
 #define INC_TAIL 2
+#define FORCE_WRITE 0
+#define DONT_FORCE_WRITE 1
 
 struct ringbuf{
   /*
@@ -33,5 +35,5 @@ inline void * get_buf_to_write(struct ringbuf *rbuf);
 //TODO: Change to configurable calls initialized in the ringbuf struct
 int dummy_write(struct ringbuf *rbuf);
 inline void dummy_return_from_write(struct ringbuf *rbuf);
-int rbuf_aio_write(struct ringbuf *rbuf, void *rp);
+int rbuf_aio_write(struct ringbuf *rbuf, void *rp, int force);
 #endif

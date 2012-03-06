@@ -254,7 +254,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   //fprintf(stdout,"ready to write is %d\n", spec_ops->rbuf.ready_to_write);
   //No space in buffer. TODO: Implement wait on aio
   else if (recv == 0){
-    err = aiow_wait_for_write((void*)spec_ops->rp, time_left);
+    err = aiow_wait_for_write((void*)spec_ops->rp);
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Woke up\n");
 #endif
@@ -263,22 +263,26 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
       return err;
     }
   }
-  //usleep(10);
-  //Write
   else{
     //spec_ops->rbuf.ready_to_write = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
-    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
+    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
     //writing = dummy_write(&(spec_ops->rbuf));
     if(err < 0){
       perror("UDP_STREAMER: Aiow write error");
       return err;
     }
 #ifdef DEBUG_OUTPUT
-    else if(err == 0)
-      fprintf(stdout, "UDP_STREAMER: Write request submitted\n");
+    else if (err > 0)
+      fprintf(stdout, "UDP_STREAMER: %d Write request submitted\n", err);
 #endif
   }
   return 0;
+}
+void flush_writes(struct opts *spec_ops){
+  int ret = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, FORCE_WRITE);
+  aiow_wait_for_write((void*)spec_ops->rp);
+  while(ret >0)
+    ret -= (aiow_check((void*)spec_ops->rp));
 }
 
 void* udp_streamer(void *opt)
@@ -331,6 +335,7 @@ void* udp_streamer(void *opt)
       break;
 
   }
+  flush_writes(spec_ops);
 
   pthread_exit(NULL);
 }
@@ -341,6 +346,7 @@ void get_udp_stats(void *opt, void *stats){
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
+  stat->total_written += spec_ops->rp->bytes_written;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
