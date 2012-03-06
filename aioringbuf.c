@@ -14,7 +14,8 @@ void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
   //rbuf->buffer = (void*) malloc(rbuf->num_elems*rbuf->elem_size);
   //err = posix_memalign((void**)&(rbuf->buffer), sysconf(__SC
   rbuf->writer_head = 0;
-  rbuf->tail = rbuf->hdwriter_head = rbuf->num_elems;
+  //rbuf->tail = rbuf->hdwriter_head = rbuf->num_elems;
+  rbuf->tail = rbuf->hdwriter_head = 0;
   rbuf->ready_to_write = 1;
 }
 void rbuf_close(struct ringbuf * rbuf){
@@ -40,7 +41,8 @@ int diff_max(int a , int b, int max){
     return b-a;
 }
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
-  if(diff_max(*head, *restrainer, rbuf->num_elems-1) == 1){
+  //if(diff_max(*head, *restrainer, rbuf->num_elems-1) == 0){
+  if(*head == (*restrainer-1)){
     return 0;
   }
   else{
@@ -77,7 +79,10 @@ struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void *iovecs){
 }
 //alias for moving packet writer head
 inline int get_a_packet(struct ringbuf * rbuf){
-  return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
+  if(rbuf->writer_head ==(rbuf->tail-1))
+    return 0;
+  else
+    return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
 }
 inline void * get_buf_to_write(struct ringbuf *rbuf){
   return rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);

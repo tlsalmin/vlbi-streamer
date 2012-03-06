@@ -45,7 +45,7 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
     fprintf(stderr, "write missed bytes expect %lu got %li", iocb->u.c.nbytes, res2);
   }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Write callback done. Wrote %li bytes\n", res2);
+  fprintf(stdout, "Write callback done. Wrote %li bytes\n", res);
 #endif
   free(iocb);
 }
@@ -127,7 +127,7 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
     if(i == 0){
       start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
       if(requests ==2){
-	endi = rbuf->num_elems-rbuf->hdwriter_head;
+	endi = rbuf->num_elems - rbuf->hdwriter_head;
 	diff -= endi;
       }
       else
@@ -184,9 +184,14 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
   return 0;
 }
 int aiow_check(void * recpoint){
+  //Just poll, so we can keep receiving more packets
   struct rec_point * rp = (struct rec_point *)recpoint;
   struct io_info * ioi = (struct io_info *)rp->iostruct;
-  int ret = io_queue_run(ioi->ctx);
+  static struct timespec timeout = { 0, 0 };
+  //int ret = io_queue_run(ioi->ctx);
+  struct io_event event;
+  int ret = io_getevents(ioi->ctx, 0, 1, &event, &timeout);
+  //
 #ifdef DEBUG_OUTPUT
   if(ret > 0)
     fprintf(stdout, "AIOW: Check return %d\n", ret);
