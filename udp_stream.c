@@ -241,13 +241,15 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   spec_ops->total_captured_bytes +=(unsigned int) recv;
   spec_ops->total_captured_packets += 1;
   int err;
-  if(spec_ops->rbuf.ready_to_write == 0){
-    if (aiow_check((void*)spec_ops->rp)>0){
+  if(spec_ops->rbuf.ready_to_write < 1){
+    if ((err = aiow_check((void*)spec_ops->rp))>0){
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: Write complete. Cleared write block\n");
+      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", err);
 #endif
-      spec_ops->rbuf.ready_to_write = 1;
+      spec_ops->rbuf.ready_to_write += err;
     }
+    else if (err < 0)
+      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", err);
   }
   //fprintf(stdout,"ready to write is %d\n", spec_ops->rbuf.ready_to_write);
   //No space in buffer. TODO: Implement wait on aio
@@ -267,8 +269,10 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
     //spec_ops->rbuf.ready_to_write = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
     err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
     //writing = dummy_write(&(spec_ops->rbuf));
-    if(err < 0)
+    if(err < 0){
+      perror("UDP_STREAMER: Aiow write error");
       return err;
+    }
 #ifdef DEBUG_OUTPUT
     else if(err == 0)
       fprintf(stdout, "UDP_STREAMER: Write request submitted\n");
@@ -304,6 +308,8 @@ void* udp_streamer(void *opt)
     //err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
     if(get_a_packet(&(spec_ops->rbuf))){
       void * buf = get_buf_to_write(&(spec_ops->rbuf));
+      //TODO: Try a semaphore here to limit interrupt utilization.
+      //Probably doesn't help
       err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
     }
     //Buffer full. Sleep for now. TODO: make wakeup

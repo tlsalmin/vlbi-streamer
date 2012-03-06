@@ -94,10 +94,10 @@ int dummy_write(struct ringbuf *rbuf){
 }
 int rbuf_aio_write(struct ringbuf *rbuf, void * rp){
   int ret = 1;
-  if(diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems) > HD_WRITE_N_SIZE){
-    rbuf->ready_to_write = 0;
-    fprintf(stdout, "Does this atleast get executed?\n");
-    ret = aiow_write((void*) rbuf, rp);
+  int diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+  if(diff > HD_WRITE_N_SIZE){
+    //rbuf->ready_to_write = 0;
+    ret = aiow_write((void*) rbuf, rp, diff);
   }
   return ret;
   //Return not used yet, but saved for error handling
