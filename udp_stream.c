@@ -1,6 +1,3 @@
-//Create  THREADS threads to receive fanouts
-//#define OUTPUT
-//#define MMAP_TECH
 
 //64 MB ring buffer
 #ifndef _GNU_SOURCE
@@ -20,7 +17,6 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
 #include <time.h>
 #ifdef MMAP_TECH
 #include <sys/mman.h>
@@ -41,8 +37,9 @@
 
 #include <net/if.h>
 #include "streamer.h"
-#include "aioringbuf.h"
-#include "aiowriter.h"
+//Moved to generic, shouldn't need anymore
+//#include "aioringbuf.h"
+//#include "aiowriter.h"
 
 
 //Gatherer specific options
@@ -57,7 +54,7 @@ struct opts
   int port;
   //Moved to recording_entity
   //void * rbuf;
-  struct rec_point * rp;
+  //struct rec_point * rp;
   struct recording_entity * recer;
 
   //Moved to main init
@@ -74,12 +71,10 @@ struct opts
   unsigned long int total_captured_packets;
 };
 
-void * setup_udp_socket(void* options, struct recording_entity * se)
+void * setup_udp_socket(struct opt_s * opt, struct recording_entity * se)
 {
-  int i,err;
-  int f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-  struct stat statinfo;
-  struct opt_s *opt = (struct opt_s *)options;
+  int err;
+  //struct opt_s *opt = (struct opt_s *)options;
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
   spec_ops->filename = opt->filename;
@@ -94,60 +89,18 @@ void * setup_udp_socket(void* options, struct recording_entity * se)
   //Moved to recer
   //rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
 
+  //TODO: just pass the recpoint here
+  /*
   for(i=0;i<opt->n_threads;i++){
     if(!opt->points[i].taken){
 
       opt->points[i].taken = 1;
       spec_ops->rp = &(opt->points[i]);
-
-      //TODO: Move all of this to to streamer.c
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: Initializing write point\n");
-#endif
-      //Check if file exists
-      err = stat(spec_ops->rp->filename, &statinfo);
-      if (err < 0) 
-	if (errno == ENOENT){
-	  f_flags |= O_CREAT;
-	  //fprintf(stdout, "file doesn't exist\");
-	}
-
-
-      //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-      spec_ops->rp->fd = open(spec_ops->rp->filename, f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-      if(spec_ops->rp->fd == -1){
-	fprintf(stderr,"Error %s on %s\n",strerror(errno), spec_ops->rp->filename);
-	return NULL;
-      }
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: File opened\n");
-#endif
-      //TODO: Set offset accordingly if file already exists. Not sure if
-      //needed, since data consistency would take a hit anyway
-      spec_ops->rp->offset = 0;
-      //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
-      //for s seconds.
-      loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
-      //Split kb/gb stuff to avoid overflow warning
-      prealloc_bytes = prealloc_bytes*1024*1024;
-      //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
-      err = fallocate(spec_ops->rp->fd, 0,0, prealloc_bytes);
-      if(err == -1){
-	fprintf(stderr, "Fallocate failed on %s", spec_ops->rp->filename);
-	return NULL;
-      }
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: File preallocated\n");
-#endif
-      //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
-      aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: AIOW initialized\n");
-#endif
-
-      break;
     }
   }
+  */
+
+      //TODO: Move all of this to to streamer.c
   //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->port;
   //int buflength;
@@ -237,9 +190,8 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   spec_ops->total_captured_packets += 1;
   int err;
 
-  //TODO: Somehow need to get away from 
   if (recv == 0){
-    err = spec_ops->recer->wait((void*)spec_ops->rp);
+    err = spec_ops->recer->wait((void*)spec_ops->recer);
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Woke up\n");
 #endif
@@ -249,50 +201,19 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
     }
   }
   else
-    spec_ops->recer->write(spec_ops->recer->opt, spec_ops->rp, 0);
-  //Moving everything to ringbuf or generic writer
-  /*
-  if(spec_ops->rbuf.ready_to_write < 1){
-    if ((err = aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)))>0){
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", err);
-#endif
-      spec_ops->rbuf.ready_to_write += err;
-    }
-    else if (err < 0)
-      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", err);
-  }
-  //No space in buffer. TODO: Wait only waits a static time
-  else if (recv == 0){
-    err = aiow_wait_for_write((void*)spec_ops->rp);
-#ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: Woke up\n");
-#endif
-    if(err < 0){
-      perror("Waking from aio-sleep");
-      return err;
-    }
-  }
-  else{
-    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
-    if(err < 0){
-      perror("UDP_STREAMER: Aiow write error");
-      return err;
-    }
-#ifdef DEBUG_OUTPUT
-    else if (err > 0)
-      fprintf(stdout, "UDP_STREAMER: %d Write request submitted\n", err);
-#endif
-  }
-  */
-  return 0;
+    err = spec_ops->recer->write(spec_ops->recer, 0);
+
+  return err;
 }
 //TODO: Implement as generic function on aioringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
+  /*
   int ret = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, FORCE_WRITE);
   aiow_wait_for_write((void*)spec_ops->rp);
   while(ret >0)
     ret -= (aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)));
+    */
+  spec_ops->recer->write(spec_ops->recer, 1);
 }
 
 void* udp_streamer(void *opt)
@@ -316,7 +237,7 @@ void* udp_streamer(void *opt)
     int err = 0;
     void * buf;
 
-    if((buf = spec_ops->recer->get_writebuf(recer->opt)) != NULL){
+    if((buf = spec_ops->recer->get_writebuf(spec_ops->recer)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help
       err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
@@ -346,26 +267,26 @@ void* udp_streamer(void *opt)
 
   pthread_exit(NULL);
 }
-void get_udp_stats(void *opt, void *stats){
-  struct opts *spec_ops = (struct opts *)opt;
+void get_udp_stats(struct opts *spec_ops, void *stats){
+  //struct opts *spec_ops = (struct opts *)opt;
   struct stats *stat = (struct stats * ) stats;
   stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
-  stat->total_written += spec_ops->rp->bytes_written;
+  stat->total_written += spec_ops->recer->rp->bytes_written;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
-  get_udp_stats(opt_own, stats);
+  get_udp_stats(spec_ops,  stats);
 
   close(spec_ops->fd);
-  close(spec_ops->rp->fd);
+  //close(spec_ops->rp->fd);
 
   //rbuf_close(&(spec_ops->rbuf));
-  spec_ops->recer->close(recer->opt);
+  spec_ops->recer->close(spec_ops->recer);
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
-  free(spec_ops->rp);
+  //free(spec_ops->rp);
   free(spec_ops);
   return 0;
 }

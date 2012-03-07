@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
@@ -53,6 +56,61 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "HD write Speed: %luMB/s\n"
       ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
 }
+int init_recpoint(struct rec_point *rp, struct opt_s *opt){
+  struct stat statinfo;
+  int err =0;
+  /*
+  if(opt->rec_type == WRITER_AIOW_RBUF)
+    int f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+  else
+    int f_flags = O_WRONLY|O_NOATIME|O_NONBLOCK;
+    */
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Initializing write point\n");
+#endif
+  //Check if file exists
+  err = stat(rp->filename, &statinfo);
+  if (err < 0) 
+    if (errno == ENOENT){
+      opt->f_flags |= O_CREAT;
+      err = 0;
+      //fprintf(stdout, "file doesn't exist\");
+    }
+
+
+  //This will overwrite existing file.TODO: Check what is the desired default behaviour 
+  rp->fd = open(rp->filename, opt->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+  if(rp->fd == -1){
+    fprintf(stderr,"Error %s on %s\n",strerror(errno), rp->filename);
+    return -1;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: File opened\n");
+#endif
+  //TODO: Set offset accordingly if file already exists. Not sure if
+  //needed, since data consistency would take a hit anyway
+  rp->offset = 0;
+  //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
+  //for s seconds.
+  loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+  //Split kb/gb stuff to avoid overflow warning
+  prealloc_bytes = prealloc_bytes*1024*1024;
+  //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
+  err = fallocate(rp->fd, 0,0, prealloc_bytes);
+  if(err == -1){
+    fprintf(stderr, "Fallocate failed on %s", rp->filename);
+    return err;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: File preallocated\n");
+#endif
+  //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
+  //aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: AIOW initialized\n");
+#endif
+  return err;
+}
 static void parse_options(int argc, char **argv){
   int ret,i;
 
@@ -65,7 +123,7 @@ static void parse_options(int argc, char **argv){
   opt.port = 2222;
   opt.n_threads = 1;
   //TODO: Add option for choosing backend
-  opt.rec_type = AIOW_RBUF;
+  opt.rec_type = WRITER_AIOW_RBUF;
   opt.socket = 0;
   for(;;){
     ret = getopt(argc, argv, "i:t:a:s:n:");
@@ -126,6 +184,8 @@ static void parse_options(int argc, char **argv){
     sprintf(opt.points[i].filename, "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
   }
   opt.time = atoi(argv[1]);
+  if (opt.rec_type == WRITER_AIOW_RBUF)
+    opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
 }
 int main(int argc, char **argv)
 {
@@ -137,15 +197,15 @@ int main(int argc, char **argv)
   parse_options(argc,argv);
 
   /*
-  switch(opt.capture_type){
-      case CAPTURE_W_FANOUT:
-	n_threads = THREADS;
-	break;
-      case CAPTURE_W_UDPSTREAM:
-	n_threads = UDP_STREAM_THREADS;
-	break;
-  }
-  */
+     switch(opt.capture_type){
+     case CAPTURE_W_FANOUT:
+     n_threads = THREADS;
+     break;
+     case CAPTURE_W_UDPSTREAM:
+     n_threads = UDP_STREAM_THREADS;
+     break;
+     }
+     */
   struct streamer_entity threads[opt.n_threads];
   pthread_t pthreads_array[opt.n_threads];
   struct stats stats;
@@ -160,7 +220,7 @@ int main(int argc, char **argv)
   CPU_ZERO(&cpuset);
 #endif
   //for(j = 0;j<6;j++)
-    //CPU_SET(j,&cpuset);
+  //CPU_SET(j,&cpuset);
   //device_name = argv[1];
   //fanout_id = getpid() & 0xffff;
 
@@ -171,18 +231,31 @@ int main(int argc, char **argv)
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif
   for(i=0;i<opt.n_threads;i++){
-    struct streamer_entity * se = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
-    
+    int err = 0;
+    struct recording_entity * se = (struct recording_entity*)malloc(sizeof(struct streamer_entity));
+
+    //Init record points
+    err = init_recpoint(&(opt.points[i]), &opt);
+    if(err < 0){
+      fprintf(stderr, "Error in recpoint init\n");
+      exit(-1);
+    }
+    se->rp = &(opt.points[i]);
+
     //Initialize recorder entity
     switch(opt.rec_type)
     {
       case WRITER_AIOW_RBUF:
 	//Helper function
-	rbuf_init_rec_entity(se);
+	err = rbuf_init_rec_entity(se);
 	break;
       case WRITER_TODO:
 	//Implement own writer here
 	break;
+    }
+    if(err < 0){
+      fprintf(stderr, "Error in buffer/writer init\n");
+      exit(-1);
     }
 
 
@@ -195,17 +268,21 @@ int main(int argc, char **argv)
 	threads[i].open = setup_socket;
 	threads[i].start = fanout_thread;
 	threads[i].close = close_fanout;
-	threads[i].opt = threads[i].open((void*)&opt, se);
+	threads[i].opt = threads[i].open(&opt, se);
 	break;
       case CAPTURE_W_UDPSTREAM:
 	threads[i].open = setup_udp_socket;
 	threads[i].start = udp_streamer;
 	threads[i].close = close_udp_streamer;
-	threads[i].opt = threads[i].open((void*)&opt, se);
+	threads[i].opt = threads[i].open(&opt, se);
 	break;
       case CAPTURE_W_TODO:
 	fprintf(stderr, "Not yet implemented");
 	exit(0);
+    }
+    if(threads[i].opt == NULL){
+      fprintf(stderr, "Error in thread init\n");
+      exit(-1);
     }
 
   }

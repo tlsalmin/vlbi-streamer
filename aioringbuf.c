@@ -22,11 +22,13 @@ void *rbuf_init(int elem_size, int num_elems){
   //rbuf->latest_write_num = 0;
   return rbuf;
 }
-void rbuf_close(void * rbuf, struct rec_point * rp){
+int  rbuf_close(struct recording_entity* re){
+  int ret = 0;
   //struct ringbuf * rb = (struct ringbuf * )rbuf;
-  aiow_close((struct io_info*)rp->iostruct, (struct ringbuf *)rbuf);
+  aiow_close(re->rp->iostruct, (struct ringbuf *)re->opt);
   //free(rb->buffer);
-  free((struct ringbuf*)rbuf);
+  free((struct ringbuf*)re->opt);
+  return ret;
 }
 
 //Calling this directly requires, that you know you won't go past a restrictor
@@ -93,12 +95,13 @@ inline int get_a_packet(struct ringbuf * rbuf){
     return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
 }
 */
-void * rbuf_get_buf_to_write(struct ringbuf *rbuf){
+void * rbuf_get_buf_to_write(struct recording_entity *re){
+  struct ringbuf * rbuf = (struct ringbuf*) re->opt;
   void *spot;
   if(!increment(rbuf, &(rbuf->writer_head), &(rbuf->tail)))
     spot = NULL;
   else
-    void * spot = rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
+    spot = rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
   return spot;
 }
 //alias for scheduling packets for writing
@@ -111,57 +114,38 @@ int dummy_write(struct ringbuf *rbuf){
   dummy_return_from_write(rbuf);
   return 1;
 }
-//TODO: Add a field to the rbuf for storing amount of writable blocks
-int rbuf_aio_write(void *rbuffer, struct rec_point * rp, int force){
-  int ret = 0;
-
-  struct ringbuf * rbuf = (struct ringbuf * )rbuffer;
-  //HD writing. Check if job finished. Might also use message passing
-  //in the future
-  if(rbuf.ready_to_write < 1){
-    if ((ret = aiow_check(rp, (void*)rbuf))>0){
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", ret);
-#endif
-      rbuf.ready_to_write += ret;
-    }
-    else if (ret < 0)
-      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", ret);
-  }
-  /*
-  //No space in buffer. TODO: Wait only waits a static time
-  else if (recv == 0){
-    err = aiow_wait_for_write((void*)spec_ops->rp);
-#ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: Woke up\n");
-#endif
-    if(err < 0){
-      perror("Waking from aio-sleep");
-      return err;
-    }
-  }
-  */
-  else{
-    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
-    if(err < 0){
-      perror("UDP_STREAMER: Aiow write error");
-      return err;
-    }
-#ifdef DEBUG_OUTPUT
-    else if (err > 0)
-      fprintf(stdout, "UDP_STREAMER: %d Write request submitted\n", err);
-#endif
-  }
-
-
-  int diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+inline int write_after_checks(struct ringbuf* rbuf, struct rec_point *rp, int force){
+  int ret=0,diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
   if(diff > HD_WRITE_N_SIZE || force == FORCE_WRITE){
-    //rbuf->ready_to_write = 0;
     ret = aiow_write((void*) rbuf, rp, diff);
     increment_amount(rbuf, &(rbuf->hdwriter_head), diff);
   }
   return ret;
+}
+//TODO: Add a field to the rbuf for storing amount of writable blocks
+int rbuf_aio_write(struct recording_entity *re, int force){
+  int ret = 0;
+
+  struct ringbuf * rbuf = (struct ringbuf * )re->opt;
+
+  //HD writing. Check if job finished. Might also use message passing
+  //in the future
+  if(rbuf->ready_to_write >= 1 || force){
+    ret = write_after_checks(rbuf, re->rp, force);
+  }
+  else{
+    if ((ret = aiow_check(re->rp, (void*)rbuf))>0){
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", ret);
+#endif
+      rbuf->ready_to_write += ret;
+    }
+    else if (ret < 0)
+      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", ret);
+  }
+  //Wait handled in the receiver
   //Return not used yet, but saved for error handling
+  return ret;
 }
 //alias for completiong from asynchronous write
 inline void dummy_return_from_write(struct ringbuf *rbuf){
@@ -170,21 +154,21 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
   rbuf->ready_to_write = 1;
 }
 //Alias for modularizing buffers etc.
-int rbuf_check_hdevents(void * rbuf, void * rp){
-  return aiow_check((struct ringbuf * )rbuf, (struct rec_point * )rp);
+int rbuf_check_hdevents(struct recording_entity * re);
+  return aiow_check(re->rp, (struct ringbuf*)re->opt);
 }
-int rbuf_wait(void * rp){
-  return aiow_wait_for_write((struct rec_point * )rp);
+int rbuf_wait(struct recording_entity * re){
+  return aiow_wait_for_write(re->rp);
 }
-int rbuf_init_rec_entity(struct streamer_entity *se){
+int rbuf_init_rec_entity(struct recording_entity *se){
   int ret = 0;
-  se.init_buffer = rbuf_init;
-  se.write = rbuf_aio_write;
-  se.get_writebuf = rbuf_get_buf_to_write;
-  se.wait = rbuf_wait;
-  se.close = rbuf_close;
-  se.opt = se.init_buffer(BUF_ELEM_SIZE, BUF_NUM_ELEMS);
-  if (se.opt == NULL)
+  se->init_buffer = rbuf_init;
+  se->write = rbuf_aio_write;
+  se->get_writebuf = rbuf_get_buf_to_write;
+  se->wait = rbuf_wait;
+  se->close = rbuf_close;
+  se->opt = se->init_buffer(BUF_ELEM_SIZE, BUF_NUM_ELEMS);
+  if (se->opt == NULL)
     ret = -1;
   return ret;
 }

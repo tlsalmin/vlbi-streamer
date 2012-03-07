@@ -19,6 +19,10 @@
 #endif
 //Nanoseconds for waiting on busy io
 #define TIMEOUT_T 100
+struct io_info{
+  io_context_t ctx;
+  struct rec_point * rp;
+};
 
 //TODO: Error handling
 
@@ -176,7 +180,9 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
   //free(iov);
   return requests;
 }
-int aiow_check(struct rec_point * rp, void * rb){
+int aiow_check(void * rep, void * rib){
+  struct rec_point * rp = (struct rec_point*) rep;
+  struct ringbuf * rb = (struct ringbuf *)rib;
   //Just poll, so we can keep receiving more packets
   struct io_info * ioi = (struct io_info *)rp->iostruct;
   static struct timespec timeout = { 0, 0 };
@@ -216,13 +222,14 @@ int aiow_wait_for_write(struct rec_point* rp){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Buffer full. Going to sleep\n");
 #endif
-  return io_queue_wait(ioi->ctx, NULL);
+  return io_queue_wait(ioi->ctx, &timeout);
 }
 /*
 void aiow_write_done(){
 }
 */
-int aiow_close(struct io_info * ioi, struct ringbuf* rbuf){
+int aiow_close(void * ioinfo, struct ringbuf* rbuf){
+  struct io_info * ioi = (struct io_info*)ioinfo;
   io_destroy(ioi->ctx);
   //free(ioi->iocbpp);
   //Malloced in this file, so freeing here too
