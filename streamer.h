@@ -1,7 +1,12 @@
 #ifndef STREAMER
 #define STREAMER
 #define RATE 10
-#define DEBUG_OUTPUT
+#define WRITER_AIOW_RBUF 0
+#define WRITER_TODO 1
+#define BUF_ELEM_SIZE 8192
+#define BUF_NUM_ELEMS 8192
+
+//#define DEBUG_OUTPUT
 struct rec_point
 {
   char *filename;
@@ -10,6 +15,7 @@ struct rec_point
   long long offset;
   void * iostruct;
   unsigned long bytes_written;
+  int latest_write_num;
   //int (*init)(void*);
   //int (*write)(void*);
 };
@@ -25,15 +31,26 @@ struct opt_s
   int socket;
   int n_threads;
   struct rec_point * points;
+  int rec_type;
 };
+struct recording_entity
+{
+  void * opt;
+  //Functions for usage in modularized infrastructure
+  void* (*init_buffer)(int,int);
+  int (*write)(void*,struct rec_point*,int);
+  void* (*get_writebuf)(void *);
+  int (*wait)(void*);
+  int (*close)(void *, struct rec_point*);
+}
 
 //Generic struct for a streamer entity
 struct streamer_entity
 {
-  void* (*open)(void*);
+  void *opt;
+  void* (*open)(void*,struct recording_entity*);
   void* (*start)(void*);
   int (*close)(void*,void*);
-  void *opt;
 };
 struct stats
 {	

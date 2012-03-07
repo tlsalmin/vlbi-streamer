@@ -6,8 +6,9 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#define BUF_ELEM_SIZE 8192
-#define BUF_NUM_ELEMS 8192
+//Moved to streamer.h TODO: Make choosable
+//#define BUF_ELEM_SIZE 8192
+//#define BUF_NUM_ELEMS 8192
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -54,23 +55,26 @@ struct opts
   int root_pid;
   int time;
   int port;
-  struct ringbuf rbuf;
+  //Moved to recording_entity
+  //void * rbuf;
   struct rec_point * rp;
-  //int (*write)(struct ringbuf *buf);
+  struct recording_entity * recer;
+
+  //Moved to main init
   /*
-     int fanout_type;
-     struct tpacket_req req;
-     struct tpacket_hdr * ps_header_start;
-     struct tpacket_hdr * header;
-     struct pollfd pfd;
-     */
+  //Functions for usage in modularized infrastructure
+  void* (*init_buffer)(void*, int,int);
+  int (*write)(void*,void*,int);
+  void* get_writebuf(void *);
+  */
+
   unsigned long int total_captured_bytes;
   unsigned long int incomplete;
   unsigned long int dropped;
   unsigned long int total_captured_packets;
 };
 
-void * setup_udp_socket(void* options)
+void * setup_udp_socket(void* options, struct recording_entity * se)
 {
   int i,err;
   int f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -81,20 +85,24 @@ void * setup_udp_socket(void* options)
   spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
+  spec_ops->recer = se;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 #endif
-  //init the ring buffer
-  rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
+  //Init the buffer and assign functions to use
+  //Moved to recer
+  //rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
+
   for(i=0;i<opt->n_threads;i++){
     if(!opt->points[i].taken){
 
       opt->points[i].taken = 1;
       spec_ops->rp = &(opt->points[i]);
 
+      //TODO: Move all of this to to streamer.c
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "UDP_STREAMER: Initializing write point\n");
+      fprintf(stdout, "UDP_STREAMER: Initializing write point\n");
 #endif
       //Check if file exists
       err = stat(spec_ops->rp->filename, &statinfo);
@@ -103,17 +111,16 @@ void * setup_udp_socket(void* options)
 	  f_flags |= O_CREAT;
 	  //fprintf(stdout, "file doesn't exist\");
 	}
-	  
+
 
       //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-      //TODO: Doesn't give g+w permissions
       spec_ops->rp->fd = open(spec_ops->rp->filename, f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
       if(spec_ops->rp->fd == -1){
 	fprintf(stderr,"Error %s on %s\n",strerror(errno), spec_ops->rp->filename);
 	return NULL;
       }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "UDP_STREAMER: File opened\n");
+      fprintf(stdout, "UDP_STREAMER: File opened\n");
 #endif
       //TODO: Set offset accordingly if file already exists. Not sure if
       //needed, since data consistency would take a hit anyway
@@ -130,14 +137,14 @@ void * setup_udp_socket(void* options)
 	return NULL;
       }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "UDP_STREAMER: File preallocated\n");
+      fprintf(stdout, "UDP_STREAMER: File preallocated\n");
 #endif
       //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
       aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "UDP_STREAMER: AIOW initialized\n");
+      fprintf(stdout, "UDP_STREAMER: AIOW initialized\n");
 #endif
-      
+
       break;
     }
   }
@@ -148,7 +155,7 @@ void * setup_udp_socket(void* options)
   //If socket ready, just set it
   if(!opt->socket == 0){
     spec_ops->fd = opt->socket;
-  //If we're the initializing thread, init socket and share
+    //If we're the initializing thread, init socket and share
   }
   else{
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -222,18 +229,6 @@ void * setup_udp_socket(void* options)
     req |= SOF_TIMESTAMPING_SYS_HARDWARE;
     setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
 #endif
-
-      //struct pollfd pfd;
-      //struct tpacket_hdr *header;
-      //Prepare the polling struct
-      /*
-	 spec_ops->pfd.fd = spec_ops->fd;
-	 spec_ops->pfd.revents = 0;
-	 spec_ops->pfd.events = POLLIN|POLLERR;
-
-	 spec_ops->header = (void *) spec_ops->ps_header_start;
-
-*/
   }
   return spec_ops;
 }
@@ -241,8 +236,23 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   spec_ops->total_captured_bytes +=(unsigned int) recv;
   spec_ops->total_captured_packets += 1;
   int err;
+
+  if (recv == 0){
+    err = spec_ops->recer->wait((void*)spec_ops->rp);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: Woke up\n");
+#endif
+    if(err < 0){
+      perror("Waking from aio-sleep");
+      return err;
+    }
+  }
+  else
+    spec_ops->recer->write(spec_ops->recer->opt, spec_ops->rp, 0);
+  //Moving everything to ringbuf or generic writer
+  /*
   if(spec_ops->rbuf.ready_to_write < 1){
-    if ((err = aiow_check((void*)spec_ops->rp))>0){
+    if ((err = aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)))>0){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", err);
 #endif
@@ -251,8 +261,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
     else if (err < 0)
       fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", err);
   }
-  //fprintf(stdout,"ready to write is %d\n", spec_ops->rbuf.ready_to_write);
-  //No space in buffer. TODO: Implement wait on aio
+  //No space in buffer. TODO: Wait only waits a static time
   else if (recv == 0){
     err = aiow_wait_for_write((void*)spec_ops->rp);
 #ifdef DEBUG_OUTPUT
@@ -264,9 +273,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
     }
   }
   else{
-    //spec_ops->rbuf.ready_to_write = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp);
     err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
-    //writing = dummy_write(&(spec_ops->rbuf));
     if(err < 0){
       perror("UDP_STREAMER: Aiow write error");
       return err;
@@ -276,13 +283,15 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
       fprintf(stdout, "UDP_STREAMER: %d Write request submitted\n", err);
 #endif
   }
+  */
   return 0;
 }
+//TODO: Implement as generic function on aioringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
   int ret = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, FORCE_WRITE);
   aiow_wait_for_write((void*)spec_ops->rp);
   while(ret >0)
-    ret -= (aiow_check((void*)spec_ops->rp));
+    ret -= (aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)));
 }
 
 void* udp_streamer(void *opt)
@@ -290,9 +299,6 @@ void* udp_streamer(void *opt)
   struct opts *spec_ops = (struct opts *)opt;
   time_t t_start;
   double time_left=0;
-  //struct sockaddr_in client;
-  //unsigned int clilen = sizeof(client);
-  //int fd;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
@@ -303,20 +309,18 @@ void* udp_streamer(void *opt)
 
   listen(spec_ops->fd, 2);
 
-  //if((fd = accept(spec_ops->fd,(struct sockaddr *)&client,&clilen)) > 0){
   time(&t_start);
 
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     int err = 0;
+    void * buf;
 
-    //err = recv(spec_ops->fd, (void*)&buf, BUFSIZE, 0);
-    if(get_a_packet(&(spec_ops->rbuf))){
-      void * buf = get_buf_to_write(&(spec_ops->rbuf));
+    if((buf = spec_ops->recer->get_writebuf(recer->opt)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help
       err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
     }
-    //Buffer full. Sleep for now. TODO: make wakeup
+    //If write buffer is full
     else{
       err = 0;
 #ifdef DEBUG_OUTPUT
@@ -327,8 +331,10 @@ void* udp_streamer(void *opt)
     if(err < 0){
       fprintf(stdout, "RECV error");
       //TODO: Handle error
+      break;
     }
 
+    //TODO: Handle packets at maybe every 10 packets or so
     err = handle_packets_udp(err, spec_ops, time_left);
 
     if(err < 0)
@@ -352,13 +358,13 @@ int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
   get_udp_stats(opt_own, stats);
 
-  //Only need to close socket according to 
-  //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
   close(spec_ops->fd);
   close(spec_ops->rp->fd);
 
-  rbuf_close(&(spec_ops->rbuf));
+  //rbuf_close(&(spec_ops->rbuf));
+  spec_ops->recer->close(recer->opt);
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
+  free(spec_ops->rp);
   free(spec_ops);
   return 0;
 }

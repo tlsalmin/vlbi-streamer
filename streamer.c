@@ -7,6 +7,7 @@
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
+#include "aioringbuf.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
@@ -63,6 +64,8 @@ static void parse_options(int argc, char **argv){
   opt.root_pid = getpid();
   opt.port = 2222;
   opt.n_threads = 1;
+  //TODO: Add option for choosing backend
+  opt.rec_type = AIOW_RBUF;
   opt.socket = 0;
   for(;;){
     ret = getopt(argc, argv, "i:t:a:s:n:");
@@ -168,6 +171,21 @@ int main(int argc, char **argv)
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif
   for(i=0;i<opt.n_threads;i++){
+    struct streamer_entity * se = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
+    
+    //Initialize recorder entity
+    switch(opt.rec_type)
+    {
+      case WRITER_AIOW_RBUF:
+	//Helper function
+	rbuf_init_rec_entity(se);
+	break;
+      case WRITER_TODO:
+	//Implement own writer here
+	break;
+    }
+
+
     switch(opt.capture_type)
     {
       /*
@@ -177,13 +195,13 @@ int main(int argc, char **argv)
 	threads[i].open = setup_socket;
 	threads[i].start = fanout_thread;
 	threads[i].close = close_fanout;
-	threads[i].opt = threads[i].open((void*)&opt);
+	threads[i].opt = threads[i].open((void*)&opt, se);
 	break;
       case CAPTURE_W_UDPSTREAM:
 	threads[i].open = setup_udp_socket;
 	threads[i].start = udp_streamer;
 	threads[i].close = close_udp_streamer;
-	threads[i].opt = threads[i].open((void*)&opt);
+	threads[i].opt = threads[i].open((void*)&opt, se);
 	break;
       case CAPTURE_W_TODO:
 	fprintf(stderr, "Not yet implemented");
@@ -230,6 +248,7 @@ int main(int argc, char **argv)
   for(i=0;i<opt.n_threads;i++){
     threads[i].close(threads[i].opt, &stats);
   }
+  free(opt.points);
   print_stats(&stats, &opt);
 
   //return 0;

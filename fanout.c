@@ -68,9 +68,8 @@ struct opts
   unsigned int total_captured_packets;
 };
 
-void * setup_socket(void* options)
+void * setup_socket(struct opt_s* opt, struct recording_entity* se)
 {
-  struct opt_s *opt = (struct opt_s *)options;
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
   spec_ops->filename = opt->filename;

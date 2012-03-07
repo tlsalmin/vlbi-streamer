@@ -24,16 +24,19 @@ struct ringbuf{
 
 //Increments pwriter head. Returns negative, if 
 //buffer is full
-void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems);
-void rbuf_close(struct ringbuf *rbuf);
+void *rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems);
+int rbuf_close(void *rbuf, struct rec_point *rp);
 //Increment head, but not over restraint. If can't go further, return -1
 void increment_amount(struct ringbuf * rbuf, int * head, int amount);
 int diff_max(int a , int b, int max);
 struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void* iovecs);
-inline int get_a_packet(struct ringbuf *rbuf);
-inline void * get_buf_to_write(struct ringbuf *rbuf);
+//inline int get_a_packet(struct ringbuf *rbuf);
+void * rbuf_get_buf_to_write(struct ringbuf *rbuf);
 //TODO: Change to configurable calls initialized in the ringbuf struct
 int dummy_write(struct ringbuf *rbuf);
 inline void dummy_return_from_write(struct ringbuf *rbuf);
-int rbuf_aio_write(struct ringbuf *rbuf, void *rp, int force);
+int rbuf_aio_write(void *rbuf, struct rec_point *rp, int force);
+int rbuf_check_hdevents(void * rbuf, void * rp);
+int rbuf_wait(void * rp);
+int rbuf_init_rec_entity(struct streamer_entity *se);
 #endif

@@ -17,24 +17,14 @@
 #else
 #define MAX_IOCB MAX_EVENTS
 #endif
+//Nanoseconds for waiting on busy io
+#define TIMEOUT_T 100
 
 //TODO: Error handling
-struct io_info{
-  io_context_t ctx;
-  //struct iocb* iocbpp[MAX_IOCB];
-  int active_iocb;
-  //struct io_event events[10];
-  struct rec_point * rp;
-};
 
 /* Fatal error handler */
 static void io_error(const char *func, int rc)
 {
-  /*
-  if (rc < 0 && -rc < sys_nerr)
-    fprintf(stderr, "%s: %s", func, sys_errlist[-rc]);
-  else
-  */
     fprintf(stderr, "%s: error %d", func, rc);
 }
 
@@ -55,6 +45,7 @@ int aiow_init(void * ringbuf, void * recpoint){
   struct rec_point * rp = (struct rec_point *)recpoint;
   int ret;
   void * errpoint;
+  rp->latest_write_num = 0;
 
   rp->bytes_written = 0;
 #ifdef DEBUG_OUTPUT
@@ -106,12 +97,12 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
   struct ringbuf * rbuf = (struct ringbuf *)ringbuf;
   struct rec_point * rp = (struct rec_point *)recpoint;
   struct io_info * ioi = (struct io_info * )rp->iostruct;
+  rp->latest_write_num = diff;
 #ifdef IOVEC
   int vecs;
 #endif
   int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
   rbuf->ready_to_write -= requests;
-  //rbuf->ready_to_write = 0;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Blocking writes. Write from %i to %i diff %i elems %i\n", rbuf->hdwriter_head, rbuf->writer_head, diff, rbuf->num_elems);
 #endif
@@ -185,21 +176,24 @@ int aiow_write(void * ringbuf, void * recpoint, int diff){
   //free(iov);
   return requests;
 }
-int aiow_check(void * recpoint){
+int aiow_check(struct rec_point * rp, void * rb){
   //Just poll, so we can keep receiving more packets
-  struct rec_point * rp = (struct rec_point *)recpoint;
   struct io_info * ioi = (struct io_info *)rp->iostruct;
   static struct timespec timeout = { 0, 0 };
-  //int ret = io_queue_run(ioi->ctx);
   struct io_event event;
   int ret = io_getevents(ioi->ctx, 0, 1, &event, &timeout);
   //
   if(ret > 0){
+    if(rp->latest_write_num > 0){
+      increment_amount(rb, &(rb->tail), rp->latest_write_num);
+      rp->latest_write_num = 0;
+    }
     rp->bytes_written += event.res;
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "AIOW: Check return %d\n", ret);
 #endif
     }
+
   /*
    * TODO: Change implementation for reads also
    * Might need a unified writer backend to
@@ -211,12 +205,11 @@ int aiow_check(void * recpoint){
 }
 //Not used, since can't update status etc.
 //Using queue-stuff instead
-int aiow_wait_for_write(void * recpoint){
-  struct rec_point * rp = (struct rec_point *) recpoint;
+int aiow_wait_for_write(struct rec_point* rp){
+  //struct rec_point * rp = (struct rec_point *) recpoint;
   struct io_info * ioi = (struct io_info *)rp->iostruct;
   //Needs to be static so ..durr
-  //TODO: Implement timeout
-  static struct timespec timeout = { 0, 100 };
+  static struct timespec timeout = { 0, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
@@ -225,13 +218,14 @@ int aiow_wait_for_write(void * recpoint){
 #endif
   return io_queue_wait(ioi->ctx, NULL);
 }
+/*
 void aiow_write_done(){
 }
-int aiow_close(void * ioinfo, void* ringbuf){
-  struct io_info * ioi = (struct io_info*) ioinfo;
-  struct ringbuf * rbuf = (struct ringbuf *)ringbuf;
+*/
+int aiow_close(struct io_info * ioi, struct ringbuf* rbuf){
   io_destroy(ioi->ctx);
   //free(ioi->iocbpp);
+  //Malloced in this file, so freeing here too
   free(rbuf->buffer);
   free(ioi);
   return 0;

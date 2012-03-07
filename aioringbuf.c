@@ -5,8 +5,9 @@
 #include "aiowriter.h"
 #define HD_WRITE_N_SIZE 2048
 
-void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
+void *rbuf_init(int elem_size, int num_elems){
   //int err;
+  struct ringbuf * rbuf = (struct ringbuf*) malloc(sizeof(struct ringbuf));
   rbuf->num_elems = num_elems;
   rbuf->elem_size = elem_size;
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -17,9 +18,15 @@ void rbuf_init(struct ringbuf * rbuf, int elem_size, int num_elems){
   //rbuf->tail = rbuf->hdwriter_head = rbuf->num_elems;
   rbuf->tail = rbuf->hdwriter_head = 0;
   rbuf->ready_to_write = 1;
+  //TODO: move this here
+  //rbuf->latest_write_num = 0;
+  return rbuf;
 }
-void rbuf_close(struct ringbuf * rbuf){
-  free(rbuf->buffer);
+void rbuf_close(void * rbuf, struct rec_point * rp){
+  //struct ringbuf * rb = (struct ringbuf * )rbuf;
+  aiow_close((struct io_info*)rp->iostruct, (struct ringbuf *)rbuf);
+  //free(rb->buffer);
+  free((struct ringbuf*)rbuf);
 }
 
 //Calling this directly requires, that you know you won't go past a restrictor
@@ -77,6 +84,7 @@ struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void *iovecs){
   }
   return iov;
 }
+/*
 //alias for moving packet writer head
 inline int get_a_packet(struct ringbuf * rbuf){
   if(rbuf->writer_head ==(rbuf->tail-1))
@@ -84,8 +92,14 @@ inline int get_a_packet(struct ringbuf * rbuf){
   else
     return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
 }
-inline void * get_buf_to_write(struct ringbuf *rbuf){
-  return rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
+*/
+void * rbuf_get_buf_to_write(struct ringbuf *rbuf){
+  void *spot;
+  if(!increment(rbuf, &(rbuf->writer_head), &(rbuf->tail)))
+    spot = NULL;
+  else
+    void * spot = rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
+  return spot;
 }
 //alias for scheduling packets for writing
 int dummy_write(struct ringbuf *rbuf){
@@ -98,8 +112,46 @@ int dummy_write(struct ringbuf *rbuf){
   return 1;
 }
 //TODO: Add a field to the rbuf for storing amount of writable blocks
-int rbuf_aio_write(struct ringbuf *rbuf, void * rp, int force){
+int rbuf_aio_write(void *rbuffer, struct rec_point * rp, int force){
   int ret = 0;
+
+  struct ringbuf * rbuf = (struct ringbuf * )rbuffer;
+  //HD writing. Check if job finished. Might also use message passing
+  //in the future
+  if(rbuf.ready_to_write < 1){
+    if ((ret = aiow_check(rp, (void*)rbuf))>0){
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", ret);
+#endif
+      rbuf.ready_to_write += ret;
+    }
+    else if (ret < 0)
+      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", ret);
+  }
+  //No space in buffer. TODO: Wait only waits a static time
+  else if (recv == 0){
+    err = aiow_wait_for_write((void*)spec_ops->rp);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: Woke up\n");
+#endif
+    if(err < 0){
+      perror("Waking from aio-sleep");
+      return err;
+    }
+  }
+  else{
+    err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
+    if(err < 0){
+      perror("UDP_STREAMER: Aiow write error");
+      return err;
+    }
+#ifdef DEBUG_OUTPUT
+    else if (err > 0)
+      fprintf(stdout, "UDP_STREAMER: %d Write request submitted\n", err);
+#endif
+  }
+
+
   int diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
   if(diff > HD_WRITE_N_SIZE || force == FORCE_WRITE){
     //rbuf->ready_to_write = 0;
@@ -115,4 +167,22 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
   increment_amount(rbuf, &(rbuf->tail), written);
   rbuf->ready_to_write = 1;
 }
-
+//Alias for modularizing buffers etc.
+int rbuf_check_hdevents(void * rbuf, void * rp){
+  return aiow_check((struct ringbuf * )rbuf, (struct rec_point * )rp);
+}
+int rbuf_wait(void * rp){
+  return aiow_wait_for_write((struct rec_point * )rp);
+}
+int rbuf_init_rec_entity(struct streamer_entity *se){
+  int ret = 0;
+  se.init_buffer = rbuf_init;
+  se.write = rbuf_aio_write;
+  se.get_writebuf = rbuf_get_buf_to_write;
+  se.wait = rbuf_wait;
+  se.close = rbuf_close;
+  se.opt = se.init_buffer(BUF_ELEM_SIZE, BUF_NUM_ELEMS);
+  if (se.opt == NULL)
+    ret = -1;
+  return ret;
+}

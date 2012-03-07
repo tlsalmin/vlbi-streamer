@@ -16,8 +16,9 @@
 #include <net/if.h>
 #include <poll.h>
 #include <linux/if_packet.h>
+#include "streamer.h"
 
-void * setup_socket(void *opt);
+void * setup_socket(struct opt_s *opt, struct recording_entity *se);
 void * fanout_thread(void *opt);
 void get_stats(void *opt, void *stats);
 int close_fanout(void *opt, void *stats);
