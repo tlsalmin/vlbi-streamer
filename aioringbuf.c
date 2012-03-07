@@ -128,6 +128,7 @@ int rbuf_aio_write(void *rbuffer, struct rec_point * rp, int force){
     else if (ret < 0)
       fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", ret);
   }
+  /*
   //No space in buffer. TODO: Wait only waits a static time
   else if (recv == 0){
     err = aiow_wait_for_write((void*)spec_ops->rp);
@@ -139,6 +140,7 @@ int rbuf_aio_write(void *rbuffer, struct rec_point * rp, int force){
       return err;
     }
   }
+  */
   else{
     err= rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, DONT_FORCE_WRITE);
     if(err < 0){
