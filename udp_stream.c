@@ -237,6 +237,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   spec_ops->total_captured_packets += 1;
   int err;
 
+  //TODO: Somehow need to get away from 
   if (recv == 0){
     err = spec_ops->recer->wait((void*)spec_ops->rp);
 #ifdef DEBUG_OUTPUT
