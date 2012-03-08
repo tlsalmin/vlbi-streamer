@@ -1,6 +1,6 @@
 CC = gcc 
-CFLAGS = -g -O2 -Wall -march=amdfam10 -mabm -msse4a
-#CFLAGS = -g -O2 -Wall
+#CFLAGS = -g -O2 -Wall -march=amdfam10 -mabm -msse4a
+CFLAGS = -g -O2 -Wall
 OBJECTS = fanout.o streamer.o udp_stream.o aioringbuf.o aiowriter.o
 EXEC = streamer
 LIBS= -lpthread -laio

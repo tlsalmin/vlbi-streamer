@@ -1,33 +1,42 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <sys/uio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "aioringbuf.h"
 #include "aiowriter.h"
 #define HD_WRITE_N_SIZE 2048
 
-void *rbuf_init(int elem_size, int num_elems){
-  //int err;
-  struct ringbuf * rbuf = (struct ringbuf*) malloc(sizeof(struct ringbuf));
-  rbuf->num_elems = num_elems;
-  rbuf->elem_size = elem_size;
+int rbuf_init(struct buffer_entity * be, int elem_size, int num_elems){
   //Moved buffer init to writer(Choosable by netreader-thread)
   //TODO: Make custom writer to enable changing of writetech easily
-  //rbuf->buffer = (void*) malloc(rbuf->num_elems*rbuf->elem_size);
-  //err = posix_memalign((void**)&(rbuf->buffer), sysconf(__SC
+  int err;
+  struct ringbuf * rbuf = (struct ringbuf*) malloc(sizeof(struct ringbuf));
+  if(rbuf == NULL)
+    return -1;
+  
+  be->opt = rbuf;
+
+  rbuf->num_elems = num_elems;
+  rbuf->elem_size = elem_size;
   rbuf->writer_head = 0;
-  //rbuf->tail = rbuf->hdwriter_head = rbuf->num_elems;
   rbuf->tail = rbuf->hdwriter_head = 0;
   rbuf->ready_to_write = 1;
-  //TODO: move this here
-  //rbuf->latest_write_num = 0;
-  return rbuf;
+
+  err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
+  if (err < 0 || rbuf->buffer == 0) {
+    perror("make_write_buffer");
+    return -1;
+  }
+
+  return 0;
 }
-int  rbuf_close(struct recording_entity* re){
+int  rbuf_close(struct buffer_entity* be){
   int ret = 0;
   //struct ringbuf * rb = (struct ringbuf * )rbuf;
-  aiow_close(re->rp->iostruct, (struct ringbuf *)re->opt);
+  aiow_close(be->rp->iostruct);
   //free(rb->buffer);
-  free((struct ringbuf*)re->opt);
+  free((struct ringbuf*)be->opt);
   return ret;
 }
 
@@ -95,7 +104,7 @@ inline int get_a_packet(struct ringbuf * rbuf){
     return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
 }
 */
-void * rbuf_get_buf_to_write(struct recording_entity *re){
+void * rbuf_get_buf_to_write(struct buffer_entity *re){
   struct ringbuf * rbuf = (struct ringbuf*) re->opt;
   void *spot;
   if(!increment(rbuf, &(rbuf->writer_head), &(rbuf->tail)))
@@ -123,7 +132,7 @@ inline int write_after_checks(struct ringbuf* rbuf, struct rec_point *rp, int fo
   return ret;
 }
 //TODO: Add a field to the rbuf for storing amount of writable blocks
-int rbuf_aio_write(struct recording_entity *re, int force){
+int rbuf_aio_write(struct buffer_entity *re, int force){
   int ret = 0;
 
   struct ringbuf * rbuf = (struct ringbuf * )re->opt;
@@ -154,21 +163,19 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
   rbuf->ready_to_write = 1;
 }
 //Alias for modularizing buffers etc.
-int rbuf_check_hdevents(struct recording_entity * re);
+int rbuf_check_hdevents(struct buffer_entity * re){
   return aiow_check(re->rp, (struct ringbuf*)re->opt);
 }
-int rbuf_wait(struct recording_entity * re){
+int rbuf_wait(struct buffer_entity * re){
   return aiow_wait_for_write(re->rp);
 }
-int rbuf_init_rec_entity(struct recording_entity *se){
+int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *se){
   int ret = 0;
-  se->init_buffer = rbuf_init;
+  se->init = rbuf_init;
   se->write = rbuf_aio_write;
   se->get_writebuf = rbuf_get_buf_to_write;
   se->wait = rbuf_wait;
   se->close = rbuf_close;
-  se->opt = se->init_buffer(BUF_ELEM_SIZE, BUF_NUM_ELEMS);
-  if (se->opt == NULL)
-    ret = -1;
+  ret = se->init(se, opt->buf_elem_size, opt->buf_num_elems);
   return ret;
 }

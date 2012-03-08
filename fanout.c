@@ -68,7 +68,7 @@ struct opts
   unsigned int total_captured_packets;
 };
 
-void * setup_socket(struct opt_s* opt, struct recording_entity* se)
+void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
 {
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
@@ -137,6 +137,8 @@ void * setup_socket(struct opt_s* opt, struct recording_entity* se)
 
 #ifdef THREADED
   //Set the fanout option
+  //TODO: Check if we can create the socket just once and then only set this
+  //per thread
   spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (spec_ops->fanout_type << 16));
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_FANOUT,
       &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));

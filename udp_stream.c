@@ -3,9 +3,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-//Moved to streamer.h TODO: Make choosable
-//#define BUF_ELEM_SIZE 8192
-//#define BUF_NUM_ELEMS 8192
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -47,15 +44,16 @@ struct opts
 {
   int fd;
   int fanout_arg;
-  char* filename;
   char* device_name;
   int root_pid;
   int time;
   int port;
-  //Moved to recording_entity
+  //Moved to buffer_entity
   //void * rbuf;
   //struct rec_point * rp;
-  struct recording_entity * recer;
+  struct buffer_entity * recer;
+  //Duplicate here, but meh
+  int buf_elem_size;
 
   //Moved to main init
   /*
@@ -71,39 +69,22 @@ struct opts
   unsigned long int total_captured_packets;
 };
 
-void * setup_udp_socket(struct opt_s * opt, struct recording_entity * se)
+void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 {
   int err;
   //struct opt_s *opt = (struct opt_s *)options;
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
-  spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
   spec_ops->recer = se;
+  spec_ops->buf_elem_size = opt->buf_elem_size;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 #endif
-  //Init the buffer and assign functions to use
-  //Moved to recer
-  //rbuf_init(&(spec_ops->rbuf), BUF_ELEM_SIZE, BUF_NUM_ELEMS);
 
-  //TODO: just pass the recpoint here
-  /*
-  for(i=0;i<opt->n_threads;i++){
-    if(!opt->points[i].taken){
-
-      opt->points[i].taken = 1;
-      spec_ops->rp = &(opt->points[i]);
-    }
-  }
-  */
-
-      //TODO: Move all of this to to streamer.c
-  //spec_ops->fanout_type = opt->fanout_type;
   spec_ops->port = opt->port;
-  //int buflength;
 
   //If socket ready, just set it
   if(!opt->socket == 0){
@@ -240,7 +221,7 @@ void* udp_streamer(void *opt)
     if((buf = spec_ops->recer->get_writebuf(spec_ops->recer)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help
-      err = read(spec_ops->fd, buf, BUF_ELEM_SIZE);
+      err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
     }
     //If write buffer is full
     else{

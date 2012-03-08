@@ -6,7 +6,7 @@
 #include <linux/if_packet.h>
 #include "streamer.h"
 
-void * setup_udp_socket(struct opt_s *opt, struct recording_entity * re);
+void * setup_udp_socket(struct opt_s *opt, struct buffer_entity * re);
 void * udp_streamer(void *opt);
 void get_udp_stats(void *opt, void *stats);
 int close_udp_streamer(void *opt,void *stats);

@@ -21,7 +21,16 @@
 #define TIMEOUT_T 100
 struct io_info{
   io_context_t ctx;
-  struct rec_point * rp;
+  char *filename;
+  int fd;
+  int taken;
+  long long offset;
+  void * iostruct;
+  unsigned long bytes_written;
+  int latest_write_num;
+  int f_flags;
+  loff_t fallocate;
+  //struct rec_point * rp;
 };
 
 //TODO: Error handling
@@ -30,6 +39,8 @@ struct io_info{
 static void io_error(const char *func, int rc)
 {
     fprintf(stderr, "%s: error %d", func, rc);
+}
+int init_recpoint(struct rec_point *rp, struct opt_s *opt){
 }
 
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
@@ -44,26 +55,68 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   free(iocb);
 }
 
-int aiow_init(void * ringbuf, void * recpoint){
-  struct ringbuf * rbuf = (struct ringbuf *)ringbuf;
-  struct rec_point * rp = (struct rec_point *)recpoint;
+int aiow_init(struct recording_entity *re){
   int ret;
-  void * errpoint;
-  rp->latest_write_num = 0;
+  //void * errpoint;
+  re->opt = (void*)malloc(sizeof(struct io_info));
+  struct io_info * ioi = (struct io_info *) re->opt;
+  struct stat statinfo;
+  int err =0;
+
+  ioi->latest_write_num = 0;
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Initializing write point\n");
+#endif
+  //Check if file exists
+  ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+  err = stat(ioi->filename, &statinfo);
+  if (err < 0) 
+    if (errno == ENOENT){
+      ioi->f_flags |= O_CREAT;
+      err = 0;
+    }
+
+
+  //This will overwrite existing file.TODO: Check what is the desired default behaviour 
+  ioi->fd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+  if(ioi->fd == -1){
+    fprintf(stderr,"Error %s on %s\n",strerror(errno), ioi->filename);
+    return -1;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: File opened\n");
+#endif
+  //TODO: Set offset accordingly if file already exists. Not sure if
+  //needed, since data consistency would take a hit anyway
+  ioi->offset = 0;
+  //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
+  //for s seconds.
+  loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+  //Split kb/gb stuff to avoid overflow warning
+  prealloc_bytes = prealloc_bytes*1024*1024;
+  //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
+  err = fallocate(rp->fd, 0,0, prealloc_bytes);
+  if(err == -1){
+    fprintf(stderr, "Fallocate failed on %s", rp->filename);
+    return err;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: File preallocated\n");
+#endif
+  //Uses AIOWRITER atm. TODO: Make really generic, so you can change the backends
+  //aiow_init((void*)&(spec_ops->rbuf), (void*)spec_ops->rp);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: AIOW initialized\n");
+#endif
+  return err;
 
   rp->bytes_written = 0;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Memaligning buffer\n");
 #endif
-  ret = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
-  if (ret < 0 || rbuf->buffer == 0) {
-    perror("make_write_buffer");
-    return -1;
-  }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Preparing iostructs\n");
 #endif
-  //TODO: Written on friday. Check if easier way
   rp->iostruct = (void*)malloc(sizeof(struct io_info));
   if(rp->iostruct == NULL){
     perror("io_struct malloc");
@@ -83,16 +136,8 @@ int aiow_init(void * ringbuf, void * recpoint){
     perror("IO_QUEUE_INIT");
     return -1;
   }
-  //NOTE: Don't have to initialize iocb further
-  //allocated and used in write
-  //ioi->iocbpp = (struct iocb *) malloc(sizeof(struct iocb));
-  //Copy file descriptor
-  //ioi->iocbpp->aio_fildes = rp->fd;
-  //Use this in write
-  //io_prep_write(ioi->iocbpp, rp->fd, rbuf->buffer, rbuf->num_elems*rbuf->elem_size, 0);
-  return 0;
+  return ret;
 }
-//TODO
 int aiow_write(void * ringbuf, void * recpoint, int diff){
   int ret, i;
 #ifdef DEBUG_OUTPUT
@@ -228,12 +273,15 @@ int aiow_wait_for_write(struct rec_point* rp){
 void aiow_write_done(){
 }
 */
-int aiow_close(void * ioinfo, struct ringbuf* rbuf){
+int aiow_close(void * ioinfo){
   struct io_info * ioi = (struct io_info*)ioinfo;
   io_destroy(ioi->ctx);
   //free(ioi->iocbpp);
   //Malloced in this file, so freeing here too
-  free(rbuf->buffer);
+  //free(rbuf->buffer);
   free(ioi);
   return 0;
+}
+int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
+  //TODO
 }
