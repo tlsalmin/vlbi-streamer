@@ -28,12 +28,8 @@ struct io_info{
   char *filename;
   int fd;
   long long offset;
-  //void * iostruct;
   unsigned long bytes_written;
-  //int latest_write_num;
   int f_flags;
-  //loff_t fallocate;
-  //struct rec_point * rp;
 };
 
 //TODO: Error handling
@@ -43,10 +39,6 @@ static void io_error(const char *func, int rc)
 {
     fprintf(stderr, "%s: error %d", func, rc);
 }
-/*
-int init_recpoint(struct rec_point *rp, struct opt_s *opt){
-}
-*/
 
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   if(res2 != 0)
@@ -173,21 +165,13 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   return ret;
 }
 int aiow_check(struct recording_entity * re){
-  //struct rec_point * rp = (struct rec_point*) rep;
-  //struct ringbuf * rb = (struct ringbuf *)rib;
   //Just poll, so we can keep receiving more packets
-  //struct io_info * ioi = (struct io_info *)rp->iostruct;
   struct io_info * ioi = (struct io_info *)re->opt;
   static struct timespec timeout = { 0, 0 };
   struct io_event event;
   int ret = io_getevents(*(ioi->ctx), 0, 1, &event, &timeout);
   //
   if(ret > 0){
-    /*
-       if(re->latest_write_num > 0){
-       rp->latest_write_num = 0;
-       }
-       */
     ioi->bytes_written += event.res;
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "AIOW: Check return %d\n", ret);
@@ -205,6 +189,7 @@ int aiow_check(struct recording_entity * re){
 }
 //Not used, since can't update status etc.
 //Using queue-stuff instead
+//TODO: Make proper sleep. io_queue_wait doesn't work
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
   struct io_info * ioi = (struct io_info *)re->opt;
@@ -220,18 +205,13 @@ int aiow_wait_for_write(struct recording_entity* re){
   //return io_queue_wait(*(ioi->ctx), &timeout);
   return usleep(100);
 }
-/*
-   void aiow_write_done(){
-   }
-   */
 int aiow_close(struct recording_entity * re, void * stats){
   struct io_info * ioi = (struct io_info*)re->opt;
   close(ioi->fd);
   io_destroy(*(ioi->ctx));
 
   ioi->ctx = NULL;
-  //free(ioi->filename);
-  ioi->filename = NULL;
+  free(ioi->filename);
 
   struct stats* stat = (struct stats*)stats;
   stat->total_written += ioi->bytes_written;

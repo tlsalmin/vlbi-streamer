@@ -5,11 +5,10 @@
 #include <unistd.h>
 #include "aioringbuf.h"
 //#include "aiowriter.h"
-#define HD_WRITE_N_SIZE 2048
+#define HD_WRITE_N_SIZE 128
 
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
-  //TODO: Make custom writer to enable changing of writetech easily
   int err;
   struct ringbuf * rbuf = (struct ringbuf*) malloc(sizeof(struct ringbuf));
   if(rbuf == NULL)
@@ -38,9 +37,6 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 int  rbuf_close(struct buffer_entity* be, void *stats){
 //TODO: error handling
   int ret = 0;
-  //struct ringbuf * rb = (struct ringbuf * )rbuf;
-  //aiow_close(be->rp->iostruct);
-  //free(rb->buffer);
   be->recer->close(be->recer, stats);
   free(((struct ringbuf *)be->opt)->buffer);
   free((struct ringbuf*)be->opt);
@@ -69,7 +65,6 @@ int diff_max(int a , int b, int max){
     return b-a;
 }
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
-  //if(diff_max(*head, *restrainer, rbuf->num_elems-1) == 0){
   if(*head == (*restrainer-1)){
     return 0;
   }
@@ -78,43 +73,6 @@ int increment(struct ringbuf * rbuf, int *head, int *restrainer){
     return 1;
   }
 }
-//Not used
-struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void *iovecs){
-
-  //If we need to scatter
-  if(rbuf->hdwriter_head > rbuf->writer_head && rbuf->writer_head > 1)
-    *count = 2;
-  else 
-    *count = 1;
-  
-  struct iovec * iov = (struct iovec * )iovecs;
-
-  //NOTE: Buffer diffs checked already when calling 
-  //this func
-  iov[0].iov_base = rbuf->buffer + (rbuf->elem_size*rbuf->writer_head);
-  //If we haven't gone past the buffer end
-  if(rbuf->writer_head > rbuf->writer_head){
-    iov[0].iov_len = rbuf->elem_size * (rbuf->writer_head - rbuf->hdwriter_head);
-  }
-  else
-  {
-    iov[0].iov_len = rbuf->elem_size * (rbuf->num_elems - rbuf->hdwriter_head);
-    if(rbuf->writer_head > 1){
-      iov[1].iov_base = rbuf->buffer; 
-      iov[1].iov_len = rbuf->elem_size * rbuf->writer_head;
-    }
-  }
-  return iov;
-}
-/*
-//alias for moving packet writer head
-inline int get_a_packet(struct ringbuf * rbuf){
-  if(rbuf->writer_head ==(rbuf->tail-1))
-    return 0;
-  else
-    return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
-}
-*/
 void * rbuf_get_buf_to_write(struct buffer_entity *be){
   struct ringbuf * rbuf = (struct ringbuf*) be->opt;
   void *spot;
@@ -140,11 +98,6 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
   //TODO: Move this diff to a single int for faster processing
   diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
 
-  /*
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Trying write for diff %d force is %d\n", diff_final, force);
-#endif
-*/
   if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
     int diff = diff_final;
     int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
@@ -188,11 +141,8 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
 
   //HD writing. Check if job finished. Might also use message passing
   //in the future
-  if(rbuf->ready_to_write >= 1 || force){
-    ret = write_after_checks(rbuf, be->recer, force);
-  }
-  else{
-    if ((ret = be->recer->check(be->recer))>0){
+  if(!(rbuf->ready_to_write >= 1 || force)){
+    while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_write+ret);
 #endif
@@ -203,11 +153,14 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
       }
 
     }
-    else if (ret < 0)
-      fprintf(stderr, "RINGBUF: RINGBUF check returned error %d", ret);
+    /*
+       else if (ret < 0)
+       fprintf(stderr, "RINGBUF: RINGBUF check returned error %d", ret);
+       */
   }
-  //Wait handled in the receiver
-  //Return not used yet, but saved for error handling
+  else{
+    ret = write_after_checks(rbuf, be->recer, force);
+  }
   return ret;
 }
 //alias for completiong from asynchronous write
@@ -216,12 +169,6 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
   increment_amount(rbuf, &(rbuf->tail), written);
   rbuf->ready_to_write = 1;
 }
-/*
-//Alias for modularizing buffers etc.
-int rbuf_check_hdevents(struct buffer_entity * be){
-  return be->recer->check(be->recer);
-}
-*/
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
@@ -231,6 +178,6 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->get_writebuf = rbuf_get_buf_to_write;
   be->wait = rbuf_wait;
   be->close = rbuf_close;
-  
+
   return be->init(opt,be); 
 }

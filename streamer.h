@@ -5,28 +5,12 @@
 #define WRITER_TODO 1
 #define REC_AIO 0
 #define REC_TODO 1
-#define BUF_ELEM_SIZE 8192
-#define BUF_NUM_ELEMS 65535
+#define BUF_ELEM_SIZE 32033
+#define BUF_NUM_ELEMS 8192
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
-//#define MAX_FILENAME 64
-
 #define DEBUG_OUTPUT
-/*
-struct rec_point
-{
-  char *filename;
-  int fd;
-  int taken;
-  long long offset;
-  void * iostruct;
-  unsigned long bytes_written;
-  int latest_write_num;
-  //int (*init)(void*);
-  //int (*write)(void*);
-};
-*/
 struct opt_s
 {
   char *filename;

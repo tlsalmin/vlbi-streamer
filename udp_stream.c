@@ -38,7 +38,7 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
-#define DO_W_STUFF_EVERY 64
+#define DO_W_STUFF_EVERY 8
 
 //Gatherer specific options
 struct opts
@@ -187,13 +187,11 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
 }
 //TODO: Implement as generic function on aioringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
-  /*
-  int ret = rbuf_aio_write(&(spec_ops->rbuf), spec_ops->rp, FORCE_WRITE);
-  aiow_wait_for_write((void*)spec_ops->rp);
-  while(ret >0)
-    ret -= (aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)));
-    */
   spec_ops->be->write(spec_ops->be, 1);
+  sleep(1);
+  //Max two writes so check em'
+  spec_ops->be->write(spec_ops->be,0);
+  spec_ops->be->write(spec_ops->be,0);
 }
 
 void* udp_streamer(void *opt)
@@ -224,10 +222,9 @@ void* udp_streamer(void *opt)
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
       if(err < 0){
 	fprintf(stdout, "RECV error");
-	//TODO: Handle error
 	break;
       }
-      spec_ops->total_captured_bytes +=(unsigned int) recv;
+      spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets += 1;
     }
     //If write buffer is full
@@ -256,14 +253,11 @@ void* udp_streamer(void *opt)
   pthread_exit(NULL);
 }
 void get_udp_stats(struct opts *spec_ops, void *stats){
-  //struct opts *spec_ops = (struct opts *)opt;
   struct stats *stat = (struct stats * ) stats;
   stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
-  //Move to the writer side
-  //stat->total_written += spec_ops->be->rp->bytes_written;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
@@ -275,10 +269,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-  //rbuf_close(&(spec_ops->rbuf));
   spec_ops->be->close(spec_ops->be, stats);
-  //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
-  //free(spec_ops->rp);
   free(spec_ops);
   return 0;
 }

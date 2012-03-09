@@ -172,14 +172,6 @@ int main(int argc, char **argv)
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
 #endif
-  //for(j = 0;j<6;j++)
-  //CPU_SET(j,&cpuset);
-  //device_name = argv[1];
-  //fanout_id = getpid() & 0xffff;
-
-  //pthread_attr_init(&attr);
-  //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-  //Init all threads
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif
@@ -188,15 +180,6 @@ int main(int argc, char **argv)
     struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
 
-    //Init record points
-    /*
-    err = init_recpoint(&(opt.points[i]), &opt);
-    if(err < 0){
-      fprintf(stderr, "Error in recpoint init\n");
-      exit(-1);
-    }
-    be->rp = &(opt.points[i]);
-    */
     switch(opt.rec_type){
       case REC_AIO:
 	err = aiow_init_rec_entity(&opt, re);
@@ -282,15 +265,11 @@ int main(int argc, char **argv)
   }
 
   init_stat(&stats);
-  //sleep(opt.time);
   for (i = 0; i < opt.n_threads; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
-      //exit(-1);
     }
-    //get_stats(threads[i].opt, &stats);
-    //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
@@ -302,11 +281,6 @@ int main(int argc, char **argv)
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif
-  //Done in writer!
-  /*
-  for(i=0;i<opt.n_threads;i++)
-    free(opt.filenames[i]);
-    */
   print_stats(&stats, &opt);
 
   //return 0;
