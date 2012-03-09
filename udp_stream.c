@@ -38,6 +38,7 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
+#define DO_W_STUFF_EVERY 64
 
 //Gatherer specific options
 struct opts
@@ -51,7 +52,7 @@ struct opts
   //Moved to buffer_entity
   //void * rbuf;
   //struct rec_point * rp;
-  struct buffer_entity * recer;
+  struct buffer_entity * be;
   //Duplicate here, but meh
   int buf_elem_size;
 
@@ -77,7 +78,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->device_name = opt->device_name;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
-  spec_ops->recer = se;
+  spec_ops->be = se;
   spec_ops->buf_elem_size = opt->buf_elem_size;
 
 #ifdef DEBUG_OUTPUT
@@ -167,12 +168,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   return spec_ops;
 }
 int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
-  spec_ops->total_captured_bytes +=(unsigned int) recv;
-  spec_ops->total_captured_packets += 1;
   int err;
 
   if (recv == 0){
-    err = spec_ops->recer->wait((void*)spec_ops->recer);
+    err = spec_ops->be->wait((void*)spec_ops->be);
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Woke up\n");
 #endif
@@ -182,7 +181,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
     }
   }
   else
-    err = spec_ops->recer->write(spec_ops->recer, 0);
+    err = spec_ops->be->write(spec_ops->be, 0);
 
   return err;
 }
@@ -194,11 +193,13 @@ void flush_writes(struct opts *spec_ops){
   while(ret >0)
     ret -= (aiow_check((void*)spec_ops->rp, (void*)&(spec_ops->rbuf)));
     */
-  spec_ops->recer->write(spec_ops->recer, 1);
+  spec_ops->be->write(spec_ops->be, 1);
 }
 
 void* udp_streamer(void *opt)
 {
+  int err = 0;
+  int i=0;
   struct opts *spec_ops = (struct opts *)opt;
   time_t t_start;
   double time_left=0;
@@ -215,13 +216,19 @@ void* udp_streamer(void *opt)
   time(&t_start);
 
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
-    int err = 0;
     void * buf;
 
-    if((buf = spec_ops->recer->get_writebuf(spec_ops->recer)) != NULL){
+    if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+      if(err < 0){
+	fprintf(stdout, "RECV error");
+	//TODO: Handle error
+	break;
+      }
+      spec_ops->total_captured_bytes +=(unsigned int) recv;
+      spec_ops->total_captured_packets += 1;
     }
     //If write buffer is full
     else{
@@ -231,20 +238,20 @@ void* udp_streamer(void *opt)
 #endif
     }
 
+
+    //TODO: Handle packets at maybe every 10 packets or so
+    i++;
+    if(i%DO_W_STUFF_EVERY == 0 || err == 0)
+      err = handle_packets_udp(err, spec_ops, time_left);
+
     if(err < 0){
-      fprintf(stdout, "RECV error");
-      //TODO: Handle error
+      fprintf(stderr, "UDP_STREAMER: Packet handling failed\n");
       break;
     }
 
-    //TODO: Handle packets at maybe every 10 packets or so
-    err = handle_packets_udp(err, spec_ops, time_left);
-
-    if(err < 0)
-      break;
-
   }
-  flush_writes(spec_ops);
+  if(err >= 0)
+    flush_writes(spec_ops);
 
   pthread_exit(NULL);
 }
@@ -255,7 +262,8 @@ void get_udp_stats(struct opts *spec_ops, void *stats){
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->total_packets += spec_ops->dropped;
-  stat->total_written += spec_ops->recer->rp->bytes_written;
+  //Move to the writer side
+  //stat->total_written += spec_ops->be->rp->bytes_written;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
@@ -264,8 +272,11 @@ int close_udp_streamer(void *opt_own, void *stats){
   close(spec_ops->fd);
   //close(spec_ops->rp->fd);
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Closed\n");
+#endif
   //rbuf_close(&(spec_ops->rbuf));
-  spec_ops->recer->close(spec_ops->recer);
+  spec_ops->be->close(spec_ops->be, stats);
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
   //free(spec_ops->rp);
   free(spec_ops);

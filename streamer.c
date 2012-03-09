@@ -1,16 +1,18 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
 #include "aioringbuf.h"
+#include "aiowriter.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
@@ -71,6 +73,7 @@ static void parse_options(int argc, char **argv){
   //TODO: Add option for choosing backend
   opt.buf_type = WRITER_AIOW_RBUF;
   opt.rec_type= REC_AIO;
+  opt.taken_rpoints = 0;
   opt.socket = 0;
   for(;;){
     ret = getopt(argc, argv, "i:t:a:s:n:");
@@ -182,8 +185,8 @@ int main(int argc, char **argv)
 #endif
   for(i=0;i<opt.n_threads;i++){
     int err = 0;
-    struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct streamer_entity));
-    struct recording_entity * re = (struct buffer_entity*)malloc(sizeof(struct recording_entity));
+    struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
+    struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
 
     //Init record points
     /*
@@ -214,7 +217,7 @@ int main(int argc, char **argv)
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
 #ifdef DEBUG_OUTPUT
-	fprintf(stderr, "Initialized buffer for %d\n", i);
+	fprintf(stderr, "Initialized buffer for thread %d\n", i);
 #endif
 	break;
       case WRITER_TODO:
@@ -282,20 +285,31 @@ int main(int argc, char **argv)
   //sleep(opt.time);
   for (i = 0; i < opt.n_threads; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
-    if (rc) {
+    if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
-      exit(-1);
+      //exit(-1);
     }
     //get_stats(threads[i].opt, &stats);
     //printf("Main: completed join with thread %ld having a status of %ld\n",t,(long)status);
   }
-  //Close all threads
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
+#endif
+  //Close all threads. Buffers and writers are closed in the threads close
   for(i=0;i<opt.n_threads;i++){
     threads[i].close(threads[i].opt, &stats);
   }
-  free(opt.points);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Threads closed\n");
+#endif
+  //Done in writer!
+  /*
+  for(i=0;i<opt.n_threads;i++)
+    free(opt.filenames[i]);
+    */
   print_stats(&stats, &opt);
 
   //return 0;
-  pthread_exit(NULL);
+  //pthread_exit(NULL);
+  exit(0);
 }

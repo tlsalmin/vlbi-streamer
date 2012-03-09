@@ -6,9 +6,9 @@
 #define REC_AIO 0
 #define REC_TODO 1
 #define BUF_ELEM_SIZE 8192
-#define BUF_NUM_ELEMS 8192
-#define FORCE_WRITE 0
-#define DONT_FORCE_WRITE 1
+#define BUF_NUM_ELEMS 65535
+#define FORCE_WRITE 1
+#define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
 //#define MAX_FILENAME 64
 
@@ -44,28 +44,29 @@ struct opt_s
   int rec_type;
   int buf_elem_size;
   int buf_num_elems;
+  int taken_rpoints;
   //int f_flags;
 };
 struct buffer_entity
 {
   void * opt;
   //Functions for usage in modularized infrastructure
-  void* (*init)(struct opt_s opt, struct buffer_entity*);
+  int (*init)(struct opt_s* , struct buffer_entity*);
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
-  int (*close)(struct buffer_entity*);
+  int (*close)(struct buffer_entity*,void * );
   struct recording_entity * recer;
   //struct rec_point * rp;
 };
 struct recording_entity
 {
   void * opt;
-  void* (*init)(struct opt_s * , struct recording_entity*);
-  int (*write)(struct recording_entity*,int);
+  int (*init)(struct opt_s * , struct recording_entity*);
+  int (*write)(struct recording_entity*,void*,size_t);
   int (*wait)(struct recording_entity *);
-  int (*close)(struct recording_entity*);
-  int (*get_last_write)(struct recording_entity*);
+  int (*close)(struct recording_entity*, void *);
+  int (*check)(struct recording_entity*);
 };
 
 //Generic struct for a streamer entity

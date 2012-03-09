@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "aioringbuf.h"
-#include "aiowriter.h"
+//#include "aiowriter.h"
 #define HD_WRITE_N_SIZE 2048
 
-int rbuf_init(struct buffer_entity * be, int elem_size, int num_elems){
+int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   //TODO: Make custom writer to enable changing of writetech easily
   int err;
@@ -17,12 +17,16 @@ int rbuf_init(struct buffer_entity * be, int elem_size, int num_elems){
   
   be->opt = rbuf;
 
-  rbuf->num_elems = num_elems;
-  rbuf->elem_size = elem_size;
+  rbuf->num_elems = opt->buf_num_elems;
+  rbuf->elem_size = opt->buf_elem_size;
   rbuf->writer_head = 0;
   rbuf->tail = rbuf->hdwriter_head = 0;
   rbuf->ready_to_write = 1;
+  rbuf->last_write_i = 0;
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "RINGBUF: Memaligning buffer\n");
+#endif
   err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
   if (err < 0 || rbuf->buffer == 0) {
     perror("make_write_buffer");
@@ -31,12 +35,18 @@ int rbuf_init(struct buffer_entity * be, int elem_size, int num_elems){
 
   return 0;
 }
-int  rbuf_close(struct buffer_entity* be){
+int  rbuf_close(struct buffer_entity* be, void *stats){
+//TODO: error handling
   int ret = 0;
   //struct ringbuf * rb = (struct ringbuf * )rbuf;
-  aiow_close(be->rp->iostruct);
+  //aiow_close(be->rp->iostruct);
   //free(rb->buffer);
+  be->recer->close(be->recer, stats);
+  free(((struct ringbuf *)be->opt)->buffer);
   free((struct ringbuf*)be->opt);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "RINGBUF: Buffer closed\n");
+#endif
   return ret;
 }
 
@@ -68,6 +78,7 @@ int increment(struct ringbuf * rbuf, int *head, int *restrainer){
     return 1;
   }
 }
+//Not used
 struct iovec * gen_iov(struct ringbuf *rbuf, int * count, void *iovecs){
 
   //If we need to scatter
@@ -104,8 +115,8 @@ inline int get_a_packet(struct ringbuf * rbuf){
     return increment(rbuf, &(rbuf->writer_head), &(rbuf->tail));
 }
 */
-void * rbuf_get_buf_to_write(struct buffer_entity *re){
-  struct ringbuf * rbuf = (struct ringbuf*) re->opt;
+void * rbuf_get_buf_to_write(struct buffer_entity *be){
+  struct ringbuf * rbuf = (struct ringbuf*) be->opt;
   void *spot;
   if(!increment(rbuf, &(rbuf->writer_head), &(rbuf->tail)))
     spot = NULL;
@@ -123,34 +134,77 @@ int dummy_write(struct ringbuf *rbuf){
   dummy_return_from_write(rbuf);
   return 1;
 }
-inline int write_after_checks(struct ringbuf* rbuf, struct rec_point *rp, int force){
-  int ret=0,diff = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
-  if(diff > HD_WRITE_N_SIZE || force == FORCE_WRITE){
-    ret = aiow_write((void*) rbuf, rp, diff);
-    increment_amount(rbuf, &(rbuf->hdwriter_head), diff);
+inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re, int force){
+  int ret=0,i, diff_final;
+
+  //TODO: Move this diff to a single int for faster processing
+  diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+
+  /*
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Trying write for diff %d force is %d\n", diff_final, force);
+#endif
+*/
+  if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
+    int diff = diff_final;
+    int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
+    rbuf->ready_to_write -= requests;
+    for(i=0;i<requests;i++){
+      void * start;
+      size_t count;
+      int endi;
+      if(i == 0){
+	start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
+	if(requests ==2){
+	  endi = rbuf->num_elems - rbuf->hdwriter_head;
+	  diff -= endi;
+	}
+	else
+	  endi = diff;
+      }
+      else{
+	start = rbuf->buffer;
+	endi = diff;
+      }
+      count = (endi) * (rbuf->elem_size);
+
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems);
+#endif
+      ret = re->write(re, start, count);
+      if(ret<0)
+	return ret;
+      increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+    }
+    rbuf->last_write_i = diff_final;
   }
   return ret;
 }
 //TODO: Add a field to the rbuf for storing amount of writable blocks
-int rbuf_aio_write(struct buffer_entity *re, int force){
+int rbuf_aio_write(struct buffer_entity *be, int force){
   int ret = 0;
 
-  struct ringbuf * rbuf = (struct ringbuf * )re->opt;
+  struct ringbuf * rbuf = (struct ringbuf * )be->opt;
 
   //HD writing. Check if job finished. Might also use message passing
   //in the future
   if(rbuf->ready_to_write >= 1 || force){
-    ret = write_after_checks(rbuf, re->rp, force);
+    ret = write_after_checks(rbuf, be->recer, force);
   }
   else{
-    if ((ret = aiow_check(re->rp, (void*)rbuf))>0){
+    if ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: %d Writes complete. Cleared write block\n", ret);
+      fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_write+ret);
 #endif
       rbuf->ready_to_write += ret;
+      if(rbuf->last_write_i > 0){
+	increment_amount(rbuf, &(rbuf->tail), rbuf->last_write_i);
+	rbuf->last_write_i = 0;
+      }
+
     }
     else if (ret < 0)
-      fprintf(stderr, "UDP_STREAMER: AIOW check returned error %d", ret);
+      fprintf(stderr, "RINGBUF: RINGBUF check returned error %d", ret);
   }
   //Wait handled in the receiver
   //Return not used yet, but saved for error handling
@@ -162,20 +216,21 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
   increment_amount(rbuf, &(rbuf->tail), written);
   rbuf->ready_to_write = 1;
 }
+/*
 //Alias for modularizing buffers etc.
-int rbuf_check_hdevents(struct buffer_entity * re){
-  return aiow_check(re->rp, (struct ringbuf*)re->opt);
+int rbuf_check_hdevents(struct buffer_entity * be){
+  return be->recer->check(be->recer);
 }
-int rbuf_wait(struct buffer_entity * re){
-  return aiow_wait_for_write(re->rp);
+*/
+int rbuf_wait(struct buffer_entity * be){
+  return be->recer->wait(be->recer);
 }
-int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *se){
-  int ret = 0;
-  se->init = rbuf_init;
-  se->write = rbuf_aio_write;
-  se->get_writebuf = rbuf_get_buf_to_write;
-  se->wait = rbuf_wait;
-  se->close = rbuf_close;
-  ret = se->init(se, opt->buf_elem_size, opt->buf_num_elems);
-  return ret;
+int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
+  be->init = rbuf_init;
+  be->write = rbuf_aio_write;
+  be->get_writebuf = rbuf_get_buf_to_write;
+  be->wait = rbuf_wait;
+  be->close = rbuf_close;
+  
+  return be->init(opt,be); 
 }
