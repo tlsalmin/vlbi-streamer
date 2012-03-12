@@ -208,6 +208,15 @@ int aiow_wait_for_write(struct recording_entity* re){
 }
 int aiow_close(struct recording_entity * re, void * stats){
   struct io_info * ioi = (struct io_info*)re->opt;
+
+  struct stats* stat = (struct stats*)stats;
+  stat->total_written += ioi->bytes_written;
+  char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
+  sprintf(indexfile, "%s%s", ioi->filename, ".index");
+  int statfd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+
+  close(statfd);
+
   //Shrink to size we received
   ftruncate(ioi->fd, ioi->bytes_written);
   close(ioi->fd);
@@ -216,8 +225,6 @@ int aiow_close(struct recording_entity * re, void * stats){
   ioi->ctx = NULL;
   free(ioi->filename);
 
-  struct stats* stat = (struct stats*)stats;
-  stat->total_written += ioi->bytes_written;
 
   free(ioi);
 #ifdef DEBUG_OUTPUT

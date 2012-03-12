@@ -10,6 +10,7 @@
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
+#define BYTES_PER_ENTRY 2
 #define DEBUG_OUTPUT
 #include <pthread.h>
 struct opt_s
@@ -25,6 +26,8 @@ struct opt_s
   int port;
   int socket;
   int n_threads;
+  void * packet_index;
+  unsigned long max_num_packets;
   //struct rec_point * points;
   char * filenames[MAX_OPEN_FILES];
   int buf_type;
@@ -72,6 +75,8 @@ struct stats
   unsigned long total_written;
   unsigned long incomplete;
   unsigned long dropped;
+  //Cheating here to keep infra constitent
+  int * packet_index;
   //unsigned long total_packets;
 };
 #endif

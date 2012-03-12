@@ -23,7 +23,6 @@
 #include <pthread.h>
 
 #include <unistd.h>
-#include <mqueue.h>
 
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -50,10 +49,12 @@ struct opts
   int root_pid;
   int time;
   int port;
+  unsigned long max_num_packets;
+  //void * packet_index;
   long unsigned int * cumul;
   pthread_mutex_t * cumlock;
-  mqd_t mq;
-  int id;
+  int* packet_index;
+  //int id;
   //Moved to buffer_entity
   //void * rbuf;
   //struct rec_point * rp;
@@ -72,7 +73,7 @@ struct opts
   unsigned long int total_captured_bytes;
   unsigned long int incomplete;
   unsigned long int dropped;
-  //unsigned long int total_captured_packets;
+  unsigned long int total_captured_packets;
 };
 
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
@@ -85,10 +86,12 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->time = opt->time;
   spec_ops->be = se;
   spec_ops->buf_elem_size = opt->buf_elem_size;
-  spec_ops->mq = mq_open(opt->filename, 0);
-  spec_ops->id = opt->tid++;
+  //spec_ops->id = opt->tid++;
   spec_ops->cumul = &(opt->cumul);
   spec_ops->cumlock = &(opt->cumlock);
+  spec_ops->max_num_packets = opt->max_num_packets;
+  spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
+  //spec_ops->packet_index = opt->packet_index;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
@@ -211,7 +214,7 @@ void* udp_streamer(void *opt)
   time_t t_start;
   double time_left=0;
   spec_ops->total_captured_bytes = 0;
-  //spec_ops->total_captured_packets = 0;
+  spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
@@ -224,6 +227,7 @@ void* udp_streamer(void *opt)
 
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     void * buf;
+    long unsigned int nth_package;
 
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
@@ -233,15 +237,21 @@ void* udp_streamer(void *opt)
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+      nth_package = *(spec_ops->cumul);
       *(spec_ops->cumul) += 1;
       pthread_mutex_unlock(spec_ops->cumlock);
+
+      if(nth_package < spec_ops->max_num_packets){
+	int  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
+	*daspot = nth_package;
+      }
 
       if(err < 0){
 	fprintf(stdout, "RECV error");
 	break;
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
-      //spec_ops->total_captured_packets += 1;
+      spec_ops->total_captured_packets += 1;
     }
     //If write buffer is full
     else{
@@ -285,7 +295,10 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
+  stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
+  //free(spec_ops->be);
+  free(spec_ops->packet_index);
   free(spec_ops);
   return 0;
 }

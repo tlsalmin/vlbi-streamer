@@ -40,6 +40,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
   be->recer->close(be->recer, stats);
   free(((struct ringbuf *)be->opt)->buffer);
   free((struct ringbuf*)be->opt);
+  //free(be->recer);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Buffer closed\n");
 #endif
@@ -96,8 +97,10 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
   int ret=0,i, diff_final;
 
   //TODO: Move this diff to a single int for faster processing
+  //Thought this doesn't take much processing compared to all of the interrupts
   diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
 
+  //TODO: not sure if limiting here or limiting in receiver end better.
   //if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
   int diff = diff_final;
   int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
