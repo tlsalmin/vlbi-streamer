@@ -278,10 +278,9 @@ void *fanout_thread(void *opt)
 void get_stats(void *opt, void *stats){
   struct opts *spec_ops = (struct opts *)opt;
   struct stats *stat = (struct stats * ) stats;
-  stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
-  stat->total_packets += spec_ops->dropped;
+  stat->dropped += spec_ops->dropped;
 }
 int close_fanout(void *opt, void *stats){
   struct opts *spec_ops = (struct opts *)opt;

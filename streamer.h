@@ -11,9 +11,12 @@
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
 #define DEBUG_OUTPUT
+#include <pthread.h>
 struct opt_s
 {
   char *filename;
+  long unsigned int  cumul;
+  pthread_mutex_t cumlock;
   char *device_name;
   int capture_type;
   int root_pid;
@@ -28,7 +31,9 @@ struct opt_s
   int rec_type;
   int buf_elem_size;
   int buf_num_elems;
+  //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
+  int tid;
   //int f_flags;
 };
 struct buffer_entity
@@ -67,6 +72,6 @@ struct stats
   unsigned long total_written;
   unsigned long incomplete;
   unsigned long dropped;
-  unsigned long total_packets;
+  //unsigned long total_packets;
 };
 #endif

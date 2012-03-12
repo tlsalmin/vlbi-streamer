@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <mqueue.h>
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
@@ -42,7 +43,7 @@ void init_stat(struct stats *stats){
   stats->total_bytes = 0;
   stats->incomplete = 0;
   stats->total_written = 0;
-  stats->total_packets = 0;
+  //stats->total_packets = 0;
   stats->dropped = 0;
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
@@ -55,7 +56,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Time: %d\n"
       "Net receive Speed: %luMB/s\n"
       "HD write Speed: %luMB/s\n"
-      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
+      ,opts->filename, opts->cumul, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
 }
 static void parse_options(int argc, char **argv){
   int ret,i;
@@ -74,6 +75,7 @@ static void parse_options(int argc, char **argv){
   opt.buf_type = WRITER_AIOW_RBUF;
   opt.rec_type= REC_AIO;
   opt.taken_rpoints = 0;
+  opt.tid = 0;
   opt.socket = 0;
   for(;;){
     ret = getopt(argc, argv, "i:t:a:s:n:");
@@ -135,6 +137,7 @@ static void parse_options(int argc, char **argv){
     sprintf(opt.filenames[i], "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
   }
   opt.time = atoi(argv[1]);
+  opt.cumul = 0;
   /*
   if (opt.rec_type == REC_AIO)
     opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -143,6 +146,7 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   int i;
+  mqd_t mq;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Reading parameters\n");
@@ -172,6 +176,12 @@ int main(int argc, char **argv)
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
 #endif
+  
+  //Create message queue
+  mq = mq_open(opt.filename, 0);
+  pthread_mutex_init(&(opt.cumlock), NULL);
+
+
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif

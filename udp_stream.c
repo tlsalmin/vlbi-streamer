@@ -23,6 +23,7 @@
 #include <pthread.h>
 
 #include <unistd.h>
+#include <mqueue.h>
 
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -38,7 +39,7 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
-#define DO_W_STUFF_EVERY 16
+#define DO_W_STUFF_EVERY 512
 
 //Gatherer specific options
 struct opts
@@ -49,6 +50,10 @@ struct opts
   int root_pid;
   int time;
   int port;
+  long unsigned int * cumul;
+  pthread_mutex_t * cumlock;
+  mqd_t mq;
+  int id;
   //Moved to buffer_entity
   //void * rbuf;
   //struct rec_point * rp;
@@ -67,7 +72,7 @@ struct opts
   unsigned long int total_captured_bytes;
   unsigned long int incomplete;
   unsigned long int dropped;
-  unsigned long int total_captured_packets;
+  //unsigned long int total_captured_packets;
 };
 
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
@@ -80,6 +85,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->time = opt->time;
   spec_ops->be = se;
   spec_ops->buf_elem_size = opt->buf_elem_size;
+  spec_ops->mq = mq_open(opt->filename, 0);
+  spec_ops->id = opt->tid++;
+  spec_ops->cumul = &(opt->cumul);
+  spec_ops->cumlock = &(opt->cumlock);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
@@ -202,7 +211,7 @@ void* udp_streamer(void *opt)
   time_t t_start;
   double time_left=0;
   spec_ops->total_captured_bytes = 0;
-  spec_ops->total_captured_packets = 0;
+  //spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
@@ -219,13 +228,20 @@ void* udp_streamer(void *opt)
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
       //TODO: Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help
+      //TODO: Timeout
+
+      //Critical sec in logging n:th packet
+      pthread_mutex_lock(spec_ops->cumlock);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+      *(spec_ops->cumul) += 1;
+      pthread_mutex_unlock(spec_ops->cumlock);
+
       if(err < 0){
 	fprintf(stdout, "RECV error");
 	break;
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets += 1;
+      //spec_ops->total_captured_packets += 1;
     }
     //If write buffer is full
     else{
@@ -254,10 +270,10 @@ void* udp_streamer(void *opt)
 }
 void get_udp_stats(struct opts *spec_ops, void *stats){
   struct stats *stat = (struct stats * ) stats;
-  stat->total_packets += spec_ops->total_captured_packets;
+  //stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
-  stat->total_packets += spec_ops->dropped;
+  stat->dropped += spec_ops->dropped;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;

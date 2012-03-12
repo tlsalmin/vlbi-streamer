@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -g -O2 -Wall
 OBJECTS = fanout.o streamer.o udp_stream.o aioringbuf.o aiowriter.o
 EXEC = streamer
-LIBS= -lpthread -laio
+LIBS= -lpthread -laio -lrt
 SRC = fanout.h fanout.c udp_stream.c udp_stream.h streamer.c streamer.h aioringbuf.c aioringbuf.h aiowriter.c aiowriter.h
 
 all : $(OBJECTS)
