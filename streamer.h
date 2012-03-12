@@ -5,8 +5,8 @@
 #define WRITER_TODO 1
 #define REC_AIO 0
 #define REC_TODO 1
-#define BUF_ELEM_SIZE 32033
-#define BUF_NUM_ELEMS 8192
+#define BUF_ELEM_SIZE 8192
+#define BUF_NUM_ELEMS 32768
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32

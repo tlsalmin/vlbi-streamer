@@ -28,7 +28,7 @@ struct io_info{
   char *filename;
   int fd;
   long long offset;
-  unsigned long bytes_written;
+  long long bytes_written;
   int f_flags;
 };
 
@@ -162,6 +162,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
     return -1;
   }
   ioi->offset += count;
+  //ioi->bytes_written += count;
   return ret;
 }
 int aiow_check(struct recording_entity * re){
@@ -174,7 +175,7 @@ int aiow_check(struct recording_entity * re){
   if(ret > 0){
     ioi->bytes_written += event.res;
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIOW: Check return %d\n", ret);
+    fprintf(stdout, "AIOW: Check return %d, written %lu bytes\n", ret, event.res);
 #endif
   }
 
@@ -207,6 +208,8 @@ int aiow_wait_for_write(struct recording_entity* re){
 }
 int aiow_close(struct recording_entity * re, void * stats){
   struct io_info * ioi = (struct io_info*)re->opt;
+  //Shrink to size we received
+  ftruncate(ioi->fd, ioi->bytes_written);
   close(ioi->fd);
   io_destroy(*(ioi->ctx));
 

@@ -98,39 +98,39 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
   //TODO: Move this diff to a single int for faster processing
   diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
 
-  if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
-    int diff = diff_final;
-    int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
-    rbuf->ready_to_write -= requests;
-    for(i=0;i<requests;i++){
-      void * start;
-      size_t count;
-      int endi;
-      if(i == 0){
-	start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
-	if(requests ==2){
-	  endi = rbuf->num_elems - rbuf->hdwriter_head;
-	  diff -= endi;
-	}
-	else
-	  endi = diff;
+  //if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
+  int diff = diff_final;
+  int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
+  rbuf->ready_to_write -= requests;
+  for(i=0;i<requests;i++){
+    void * start;
+    size_t count;
+    int endi;
+    if(i == 0){
+      start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
+      if(requests ==2){
+	endi = rbuf->num_elems - rbuf->hdwriter_head;
+	diff -= endi;
       }
-      else{
-	start = rbuf->buffer;
+      else
 	endi = diff;
-      }
-      count = (endi) * (rbuf->elem_size);
+    }
+    else{
+      start = rbuf->buffer;
+      endi = diff;
+    }
+    count = (endi) * (rbuf->elem_size);
 
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems);
+    fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems, count);
 #endif
-      ret = re->write(re, start, count);
-      if(ret<0)
-	return ret;
-      increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
-    }
-    rbuf->last_write_i = diff_final;
+    ret = re->write(re, start, count);
+    if(ret<0)
+      return ret;
+    increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
   }
+  rbuf->last_write_i = diff_final;
+  //}
   return ret;
 }
 //TODO: Add a field to the rbuf for storing amount of writable blocks

@@ -38,7 +38,7 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
-#define DO_W_STUFF_EVERY 8
+#define DO_W_STUFF_EVERY 16
 
 //Gatherer specific options
 struct opts
@@ -189,9 +189,9 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
 void flush_writes(struct opts *spec_ops){
   spec_ops->be->write(spec_ops->be, 1);
   sleep(1);
-  //Max two writes so check em'
+  //Check em
   spec_ops->be->write(spec_ops->be,0);
-  spec_ops->be->write(spec_ops->be,0);
+  //spec_ops->be->write(spec_ops->be,0);
 }
 
 void* udp_streamer(void *opt)
