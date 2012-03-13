@@ -29,15 +29,67 @@ struct io_info{
   int fd;
   long long offset;
   long long bytes_written;
+  //Used for sending
+  INDEX_FILE_TYPE elem_size;
   int f_flags;
 };
+int aiow_open_file(int *fd, int flags, char * filename, loff_t fallosize){
+  struct stat statinfo;
+  int err =0;
+
+  //ioi->latest_write_num = 0;
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: Initializing write point\n");
+#endif
+  //Check if file exists
+  //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+  //ioi->filename = opt->filenames[opt->taken_rpoints++];
+  err = stat(filename, &statinfo);
+  if (err < 0) {
+    if (errno == ENOENT){
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "File doesn't exist. Creating it\n");
+#endif
+      flags |= O_CREAT;
+      err = 0;
+    }
+    else{
+      fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
+      return -1;
+      }
+  }
+
+  //This will overwrite existing file.TODO: Check what is the desired default behaviour 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Opening file %s\n", filename);
+#endif
+  *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+  if(*fd == -1){
+    fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
+    return -1;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: File opened\n");
+#endif
+  if(fallosize > 0){
+    err = fallocate(*fd, 0,0, fallosize);
+    if(err == -1){
+      fprintf(stderr, "Fallocate failed on %s", filename);
+      return err;
+    }
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "AIOW: File preallocated\n");
+#endif
+  }
+  return err;
+}
 
 //TODO: Error handling
 
 /* Fatal error handler */
 static void io_error(const char *func, int rc)
 {
-    fprintf(stderr, "%s: error %d", func, rc);
+  fprintf(stderr, "%s: error %d", func, rc);
 }
 
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
@@ -57,7 +109,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct io_info));
   struct io_info * ioi = (struct io_info *) re->opt;
-  struct stat statinfo;
+  //struct stat statinfo;
   int err =0;
 
   //ioi->latest_write_num = 0;
@@ -67,52 +119,19 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   //Check if file exists
   ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
   ioi->filename = opt->filenames[opt->taken_rpoints++];
-  err = stat(ioi->filename, &statinfo);
-  if (err < 0) {
-    if (errno == ENOENT){
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "File doesn't exist. Creating it\n");
-#endif
-      ioi->f_flags |= O_CREAT;
-      err = 0;
-    }
-    else{
-      fprintf(stderr,"Error: %s on %s\n",strerror(errno), ioi->filename);
-      return -1;
-      }
-  }
-
-  //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Opening file %s\n", ioi->filename);
-#endif
-  ioi->fd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-  if(ioi->fd == -1){
-    fprintf(stderr,"Error: %s on %s\n",strerror(errno), ioi->filename);
-    return -1;
-  }
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: File opened\n");
-#endif
-  //TODO: Set offset accordingly if file already exists. Not sure if
-  //needed, since data consistency would take a hit anyway
-  ioi->offset = 0;
   //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
   //for s seconds.
   loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
   //Split kb/gb stuff to avoid overflow warning
   prealloc_bytes = prealloc_bytes*1024*1024;
   //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
-  err = fallocate(ioi->fd, 0,0, prealloc_bytes);
-  if(err == -1){
-    fprintf(stderr, "Fallocate failed on %s", ioi->filename);
-    return err;
-  }
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: File preallocated\n");
-#endif
+  err = aiow_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
 
+  //TODO: Set offset accordingly if file already exists. Not sure if
+  //needed, since data consistency would take a hit anyway
+  ioi->offset = 0;
   ioi->bytes_written = 0;
+  ioi->elem_size = opt->buf_elem_size;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Preparing iostructs\n");
 #endif
@@ -193,9 +212,9 @@ int aiow_check(struct recording_entity * re){
 //TODO: Make proper sleep. io_queue_wait doesn't work
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
-  struct io_info * ioi = (struct io_info *)re->opt;
+  //struct io_info * ioi = (struct io_info *)re->opt;
   //Needs to be static so ..durr
-  static struct timespec timeout = { 1, TIMEOUT_T };
+  //static struct timespec timeout = { 1, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
@@ -204,21 +223,26 @@ int aiow_wait_for_write(struct recording_entity* re){
 #endif
   //Doesn't really sleep :/
   //return io_queue_wait(*(ioi->ctx), &timeout);
-  return usleep(100);
+  return usleep(1000);
 }
 int aiow_close(struct recording_entity * re, void * stats){
+  int err;
   struct io_info * ioi = (struct io_info*)re->opt;
 
   struct stats* stat = (struct stats*)stats;
   stat->total_written += ioi->bytes_written;
-  char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
-  sprintf(indexfile, "%s%s", ioi->filename, ".index");
-  int statfd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+  /*
+     char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
+     sprintf(indexfile, "%s%s", ioi->filename, ".index");
+     int statfd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
 
-  close(statfd);
+     close(statfd);
+     */
 
   //Shrink to size we received
-  ftruncate(ioi->fd, ioi->bytes_written);
+  err = ftruncate(ioi->fd, ioi->bytes_written);
+  if(err<0)
+    perror("ftruncate");
   close(ioi->fd);
   io_destroy(*(ioi->ctx));
 
@@ -232,12 +256,44 @@ int aiow_close(struct recording_entity * re, void * stats){
 #endif
   return 0;
 }
+int aiow_write_index_data(struct recording_entity *re, void *data, int count){
+  struct io_info * ioi = (struct io_info*)re->opt;
+  int err = 0;
+  char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  int fd;
+
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: Writing index file\n");
+#endif
+  sprintf(filename, "%s%s", ioi->filename, ".index");
+  int f_flags = O_WRONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
+
+  aiow_open_file(&fd, f_flags, filename, 0);
+
+  //Write the elem size to the first index
+  err = write(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
+  if(err<0)
+    perror("Index file size write");
+
+  //Write the data
+  err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
+  if(err<0)
+    perror("Index file write");
+
+  close(fd);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: Index file written\n");
+#endif
+
+  return err;
+}
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->init = aiow_init;
   re->write = aiow_write;
   re->wait = aiow_wait_for_write;
   re->close = aiow_close;
   re->check = aiow_check;
+  re->write_index_data = aiow_write_index_data;
 
   return re->init(opt,re);
 }

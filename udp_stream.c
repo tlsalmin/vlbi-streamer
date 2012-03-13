@@ -182,7 +182,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   int err;
 
-  if (recv == 0){
+  //TODO: We get into trouble here if DO_W_STUFF_EVERY is large
+  //and we have to start sleeping to wait for io.
+  err = spec_ops->be->write(spec_ops->be, 0);
+  if (recv == 0 && err != WRITE_COMPLETE_DONT_SLEEP){
     err = spec_ops->be->wait((void*)spec_ops->be);
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Woke up\n");
@@ -192,15 +195,13 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
       return err;
     }
   }
-  else
-    err = spec_ops->be->write(spec_ops->be, 0);
 
   return err;
 }
 //TODO: Implement as generic function on aioringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
   spec_ops->be->write(spec_ops->be, 1);
-  sleep(1);
+  sleep(2);
   //Check em
   spec_ops->be->write(spec_ops->be,0);
   //spec_ops->be->write(spec_ops->be,0);
@@ -295,7 +296,12 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-  stats->packet_index = spec_ops->packet_index;
+  if (spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
+    fprintf(stderr, "Index data write failed on id ");
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Writing index data\n");
+#endif
+  //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
   free(spec_ops->packet_index);

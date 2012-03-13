@@ -154,7 +154,7 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
 	increment_amount(rbuf, &(rbuf->tail), rbuf->last_write_i);
 	rbuf->last_write_i = 0;
       }
-
+      ret = WRITE_COMPLETE_DONT_SLEEP;
     }
     /*
        else if (ret < 0)
@@ -175,12 +175,16 @@ inline void dummy_return_from_write(struct ringbuf *rbuf){
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
+int rbuf_write_index_data(struct buffer_entity *be, void * data, int count){
+  return be->recer->write_index_data(be->recer,data,count);
+}
 int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->init = rbuf_init;
   be->write = rbuf_aio_write;
   be->get_writebuf = rbuf_get_buf_to_write;
   be->wait = rbuf_wait;
   be->close = rbuf_close;
+  be->write_index_data = rbuf_write_index_data;
 
   return be->init(opt,be); 
 }

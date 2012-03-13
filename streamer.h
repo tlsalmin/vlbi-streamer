@@ -12,6 +12,9 @@
 #define MAX_OPEN_FILES 32
 #define BYTES_PER_ENTRY 2
 #define DEBUG_OUTPUT
+//Magic number TODO: Refactor so we won't need this
+#define WRITE_COMPLETE_DONT_SLEEP 1337
+#define INDEX_FILE_TYPE int
 #include <pthread.h>
 struct opt_s
 {
@@ -48,6 +51,7 @@ struct buffer_entity
   void* (*get_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
+  int (*write_index_data)(struct buffer_entity*, void*, int);
   struct recording_entity * recer;
   //struct rec_point * rp;
 };
@@ -59,6 +63,7 @@ struct recording_entity
   int (*wait)(struct recording_entity *);
   int (*close)(struct recording_entity*, void *);
   int (*check)(struct recording_entity*);
+  int (*write_index_data)(struct recording_entity*, void*, int);
 };
 
 //Generic struct for a streamer entity
