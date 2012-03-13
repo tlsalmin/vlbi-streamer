@@ -1,7 +1,7 @@
 #ifndef STREAMER
 #define STREAMER
 //Rate as in GB/s
-#define RATE 10
+#define RATE 1
 #define WRITER_AIOW_RBUF 0
 #define WRITER_TODO 1
 #define REC_AIO 0
@@ -17,6 +17,7 @@
 #define WRITE_COMPLETE_DONT_SLEEP 1337
 #define INDEX_FILE_TYPE int
 #include <pthread.h>
+#include <netdb.h> // struct hostent
 struct opt_s
 {
   char *filename;
@@ -42,6 +43,8 @@ struct opt_s
   //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
   int tid;
+  struct in_addr inaddr;
+  //struct hostent he;
   //int f_flags;
 };
 struct buffer_entity

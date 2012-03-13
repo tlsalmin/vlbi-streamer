@@ -8,7 +8,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <mqueue.h>
+//TODO: Add explanations for includes
+#include <netdb.h> // struct hostent
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
@@ -27,6 +28,14 @@ extern int optind, optopt;
 static struct opt_s opt;
 
 /*
+ * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
+ */
+int resolve_host(char *host, struct in_addr * ia){
+  int err;
+  return err;
+}
+
+/*
  * Stuff stolen from lindis sendfileudp
  */
 static void usage(char *binary){
@@ -38,6 +47,7 @@ static void usage(char *binary){
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
+      "-h HOST		Specify host(Required for send\n"
       ,binary);
 }
 void init_stat(struct stats *stats){
@@ -55,8 +65,8 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Incomplete: %lu\n"
       "Written: %lu\n"
       "Time: %d\n"
-      "Net receive Speed: %luMB/s\n"
-      "HD write Speed: %luMB/s\n"
+      "Net receive Speed: %luMb/s\n"
+      "HD write Speed: %luMb/s\n"
       ,opts->filename, opts->cumul, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
 }
 static void parse_options(int argc, char **argv){
@@ -79,7 +89,7 @@ static void parse_options(int argc, char **argv){
   opt.read = 0;
   opt.tid = 0;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:a:s:n:m:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -129,6 +139,8 @@ static void parse_options(int argc, char **argv){
 	  exit(1);
 	}
 	break;
+      case 'h':
+	break;
       default:
 	usage(argv[0]);
 	exit(1);
@@ -166,7 +178,6 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   int i;
-  mqd_t mq;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Reading parameters\n");
@@ -198,7 +209,6 @@ int main(int argc, char **argv)
 #endif
   
   //Create message queue
-  mq = mq_open(opt.filename, 0);
   pthread_mutex_init(&(opt.cumlock), NULL);
 
 

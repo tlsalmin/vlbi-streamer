@@ -63,7 +63,7 @@ struct opts
   int buf_elem_size;
   //Used for bidirectional usage
   int read;
-  struct sockaddr target;
+  //struct sockaddr target;
 
   //Moved to main init
   /*
@@ -78,7 +78,6 @@ struct opts
   unsigned long int dropped;
   unsigned long int total_captured_packets;
 };
-
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 {
   int err;
@@ -117,6 +116,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
       perror("socket");
       return NULL;;
     }
+
 
     //struct sockaddr_ll ll;
     struct ifreq ifr;
@@ -159,20 +159,27 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     */
 
     //prep port
-    struct sockaddr_in my_addr;
+    struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
     //socklen_t len = sizeof(struct sockaddr_in);
-    memset(&my_addr, 0, sizeof(my_addr));   
-    my_addr.sin_family = AF_INET;           
-    my_addr.sin_port = htons(spec_ops->port);    
+    memset(addr, 0, sizeof(struct sockaddr_in));   
+    addr->sin_family = AF_INET;           
+    addr->sin_port = htons(spec_ops->port);    
     //TODO: check if IF binding helps
-    my_addr.sin_addr.s_addr = INADDR_ANY;
+    if(spec_ops->read == 1){
+      addr->sin_addr = opt->inaddr;
+      err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(struct sockaddr_in));
+    }
+    else{
+      addr->sin_addr.s_addr = INADDR_ANY;
+      err = bind(spec_ops->fd, (struct sockaddr *) addr, sizeof(struct sockaddr_in));
+    }
 
     //Bind to a socket
-    err = bind(spec_ops->fd, (struct sockaddr *) &my_addr, sizeof(my_addr));
     if (err < 0) {
-      perror("bind");
+      perror("bind or connect");
       return NULL;
     }
+    free(addr);
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
     //set hardware timestamping
