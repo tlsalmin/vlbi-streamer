@@ -17,6 +17,7 @@ struct ringbuf{
   int num_elems;
   int ready_to_write;
   int last_write_i;
+  int read;
 };
 
 //Increments pwriter head. Returns negative, if 

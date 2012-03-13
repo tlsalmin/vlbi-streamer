@@ -33,10 +33,11 @@ static void usage(char *binary){
   fprintf(stderr, 
       "usage: %s [OPTION]... name time\n"
       "-i INTERFACE	Which interface to capture from\n"
-      "-t {fanout|udpstream|TODO	Capture type(fanout only one available atm)\n"
-      "-a {lb|hash}	Fanout type\n"
-      "-n NUM	        Number of threads\n"
-      "-s SOCKET	Socket number\n"
+      "-t {fanout|udpstream|TODO	Capture type(Default: udpstream)\n"
+      "-a {lb|hash}	Fanout type(Default: lb)\n"
+      "-n NUM	        Number of threads(Required)\n"
+      "-s SOCKET	Socket number(Default: 2222)\n"
+      "-m {s|r}		Send or Receive the data(Default: receive)\n"
       ,binary);
 }
 void init_stat(struct stats *stats){
@@ -75,25 +76,25 @@ static void parse_options(int argc, char **argv){
   opt.buf_type = WRITER_AIOW_RBUF;
   opt.rec_type= REC_AIO;
   opt.taken_rpoints = 0;
+  opt.read = 0;
   opt.tid = 0;
   opt.socket = 0;
-  for(;;){
-    ret = getopt(argc, argv, "i:t:a:s:n:");
-    if(ret == -1){
-      break;
-    }
+  while((ret = getopt(argc, argv, "i:t:a:s:n:m:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
 	break;
       case 't':
-	if (!strcmp(optarg, "fanout"))
+	if (!strcmp(optarg, "fanout")){
 	  opt.capture_type = CAPTURE_W_FANOUT;
-	else if (!strcmp(optarg, "udpstream"))
+	}
+	else if (!strcmp(optarg, "udpstream")){
 	  opt.capture_type = CAPTURE_W_UDPSTREAM;
-	else if (!strcmp(optarg, "TODO"))
+	}
+	else if (!strcmp(optarg, "TODO")){
 	  opt.capture_type = CAPTURE_W_TODO;
 	//TODO: Add if other capture types added
+	}
 	else {
 	  fprintf(stderr, "Unknown packet capture type [%s]\n", optarg);
 	  usage(argv[0]);
@@ -116,6 +117,17 @@ static void parse_options(int argc, char **argv){
 	break;
       case 'n':
 	opt.n_threads = atoi(optarg);
+	break;
+      case 'm':
+	if (!strcmp(optarg, "r"))
+	  opt.read = 0;
+	else if (!strcmp(optarg, "s"))
+	  opt.read = 1;
+	else {
+	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
+	  usage(argv[0]);
+	  exit(1);
+	}
 	break;
       default:
 	usage(argv[0]);
@@ -198,9 +210,15 @@ int main(int argc, char **argv)
     struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
 
+    /*
+     * NOTE: AIOW-stuff and udp-streamer are bidirectional and
+     * only require the setting of opt->read to one for 
+     * sending stuff
+     */
     switch(opt.rec_type){
       case REC_AIO:
 	err = aiow_init_rec_entity(&opt, re);
+	//NOTE: elem_size is read inside if we're reading
 	break;
       case REC_TODO:
 	break;

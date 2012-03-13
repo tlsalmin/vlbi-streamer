@@ -61,6 +61,9 @@ struct opts
   struct buffer_entity * be;
   //Duplicate here, but meh
   int buf_elem_size;
+  //Used for bidirectional usage
+  int read;
+  struct sockaddr target;
 
   //Moved to main init
   /*
@@ -91,6 +94,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->cumlock = &(opt->cumlock);
   spec_ops->max_num_packets = opt->max_num_packets;
   spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
+  spec_ops->read = opt->read;
   //spec_ops->packet_index = opt->packet_index;
 
 #ifdef DEBUG_OUTPUT

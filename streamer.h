@@ -1,5 +1,6 @@
 #ifndef STREAMER
 #define STREAMER
+//Rate as in GB/s
 #define RATE 10
 #define WRITER_AIOW_RBUF 0
 #define WRITER_TODO 1
@@ -35,8 +36,9 @@ struct opt_s
   char * filenames[MAX_OPEN_FILES];
   int buf_type;
   int rec_type;
-  int buf_elem_size;
+  INDEX_FILE_TYPE buf_elem_size;
   int buf_num_elems;
+  int read;
   //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
   int tid;
