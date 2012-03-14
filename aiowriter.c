@@ -54,7 +54,7 @@ int aiow_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     if (errno == ENOENT){
       //We're reading the file
       if(flags & O_RDONLY){
-	perror("File not found, eventhought we're in send-mode");
+	perror("AIOW: File not found, eventhought we're in send-mode");
 	return -1;
       }
       else{
@@ -131,7 +131,7 @@ int aiow_handle_indices(struct io_info *ioi){
   //Write the elem size to the first index
   err = read(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0){
-    perror("Index file size read");
+    perror("AIOW: Index file size read");
     return err;
   }
   err = fstat(fd, &statinfo);
@@ -194,7 +194,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   if(ioi->read){
     err = aiow_handle_indices(ioi);
     if(err<0){
-      perror("Reading indices");
+      perror("AIOW: Reading indices");
       return -1;
     }
     else
@@ -210,7 +210,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   ioi->ctx =(io_context_t *) malloc(sizeof(io_context_t));
   void * errpoint = memset((void*)ioi->ctx, 0, sizeof(*(ioi->ctx)));
   if(errpoint== NULL){
-    perror("Memset ctx");
+    perror("AIOW: Memset ctx");
     return -1;
   }
 #ifdef DEBUG_OUTPUT
@@ -218,7 +218,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 #endif
   ret = io_queue_init(MAX_EVENTS, ioi->ctx);
   if(ret < 0){
-    perror("IO_QUEUE_INIT");
+    perror("AIOW: IO_QUEUE_INIT");
     return -1;
   }
   return ret;
@@ -253,7 +253,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   fprintf(stdout, "AIOW: Submitted %d reads/writes\n", ret);
 #endif
   if(ret <0){
-    perror("io_submit");
+    perror("AIOW: io_submit");
     return -1;
   }
   ioi->offset += count;
@@ -319,7 +319,7 @@ int aiow_close(struct recording_entity * re, void * stats){
   if(ioi->read == 1){
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
     if(err<0)
-      perror("ftruncate");
+      perror("AIOW: ftruncate");
   }
   close(ioi->fd);
   io_destroy(*(ioi->ctx));
@@ -351,12 +351,14 @@ int aiow_write_index_data(struct recording_entity *re, void *data, int count){
   //Write the elem size to the first index
   err = write(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0)
-    perror("Index file size write");
+    perror("AIOW: Index file size write");
 
   //Write the data
   err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
-  if(err<0)
-    perror("Index file write");
+  if(err<0){
+    perror("AIOW: Index file write");
+    fprintf(stderr, "Filename was %s\n", filename);
+  }
 
   close(fd);
 #ifdef DEBUG_OUTPUT
