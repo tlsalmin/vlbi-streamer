@@ -48,6 +48,7 @@ static void usage(char *binary){
       "-s SOCKET	Socket number(Default: 2222)\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-h HOST		Specify host(Required for send\n"
+      "-w {aio|dummy}	use AIO-writer or DUMMY writer\n"
       ,binary);
 }
 void init_stat(struct stats *stats){
@@ -81,7 +82,6 @@ static void parse_options(int argc, char **argv){
   opt.port = 2222;
   opt.n_threads = 1;
   opt.buf_elem_size = BUF_ELEM_SIZE;
-  opt.buf_num_elems = BUF_NUM_ELEMS;
   //TODO: Add option for choosing backend
   opt.buf_type = WRITER_AIOW_RBUF;
   opt.rec_type= REC_AIO;
@@ -89,7 +89,7 @@ static void parse_options(int argc, char **argv){
   opt.read = 0;
   opt.tid = 0;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -139,6 +139,14 @@ static void parse_options(int argc, char **argv){
 	  exit(1);
 	}
 	break;
+      case 'w':
+	if (!strcmp(optarg, "aio"))
+	  opt.rec_type = REC_AIO;
+	else if (!strcmp(optarg, "dummy")){
+	  opt.rec_type = REC_DUMMY;
+	  opt.buf_type = WRITER_DUMMY;
+	}
+	break;
       case 'h':
 	break;
       default:
@@ -170,6 +178,18 @@ static void parse_options(int argc, char **argv){
   prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
   //2 bytes per line
   opt.packet_index = (void*)malloc(sizeof(int) * prealloc_bytes);
+
+  //Set buf_size
+  //OK set limiter so that when using one thread, we won't actually allocate 4GB of mem
+  int threads;
+  if(opt.n_threads < 4)
+    threads = 4;
+  else
+    threads = opt.n_threads;
+  unsigned long temp = MEM_GIG *1024*1024;
+  temp = (temp*1024)/(opt.buf_elem_size*threads);
+  opt.buf_num_elems = (int)temp;
+  fprintf(stdout, "Elem num %d\n", opt.buf_num_elems);
   /*
   if (opt.rec_type == REC_AIO)
     opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -230,6 +250,9 @@ int main(int argc, char **argv)
 	err = aiow_init_rec_entity(&opt, re);
 	//NOTE: elem_size is read inside if we're reading
 	break;
+      case REC_DUMMY:
+	err = aiow_init_dummy(&opt, re);
+	break;
       case REC_TODO:
 	break;
     }
@@ -237,7 +260,9 @@ int main(int argc, char **argv)
       fprintf(stderr, "Error in writer init\n");
       exit(-1);
     }
+    //Make elements accessible
     be->recer = re;
+    re->be = be;
 
     //Initialize recorder entity
     switch(opt.buf_type)
@@ -246,8 +271,11 @@ int main(int argc, char **argv)
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
 #ifdef DEBUG_OUTPUT
-	fprintf(stderr, "Initialized buffer for thread %d\n", i);
+	fprintf(stdout, "Initialized buffer for thread %d\n", i);
 #endif
+	break;
+      case WRITER_DUMMY:
+	err = rbuf_init_dummy(&opt, be);
 	break;
       case WRITER_TODO:
 	//Implement own writer here

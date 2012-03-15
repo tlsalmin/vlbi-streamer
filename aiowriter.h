@@ -13,4 +13,5 @@ int aiow_close(struct recording_entity * re, void * stats);
 int aiow_wait_for_write(struct recording_entity * re);
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re);
 int aiow_write_index_data(struct recording_entity* re, void* data, int count);
+int aiow_init_dummy(struct opt_s *opt, struct recording_entity *re);
 #endif

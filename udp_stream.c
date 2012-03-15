@@ -38,7 +38,16 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
-#define DO_W_STUFF_EVERY 512
+//NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
+//But this only happens on buffer size > (atleast) 30000
+//Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
+//#define HD_WRITE_SIZE 16777216
+//#define HD_WRITE_SIZE 1048576
+//#define HD_WRITE_SIZE 33554432
+//#define HD_WRITE_SIZE 262144
+#define HD_WRITE_SIZE 524288
+
+#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 
 //Gatherer specific options
 struct opts
@@ -80,7 +89,7 @@ struct opts
 };
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 {
-  int err;
+  int err, len, def;
   //struct opt_s *opt = (struct opt_s *)options;
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
   spec_ops->device_name = opt->device_name;
@@ -111,6 +120,9 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
     opt->socket = spec_ops->fd;
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Doing HD-write stuff every %d\n", DO_W_STUFF_EVERY);
+#endif
 
     if (spec_ops->fd < 0) {
       perror("socket");
@@ -157,6 +169,16 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     buflength = BUFSIZE;
     setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
     */
+    /*
+     * Setting the default receive buffer size. Taken from libhj create_udp_socket
+     */
+    len = sizeof(def);
+    def=0;
+    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Defaults: RCVBUF %d\n",def);
+#endif
+
 
     //prep port
     struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
@@ -259,7 +281,7 @@ void* udp_streamer(void *opt)
       }
 
       if(err < 0){
-	fprintf(stdout, "RECV error");
+	perror("RECV error");
 	break;
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
@@ -307,7 +329,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-  if (spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
+  if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
     fprintf(stderr, "Index data write failed on id ");
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "Writing index data\n");

@@ -3,11 +3,14 @@
 //Rate as in GB/s
 #define RATE 1
 #define WRITER_AIOW_RBUF 0
-#define WRITER_TODO 1
+#define WRITER_DUMMY 1
+#define WRITER_TODO 2
 #define REC_AIO 0
 #define REC_TODO 1
+#define REC_DUMMY 2
+#define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
-#define BUF_NUM_ELEMS 16384
+//Ok so lets make the buffer size 3GB every time
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
@@ -69,6 +72,7 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   int (*check)(struct recording_entity*);
   int (*write_index_data)(struct recording_entity*, void*, int);
+  struct buffer_entity *be;
 };
 
 //Generic struct for a streamer entity

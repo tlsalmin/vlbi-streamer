@@ -5,7 +5,8 @@
 #include <unistd.h>
 #include "aioringbuf.h"
 //#include "aiowriter.h"
-#define HD_WRITE_N_SIZE 128
+//Not used anymore
+//#define HD_WRITE_N_SIZE 128
 
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -37,7 +38,8 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 int  rbuf_close(struct buffer_entity* be, void *stats){
 //TODO: error handling
   int ret = 0;
-  be->recer->close(be->recer, stats);
+  if(be->recer->close != NULL)
+    be->recer->close(be->recer, stats);
   free(((struct ringbuf *)be->opt)->buffer);
   free((struct ringbuf*)be->opt);
   //free(be->recer);
@@ -84,15 +86,6 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
   return spot;
 }
 //alias for scheduling packets for writing
-int dummy_write(struct ringbuf *rbuf){
-  fprintf(stdout, "USing dummy\n");
-  int writable = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
-  increment_amount(rbuf, &(rbuf->hdwriter_head), writable);
-  rbuf->ready_to_write = 0;
-  //Dummy write completes right away
-  dummy_return_from_write(rbuf);
-  return 1;
-}
 inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re, int force){
   int ret=0,i, diff_final;
 
@@ -102,37 +95,39 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
 
   //TODO: not sure if limiting here or limiting in receiver end better.
   //if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
-  int diff = diff_final;
-  int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
-  rbuf->ready_to_write -= requests;
-  for(i=0;i<requests;i++){
-    void * start;
-    size_t count;
-    int endi;
-    if(i == 0){
-      start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
-      if(requests ==2){
-	endi = rbuf->num_elems - rbuf->hdwriter_head;
-	diff -= endi;
+  if(diff_final > 0){
+    int diff = diff_final;
+    int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
+    rbuf->ready_to_write -= requests;
+    for(i=0;i<requests;i++){
+      void * start;
+      size_t count;
+      int endi;
+      if(i == 0){
+	start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
+	if(requests ==2){
+	  endi = rbuf->num_elems - rbuf->hdwriter_head;
+	  diff -= endi;
+	}
+	else
+	  endi = diff;
       }
-      else
+      else{
+	start = rbuf->buffer;
 	endi = diff;
-    }
-    else{
-      start = rbuf->buffer;
-      endi = diff;
-    }
-    count = (endi) * (rbuf->elem_size);
+      }
+      count = (endi) * (rbuf->elem_size);
 
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems, count);
+      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems, count);
 #endif
-    ret = re->write(re, start, count);
-    if(ret<0)
-      return ret;
-    increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+      ret = re->write(re, start, count);
+      if(ret<0)
+	return ret;
+      increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+    }
+    rbuf->last_write_i = diff_final;
   }
-  rbuf->last_write_i = diff_final;
   //}
   return ret;
 }
@@ -166,17 +161,42 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
   }
   return ret;
 }
+int dummy_write(struct ringbuf *rbuf){
+#ifdef DEBUG_OUTPUT
+  //fprintf(stdout, "Using dummy\n");
+#endif
+  int writable = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+  increment_amount(rbuf, &(rbuf->hdwriter_head), writable);
+  rbuf->ready_to_write = 0;
+  //Dummy write completes right away
+  dummy_return_from_write(rbuf);
+  return 1;
+}
 //alias for completiong from asynchronous write
 inline void dummy_return_from_write(struct ringbuf *rbuf){
   int written = diff_max(rbuf->tail, rbuf->hdwriter_head, rbuf->num_elems);
   increment_amount(rbuf, &(rbuf->tail), written);
   rbuf->ready_to_write = 1;
 }
+int dummy_write_wrapped(struct buffer_entity *be, int force){
+  struct ringbuf * rbuf = (struct ringbuf*)be->opt;
+  dummy_write(rbuf);
+  return 1;
+}
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
 int rbuf_write_index_data(struct buffer_entity *be, void * data, int count){
   return be->recer->write_index_data(be->recer,data,count);
+}
+int rbuf_init_dummy(struct opt_s * opt, struct buffer_entity *be){
+  be->init = rbuf_init;
+  be->write = dummy_write_wrapped;
+  be->get_writebuf = rbuf_get_buf_to_write;
+  be->wait = NULL;
+  be->close = rbuf_close;
+  be->write_index_data = NULL;
+  return be->init(opt,be);
 }
 int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->init = rbuf_init;

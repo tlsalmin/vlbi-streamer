@@ -37,5 +37,6 @@ int rbuf_aio_write(struct buffer_entity* be, int force);
 int rbuf_check_hdevents(struct buffer_entity *be);
 int rbuf_wait(struct buffer_entity * be);
 int rbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
+int rbuf_init_dummy(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
 #endif

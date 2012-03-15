@@ -105,6 +105,7 @@ static void io_error(const char *func, int rc)
 }
 
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
+  fprintf(stdout, "This will never make it to print\n");
   if(res2 != 0)
     io_error("aio write", res2);
   if(res != iocb->u.c.nbytes){
@@ -239,7 +240,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   else
     io_prep_pwrite(ib[0], ioi->fd, start, count, ioi->offset);
 
-  io_set_callback(ib[0], wr_done);
+  //io_set_callback(ib[0], wr_done);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Prepared read/write for %lu bytes\n", count);
@@ -268,10 +269,17 @@ int aiow_check(struct recording_entity * re){
   int ret = io_getevents(*(ioi->ctx), 0, 1, &event, &timeout);
   //
   if(ret > 0){
+    if((signed long )event.res > 0){
     ioi->bytes_exchanged += event.res;
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "AIOW: Check return %d, read/written %lu bytes\n", ret, event.res);
 #endif
+    }
+    else{
+      fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);
+      perror("AIOW: Check");
+      return -1;
+    }
   }
 
   /*
@@ -288,18 +296,18 @@ int aiow_check(struct recording_entity * re){
 //TODO: Make proper sleep. io_queue_wait doesn't work
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
-  //struct io_info * ioi = (struct io_info *)re->opt;
+  struct io_info * ioi = (struct io_info *)re->opt;
   //Needs to be static so ..durr
   //static struct timespec timeout = { 1, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Buffer full. Going to sleep\n");
+  fprintf(stdout, "AIOW: Buffer full %s. Going to sleep\n", ioi->filename);
 #endif
   //Doesn't really sleep :/
   //return io_queue_wait(*(ioi->ctx), &timeout);
-  return usleep(1000);
+  return usleep(5000);
 }
 int aiow_close(struct recording_entity * re, void * stats){
   int err;
@@ -376,4 +384,11 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->write_index_data = aiow_write_index_data;
 
   return re->init(opt,re);
+}
+int aiow_init_dummy(struct opt_s *op , struct recording_entity *re){
+  /*
+  re->init = null;
+  re-write = dummy_write_wrapped;
+  */
+  return 1;
 }
