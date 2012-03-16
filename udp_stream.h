@@ -7,7 +7,11 @@
 #include <linux/if_packet.h>
 #include "streamer.h"
 
+      /*
+       * TODO: Change the function names to udps_<name>
+       */
 void * setup_udp_socket(struct opt_s *opt, struct buffer_entity * be);
+void * udp_sender(void * opt);
 void * udp_streamer(void *opt);
 void get_udp_stats(void *opt, void *stats);
 int close_udp_streamer(void *opt,void *stats);

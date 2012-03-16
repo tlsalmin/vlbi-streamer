@@ -226,9 +226,10 @@ void handle_captured_packets(uint64_t *i, struct opts * spec_ops, int full){
   }
 }
 
-void *fanout_thread(void *opt)
+void *fanout_thread(void *se)
 {
-  struct opts *spec_ops = (struct opts *)opt;
+  struct streamer_entity *be = (struct streamer_entity*)se;
+  struct opts *spec_ops = (struct opts *)be->opt;
   time_t t_start;
   double time_left=0;
   spec_ops->total_captured_bytes = 0;

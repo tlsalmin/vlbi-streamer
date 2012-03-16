@@ -23,6 +23,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   rbuf->tail = rbuf->hdwriter_head = 0;
   rbuf->ready_to_io = 1;
   rbuf->last_io_i = 0;
+  rbuf->read = opt->read;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Memaligning buffer\n");
@@ -79,15 +80,47 @@ int increment(struct ringbuf * rbuf, int *head, int *restrainer){
 void * rbuf_get_buf_to_write(struct buffer_entity *be){
   struct ringbuf * rbuf = (struct ringbuf*) be->opt;
   void *spot;
-  if(!increment(rbuf, &(rbuf->writer_head), &(rbuf->tail)))
+  int *head, *rest;
+    /*
+     * In reading situation we try to fill the buffer from HD-values as fast as possible.
+     * when asked for a buffer to send, we give the tail buffer and so the tail chases the head
+     * where hdwriter_head tells how many spots we've gotten into the memory
+     */
+  if(rbuf->read){
+    head = &(rbuf->tail);
+    rest = &(rbuf->writer_head);
+  }
+  /*
+   * In writing situation we simple fill the buffer with packets as fast as we can. Here
+   * the head chases the tail
+   */
+  else{
+    head = &(rbuf->writer_head);
+    rest = &(rbuf->tails);
+    }
+  if(!increment(rbuf, head, rest))
     spot = NULL;
   else
-    spot = rbuf->buffer + (rbuf->writer_head*rbuf->elem_size);
+    spot = rbuf->buffer + ((*head)*rbuf->elem_size);
   return spot;
 }
 //alias for scheduling packets for writing
 inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re, int force){
   int ret=0,i, diff_final;
+  int* head, tail;
+  /*
+   * TODO:
+   * TODO: Friday dev ended here.
+   * TODO: 
+   */ 
+  if(rbuf->read){
+    head = &(rbuf->tail);
+    tail = &(rbuf->writer_head);
+      }
+  else{
+    head = &(rbuf->writer_head);
+    tail = &(rbuf->tail);
+  }
 
   //TODO: Move this diff to a single int for faster processing
   //Thought this doesn't take much processing compared to all of the interrupts
@@ -139,14 +172,20 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
 
   //HD writing. Check if job finished. Might also use message passing
   //in the future
-  if(!(rbuf->ready_to_io >= 1 || force)){
+  if(rbuf->ready_to_io < 1 && !force){
     while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_io+ret);
 #endif
       rbuf->ready_to_io += ret;
       if(rbuf->last_io_i > 0){
-	increment_amount(rbuf, &(rbuf->tail), rbuf->last_io_i);
+	int * to_increment;
+	//TODO: Augment for bidirectionality
+	if(rbuf->read)
+	  to_increment = &(rbuf->hdwriter_head);
+	else
+	  to_increment = &(rbuf->tail);
+	increment_amount(rbuf, to_increment, rbuf->last_io_i);
 	rbuf->last_io_i = 0;
       }
       //Only used cause IO_WAIT doesn't work with EXT4 yet 
@@ -157,7 +196,8 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
        fprintf(stderr, "RINGBUF: RINGBUF check returned error %d", ret);
        */
   }
-  else{
+  //Kind of a double check, but the previous if affects these conditions
+  if(rbuf->ready_to_io >= 1 || force){
     ret = write_after_checks(rbuf, be->recer, force);
   }
   return ret;

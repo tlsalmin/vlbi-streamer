@@ -62,7 +62,7 @@ struct opts
   //void * packet_index;
   long unsigned int * cumul;
   pthread_mutex_t * cumlock;
-  int* packet_index;
+  INDEX_FILE_TYPE* packet_index;
   //int id;
   //Moved to buffer_entity
   //void * rbuf;
@@ -72,13 +72,14 @@ struct opts
   int buf_elem_size;
   //Used for bidirectional usage
   int read;
-  int (*handle_packet)(struct buffer_entity*,void*);
+  int (*handle_packet)(struct streamer_entity*,void*);
 #ifdef CHECK_OUT_OF_ORDER
   //Lazy to use in handle_packet
   int last_packet;
 #endif
   //struct sockaddr target;
 
+  pthread_cond_t * signal;
   //Moved to main init
   /*
   //Functions for usage in modularized infrastructure
@@ -95,9 +96,14 @@ struct opts
   unsigned long int out_of_order;
 #endif
 };
-int phandler_sequence(struct buffer_entity * be, void * buffer){
-
+int phandler_sequence(struct streamer_entity * se, void * buffer){
+  return 0;
 }
+/*
+ * TODO: These should take a streamer_entity and confrom to the initialization of 
+ * buffer_entity and recording_entity
+ */
+
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 {
   int err, len, def;
@@ -111,9 +117,24 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   //spec_ops->id = opt->tid++;
   spec_ops->cumul = &(opt->cumul);
   spec_ops->cumlock = &(opt->cumlock);
-  spec_ops->max_num_packets = opt->max_num_packets;
-  spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
   spec_ops->read = opt->read;
+  spec_ops->signal = &(opt->signal);
+
+  /*
+   * If we're reading, recording entity should read the indicedata
+   */
+  if(spec_ops->read){
+    spec_ops->max_num_packets = spec_ops->be->recer->get_n_packets(spec_ops->be->recer);
+    spec_ops->packet_index = spec_ops->be->recer->get_packet_index(spec_ops->be->recer);
+  }
+  else{
+    spec_ops->max_num_packets = opt->max_num_packets;
+    spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
+    }
+
+  /*
+   * TODO: Make this an array of function pointers and conform to other modules
+   */ 
 #ifdef CHECK_OUT_OF_ORDER
   if(opt->handle & CHECK_SEQUENCE)
     spec_ops->handle_packet = phandler_sequence;
@@ -233,6 +254,11 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   //TODO: We get into trouble here if DO_W_STUFF_EVERY is large
   //and we have to start sleeping to wait for io.
   err = spec_ops->be->write(spec_ops->be, 0);
+  /*
+   * recv =0 means we didn't get a buffer to/from write/read to. If  we didn't
+   * finish a write err != WRITE_COMPLETE_DONT_SLEEP so its better to sleep this
+   * thread to avoid busy loop
+   */
   if (recv == 0 && err != WRITE_COMPLETE_DONT_SLEEP){
     err = spec_ops->be->wait((void*)spec_ops->be);
 #ifdef DEBUG_OUTPUT
@@ -254,12 +280,73 @@ void flush_writes(struct opts *spec_ops){
   spec_ops->be->write(spec_ops->be,0);
   //spec_ops->be->write(spec_ops->be,0);
 }
+/*
+ * NOTE: pthreads requires this arguments function to be void* so no  struct streaming_entity
+ *
+ * This is almost the same as udp_handler, but making it bidirectional might have overcomplicated
+ * the logic and lead to high probability of bugs
+ *
+ * Sending handler for an UDP-stream
+ */
+void * udp_sender(void *opt){
+  struct streamer_entity *be =(struct streamer_entity*) se;
+  struct opts *spec_ops = (struct opts *)be->opt;
+  int err = 0;
+  int i=0;
+  //Just use this to track how many we've sent TODO: Change name
+  spec_ops->total_captured_packets = 0;
 
-void* udp_streamer(void *opt)
+  if (spec_ops->fd < 0)
+    exit(spec_ops->fd);
+
+  //While we have packets to send TODO: Change max_num_packets name
+  while(spec_ops->total_captured_packets < spec_ops->max_num_packets){
+    void * buf = spec_ops->be->get_writebuf(spec_ops->be);
+    /* Read the indice of the current file */ 
+    INDEX_FILE_TYPE pindex = *(spec_ops->packet_index + spec_ops->total_captured_bytes * sizeof(INDEX_FILE_TYPE));
+
+    pthread_mutex_lock(spec_ops->cumlock);
+    /* Not yet time to send this package so go to sleep */
+    while(pindex > *(spec_ops->cumul)){
+      pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
+    }
+    /* TODO :This might be a lot faster if we peek the next packet also. The nature of the sending
+     * program indicates differently thought */
+    {
+      /* Send packet, increment and broadcast that the current packet needed has been incremented */
+      err = send(spec_ops->fd, buf, spec_ops->elem_size, 0);
+      *(spec_ops->cumul) += 1;
+      pthread_cond_broadcast(spec_ops->signal);
+    }
+    pthread_mutex_unlock(spec_ops->cumlock);
+    if(err < 0){
+      perror("Send packet");
+      break;
+    }
+    i++;
+    if(i%DO_W_STUFF_EVERY == 0 || err == 0){
+      err = handle_packets_udp(err, spec_ops, 0);
+
+      if(err < 0){
+	fprintf(stderr, "UDP_STREAMER: HD stuffing of buffer failed\n");
+	break;
+      }
+    }
+    spec_ops->total_captured_packets++;
+  }
+
+  pthread_exit(NULL);
+}
+
+/*
+ * Receiver for UDP-data
+ */
+void* udp_streamer(void *se)
 {
   int err = 0;
   int i=0;
-  struct opts *spec_ops = (struct opts *)opt;
+  struct streamer_entity *be =(struct streamer_entity*) se;
+  struct opts *spec_ops = (struct opts *)be->opt;
   time_t t_start;
   double time_left=0;
   spec_ops->total_captured_bytes = 0;
@@ -282,9 +369,10 @@ void* udp_streamer(void *opt)
     long unsigned int nth_package;
 
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
-      //TODO: Try a semaphore here to limit interrupt utilization.
-      //Probably doesn't help
-      //TODO: Timeout
+      //Try a semaphore here to limit interrupt utilization.
+      //Probably doesn't help .. Actually worked really nicely to 
+      //reduce Software interrupts on one core!
+      //TODO: read doesn't timeout if we aren't receiving any packets
 
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
@@ -298,6 +386,8 @@ void* udp_streamer(void *opt)
 #endif
 
       //Write the index of the received package
+      //TODO: Make exit or alternative solution if we receive more packets.
+      //Maybe write the package data to disk. Allocation extra space is easiest solution
       if(nth_package < spec_ops->max_num_packets){
 	int  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
 	*daspot = nth_package;
@@ -319,7 +409,7 @@ void* udp_streamer(void *opt)
     }
 
     if(spec_ops->handle_packet != NULL)
-      spec_ops->handle_packet(opt,buf);
+      spec_ops->handle_packet(se,buf);
 
     //TODO: Handle packets at maybe every 10 packets or so
     i++;

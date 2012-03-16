@@ -36,7 +36,7 @@ struct io_info{
   //Used if we're in readmode
   INDEX_FILE_TYPE *indices;
   int read;
-  int indexfile_count;
+  unsigned long indexfile_count;
 };
 int aiow_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   struct stat statinfo;
@@ -129,12 +129,19 @@ int aiow_handle_indices(struct io_info *ioi){
 
   aiow_open_file(&fd, f_flags, filename, 0);
 
-  //Write the elem size to the first index
+  /*
+   * elem_size = Size of the packets we received when receiving the stream
+   * INDEX_FILE_TYPE = The size of our index-counter.(Eg 32bit integer or 64bit).
+   */
+  //Read the elem size from the first index
   err = read(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0){
     perror("AIOW: Index file size read");
     return err;
   }
+
+  ioi->elem_size = err;
+
   err = fstat(fd, &statinfo);
   if(err<0){
     perror("FD stat from index");
@@ -152,6 +159,7 @@ int aiow_handle_indices(struct io_info *ioi){
   }
   
   close(fd);
+  free(filename);
 
   return err;
 }
@@ -369,12 +377,26 @@ int aiow_write_index_data(struct recording_entity *re, void *data, int count){
   }
 
   close(fd);
+  free(filename);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Index file written\n");
 #endif
 
   return err;
 }
+int * aiow_pindex(struct recording_entity *re){
+  struct io_info * ioi = re->opt;
+  return ioi->indices;
+  //return ((struct io_info)re->opt)->indices;
+}
+unsigned long aiow_nofpacks(struct recording_entity *re){
+  struct io_info * ioi = re->opt;
+  return ioi->indexfile_count;
+  //return ((struct io_info*)re->opt)->indexfile_count;
+}
+/*
+ * Helper function for initializing a recording_entity
+ */
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->init = aiow_init;
   re->write = aiow_write;
@@ -382,6 +404,8 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->close = aiow_close;
   re->check = aiow_check;
   re->write_index_data = aiow_write_index_data;
+  re->get_n_packets = aiow_nofpacks;
+  re->get_packet_index = aiow_pindex;
 
   return re->init(opt,re);
 }

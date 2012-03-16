@@ -31,7 +31,7 @@ static struct opt_s opt;
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
  */
 int resolve_host(char *host, struct in_addr * ia){
-  int err;
+  int err=0;
   return err;
 }
 
@@ -180,13 +180,18 @@ static void parse_options(int argc, char **argv){
   }
   opt.time = atoi(argv[1]);
   opt.cumul = 0;
-  //TODO: Just store as int. Look into going char[2] if needed
-  loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
-  //TODO: Make macro
-  //Split kb/gb stuff to avoid overflow warning
-  prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
-  //2 bytes per line
-  opt.packet_index = (void*)malloc(sizeof(int) * prealloc_bytes);
+  /*
+   * If we're reading, we allocate and read the index data with aioringbuf
+   */ 
+  if(!opt.read){
+    //TODO: Just store as int. Look into going char[2] if needed
+    loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
+    //TODO: Make macro
+    //Split kb/gb stuff to avoid overflow warning
+    prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
+    //2 bytes per line
+    opt.packet_index = (void*)malloc(sizeof(int) * prealloc_bytes);
+  }
 
   //Set buf_size
   //OK set limiter so that when using one thread, we won't actually allocate 4GB of mem
@@ -239,6 +244,7 @@ int main(int argc, char **argv)
   
   //Create message queue
   pthread_mutex_init(&(opt.cumlock), NULL);
+  pthread_cond_init (&opt.signal, NULL);
 
 
 #ifdef DEBUG_OUTPUT
@@ -328,8 +334,7 @@ int main(int argc, char **argv)
     printf("STREAMER: In main, starting thread %d\n", i);
 #endif
 
-    //TODO: Check how to poll this from system
-    rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, threads[i].opt);
+    rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, (void*)&threads[i]);
     if (rc){
       printf("ERROR; return code from pthread_create() is %d\n", rc);
       exit(-1);
@@ -361,7 +366,7 @@ int main(int argc, char **argv)
   for(i=0;i<opt.n_threads;i++){
     threads[i].close(threads[i].opt, &stats);
   }
-  //TODO: write packet_index to file
+  pthread_mutex_destroy(&(opt.cumlock));
   free(opt.packet_index);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads closed\n");

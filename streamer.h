@@ -52,6 +52,7 @@ struct opt_s
   int tid;
   struct in_addr inaddr;
   int handle;
+  pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
 };
@@ -78,6 +79,8 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   int (*check)(struct recording_entity*);
   int (*write_index_data)(struct recording_entity*, void*, int);
+  unsigned long (*get_n_packets)(struct recording_entity*);
+  INDEX_FILE_TYPE* (*get_packet_index)(struct recording_entity*);
   struct buffer_entity *be;
 };
 
