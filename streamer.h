@@ -9,7 +9,8 @@
 #define REC_TODO 1
 #define REC_DUMMY 2
 #define MEM_GIG 4
-#define BUF_ELEM_SIZE 8192
+//#define BUF_ELEM_SIZE 8192
+#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
@@ -19,6 +20,9 @@
 //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
 #define INDEX_FILE_TYPE int
+#define CHECK_SEQUENCE 1
+#define DO_SOMETHING_ELSE 2
+//etc for packet handling
 #include <pthread.h>
 #include <netdb.h> // struct hostent
 struct opt_s
@@ -47,6 +51,7 @@ struct opt_s
   int taken_rpoints;
   int tid;
   struct in_addr inaddr;
+  int handle;
   //struct hostent he;
   //int f_flags;
 };
@@ -60,6 +65,7 @@ struct buffer_entity
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
   int (*write_index_data)(struct buffer_entity*, void*, int);
+  //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
   //struct rec_point * rp;
 };

@@ -72,6 +72,11 @@ struct opts
   int buf_elem_size;
   //Used for bidirectional usage
   int read;
+  int (*handle_packet)(struct buffer_entity*,void*);
+#ifdef CHECK_OUT_OF_ORDER
+  //Lazy to use in handle_packet
+  int last_packet;
+#endif
   //struct sockaddr target;
 
   //Moved to main init
@@ -86,7 +91,13 @@ struct opts
   unsigned long int incomplete;
   unsigned long int dropped;
   unsigned long int total_captured_packets;
+#ifdef CHECK_OUT_OF_ORDER
+  unsigned long int out_of_order;
+#endif
 };
+int phandler_sequence(struct buffer_entity * be, void * buffer){
+
+}
 void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 {
   int err, len, def;
@@ -103,6 +114,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->max_num_packets = opt->max_num_packets;
   spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
   spec_ops->read = opt->read;
+#ifdef CHECK_OUT_OF_ORDER
+  if(opt->handle & CHECK_SEQUENCE)
+    spec_ops->handle_packet = phandler_sequence;
+#endif
   //spec_ops->packet_index = opt->packet_index;
 
 #ifdef DEBUG_OUTPUT
@@ -249,6 +264,9 @@ void* udp_streamer(void *opt)
   double time_left=0;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
+#ifdef CHECK_OUT_OF_ORDER
+  spec_ops->out_of_order = 0;
+#endif
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
@@ -275,6 +293,11 @@ void* udp_streamer(void *opt)
       *(spec_ops->cumul) += 1;
       pthread_mutex_unlock(spec_ops->cumlock);
 
+#ifdef CHECK_OUT_OF_ORDER
+      spec_ops->last_packet = nth_package;
+#endif
+
+      //Write the index of the received package
       if(nth_package < spec_ops->max_num_packets){
 	int  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
 	*daspot = nth_package;
@@ -295,6 +318,8 @@ void* udp_streamer(void *opt)
 #endif
     }
 
+    if(spec_ops->handle_packet != NULL)
+      spec_ops->handle_packet(opt,buf);
 
     //TODO: Handle packets at maybe every 10 packets or so
     i++;
@@ -330,10 +355,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
   if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
-    fprintf(stderr, "Index data write failed on id ");
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Writing index data\n");
-#endif
+    fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);

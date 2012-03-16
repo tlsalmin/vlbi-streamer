@@ -15,8 +15,8 @@ struct ringbuf{
   void* buffer;
   int elem_size;
   int num_elems;
-  int ready_to_write;
-  int last_write_i;
+  int ready_to_io;
+  int last_io_i;
   int read;
 };
 

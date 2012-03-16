@@ -49,6 +49,9 @@ static void usage(char *binary){
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-h HOST		Specify host(Required for send\n"
       "-w {aio|dummy}	use AIO-writer or DUMMY writer\n"
+#ifdef CHECK_OUT_OF_ORDER
+      "-q 		Check if packets are in order from first 64bits of package\n"
+#endif
       ,binary);
 }
 void init_stat(struct stats *stats){
@@ -86,10 +89,11 @@ static void parse_options(int argc, char **argv){
   opt.buf_type = WRITER_AIOW_RBUF;
   opt.rec_type= REC_AIO;
   opt.taken_rpoints = 0;
+  opt.handle = 0;
   opt.read = 0;
   opt.tid = 0;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:q"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -128,6 +132,11 @@ static void parse_options(int argc, char **argv){
       case 'n':
 	opt.n_threads = atoi(optarg);
 	break;
+      case 'q':
+#ifdef CHECK_OUT_OF_ORDER
+	opt.handle |= CHECK_SEQUENCE;
+	break;
+#endif
       case 'm':
 	if (!strcmp(optarg, "r"))
 	  opt.read = 0;

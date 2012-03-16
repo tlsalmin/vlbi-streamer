@@ -21,8 +21,8 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   rbuf->elem_size = opt->buf_elem_size;
   rbuf->writer_head = 0;
   rbuf->tail = rbuf->hdwriter_head = 0;
-  rbuf->ready_to_write = 1;
-  rbuf->last_write_i = 0;
+  rbuf->ready_to_io = 1;
+  rbuf->last_io_i = 0;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Memaligning buffer\n");
@@ -98,7 +98,7 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
   if(diff_final > 0){
     int diff = diff_final;
     int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
-    rbuf->ready_to_write -= requests;
+    rbuf->ready_to_io -= requests;
     for(i=0;i<requests;i++){
       void * start;
       size_t count;
@@ -126,7 +126,7 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
 	return ret;
       increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
     }
-    rbuf->last_write_i = diff_final;
+    rbuf->last_io_i = diff_final;
   }
   //}
   return ret;
@@ -139,16 +139,17 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
 
   //HD writing. Check if job finished. Might also use message passing
   //in the future
-  if(!(rbuf->ready_to_write >= 1 || force)){
+  if(!(rbuf->ready_to_io >= 1 || force)){
     while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_write+ret);
+      fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_io+ret);
 #endif
-      rbuf->ready_to_write += ret;
-      if(rbuf->last_write_i > 0){
-	increment_amount(rbuf, &(rbuf->tail), rbuf->last_write_i);
-	rbuf->last_write_i = 0;
+      rbuf->ready_to_io += ret;
+      if(rbuf->last_io_i > 0){
+	increment_amount(rbuf, &(rbuf->tail), rbuf->last_io_i);
+	rbuf->last_io_i = 0;
       }
+      //Only used cause IO_WAIT doesn't work with EXT4 yet 
       ret = WRITE_COMPLETE_DONT_SLEEP;
     }
     /*
@@ -167,7 +168,7 @@ int dummy_write(struct ringbuf *rbuf){
 #endif
   int writable = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
   increment_amount(rbuf, &(rbuf->hdwriter_head), writable);
-  rbuf->ready_to_write = 0;
+  rbuf->ready_to_io = 0;
   //Dummy write completes right away
   dummy_return_from_write(rbuf);
   return 1;
@@ -176,7 +177,7 @@ int dummy_write(struct ringbuf *rbuf){
 inline void dummy_return_from_write(struct ringbuf *rbuf){
   int written = diff_max(rbuf->tail, rbuf->hdwriter_head, rbuf->num_elems);
   increment_amount(rbuf, &(rbuf->tail), written);
-  rbuf->ready_to_write = 1;
+  rbuf->ready_to_io = 1;
 }
 int dummy_write_wrapped(struct buffer_entity *be, int force){
   struct ringbuf * rbuf = (struct ringbuf*)be->opt;
