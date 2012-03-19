@@ -178,7 +178,10 @@ static void parse_options(int argc, char **argv){
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
     sprintf(opt.filenames[i], "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
   }
-  opt.time = atoi(argv[1]);
+  if(opt.read)
+    opt.hostname = argv[1];
+  else
+    opt.time = atoi(argv[1]);
   opt.cumul = 0;
   /*
    * If we're reading, we allocate and read the index data with aioringbuf
@@ -241,6 +244,22 @@ int main(int argc, char **argv)
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
 #endif
+  /* Handle hostname etc */
+  /* TODO: Whats the best way that accepts any format? */
+  if(opt.read){
+    struct hostent *hostptr;
+
+    hostptr = gethostbyname(opt.hostname);
+    if(hostptr == NULL){
+      perror("Hostname");
+      exit(-1);
+    }
+    memcpy(&(opt.serverip), (char *)hostptr->h_addr, sizeof(opt.serverip));
+
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Resolved hostname\n");
+#endif
+  }
   
   //Create message queue
   pthread_mutex_init(&(opt.cumlock), NULL);
@@ -314,10 +333,16 @@ int main(int argc, char **argv)
 	threads[i].opt = threads[i].init(&opt, be);
 	break;
       case CAPTURE_W_UDPSTREAM:
+	/*
 	threads[i].init = setup_udp_socket;
 	threads[i].start = udp_streamer;
 	threads[i].close = close_udp_streamer;
 	threads[i].opt = threads[i].init(&opt, be);
+	*/
+	if(opt.read)
+	  udps_init_udp_sender(&opt, &(threads[i]), be);
+	else
+	  udps_init_udp_receiver(&opt, &(threads[i]), be);
 	break;
       case CAPTURE_W_TODO:
 	fprintf(stderr, "Not yet implemented");

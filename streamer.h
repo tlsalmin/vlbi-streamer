@@ -9,8 +9,8 @@
 #define REC_TODO 1
 #define REC_DUMMY 2
 #define MEM_GIG 4
-//#define BUF_ELEM_SIZE 8192
-#define BUF_ELEM_SIZE 32768
+#define BUF_ELEM_SIZE 8192
+//#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
@@ -50,7 +50,8 @@ struct opt_s
   //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
   int tid;
-  struct in_addr inaddr;
+  char * hostname;
+  unsigned long serverip;
   int handle;
   pthread_cond_t signal;
   //struct hostent he;

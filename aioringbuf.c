@@ -96,7 +96,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
    */
   else{
     head = &(rbuf->writer_head);
-    rest = &(rbuf->tails);
+    rest = &(rbuf->tail);
     }
   if(!increment(rbuf, head, rest))
     spot = NULL;
@@ -107,7 +107,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
 //alias for scheduling packets for writing
 inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re, int force){
   int ret=0,i, diff_final;
-  int* head, tail;
+  int *head, *tail;
   /*
    * TODO:
    * TODO: Friday dev ended here.
@@ -119,27 +119,36 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
       }
   else{
     head = &(rbuf->writer_head);
-    tail = &(rbuf->tail);
+    tail = &(rbuf->hdwriter_head);
   }
 
   //TODO: Move this diff to a single int for faster processing
   //Thought this doesn't take much processing compared to all of the interrupts
-  diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+  //diff_final = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->num_elems);
+  
+  //Special case when starting send
+  if(rbuf->read && (*head == *tail))
+    diff_final = rbuf->num_elems;
+  else
+    diff_final = diff_max(*tail, *head, rbuf->num_elems);
 
   //TODO: not sure if limiting here or limiting in receiver end better.
   //if(diff_final > HD_WRITE_N_SIZE || force == FORCE_WRITE){
   if(diff_final > 0){
     int diff = diff_final;
-    int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
+    //int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
+    int requests = 1+((*head < *tail) && *head > 0);
     rbuf->ready_to_io -= requests;
     for(i=0;i<requests;i++){
       void * start;
       size_t count;
       int endi;
       if(i == 0){
-	start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
+	//start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->elem_size);
+	start = rbuf->buffer + (*tail * rbuf->elem_size);
 	if(requests ==2){
-	  endi = rbuf->num_elems - rbuf->hdwriter_head;
+	  //endi = rbuf->num_elems - rbuf->hdwriter_head;
+	  endi = rbuf->num_elems - *tail;
 	  diff -= endi;
 	}
 	else
@@ -152,12 +161,13 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
       count = (endi) * (rbuf->elem_size);
 
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", rbuf->hdwriter_head, rbuf->writer_head, endi, rbuf->num_elems, count);
+      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", *tail, *head, endi, rbuf->num_elems, count);
 #endif
       ret = re->write(re, start, count);
       if(ret<0)
 	return ret;
-      increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+      //increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+      increment_amount(rbuf, tail, endi);
     }
     rbuf->last_io_i = diff_final;
   }

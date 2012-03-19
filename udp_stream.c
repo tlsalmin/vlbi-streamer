@@ -46,6 +46,7 @@
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
 #define HD_WRITE_SIZE 524288
+#define MULTITHREAD_SEND_DEBUG
 
 #define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 
@@ -141,9 +142,11 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 #endif
   //spec_ops->packet_index = opt->packet_index;
 
+  /*
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 #endif
+*/
 
   spec_ops->port = opt->port;
 
@@ -224,8 +227,11 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     addr->sin_port = htons(spec_ops->port);    
     //TODO: check if IF binding helps
     if(spec_ops->read == 1){
-      addr->sin_addr = opt->inaddr;
-      err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(struct sockaddr_in));
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "Connecting to %s\n", opt->hostname);
+#endif
+      addr->sin_addr.s_addr = opt->serverip;
+      err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(*addr));
     }
     else{
       addr->sin_addr.s_addr = INADDR_ANY;
@@ -237,6 +243,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
       perror("bind or connect");
       return NULL;
     }
+#ifdef DEBUG_OUTPUT
+    else
+      fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
+#endif
     free(addr);
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
@@ -269,6 +279,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
       return err;
     }
   }
+  /* Smarter timing here */
 
   return err;
 }
@@ -289,39 +300,61 @@ void flush_writes(struct opts *spec_ops){
  * Sending handler for an UDP-stream
  */
 void * udp_sender(void *opt){
-  struct streamer_entity *be =(struct streamer_entity*) se;
+  struct streamer_entity *be =(struct streamer_entity*) opt;
   struct opts *spec_ops = (struct opts *)be->opt;
   int err = 0;
   int i=0;
+  INDEX_FILE_TYPE *pindex = spec_ops->packet_index;
   //Just use this to track how many we've sent TODO: Change name
   spec_ops->total_captured_packets = 0;
 
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Filling buffer\n");
+#endif
+  spec_ops->be->write(spec_ops->be, 1);
+  
+  usleep(100);
+  spec_ops->be->write(spec_ops->be, 0);
+  /* Fill the buffer up first */
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Starting sender-thread\n");
+#endif
   //While we have packets to send TODO: Change max_num_packets name
   while(spec_ops->total_captured_packets < spec_ops->max_num_packets){
     void * buf = spec_ops->be->get_writebuf(spec_ops->be);
     /* Read the indice of the current file */ 
-    INDEX_FILE_TYPE pindex = *(spec_ops->packet_index + spec_ops->total_captured_bytes * sizeof(INDEX_FILE_TYPE));
+    //INDEX_FILE_TYPE pindex = *(spec_ops->packet_index + spec_ops->total_captured_bytes * sizeof(INDEX_FILE_TYPE));
 
     pthread_mutex_lock(spec_ops->cumlock);
     /* Not yet time to send this package so go to sleep */
-    while(pindex > *(spec_ops->cumul)){
+    while(*pindex > *(spec_ops->cumul)){
+#ifdef MULTITHREAD_SEND_DEBUG
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %d and need %lu\n", *pindex, *(spec_ops->cumul));
+#endif
       pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
     }
-    /* TODO :This might be a lot faster if we peek the next packet also. The nature of the sending
+    /* TODO :This might be a lot faster if we peek the next packet also. The nature of the receiving
      * program indicates differently thought */
+#ifdef MULTITHREAD_SEND_DEBUG
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %d and need %lu\n", *pindex, *(spec_ops->cumul));
+#endif
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
-      err = send(spec_ops->fd, buf, spec_ops->elem_size, 0);
+      err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
       *(spec_ops->cumul) += 1;
+#ifdef MULTITHREAD_SEND_DEBUG
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
+#endif
       pthread_cond_broadcast(spec_ops->signal);
     }
     pthread_mutex_unlock(spec_ops->cumlock);
     if(err < 0){
       perror("Send packet");
-      break;
+      pthread_exit(NULL);
+      //break;
     }
     i++;
     if(i%DO_W_STUFF_EVERY == 0 || err == 0){
@@ -333,6 +366,10 @@ void * udp_sender(void *opt){
       }
     }
     spec_ops->total_captured_packets++;
+#ifdef MULTITHREAD_SEND_DEBUG
+      fprintf(stdout, "incrementing pindex\n");
+#endif
+    pindex += sizeof(INDEX_FILE_TYPE);
   }
 
   pthread_exit(NULL);
@@ -444,8 +481,10 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-  if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
-    fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
+  /* TODO: Make this nicer */
+  if(!spec_ops->read)
+    if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
+      fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
@@ -453,3 +492,15 @@ int close_udp_streamer(void *opt_own, void *stats){
   free(spec_ops);
   return 0;
 }
+void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
+  se->init = setup_udp_socket;
+  se->start = udp_streamer;
+  se->close = close_udp_streamer;
+  se->opt = se->init(opt, be);
+  }
+void udps_init_udp_sender(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
+  se->init = setup_udp_socket;
+  se->start = udp_sender;
+  se->close = close_udp_streamer;
+  se->opt = se->init(opt, be);
+  }

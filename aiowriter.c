@@ -139,8 +139,11 @@ int aiow_handle_indices(struct io_info *ioi){
     perror("AIOW: Index file size read");
     return err;
   }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Elem size here %d\n", ioi->elem_size);
+#endif 
 
-  ioi->elem_size = err;
+  //ioi->elem_size = err;
 
   err = fstat(fd, &statinfo);
   if(err<0){
@@ -206,8 +209,12 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
       perror("AIOW: Reading indices");
       return -1;
     }
-    else
+    else{
       opt->buf_elem_size = ioi->elem_size;
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "Element size is %d\n", opt->buf_elem_size);
+#endif
+    }
   }
   else{
     ioi->elem_size = opt->buf_elem_size;
@@ -337,6 +344,10 @@ int aiow_close(struct recording_entity * re, void * stats){
     if(err<0)
       perror("AIOW: ftruncate");
   }
+  else{
+    free(ioi->indices);
+    /* No need to close indice-file since it was read into memory */
+  }
   close(ioi->fd);
   io_destroy(*(ioi->ctx));
 
@@ -368,6 +379,9 @@ int aiow_write_index_data(struct recording_entity *re, void *data, int count){
   err = write(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0)
     perror("AIOW: Index file size write");
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Wrote %d as elem size", ioi->elem_size);
+#endif
 
   //Write the data
   err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
