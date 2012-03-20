@@ -104,6 +104,7 @@ static void io_error(const char *func, int rc)
   fprintf(stderr, "%s: error %d", func, rc);
 }
 
+/*
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   fprintf(stdout, "This will never make it to print\n");
   if(res2 != 0)
@@ -116,6 +117,7 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
 #endif
   free(iocb);
 }
+*/
 int aiow_handle_indices(struct io_info *ioi){
   char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   int f_flags = O_RDONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -140,7 +142,7 @@ int aiow_handle_indices(struct io_info *ioi){
     return err;
   }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Elem size here %d\n", ioi->elem_size);
+  fprintf(stdout, "Elem size here %lu\n", ioi->elem_size);
 #endif 
 
   //ioi->elem_size = err;
@@ -183,7 +185,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 #endif
   //Check if file exists
   if(ioi->read == 1){
-    ioi->f_flags = O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+    ioi->f_flags = O_RDONLY|O_DIRECT|O_NOATIME;
     prealloc_bytes = 0;
   }
   else{
@@ -212,7 +214,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
     else{
       opt->buf_elem_size = ioi->elem_size;
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "Element size is %d\n", opt->buf_elem_size);
+      fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
 #endif
     }
   }
@@ -380,7 +382,7 @@ int aiow_write_index_data(struct recording_entity *re, void *data, int count){
   if(err<0)
     perror("AIOW: Index file size write");
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Wrote %d as elem size", ioi->elem_size);
+  fprintf(stdout, "Wrote %lu as elem size", ioi->elem_size);
 #endif
 
   //Write the data
@@ -398,7 +400,7 @@ int aiow_write_index_data(struct recording_entity *re, void *data, int count){
 
   return err;
 }
-int * aiow_pindex(struct recording_entity *re){
+INDEX_FILE_TYPE * aiow_pindex(struct recording_entity *re){
   struct io_info * ioi = re->opt;
   return ioi->indices;
   //return ((struct io_info)re->opt)->indices;

@@ -182,6 +182,7 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
 
   //HD writing. Check if job finished. Might also use message passing
   //in the future
+  /* Get rid of ready_to_io. Doesn't make sense really.. */
   if(rbuf->ready_to_io < 1 && !force){
     while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT

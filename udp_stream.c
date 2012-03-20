@@ -76,7 +76,7 @@ struct opts
   int (*handle_packet)(struct streamer_entity*,void*);
 #ifdef CHECK_OUT_OF_ORDER
   //Lazy to use in handle_packet
-  int last_packet;
+  INDEX_FILE_TYPE last_packet;
 #endif
   //struct sockaddr target;
 
@@ -130,7 +130,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   }
   else{
     spec_ops->max_num_packets = opt->max_num_packets;
-    spec_ops->packet_index = (int*)malloc(sizeof(int)*opt->max_num_packets);
+    spec_ops->packet_index = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*opt->max_num_packets);
     }
 
   /*
@@ -332,14 +332,14 @@ void * udp_sender(void *opt){
     /* Not yet time to send this package so go to sleep */
     while(*pindex > *(spec_ops->cumul)){
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %d and need %lu\n", *pindex, *(spec_ops->cumul));
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
       pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
     }
     /* TODO :This might be a lot faster if we peek the next packet also. The nature of the receiving
      * program indicates differently thought */
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %d and need %lu\n", *pindex, *(spec_ops->cumul));
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
@@ -386,6 +386,7 @@ void* udp_streamer(void *se)
   struct opts *spec_ops = (struct opts *)be->opt;
   time_t t_start;
   double time_left=0;
+  INDEX_FILE_TYPE *daspot = spec_ops->packet_index;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
 #ifdef CHECK_OUT_OF_ORDER
@@ -403,7 +404,7 @@ void* udp_streamer(void *se)
 
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     void * buf;
-    long unsigned int nth_package;
+    //long unsigned int nth_package;
 
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
       //Try a semaphore here to limit interrupt utilization.
@@ -414,28 +415,40 @@ void* udp_streamer(void *se)
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
-      nth_package = *(spec_ops->cumul);
-      *(spec_ops->cumul) += 1;
-      pthread_mutex_unlock(spec_ops->cumlock);
+      if(err < 0){
+	perror("RECV error");
+	pthread_mutex_unlock(spec_ops->cumlock);
+	break;
+      }
+      else{
+	//nth_package = *(spec_ops->cumul);
+	*daspot = *(spec_ops->cumul);
+	*(spec_ops->cumul) += 1;
+	pthread_mutex_unlock(spec_ops->cumlock);
+      }
 
-#ifdef CHECK_OUT_OF_ORDER
-      spec_ops->last_packet = nth_package;
-#endif
 
       //Write the index of the received package
       //TODO: Make exit or alternative solution if we receive more packets.
       //Maybe write the package data to disk. Allocation extra space is easiest solution
+      /*
       if(nth_package < spec_ops->max_num_packets){
-	int  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
+	INDEX_FILE_TYPE  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
 	*daspot = nth_package;
       }
+      */
+#ifdef CHECK_OUT_OF_ORDER
+      spec_ops->last_packet = *daspot;
+#endif
 
-      if(err < 0){
-	perror("RECV error");
-	break;
-      }
       spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets += 1;
+      if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
+	daspot += sizeof(INDEX_FILE_TYPE);
+      else{
+	fprintf(stderr, "Out of space on index file");
+	break;
+      }
     }
     //If write buffer is full
     else{
@@ -483,7 +496,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #endif
   /* TODO: Make this nicer */
   if(!spec_ops->read)
-    if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_bytes) <0)
+    if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
       fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);

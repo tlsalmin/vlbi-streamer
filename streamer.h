@@ -19,7 +19,10 @@
 #define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
-#define INDEX_FILE_TYPE int
+/* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
+#define INDEX_FILE_TYPE unsigned long
+/* TODO: Make the definition below work where used */
+#define INDEX_FILE_PRINT lu
 #define CHECK_SEQUENCE 1
 #define DO_SOMETHING_ELSE 2
 //etc for packet handling
@@ -38,7 +41,7 @@ struct opt_s
   int port;
   int socket;
   int n_threads;
-  void * packet_index;
+  //void * packet_index;
   unsigned long max_num_packets;
   //struct rec_point * points;
   char * filenames[MAX_OPEN_FILES];

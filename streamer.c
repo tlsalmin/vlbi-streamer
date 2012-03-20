@@ -183,17 +183,14 @@ static void parse_options(int argc, char **argv){
   else
     opt.time = atoi(argv[1]);
   opt.cumul = 0;
-  /*
-   * If we're reading, we allocate and read the index data with aioringbuf
-   */ 
+  /* Calc the max per thread amount of packets we can receive */
+  /* TODO: Systems with non-uniform disks stop writing after too many packets */
   if(!opt.read){
-    //TODO: Just store as int. Look into going char[2] if needed
     loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
     //TODO: Make macro
     //Split kb/gb stuff to avoid overflow warning
     prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
-    //2 bytes per line
-    opt.packet_index = (void*)malloc(sizeof(int) * prealloc_bytes);
+    opt.max_num_packets = prealloc_bytes;
   }
 
   //Set buf_size
@@ -392,7 +389,7 @@ int main(int argc, char **argv)
     threads[i].close(threads[i].opt, &stats);
   }
   pthread_mutex_destroy(&(opt.cumlock));
-  free(opt.packet_index);
+  //free(opt.packet_index);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif

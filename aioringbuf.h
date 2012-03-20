@@ -1,6 +1,7 @@
 #ifndef AIORINGBUF
 #define AIORINGBUF
 #include "streamer.h"
+#define SLEEP_ON_IO
 
 struct ringbuf{
   /*
