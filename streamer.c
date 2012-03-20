@@ -190,7 +190,7 @@ static void parse_options(int argc, char **argv){
     //TODO: Make macro
     //Split kb/gb stuff to avoid overflow warning
     prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
-    opt.max_num_packets = prealloc_bytes;
+    opt.max_num_packets = prealloc_bytes*100;
   }
 
   //Set buf_size

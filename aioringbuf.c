@@ -138,7 +138,7 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
     int diff = diff_final;
     //int requests = 1+((rbuf->writer_head < rbuf->hdwriter_head) && rbuf->writer_head > 0);
     int requests = 1+((*head < *tail) && *head > 0);
-    rbuf->ready_to_io -= requests;
+    //rbuf->ready_to_io -= requests;
     for(i=0;i<requests;i++){
       void * start;
       size_t count;
@@ -169,7 +169,7 @@ inline int write_after_checks(struct ringbuf* rbuf, struct recording_entity *re,
       //increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
       increment_amount(rbuf, tail, endi);
     }
-    rbuf->last_io_i = diff_final;
+    //rbuf->last_io_i = diff_final;
   }
   //}
   return ret;
@@ -183,21 +183,33 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
   //HD writing. Check if job finished. Might also use message passing
   //in the future
   /* Get rid of ready_to_io. Doesn't make sense really.. */
-  if(rbuf->ready_to_io < 1 && !force){
+  if(!force){
     while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: %d Writes complete. Cleared write block to %d\n", ret, rbuf->ready_to_io+ret);
+      fprintf(stdout, "RINGBUF: %d Writes complete.\n", ret/rbuf->elem_size);
 #endif
-      rbuf->ready_to_io += ret;
-      if(rbuf->last_io_i > 0){
+      //rbuf->ready_to_io += ret;
+      //if(rbuf->last_io_i > 0){
+      {
 	int * to_increment;
+	int num_written;
 	//TODO: Augment for bidirectionality
 	if(rbuf->read)
 	  to_increment = &(rbuf->hdwriter_head);
 	else
 	  to_increment = &(rbuf->tail);
-	increment_amount(rbuf, to_increment, rbuf->last_io_i);
-	rbuf->last_io_i = 0;
+
+	/* ret tells us how many bytes were written */
+	/* ret/buf_size = number of buffs we've written */
+  
+	num_written = ret/rbuf->elem_size;
+
+	/* TODO: If we receive IO done out of order, we'll potentially release  */
+	/* Buffer entries that haven't yet been released. Trusting that this 	*/
+	/* won't happen 							*/
+
+	increment_amount(rbuf, to_increment, num_written);
+	//rbuf->last_io_i = 0;
       }
       //Only used cause IO_WAIT doesn't work with EXT4 yet 
       ret = WRITE_COMPLETE_DONT_SLEEP;
@@ -208,9 +220,9 @@ int rbuf_aio_write(struct buffer_entity *be, int force){
        */
   }
   //Kind of a double check, but the previous if affects these conditions
-  if(rbuf->ready_to_io >= 1 || force){
+  //if(rbuf->ready_to_io >= 1 || force){
     ret = write_after_checks(rbuf, be->recer, force);
-  }
+  //}
   return ret;
 }
 int dummy_write(struct ringbuf *rbuf){

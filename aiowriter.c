@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#ifdef DEBUG_OUTPUT
+#include <time.h>
+#endif
 
 #include "aiowriter.h"
 //#include "aioringbuf.h"
@@ -245,6 +248,8 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 int aiow_write(struct recording_entity * re, void * start, size_t count){
   int ret;
 #ifdef DEBUG_OUTPUT
+  clock_t t_start;
+  clock_t t_end;
   fprintf(stdout, "AIOW: Performing read/write\n");
 #endif
 
@@ -265,7 +270,15 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
 
   //Not sure if 3rd argument safe, but running 
   //one iocb at a time anyway
+#ifdef DEBUG_OUTPUT
+  t_start = clock();
+  usleep(1000);
+#endif
   ret = io_submit(*(ioi->ctx), 1, ib);
+#ifdef DEBUG_OUTPUT
+  t_end = clock();
+  fprintf(stdout, "AIOW: IO_SUBMIT took %lu on %s\n", t_end- t_start, ioi->filename);
+#endif
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Submitted %d reads/writes\n", ret);
@@ -288,6 +301,7 @@ int aiow_check(struct recording_entity * re){
   if(ret > 0){
     if((signed long )event.res > 0){
     ioi->bytes_exchanged += event.res;
+    ret = event.res;
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "AIOW: Check return %d, read/written %lu bytes\n", ret, event.res);
 #endif
