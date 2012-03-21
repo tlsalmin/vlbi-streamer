@@ -16,9 +16,19 @@ struct ringbuf{
   void* buffer;
   int elem_size;
   int num_elems;
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  int diff;
+  int running;
+#endif
+  /* Neither used in real writing */
   int ready_to_io;
   int last_io_i;
+
   int read;
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  pthread_mutex_t *headlock;
+  pthread_cond_t *iosignal;
+#endif
 };
 
 //Increments pwriter head. Returns negative, if 
@@ -40,4 +50,8 @@ int rbuf_wait(struct buffer_entity * be);
 int rbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_init_dummy(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
+int write_bytes(struct buffer_entity * re, int head, int *tail, int diff);
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+void rbuf_init_mutex_n_signal(struct buffer_entity *be, void * mutex, void * signal);
+#endif
 #endif

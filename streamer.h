@@ -23,8 +23,21 @@
 #define INDEX_FILE_TYPE unsigned long
 /* TODO: Make the definition below work where used */
 #define INDEX_FILE_PRINT lu
+/* Moving the rbuf-stuff to its own thread */
+#define SPLIT_RBUF_AND_IO_TO_THREAD
 #define CHECK_SEQUENCE 1
 #define DO_SOMETHING_ELSE 2
+
+//NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
+//But this only happens on buffer size > (atleast) 30000
+//Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
+#define HD_WRITE_SIZE 16777216
+//#define HD_WRITE_SIZE 1048576
+//#define HD_WRITE_SIZE 33554432
+//#define HD_WRITE_SIZE 262144
+//#define HD_WRITE_SIZE 524288
+
+#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling
 #include <pthread.h>
 #include <netdb.h> // struct hostent
@@ -70,6 +83,7 @@ struct buffer_entity
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
   int (*write_index_data)(struct buffer_entity*, void*, int);
+  void* (*write_loop)(void *);
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
   //struct rec_point * rp;

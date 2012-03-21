@@ -38,17 +38,7 @@
 //#include "aioringbuf.h"
 //#include "aiowriter.h"
 
-//NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
-//But this only happens on buffer size > (atleast) 30000
-//Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-#define HD_WRITE_SIZE 16777216
-//#define HD_WRITE_SIZE 1048576
-//#define HD_WRITE_SIZE 33554432
-//#define HD_WRITE_SIZE 262144
-//#define HD_WRITE_SIZE 524288
 #define MULTITHREAD_SEND_DEBUG
-
-#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 
 //Gatherer specific options
 struct opts
@@ -77,6 +67,10 @@ struct opts
 #ifdef CHECK_OUT_OF_ORDER
   //Lazy to use in handle_packet
   INDEX_FILE_TYPE last_packet;
+#endif
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  pthread_mutex_t * headlock;
+  pthread_cond_t * iosignal;
 #endif
   //struct sockaddr target;
 
@@ -395,6 +389,29 @@ void* udp_streamer(void *se)
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  spec_ops->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  spec_ops->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+  pthread_mutex_init(spec_ops->headlock, NULL);
+  pthread_cond_init(spec_ops->iosignal, NULL);
+
+  pthread_t rbuf_thread;
+
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
+#endif
+  /* Segfault from here */
+  int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
+  if (rc){
+    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    exit(-1);
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Ringbuf thread started\n");
+#endif 
+  
+#endif
+
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
@@ -402,11 +419,27 @@ void* udp_streamer(void *se)
 
   time(&t_start);
 
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
+#endif
   while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     void * buf;
     //long unsigned int nth_package;
 
+    /* This breaks separation of modules. Needs to be implemented in every receiver */
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+    pthread_mutex_lock(spec_ops->headlock);
+    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
+      pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+    }
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
+#endif
+    {
+#else
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
+#endif
+
       //Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help .. Actually worked really nicely to 
       //reduce Software interrupts on one core!
@@ -414,13 +447,25 @@ void* udp_streamer(void *se)
 
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
+      buf = malloc(spec_ops->buf_elem_size);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
+#endif
       if(err < 0){
 	perror("RECV error");
 	pthread_mutex_unlock(spec_ops->cumlock);
 	break;
       }
       else{
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+	/* Signal writer that we've processed some packets and 	*/
+	/* it should wake up unless it's busy writing		*/
+	if(i%DO_W_STUFF_EVERY == 0)
+	  pthread_cond_signal(spec_ops->iosignal);
+	/* Used buffer so we can release headlock */
+	pthread_mutex_unlock(spec_ops->headlock);
+#endif
 	//nth_package = *(spec_ops->cumul);
 	*daspot = *(spec_ops->cumul);
 	*(spec_ops->cumul) += 1;
@@ -451,29 +496,37 @@ void* udp_streamer(void *se)
       }
     }
     //If write buffer is full
+#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
     else{
       err = 0;
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Buffer full!\n");
 #endif
     }
+#endif
 
     if(spec_ops->handle_packet != NULL)
       spec_ops->handle_packet(se,buf);
 
     //TODO: Handle packets at maybe every 10 packets or so
     i++;
-    if(i%DO_W_STUFF_EVERY == 0 || err == 0)
+#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
+    if(i%DO_W_STUFF_EVERY == 0 || err == 0){
       err = handle_packets_udp(err, spec_ops, time_left);
-
+    }
     if(err < 0){
       fprintf(stderr, "UDP_STREAMER: Packet handling failed\n");
       break;
     }
-
+#endif
   }
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+    pthread_join(rbuf_thread,NULL);
+    pthread_mutex_destroy(spec_ops->headlock);
+#else
   if(err >= 0)
     flush_writes(spec_ops);
+#endif
 
   pthread_exit(NULL);
 }
@@ -502,6 +555,10 @@ int close_udp_streamer(void *opt_own, void *stats){
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
   free(spec_ops->packet_index);
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  free(spec_ops->headlock);
+  free(spec_ops->iosignal);
+#endif
   free(spec_ops);
   return 0;
 }

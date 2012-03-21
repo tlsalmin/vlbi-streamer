@@ -270,15 +270,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
 
   //Not sure if 3rd argument safe, but running 
   //one iocb at a time anyway
-#ifdef DEBUG_OUTPUT
-  t_start = clock();
-  usleep(1000);
-#endif
   ret = io_submit(*(ioi->ctx), 1, ib);
-#ifdef DEBUG_OUTPUT
-  t_end = clock();
-  fprintf(stdout, "AIOW: IO_SUBMIT took %lu on %s\n", t_end- t_start, ioi->filename);
-#endif
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Submitted %d reads/writes\n", ret);
