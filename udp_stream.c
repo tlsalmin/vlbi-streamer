@@ -396,6 +396,7 @@ void* udp_streamer(void *se)
   pthread_cond_init(spec_ops->iosignal, NULL);
 
   pthread_t rbuf_thread;
+  spec_ops->be->init_mutex(spec_ops->be, spec_ops->headlock, spec_ops->iosignal);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");

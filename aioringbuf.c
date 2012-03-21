@@ -351,6 +351,7 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->close = rbuf_close;
   be->write_loop = rbuf_write_loop;
   be->write_index_data = rbuf_write_index_data;
+  be->init_mutex = rbuf_init_mutex_n_signal;
 
   return be->init(opt,be); 
 }

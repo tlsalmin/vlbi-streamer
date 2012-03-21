@@ -84,6 +84,7 @@ struct buffer_entity
   int (*close)(struct buffer_entity*,void * );
   int (*write_index_data)(struct buffer_entity*, void*, int);
   void* (*write_loop)(void *);
+  void (*init_mutex)(struct buffer_entity *, void*,void*);
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
   //struct rec_point * rp;
