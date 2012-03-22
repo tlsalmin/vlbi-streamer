@@ -26,23 +26,12 @@
 #endif
 //Nanoseconds for waiting on busy io
 #define TIMEOUT_T 100
+/*
 struct io_info{
   io_context_t * ctx;
-  char *filename;
-  int fd;
-  long long offset;
-  //Used as bytes read in readmode
-  long long bytes_exchanged;
-  //Used for sending
-  INDEX_FILE_TYPE elem_size;
-  int f_flags;
-  //Used if we're in readmode
-  INDEX_FILE_TYPE *indices;
-  int read;
-  INDEX_FILE_TYPE indexfile_count;
 };
+*/
 
-//TODO: Error handling
 
 /* Fatal error handler */
 /*
@@ -62,70 +51,27 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
 //Read init is so similar to write, that i'll just add a parameter
 int aiow_init(struct opt_s* opt, struct recording_entity *re){
   int ret;
-  //void * errpoint;
-  re->opt = (void*)malloc(sizeof(struct io_info));
-  struct io_info * ioi = (struct io_info *) re->opt;
-  loff_t prealloc_bytes;
-  //struct stat statinfo;
-  int err =0;
-  ioi->read = opt->read;
 
-  //ioi->latest_write_num = 0;
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Initializing write point\n");
-#endif
-  //Check if file exists
-  if(ioi->read == 1){
-    ioi->f_flags = O_RDONLY|O_DIRECT|O_NOATIME;
-    prealloc_bytes = 0;
-  }
-  else{
-    ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-    //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
-    //for s seconds.
-    loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
-    //Split kb/gb stuff to avoid overflow warning
-    prealloc_bytes = prealloc_bytes*1024*1024;
-    //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
-  }
-  ioi->filename = opt->filenames[opt->taken_rpoints++];
-  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
-  if(err<0)
+  ret = common_w_init(opt,re);
+  if(ret<0)
     return -1;
-  //TODO: Set offset accordingly if file already exists. Not sure if
-  //needed, since data consistency would take a hit anyway
-  ioi->offset = 0;
-  ioi->bytes_exchanged = 0;
-  if(ioi->read){
-    err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
-    if(err<0){
-      perror("AIOW: Reading indices");
-      return -1;
-    }
-    else{
-      opt->buf_elem_size = ioi->elem_size;
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
-#endif
-    }
-  }
-  else{
-    ioi->elem_size = opt->buf_elem_size;
-  }
+
+  struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Preparing iostructs\n");
 #endif
-  ioi->ctx =(io_context_t *) malloc(sizeof(io_context_t));
-  void * errpoint = memset((void*)ioi->ctx, 0, sizeof(*(ioi->ctx)));
+  ioi->extra_param =(io_context_t *) malloc(sizeof(io_context_t));
+  void * errpoint = memset((void*)ioi->extra_param, 0, sizeof(io_context_t));
   if(errpoint== NULL){
     perror("AIOW: Memset ctx");
     return -1;
   }
+  io_context_t* ctx = (io_context_t*)ioi->extra_param;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Queue init\n");
 #endif
-  ret = io_queue_init(MAX_EVENTS, ioi->ctx);
+  ret = io_queue_init(MAX_EVENTS, ctx);
   if(ret < 0){
     perror("AIOW: IO_QUEUE_INIT");
     return -1;
@@ -139,7 +85,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   fprintf(stdout, "AIOW: Performing read/write\n");
 #endif
 
-  struct io_info * ioi = (struct io_info * )re->opt;
+  struct common_io_info * ioi = (struct common_io_info * )re->opt;
 
   struct iocb *ib[1];
   ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
@@ -156,7 +102,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
 
   //Not sure if 3rd argument safe, but running 
   //one iocb at a time anyway
-  ret = io_submit(*(ioi->ctx), 1, ib);
+  ret = io_submit(*((io_context_t*)(ioi->extra_param)), 1, ib);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Submitted %d reads/writes\n", ret);
@@ -171,10 +117,11 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
 }
 int aiow_check(struct recording_entity * re){
   //Just poll, so we can keep receiving more packets
-  struct io_info * ioi = (struct io_info *)re->opt;
+  struct common_io_info * ioi = (struct common_io_info *)re->opt;
   static struct timespec timeout = { 0, 0 };
   struct io_event event;
-  int ret = io_getevents(*(ioi->ctx), 0, 1, &event, &timeout);
+  io_context_t * ctx = (io_context_t*)ioi->extra_param;
+  int ret = io_getevents(*(ctx), 0, 1, &event, &timeout);
   //
   if(ret > 0){
     if((signed long )event.res > 0){
@@ -205,7 +152,7 @@ int aiow_check(struct recording_entity * re){
 //TODO: Make proper sleep. io_queue_wait doesn't work
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
-  struct io_info * ioi = (struct io_info *)re->opt;
+  struct common_io_info * ioi = (struct common_io_info *)re->opt;
   //Needs to be static so ..durr
   //static struct timespec timeout = { 1, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
@@ -219,51 +166,12 @@ int aiow_wait_for_write(struct recording_entity* re){
   return usleep(5000);
 }
 int aiow_close(struct recording_entity * re, void * stats){
-  int err;
-  struct io_info * ioi = (struct io_info*)re->opt;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
 
-  struct stats* stat = (struct stats*)stats;
-  stat->total_written += ioi->bytes_exchanged;
-  /*
-     char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
-     sprintf(indexfile, "%s%s", ioi->filename, ".index");
-     int statfd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+  io_destroy(*(io_context_t*)ioi->extra_param);
 
-     close(statfd);
-     */
-
-  //Shrink to size we received if we're writing
-  if(ioi->read == 1){
-    err = ftruncate(ioi->fd, ioi->bytes_exchanged);
-    if(err<0)
-      perror("AIOW: ftruncate");
-  }
-  else{
-    free(ioi->indices);
-    /* No need to close indice-file since it was read into memory */
-  }
-  close(ioi->fd);
-  io_destroy(*(ioi->ctx));
-
-  ioi->ctx = NULL;
-  free(ioi->filename);
-
-
-  free(ioi);
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Writer closed\n");
-#endif
+  common_close(re, stats);
   return 0;
-}
-INDEX_FILE_TYPE * aiow_pindex(struct recording_entity *re){
-  struct io_info * ioi = re->opt;
-  return ioi->indices;
-  //return ((struct io_info)re->opt)->indices;
-}
-unsigned long aiow_nofpacks(struct recording_entity *re){
-  struct io_info * ioi = re->opt;
-  return ioi->indexfile_count;
-  //return ((struct io_info*)re->opt)->indexfile_count;
 }
 /*
  * Helper function for initializing a recording_entity
@@ -275,8 +183,8 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->close = aiow_close;
   re->check = aiow_check;
   re->write_index_data = common_write_index_data;
-  re->get_n_packets = aiow_nofpacks;
-  re->get_packet_index = aiow_pindex;
+  re->get_n_packets = common_nofpacks;
+  re->get_packet_index = common_pindex;
 
   return re->init(opt,re);
 }
@@ -288,6 +196,6 @@ int aiow_init_dummy(struct opt_s *op , struct recording_entity *re){
   return 1;
 }
 const char * aiow_get_filename(struct recording_entity *re){
-  return ((struct io_info *)re->opt)->filename;
+  return ((struct common_io_info *)re->opt)->filename;
 }
 

@@ -160,3 +160,104 @@ int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size
 
   return err;
 }
+int common_w_init(struct opt_s* opt, struct recording_entity *re){
+  int ret;
+  //void * errpoint;
+  re->opt = (void*)malloc(sizeof(struct common_io_info));
+  struct common_io_info * ioi = (struct common_io_info *) re->opt;
+  loff_t prealloc_bytes;
+  //struct stat statinfo;
+  int err =0;
+  ioi->read = opt->read;
+
+  //ioi->latest_write_num = 0;
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: Initializing write point\n");
+#endif
+  //Check if file exists
+  if(ioi->read == 1){
+    ioi->f_flags = O_RDONLY|O_DIRECT|O_NOATIME;
+    prealloc_bytes = 0;
+  }
+  else{
+    //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+    ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME;
+    //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
+    //for s seconds.
+    loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+    //Split kb/gb stuff to avoid overflow warning
+    prealloc_bytes = prealloc_bytes*1024*1024;
+    //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
+  }
+  ioi->filename = opt->filenames[opt->taken_rpoints++];
+  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
+  if(err<0)
+    return -1;
+  //TODO: Set offset accordingly if file already exists. Not sure if
+  //needed, since data consistency would take a hit anyway
+  ioi->offset = 0;
+  ioi->bytes_exchanged = 0;
+  if(ioi->read){
+    err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
+    if(err<0){
+      perror("DEFWRITER: Reading indices");
+      return -1;
+    }
+    else{
+      opt->buf_elem_size = ioi->elem_size;
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
+#endif
+    }
+  }
+  else{
+    ioi->elem_size = opt->buf_elem_size;
+  }
+  return ret;
+}
+INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
+  struct common_io_info * ioi = re->opt;
+  return ioi->indices;
+  //return ((struct common_io_info)re->opt)->indices;
+}
+unsigned long common_nofpacks(struct recording_entity *re){
+  struct common_io_info * ioi = re->opt;
+  return ioi->indexfile_count;
+  //return ((struct common_io_info*)re->opt)->indexfile_count;
+}
+int common_close(struct recording_entity * re, void * stats){
+  int err;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
+
+  struct stats* stat = (struct stats*)stats;
+  stat->total_written += ioi->bytes_exchanged;
+  /*
+     char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
+     sprintf(indexfile, "%s%s", ioi->filename, ".index");
+     int statfd = open(ioi->filename, ioi->f_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
+
+     close(statfd);
+     */
+
+  //Shrink to size we received if we're writing
+  if(ioi->read == 1){
+    err = ftruncate(ioi->fd, ioi->bytes_exchanged);
+    if(err<0)
+      perror("AIOW: ftruncate");
+  }
+  else{
+    free(ioi->indices);
+    /* No need to close indice-file since it was read into memory */
+  }
+  close(ioi->fd);
+
+  //ioi->ctx = NULL;
+  free(ioi->filename);
+
+  free(ioi);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "AIOW: Writer closed\n");
+#endif
+  return 0;
+}
+
