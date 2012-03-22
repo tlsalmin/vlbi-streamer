@@ -416,7 +416,7 @@ void* udp_streamer(void *se)
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
-  listen(spec_ops->fd, 2);
+  //listen(spec_ops->fd, 2);
 
   time(&t_start);
 
@@ -460,7 +460,10 @@ void* udp_streamer(void *se)
 #endif
 */
       if(err < 0){
-	perror("RECV error");
+	if(err == EINTR)
+	  fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
+	else
+	  perror("RECV error");
 	pthread_mutex_unlock(spec_ops->cumlock);
 	break;
       }

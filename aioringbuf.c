@@ -244,7 +244,7 @@ void *rbuf_write_loop(void *buffo){
       break;
     else{
       /* If we either just wrote the stuff in write_after_checks(synchronious 	*/
-      /* blocking write or check in async mode returned a > 0 amount of writes  */
+      /* blocking write or check in async mode) returned a > 0 amount of writes  */
       /* done */
       if(!rbuf->async || rbuf_check(be) > 0){
 	// Signal if thread is waiting for space 
@@ -261,8 +261,14 @@ void *rbuf_write_loop(void *buffo){
   fprintf(stdout, "RINGBUF: Closing rbuf thread\n");
 #endif
   // Main thread stopped so just write
-  if(rbuf->diff > 0)
+  /* TODO: On asynch io, this will not check the last writes */
+  if(rbuf->diff > 0){
     write_after_checks(be,rbuf->diff);
+    if(rbuf->async){
+      sleep(1);
+      rbuf_check(be);
+    }
+  }
   pthread_exit(NULL);
 }
 #endif
