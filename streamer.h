@@ -112,6 +112,7 @@ struct streamer_entity
   void* (*init)(struct opt_s *,struct buffer_entity*);
   void* (*start)(void*);
   int (*close)(void*,void*);
+  void (*stop)(struct streamer_entity *se, int i);
 };
 struct stats
 {

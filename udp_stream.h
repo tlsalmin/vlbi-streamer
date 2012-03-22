@@ -14,6 +14,7 @@ void * setup_udp_socket(struct opt_s *opt, struct buffer_entity * be);
 void * udp_sender(void * opt);
 void * udp_streamer(void *opt);
 void get_udp_stats(void *opt, void *stats);
+void udps_stop(struct streamer_entity *se);
 int close_udp_streamer(void *opt,void *stats);
 int phandler_sequence(void * opts, void * buffer);
 void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be);

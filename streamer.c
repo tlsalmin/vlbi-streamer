@@ -375,6 +375,15 @@ int main(int argc, char **argv)
   }
 
   init_stat(&stats);
+  /* If we're capturing, time the threads and run them down after we're done */
+  if(!opt.read){
+    sleep(opt.time);
+    for(i = 0;i<opt.n_threads;i++){
+      threads[i].stop(&(threads[i]), i);
+    }
+  }
+
+
   for (i = 0; i < opt.n_threads; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
     if (rc<0) {

@@ -43,6 +43,7 @@
 //Gatherer specific options
 struct opts
 {
+  int running;
   int fd;
   int fanout_arg;
   char* device_name;
@@ -114,6 +115,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->cumlock = &(opt->cumlock);
   spec_ops->read = opt->read;
   spec_ops->signal = &(opt->signal);
+  spec_ops->running = 1;
 
   /*
    * If we're reading, recording entity should read the indicedata
@@ -378,8 +380,8 @@ void* udp_streamer(void *se)
   int i=0;
   struct streamer_entity *be =(struct streamer_entity*) se;
   struct opts *spec_ops = (struct opts *)be->opt;
-  time_t t_start;
-  double time_left=0;
+  //time_t t_start;
+  //double time_left=0;
   INDEX_FILE_TYPE *daspot = spec_ops->packet_index;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
@@ -418,19 +420,20 @@ void* udp_streamer(void *se)
 
   //listen(spec_ops->fd, 2);
 
-  time(&t_start);
+  //time(&t_start);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
 #endif
-  while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
+  //while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
+  while(spec_ops->running){
     void * buf;
     //long unsigned int nth_package;
 
     /* This breaks separation of modules. Needs to be implemented in every receiver */
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
     pthread_mutex_lock(spec_ops->headlock);
-    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
+    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL && spec_ops->running){
       fprintf(stdout, "UDP_STREAMER: Buffer full. Going to sleep\n");
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
       fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
@@ -452,7 +455,6 @@ void* udp_streamer(void *se)
 
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
-      buf = malloc(spec_ops->buf_elem_size);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
       /*
 #ifdef DEBUG_OUTPUT
@@ -501,7 +503,7 @@ void* udp_streamer(void *se)
       if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
 	daspot += sizeof(INDEX_FILE_TYPE);
       else{
-	fprintf(stderr, "Out of space on index file");
+	fprintf(stderr, "UDP_STREAMER: Out of space on index file");
 	break;
       }
     }
@@ -532,13 +534,14 @@ void* udp_streamer(void *se)
   }
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Closing buffer thread\n");
+    fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
     spec_ops->be->stop(spec_ops->be); 
     /* Wake the thread up if its asleep */
     pthread_mutex_lock(spec_ops->headlock);
     pthread_cond_signal(spec_ops->iosignal);
     pthread_mutex_unlock(spec_ops->headlock);
+
     pthread_join(rbuf_thread,NULL);
     pthread_mutex_destroy(spec_ops->headlock);
 #else
@@ -546,7 +549,7 @@ void* udp_streamer(void *se)
     flush_writes(spec_ops);
 #endif
 
-  fprintf(stdout, "Closing streamer thread\n");
+  fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
   pthread_exit(NULL);
 }
 void get_udp_stats(struct opts *spec_ops, void *stats){
@@ -560,7 +563,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
   get_udp_stats(spec_ops,  stats);
 
-  close(spec_ops->fd);
+  //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
 
 #ifdef DEBUG_OUTPUT
@@ -581,11 +584,21 @@ int close_udp_streamer(void *opt_own, void *stats){
   free(spec_ops);
   return 0;
 }
+void udps_stop(struct streamer_entity *se, int i){
+  ((struct opts *)se->opt)->running = 0;
+  //If we're the first thread, close the socket
+  if(i == 0){
+    int ret = shutdown(((struct opts*)se->opt)->fd, SHUT_RDWR);
+    if(ret <0)
+      perror("Socket shutdown");
+  }
+}
 void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
   se->init = setup_udp_socket;
   se->start = udp_streamer;
   se->close = close_udp_streamer;
   se->opt = se->init(opt, be);
+  se->stop = udps_stop;
   }
 void udps_init_udp_sender(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
   se->init = setup_udp_socket;
