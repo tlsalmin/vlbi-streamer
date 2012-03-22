@@ -24,6 +24,7 @@ struct ringbuf{
   int ready_to_io;
   int last_io_i;
 
+  int async;
   int read;
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   pthread_mutex_t *headlock;
@@ -49,6 +50,8 @@ int rbuf_check_hdevents(struct buffer_entity *be);
 int rbuf_wait(struct buffer_entity * be);
 int rbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_init_dummy(struct opt_s *opt, struct buffer_entity *be);
+
+int rbuf_check(struct buffer_entity *be);
 int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
 int write_bytes(struct buffer_entity * re, int head, int *tail, int diff);
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD

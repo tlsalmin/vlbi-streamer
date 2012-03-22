@@ -31,8 +31,8 @@
 //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-#define HD_WRITE_SIZE 16777216
-//#define HD_WRITE_SIZE 1048576
+//#define HD_WRITE_SIZE 16777216
+#define HD_WRITE_SIZE 1048576
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
 //#define HD_WRITE_SIZE 524288
@@ -77,6 +77,7 @@ struct buffer_entity
 {
   void * opt;
   //Functions for usage in modularized infrastructure
+  /* TODO: This is getting bloated. Check what we're actually still using */
   int (*init)(struct opt_s* , struct buffer_entity*);
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
@@ -84,6 +85,7 @@ struct buffer_entity
   int (*close)(struct buffer_entity*,void * );
   int (*write_index_data)(struct buffer_entity*, void*, int);
   void* (*write_loop)(void *);
+  void (*stop)(struct buffer_entity*);
   void (*init_mutex)(struct buffer_entity *, void*,void*);
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;

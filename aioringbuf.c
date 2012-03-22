@@ -32,6 +32,9 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
   rbuf->read = opt->read;
 
+  /* TODO: Make choosable or just get rid of async totally */
+  rbuf->async =1;
+
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Memaligning buffer\n");
 #endif
@@ -75,6 +78,8 @@ int diff_max(int a , int b, int max){
   else
     return b-a;
 }
+/* Changing the packet-head (writed_head on record and tail on send) 	*/
+/* are the only callers for this so increment diff			*/
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
   if(*head == (*restrainer-1)){
     return 0;
@@ -85,6 +90,9 @@ int increment(struct ringbuf * rbuf, int *head, int *restrainer){
     return 1;
   }
 }
+/* NOTE: Needs to be called inside critical section. Breaks modularity 	*/
+/* a little, but else we could write a buffer that hasn't been filled 	*/
+/* with data yet							*/
 void * rbuf_get_buf_to_write(struct buffer_entity *be){
   struct ringbuf * rbuf = (struct ringbuf*) be->opt;
   void *spot;
@@ -159,12 +167,17 @@ inline int write_after_checks(struct buffer_entity * be, int diff_final){
 */
 
   //if(diff_final > 0){
-    ret = write_bytes(be,*head,tail,diff_final);
+  ret = write_bytes(be,*head,tail,diff_final);
   //}
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-  pthread_mutex_lock(rbuf->headlock);
-  rbuf->diff -= diff_final;
-  pthread_mutex_unlock(rbuf->headlock);
+  if(ret>0){
+    /* Increment the hdwriter head */
+    pthread_mutex_lock(rbuf->headlock);
+    rbuf->diff -= diff_final;
+    pthread_mutex_unlock(rbuf->headlock);
+  }
+  else
+    fprintf(stdout, "Error in write_bytes: %d\n", ret);
 #endif
   return ret;
 }
@@ -204,8 +217,11 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", *tail, head, endi, rbuf->num_elems, count);
 #endif
     ret = be->recer->write(be->recer, start, count);
-    if(ret<0)
+    if(ret<0){
+
+      fprintf(stdout, "Error in Rec entity write: %d\n", ret);
       return ret;
+    }
     //increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
     increment_amount(rbuf, tail, endi);
   }
@@ -220,19 +236,30 @@ void *rbuf_write_loop(void *buffo){
   int diff,ret;
   while(rbuf->running){
     pthread_mutex_lock(rbuf->headlock);
-    while((diff = rbuf->diff) < DO_W_STUFF_EVERY)
+    while((diff = rbuf->diff) < DO_W_STUFF_EVERY && rbuf->running)
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     pthread_mutex_unlock(rbuf->headlock);
     ret = write_after_checks(be,diff);
     if(ret<0)
       break;
     else{
-      // Signal if thread is waiting for space 
-      pthread_mutex_lock(rbuf->headlock);
-      pthread_cond_signal(rbuf->iosignal);
-      pthread_mutex_unlock(rbuf->headlock);
+      /* If we either just wrote the stuff in write_after_checks(synchronious 	*/
+      /* blocking write or check in async mode returned a > 0 amount of writes  */
+      /* done */
+      if(!rbuf->async || rbuf_check(be) > 0){
+	// Signal if thread is waiting for space 
+	pthread_mutex_lock(rbuf->headlock);
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "RINGBUF: Trying to wake up streamer\n");
+#endif
+	pthread_cond_signal(rbuf->iosignal);
+	pthread_mutex_unlock(rbuf->headlock);
+      }
     }
   }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "RINGBUF: Closing rbuf thread\n");
+#endif
   // Main thread stopped so just write
   if(rbuf->diff > 0)
     write_after_checks(be,rbuf->diff);
@@ -240,15 +267,13 @@ void *rbuf_write_loop(void *buffo){
 }
 #endif
 int rbuf_check(struct buffer_entity *be){
-  int ret = 0;
+  int ret = 0, returnable = 0;
   struct ringbuf * rbuf = (struct ringbuf * )be->opt;
   while ((ret = be->recer->check(be->recer))>0){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "RINGBUF: %d Writes complete.\n", ret/rbuf->elem_size);
 #endif
-    //rbuf->ready_to_io += ret;
-    //if(rbuf->last_io_i > 0){
-    {
+    returnable = ret;
       int * to_increment;
       int num_written;
       //TODO: Augment for bidirectionality
@@ -274,11 +299,10 @@ int rbuf_check(struct buffer_entity *be){
       pthread_mutex_unlock(rbuf->headlock);
 #endif
       //rbuf->last_io_i = 0;
-    }
     //Only used cause IO_WAIT doesn't work with EXT4 yet 
     //ret = WRITE_COMPLETE_DONT_SLEEP;
   }
-  return ret;
+  return returnable;
 }
 //TODO: Add a field to the rbuf for storing amount of writable blocks
 int rbuf_aio_write(struct buffer_entity *be, int force){
@@ -320,6 +344,9 @@ int dummy_write_wrapped(struct buffer_entity *be, int force){
   dummy_write(rbuf);
   return 1;
 }
+void rbuf_stop_running(struct buffer_entity *be){
+  ((struct ringbuf *)be->opt)->running = 0 ;
+}
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
@@ -350,6 +377,7 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->wait = rbuf_wait;
   be->close = rbuf_close;
   be->write_loop = rbuf_write_loop;
+  be->stop = rbuf_stop_running;
   be->write_index_data = rbuf_write_index_data;
   be->init_mutex = rbuf_init_mutex_n_signal;
 

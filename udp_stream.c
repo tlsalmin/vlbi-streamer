@@ -431,11 +431,15 @@ void* udp_streamer(void *se)
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
     pthread_mutex_lock(spec_ops->headlock);
     while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
+      fprintf(stdout, "UDP_STREAMER: Buffer full. Going to sleep\n");
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+      fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
     }
+    /*
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
 #endif
+*/
     {
 #else
     if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
@@ -450,9 +454,11 @@ void* udp_streamer(void *se)
       pthread_mutex_lock(spec_ops->cumlock);
       buf = malloc(spec_ops->buf_elem_size);
       err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+      /*
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
 #endif
+*/
       if(err < 0){
 	perror("RECV error");
 	pthread_mutex_unlock(spec_ops->cumlock);
@@ -522,6 +528,14 @@ void* udp_streamer(void *se)
 #endif
   }
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Closing buffer thread\n");
+#endif
+    spec_ops->be->stop(spec_ops->be); 
+    /* Wake the thread up if its asleep */
+    pthread_mutex_lock(spec_ops->headlock);
+    pthread_cond_signal(spec_ops->iosignal);
+    pthread_mutex_unlock(spec_ops->headlock);
     pthread_join(rbuf_thread,NULL);
     pthread_mutex_destroy(spec_ops->headlock);
 #else
@@ -529,6 +543,7 @@ void* udp_streamer(void *se)
     flush_writes(spec_ops);
 #endif
 
+  fprintf(stdout, "Closing streamer thread\n");
   pthread_exit(NULL);
 }
 void get_udp_stats(struct opts *spec_ops, void *stats){
