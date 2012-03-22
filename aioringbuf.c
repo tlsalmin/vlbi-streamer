@@ -17,20 +17,25 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     return -1;
   
   be->opt = rbuf;
+  /* Main arg for bidirectionality of the functions */
+  rbuf->read = opt->read;
 
   rbuf->num_elems = opt->buf_num_elems;
   rbuf->elem_size = opt->buf_elem_size;
   rbuf->writer_head = 0;
   rbuf->tail = rbuf->hdwriter_head = 0;
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-  rbuf->diff = 0;
+  if(rbuf->read)
+  /* If we're reading, we want to fill in the buffer */
+    rbuf->diff = rbuf->num_elems;
+  else
+    rbuf->diff = 0;
   rbuf->running = 1;
 #endif
   /* Neither used in real writing */
   rbuf->ready_to_io = 1;
   rbuf->last_io_i = 0;
 
-  rbuf->read = opt->read;
 
   /* TODO: Make choosable or just get rid of async totally */
   rbuf->async =1;
@@ -240,8 +245,12 @@ void *rbuf_write_loop(void *buffo){
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     pthread_mutex_unlock(rbuf->headlock);
     ret = write_after_checks(be,diff);
-    if(ret<0)
+    if(ret<0){
+      fprintf(stderr, "Write returned error %d\n", ret);
+      be->se->stop(be->se);
+      rbuf->running = 0;
       break;
+    }
     else{
       /* If we either just wrote the stuff in write_after_checks(synchronious 	*/
       /* blocking write or check in async mode) returned a > 0 amount of writes  */
@@ -356,16 +365,18 @@ void rbuf_stop_running(struct buffer_entity *be){
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
+/*
 int rbuf_write_index_data(struct buffer_entity *be, void * data, int count){
   return be->recer->write_index_data(be->recer,data,count);
 }
+*/
 int rbuf_init_dummy(struct opt_s * opt, struct buffer_entity *be){
   be->init = rbuf_init;
   be->write = dummy_write_wrapped;
   be->get_writebuf = rbuf_get_buf_to_write;
   be->wait = NULL;
   be->close = rbuf_close;
-  be->write_index_data = NULL;
+  //be->write_index_data = NULL;
   return be->init(opt,be);
 }
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
@@ -384,7 +395,7 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->close = rbuf_close;
   be->write_loop = rbuf_write_loop;
   be->stop = rbuf_stop_running;
-  be->write_index_data = rbuf_write_index_data;
+  //be->write_index_data = common_write_index_data;
   be->init_mutex = rbuf_init_mutex_n_signal;
 
   return be->init(opt,be); 

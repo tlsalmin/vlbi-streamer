@@ -15,6 +15,7 @@
 #include "udp_stream.h"
 #include "aioringbuf.h"
 #include "aiowriter.h"
+#include "common_wrt.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
@@ -189,8 +190,8 @@ static void parse_options(int argc, char **argv){
     loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
     //TODO: Make macro
     //Split kb/gb stuff to avoid overflow warning
-    prealloc_bytes = (prealloc_bytes*1024)/opt.n_threads;
-    opt.max_num_packets = prealloc_bytes*100;
+    prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
+    opt.max_num_packets = prealloc_bytes;
   }
 
   //Set buf_size
@@ -349,6 +350,7 @@ int main(int argc, char **argv)
       fprintf(stderr, "Error in thread init\n");
       exit(-1);
     }
+    be->se = &(threads[i]);
 
   }
   for(i=0;i<opt.n_threads;i++){
@@ -379,9 +381,10 @@ int main(int argc, char **argv)
   if(!opt.read){
     sleep(opt.time);
     for(i = 0;i<opt.n_threads;i++){
-      threads[i].stop(&(threads[i]), i);
+      threads[i].stop(&(threads[i]));
     }
   }
+  threads[0].close_socket(&(threads[0]));
 
 
   for (i = 0; i < opt.n_threads; i++) {

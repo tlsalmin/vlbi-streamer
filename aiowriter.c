@@ -14,8 +14,8 @@
 #endif
 
 #include "aiowriter.h"
-//#include "aioringbuf.h"
 #include "streamer.h"
+#include "common_wrt.h"
 
 #define MAX_EVENTS 128
 #ifdef IOVEC
@@ -39,74 +39,12 @@ struct io_info{
   //Used if we're in readmode
   INDEX_FILE_TYPE *indices;
   int read;
-  unsigned long indexfile_count;
+  INDEX_FILE_TYPE indexfile_count;
 };
-int aiow_open_file(int *fd, int flags, char * filename, loff_t fallosize){
-  struct stat statinfo;
-  int err =0;
-
-  //ioi->latest_write_num = 0;
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Initializing write point\n");
-#endif
-  //Check if file exists
-  //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-  //ioi->filename = opt->filenames[opt->taken_rpoints++];
-  err = stat(filename, &statinfo);
-  if (err < 0) {
-    if (errno == ENOENT){
-      //We're reading the file
-      if(flags & O_RDONLY){
-	perror("AIOW: File not found, eventhought we're in send-mode");
-	return -1;
-      }
-      else{
-#ifdef DEBUG_OUTPUT
-	fprintf(stdout, "File doesn't exist. Creating it\n");
-#endif
-	flags |= O_CREAT;
-	err = 0;
-      }
-    }
-    else{
-      fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
-      return -1;
-    }
-  }
-
-  //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Opening file %s\n", filename);
-#endif
-  *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-  if(*fd == -1){
-    fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
-    return -1;
-  }
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: File opened\n");
-#endif
-  if(fallosize > 0){
-    err = fallocate(*fd, 0,0, fallosize);
-    if(err == -1){
-      fprintf(stderr, "Fallocate failed on %s", filename);
-      return err;
-    }
-#ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIOW: File preallocated\n");
-#endif
-  }
-  return err;
-}
 
 //TODO: Error handling
 
 /* Fatal error handler */
-static void io_error(const char *func, int rc)
-{
-  fprintf(stderr, "%s: error %d", func, rc);
-}
-
 /*
 static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   fprintf(stdout, "This will never make it to print\n");
@@ -121,56 +59,6 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   free(iocb);
 }
 */
-int aiow_handle_indices(struct io_info *ioi){
-  char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  int f_flags = O_RDONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
-  int fd,err;
-  int num_elems;
-  //Duplicate stat here, since first done in aiow_read, but meh.
-  struct stat statinfo;
-
-
-  sprintf(filename, "%s%s", ioi->filename, ".index");
-
-  aiow_open_file(&fd, f_flags, filename, 0);
-
-  /*
-   * elem_size = Size of the packets we received when receiving the stream
-   * INDEX_FILE_TYPE = The size of our index-counter.(Eg 32bit integer or 64bit).
-   */
-  //Read the elem size from the first index
-  err = read(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
-  if(err<0){
-    perror("AIOW: Index file size read");
-    return err;
-  }
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Elem size here %lu\n", ioi->elem_size);
-#endif 
-
-  //ioi->elem_size = err;
-
-  err = fstat(fd, &statinfo);
-  if(err<0){
-    perror("FD stat from index");
-    return err;
-  }
-  //NOTE: Reducing first element, which simply tells size of elements
-  num_elems = (statinfo.st_size-sizeof(INDEX_FILE_TYPE))/sizeof(INDEX_FILE_TYPE);
-  ioi->indices = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(num_elems));
-
-  ioi->indexfile_count = 0;
-  INDEX_FILE_TYPE* pointer = ioi->indices;
-  while((err = read(fd, (void*)&(pointer), sizeof(INDEX_FILE_TYPE)))>0){
-    pointer += sizeof(INDEX_FILE_TYPE);
-    ioi->indexfile_count  += 1;
-  }
-  
-  close(fd);
-  free(filename);
-
-  return err;
-}
 //Read init is so similar to write, that i'll just add a parameter
 int aiow_init(struct opt_s* opt, struct recording_entity *re){
   int ret;
@@ -201,7 +89,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
   }
   ioi->filename = opt->filenames[opt->taken_rpoints++];
-  err = aiow_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
+  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
   if(err<0)
     return -1;
   //TODO: Set offset accordingly if file already exists. Not sure if
@@ -209,7 +97,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
   if(ioi->read){
-    err = aiow_handle_indices(ioi);
+    err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
     if(err<0){
       perror("AIOW: Reading indices");
       return -1;
@@ -248,8 +136,6 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 int aiow_write(struct recording_entity * re, void * start, size_t count){
   int ret;
 #ifdef DEBUG_OUTPUT
-  clock_t t_start;
-  clock_t t_end;
   fprintf(stdout, "AIOW: Performing read/write\n");
 #endif
 
@@ -369,43 +255,6 @@ int aiow_close(struct recording_entity * re, void * stats){
 #endif
   return 0;
 }
-int aiow_write_index_data(struct recording_entity *re, void *data, int count){
-  struct io_info * ioi = (struct io_info*)re->opt;
-  int err = 0;
-  char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  int fd;
-
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Writing index file\n");
-#endif
-  sprintf(filename, "%s%s", ioi->filename, ".index");
-  int f_flags = O_WRONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
-
-  aiow_open_file(&fd, f_flags, filename, 0);
-
-  //Write the elem size to the first index
-  err = write(fd, (void*)&(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
-  if(err<0)
-    perror("AIOW: Index file size write");
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Wrote %lu as elem size", ioi->elem_size);
-#endif
-
-  //Write the data
-  err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
-  if(err<0){
-    perror("AIOW: Index file write");
-    fprintf(stderr, "Filename was %s\n", filename);
-  }
-
-  close(fd);
-  free(filename);
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Index file written\n");
-#endif
-
-  return err;
-}
 INDEX_FILE_TYPE * aiow_pindex(struct recording_entity *re){
   struct io_info * ioi = re->opt;
   return ioi->indices;
@@ -425,7 +274,7 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->wait = aiow_wait_for_write;
   re->close = aiow_close;
   re->check = aiow_check;
-  re->write_index_data = aiow_write_index_data;
+  re->write_index_data = common_write_index_data;
   re->get_n_packets = aiow_nofpacks;
   re->get_packet_index = aiow_pindex;
 
@@ -438,3 +287,7 @@ int aiow_init_dummy(struct opt_s *op , struct recording_entity *re){
   */
   return 1;
 }
+const char * aiow_get_filename(struct recording_entity *re){
+  return ((struct io_info *)re->opt)->filename;
+}
+

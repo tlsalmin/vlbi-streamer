@@ -254,6 +254,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   }
   return spec_ops;
 }
+/* Not used after moving ringbuf to separate thread */
 int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   int err;
 
@@ -279,6 +280,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
 
   return err;
 }
+/* NOTE: not used anymore after moving ringbuf to separate threads */
 //TODO: Implement as generic function on aioringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
   spec_ops->be->write(spec_ops->be, 1);
@@ -307,6 +309,29 @@ void * udp_sender(void *opt){
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  spec_ops->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  spec_ops->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+  pthread_mutex_init(spec_ops->headlock, NULL);
+  pthread_cond_init(spec_ops->iosignal, NULL);
+
+  pthread_t rbuf_thread;
+  spec_ops->be->init_mutex(spec_ops->be, spec_ops->headlock, spec_ops->iosignal);
+
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
+#endif
+  /* Segfault from here */
+  int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
+  if (rc){
+    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    exit(-1);
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Ringbuf thread started\n");
+#endif 
+#endif
+  /*
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Filling buffer\n");
 #endif
@@ -314,13 +339,17 @@ void * udp_sender(void *opt){
   
   usleep(100);
   spec_ops->be->write(spec_ops->be, 0);
-  /* Fill the buffer up first */
+  */
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Starting sender-thread\n");
 #endif
   //While we have packets to send TODO: Change max_num_packets name
   while(spec_ops->total_captured_packets < spec_ops->max_num_packets){
-    void * buf = spec_ops->be->get_writebuf(spec_ops->be);
+    void *buf;
+
+    pthread_mutex_lock(spec_ops->headlock);
+    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL)
+      pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
     /* Read the indice of the current file */ 
     //INDEX_FILE_TYPE pindex = *(spec_ops->packet_index + spec_ops->total_captured_bytes * sizeof(INDEX_FILE_TYPE));
 
@@ -340,6 +369,11 @@ void * udp_sender(void *opt){
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
       err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+      if(i%DO_W_STUFF_EVERY == 0)// || err == 0)
+	pthread_cond_signal(spec_ops->iosignal);
+      pthread_mutex_unlock(spec_ops->headlock);
+#endif
       *(spec_ops->cumul) += 1;
 #ifdef MULTITHREAD_SEND_DEBUG
       fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
@@ -353,6 +387,7 @@ void * udp_sender(void *opt){
       //break;
     }
     i++;
+#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
     if(i%DO_W_STUFF_EVERY == 0 || err == 0){
       err = handle_packets_udp(err, spec_ops, 0);
 
@@ -361,12 +396,26 @@ void * udp_sender(void *opt){
 	break;
       }
     }
+#endif
     spec_ops->total_captured_packets++;
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "incrementing pindex\n");
+    fprintf(stdout, "incrementing pindex\n");
 #endif
-    pindex += sizeof(INDEX_FILE_TYPE);
+    pindex++;
   }
+#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
+#endif
+  spec_ops->be->stop(spec_ops->be); 
+  /* Wake the thread up if its asleep */
+  pthread_mutex_lock(spec_ops->headlock);
+  pthread_cond_signal(spec_ops->iosignal);
+  pthread_mutex_unlock(spec_ops->headlock);
+
+  pthread_join(rbuf_thread,NULL);
+  pthread_mutex_destroy(spec_ops->headlock);
+#endif
 
   pthread_exit(NULL);
 }
@@ -501,7 +550,7 @@ void* udp_streamer(void *se)
       spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets += 1;
       if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
-	daspot += sizeof(INDEX_FILE_TYPE);
+	daspot++;
       else{
 	fprintf(stderr, "UDP_STREAMER: Out of space on index file");
 	break;
@@ -571,7 +620,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #endif
   /* TODO: Make this nicer */
   if(!spec_ops->read)
-    if (spec_ops->be->write_index_data != NULL && spec_ops->be->write_index_data(spec_ops->be,(void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
+    if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
       fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
@@ -584,14 +633,13 @@ int close_udp_streamer(void *opt_own, void *stats){
   free(spec_ops);
   return 0;
 }
-void udps_stop(struct streamer_entity *se, int i){
+void udps_stop(struct streamer_entity *se){
   ((struct opts *)se->opt)->running = 0;
-  //If we're the first thread, close the socket
-  if(i == 0){
+}
+void udps_close_socket(struct streamer_entity *se){
     int ret = shutdown(((struct opts*)se->opt)->fd, SHUT_RDWR);
     if(ret <0)
       perror("Socket shutdown");
-  }
 }
 void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
   se->init = setup_udp_socket;
@@ -599,10 +647,12 @@ void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struc
   se->close = close_udp_streamer;
   se->opt = se->init(opt, be);
   se->stop = udps_stop;
+  se->close_socket = udps_close_socket;
   }
 void udps_init_udp_sender(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
   se->init = setup_udp_socket;
   se->start = udp_sender;
   se->close = close_udp_streamer;
   se->opt = se->init(opt, be);
+  se->close_socket = udps_close_socket;
   }

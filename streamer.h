@@ -9,8 +9,8 @@
 #define REC_TODO 1
 #define REC_DUMMY 2
 #define MEM_GIG 4
-#define BUF_ELEM_SIZE 8192
-//#define BUF_ELEM_SIZE 32768
+//#define BUF_ELEM_SIZE 8192
+#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0
@@ -83,12 +83,13 @@ struct buffer_entity
   void* (*get_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
-  int (*write_index_data)(struct buffer_entity*, void*, int);
+  //int (*write_index_data)(struct buffer_entity*, void*, int);
   void* (*write_loop)(void *);
   void (*stop)(struct buffer_entity*);
   void (*init_mutex)(struct buffer_entity *, void*,void*);
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
+  struct streamer_entity * se;
   //struct rec_point * rp;
 };
 struct recording_entity
@@ -99,7 +100,8 @@ struct recording_entity
   int (*wait)(struct recording_entity *);
   int (*close)(struct recording_entity*, void *);
   int (*check)(struct recording_entity*);
-  int (*write_index_data)(struct recording_entity*, void*, int);
+  int (*write_index_data)(const char*, int, void*, int);
+  const char* (*get_filename)(struct recording_entity *re);
   unsigned long (*get_n_packets)(struct recording_entity*);
   INDEX_FILE_TYPE* (*get_packet_index)(struct recording_entity*);
   struct buffer_entity *be;
@@ -112,7 +114,8 @@ struct streamer_entity
   void* (*init)(struct opt_s *,struct buffer_entity*);
   void* (*start)(void*);
   int (*close)(void*,void*);
-  void (*stop)(struct streamer_entity *se, int i);
+  void (*stop)(struct streamer_entity *se);
+  void (*close_socket)(struct streamer_entity *se);
 };
 struct stats
 {

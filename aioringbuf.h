@@ -52,7 +52,7 @@ int rbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_init_dummy(struct opt_s *opt, struct buffer_entity *be);
 
 int rbuf_check(struct buffer_entity *be);
-int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
+//int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
 int write_bytes(struct buffer_entity * re, int head, int *tail, int diff);
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 void rbuf_init_mutex_n_signal(struct buffer_entity *be, void * mutex, void * signal);
