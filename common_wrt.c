@@ -189,6 +189,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
   }
+  //fprintf(stdout, "wut\n");
   ioi->filename = opt->filenames[opt->taken_rpoints++];
   err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
   if(err<0){

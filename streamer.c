@@ -16,6 +16,7 @@
 #include "aioringbuf.h"
 #include "aiowriter.h"
 #include "common_wrt.h"
+#include "defwriter.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
 #define CAPTURE_W_TODO 2
@@ -49,7 +50,7 @@ static void usage(char *binary){
       "-s SOCKET	Socket number(Default: 2222)\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-h HOST		Specify host(Required for send\n"
-      "-w {aio|dummy}	use AIO-writer or DUMMY writer\n"
+      "-w {aio|def|dummy}	use AIO-writer, system default or DUMMY writer\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package\n"
 #endif
@@ -88,11 +89,12 @@ static void parse_options(int argc, char **argv){
   opt.buf_elem_size = BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
   opt.buf_type = WRITER_AIOW_RBUF;
-  opt.rec_type= REC_AIO;
+  opt.rec_type= REC_DEF;
   opt.taken_rpoints = 0;
   opt.handle = 0;
   opt.read = 0;
   opt.tid = 0;
+  opt.async = 0;
   opt.socket = 0;
   while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:q"))!= -1){
     switch (ret){
@@ -150,8 +152,14 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
       case 'w':
-	if (!strcmp(optarg, "aio"))
+	if (!strcmp(optarg, "aio")){
 	  opt.rec_type = REC_AIO;
+	  opt.async = 1;
+	}
+	else if (!strcmp(optarg, "def")){
+	  opt.rec_type = REC_DEF;
+	  opt.async = 0;
+	}
 	else if (!strcmp(optarg, "dummy")){
 	  opt.rec_type = REC_DUMMY;
 	  opt.buf_type = WRITER_DUMMY;
@@ -284,6 +292,9 @@ int main(int argc, char **argv)
 	break;
       case REC_DUMMY:
 	err = aiow_init_dummy(&opt, re);
+	break;
+      case REC_DEF:
+	err = def_init_def(&opt, re);
 	break;
       case REC_TODO:
 	break;

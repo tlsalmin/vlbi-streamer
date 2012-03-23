@@ -4,10 +4,11 @@
 #define RATE 1
 #define WRITER_AIOW_RBUF 0
 #define WRITER_DUMMY 1
-#define WRITER_TODO 2
+#define WRITER_TODO 4
 #define REC_AIO 0
 #define REC_TODO 1
 #define REC_DUMMY 2
+#define REC_DEF 3
 #define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
@@ -60,6 +61,8 @@ struct opt_s
   char * filenames[MAX_OPEN_FILES];
   int buf_type;
   int rec_type;
+  /* Bloat TODO Find alternative place for this */
+  int async;
   INDEX_FILE_TYPE buf_elem_size;
   int buf_num_elems;
   int read;
