@@ -9,8 +9,8 @@
 #define REC_TODO 1
 #define REC_DUMMY 2
 #define MEM_GIG 4
-//#define BUF_ELEM_SIZE 8192
-#define BUF_ELEM_SIZE 32768
+#define BUF_ELEM_SIZE 8192
+//#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define FORCE_WRITE 1
 #define DONT_FORCE_WRITE 0

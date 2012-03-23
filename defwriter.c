@@ -11,6 +11,14 @@
 
 int def_write(struct recording_entity * re, void * start, size_t count){
   int ret = 0;
+  struct common_io_info * ioi = (struct common_io_info*) ioi;
+  if(ioi->read)
+    ret = read(ioi->fd, start, count);
+  else
+    ret = write(ioi->fd, start, count);
+
+  
+  //ret = write(
 
   return ret;
 }

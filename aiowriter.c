@@ -53,8 +53,10 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   int ret;
 
   ret = common_w_init(opt,re);
-  if(ret<0)
+  if(ret<0){
+    fprintf(stderr, "Common w init returned error %d\n", ret);
     return -1;
+  }
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
@@ -185,6 +187,7 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->write_index_data = common_write_index_data;
   re->get_n_packets = common_nofpacks;
   re->get_packet_index = common_pindex;
+  re->get_filename = common_wrt_get_filename;
 
   return re->init(opt,re);
 }
@@ -194,8 +197,5 @@ int aiow_init_dummy(struct opt_s *op , struct recording_entity *re){
   re-write = dummy_write_wrapped;
   */
   return 1;
-}
-const char * aiow_get_filename(struct recording_entity *re){
-  return ((struct common_io_info *)re->opt)->filename;
 }
 

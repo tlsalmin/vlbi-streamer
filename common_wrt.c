@@ -21,9 +21,6 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   int err =0;
 
   //ioi->latest_write_num = 0;
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Initializing write point\n");
-#endif
   //Check if file exists
   //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
   //ioi->filename = opt->filenames[opt->taken_rpoints++];
@@ -32,7 +29,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     if (errno == ENOENT){
       //We're reading the file
       if(flags & O_RDONLY){
-	perror("AIOW: File not found, eventhought we're in send-mode");
+	perror("COMMON_WRT: File not found, eventhought we're in send-mode");
 	return -1;
       }
       else{
@@ -54,23 +51,27 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   fprintf(stdout, "Opening file %s\n", filename);
 #endif
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
-  if(*fd == -1){
+  if(*fd < 0){
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
     return -1;
   }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: File opened\n");
+  fprintf(stdout, "COMMON_WRT: File opened\n");
 #endif
   if(fallosize > 0){
     err = fallocate(*fd, 0,0, fallosize);
     if(err == -1){
-      fprintf(stderr, "Fallocate failed on %s", filename);
+      fprintf(stderr, "Fallocate failed on %s\n", filename);
       return err;
     }
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIOW: File preallocated\n");
+    fprintf(stdout, "COMMON_WRT: File preallocated\n");
 #endif
   }
+  else
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "COMMON_WRT: Not fallocating\n");
+#endif
   return err;
 }
 int common_write_index_data(const char * filename_orig, int elem_size, void *data, int count){
@@ -80,7 +81,7 @@ int common_write_index_data(const char * filename_orig, int elem_size, void *dat
   int fd;
 
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Writing index file\n");
+  fprintf(stdout, "COMMON_WRT: Writing index file\n");
 #endif
   sprintf(filename, "%s%s", filename_orig, ".index");
   int f_flags = O_WRONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -90,7 +91,7 @@ int common_write_index_data(const char * filename_orig, int elem_size, void *dat
   //Write the elem size to the first index
   err = write(fd, (void*)&(elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0)
-    perror("AIOW: Index file size write");
+    perror("COMMON_WRT: Index file size write");
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "Wrote %d as elem size",elem_size);
 #endif
@@ -98,14 +99,14 @@ int common_write_index_data(const char * filename_orig, int elem_size, void *dat
   //Write the data
   err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
   if(err<0){
-    perror("AIOW: Index file write");
+    perror("COMMON_WRT: Index file write");
     fprintf(stderr, "Filename was %s\n", filename);
   }
 
   close(fd);
   free(filename);
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Index file written\n");
+  fprintf(stdout, "COMMON_WRT: Index file written\n");
 #endif
 
   return err;
@@ -130,7 +131,7 @@ int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size
   //Read the elem size from the first index
   err = read(fd, elem_size, sizeof(INDEX_FILE_TYPE));
   if(err<0){
-    perror("AIOW: Index file size read");
+    perror("COMMON_WRT: Index file size read");
     return err;
   }
 #ifdef DEBUG_OUTPUT
@@ -161,7 +162,6 @@ int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size
   return err;
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
-  int ret;
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
@@ -172,7 +172,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
   //ioi->latest_write_num = 0;
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Initializing write point\n");
+  fprintf(stdout, "COMMON_WRT: Initializing write point\n");
 #endif
   //Check if file exists
   if(ioi->read == 1){
@@ -184,20 +184,22 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME;
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
     //for s seconds.
-    loff_t prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+    prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
     //Split kb/gb stuff to avoid overflow warning
     prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
   }
   ioi->filename = opt->filenames[opt->taken_rpoints++];
   err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
-  if(err<0)
+  if(err<0){
+    fprintf(stderr, "COMMON_WRT: Error in file open: %s\n", ioi->filename);
     return -1;
+  }
   //TODO: Set offset accordingly if file already exists. Not sure if
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
-  if(ioi->read){
+  if(ioi->read==1){
     err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
     if(err<0){
       perror("DEFWRITER: Reading indices");
@@ -213,7 +215,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   else{
     ioi->elem_size = opt->buf_elem_size;
   }
-  return ret;
+  return err;
 }
 INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
   struct common_io_info * ioi = re->opt;
@@ -243,7 +245,7 @@ int common_close(struct recording_entity * re, void * stats){
   if(ioi->read == 1){
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
     if(err<0)
-      perror("AIOW: ftruncate");
+      perror("COMMON_WRT: ftruncate");
   }
   else{
     free(ioi->indices);
@@ -256,8 +258,11 @@ int common_close(struct recording_entity * re, void * stats){
 
   free(ioi);
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Writer closed\n");
+  fprintf(stdout, "COMMON_WRT: Writer closed\n");
 #endif
   return 0;
+}
+const char * common_wrt_get_filename(struct recording_entity *re){
+  return ((struct common_io_info *)re->opt)->filename;
 }
 

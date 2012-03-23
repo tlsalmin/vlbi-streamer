@@ -619,9 +619,13 @@ int close_udp_streamer(void *opt_own, void *stats){
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
   /* TODO: Make this nicer */
-  if(!spec_ops->read)
+  if(spec_ops->read == 0){
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
+#endif
     if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
       fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
+  }
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
