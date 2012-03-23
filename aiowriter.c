@@ -80,6 +80,12 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   }
   return ret;
 }
+int aiow_get_w_fflags(){
+    return  O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+}
+int aiow_get_r_fflags(){
+    return  O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+}
 
 int aiow_write(struct recording_entity * re, void * start, size_t count){
   int ret;
@@ -188,6 +194,9 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->get_n_packets = common_nofpacks;
   re->get_packet_index = common_pindex;
   re->get_filename = common_wrt_get_filename;
+  re->get_r_flags = aiow_get_r_fflags;
+  re->get_w_flags = aiow_get_w_fflags;
+  re->getfd = common_getfd;
 
   return re->init(opt,re);
 }

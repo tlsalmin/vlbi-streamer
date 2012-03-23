@@ -17,9 +17,12 @@
 #include "aiowriter.h"
 #include "common_wrt.h"
 #include "defwriter.h"
+#include "sendfile_streamer.h"
+#include "splicewriter.h"
 #define CAPTURE_W_FANOUT 0
 #define CAPTURE_W_UDPSTREAM 1
-#define CAPTURE_W_TODO 2
+#define CAPTURE_W_SPLICER 2
+#define CAPTURE_W_TODO 3
 #define TUNE_AFFINITY
 
 #define CORES 6
@@ -44,7 +47,7 @@ static void usage(char *binary){
   fprintf(stderr, 
       "usage: %s [OPTION]... name time\n"
       "-i INTERFACE	Which interface to capture from\n"
-      "-t {fanout|udpstream|TODO	Capture type(Default: udpstream)\n"
+      "-t {fanout|udpstream|splicer|TODO	Capture type(Default: udpstream)\n"
       "-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
@@ -107,6 +110,9 @@ static void parse_options(int argc, char **argv){
 	}
 	else if (!strcmp(optarg, "udpstream")){
 	  opt.capture_type = CAPTURE_W_UDPSTREAM;
+	}
+	else if (!strcmp(optarg, "splicer")){
+	  opt.capture_type = CAPTURE_W_SPLICER;
 	}
 	else if (!strcmp(optarg, "TODO")){
 	  opt.capture_type = CAPTURE_W_TODO;
@@ -352,6 +358,9 @@ int main(int argc, char **argv)
 	  udps_init_udp_sender(&opt, &(threads[i]), be);
 	else
 	  udps_init_udp_receiver(&opt, &(threads[i]), be);
+	break;
+      case CAPTURE_W_SPLICER:
+	sendfile_init_writer(&opt, &(threads[i]), be);
 	break;
       case CAPTURE_W_TODO:
 	fprintf(stderr, "Not yet implemented");

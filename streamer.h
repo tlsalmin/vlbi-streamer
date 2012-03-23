@@ -33,10 +33,10 @@
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
 //#define HD_WRITE_SIZE 16777216
-#define HD_WRITE_SIZE 1048576
+//#define HD_WRITE_SIZE 1048576
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
-//#define HD_WRITE_SIZE 524288
+#define HD_WRITE_SIZE 524288
 
 #define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling
@@ -103,6 +103,9 @@ struct recording_entity
   int (*wait)(struct recording_entity *);
   int (*close)(struct recording_entity*, void *);
   int (*check)(struct recording_entity*);
+  int (*getfd)(struct recording_entity*);
+  int (*get_w_flags)();
+  int (*get_r_flags)();
   int (*write_index_data)(const char*, int, void*, int);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/

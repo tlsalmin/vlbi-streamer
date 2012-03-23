@@ -176,12 +176,12 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 #endif
   //Check if file exists
   if(ioi->read == 1){
-    ioi->f_flags = O_RDONLY|O_DIRECT|O_NOATIME;
+    ioi->f_flags = re->get_r_flags();
     prealloc_bytes = 0;
   }
   else{
     //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-    ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME;
+    ioi->f_flags = re->get_w_flags();
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
     //for s seconds.
     prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
@@ -265,5 +265,8 @@ int common_close(struct recording_entity * re, void * stats){
 }
 const char * common_wrt_get_filename(struct recording_entity *re){
   return ((struct common_io_info *)re->opt)->filename;
+}
+int common_getfd(struct recording_entity *re){
+  return ((struct common_io_info*)re->opt)->fd;
 }
 
