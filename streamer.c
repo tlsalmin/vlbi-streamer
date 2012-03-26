@@ -166,6 +166,10 @@ static void parse_options(int argc, char **argv){
 	  opt.rec_type = REC_DEF;
 	  opt.async = 0;
 	}
+	else if (!strcmp(optarg, "splice")){
+	  opt.rec_type = REC_SPLICER;
+	  opt.async = 0;
+	}
 	else if (!strcmp(optarg, "dummy")){
 	  opt.rec_type = REC_DUMMY;
 	  opt.buf_type = WRITER_DUMMY;
@@ -301,6 +305,9 @@ int main(int argc, char **argv)
 	break;
       case REC_DEF:
 	err = def_init_def(&opt, re);
+	break;
+      case REC_SPLICER:
+	err = splice_init_splice(&opt, re);
 	break;
       case REC_TODO:
 	break;

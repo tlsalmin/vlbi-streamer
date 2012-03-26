@@ -9,6 +9,7 @@
 #define REC_TODO 1
 #define REC_DUMMY 2
 #define REC_DEF 3
+#define REC_SPLICER 5
 #define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
@@ -35,8 +36,9 @@
 //#define HD_WRITE_SIZE 16777216
 //#define HD_WRITE_SIZE 1048576
 //#define HD_WRITE_SIZE 33554432
-//#define HD_WRITE_SIZE 262144
-#define HD_WRITE_SIZE 524288
+#define HD_WRITE_SIZE 262144
+//#define HD_WRITE_SIZE 524288
+//#define HD_WRITE_SIZE 65536
 
 #define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling

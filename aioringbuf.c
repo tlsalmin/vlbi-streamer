@@ -253,9 +253,6 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     count = (endi) * (rbuf->elem_size);
 
 #ifdef DEBUG_OUTPUT
-    if(count > 281474976710656)
-      fprintf(stderr, "RINGBUF: Write gone crazy!. write from %i to %i diff %i elems %i, %lu bytes\n", *tail, head, endi, rbuf->num_elems, count);
-    else
       fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", *tail, head, endi, rbuf->num_elems, count);
 #endif
     ret = be->recer->write(be->recer, start, count);
