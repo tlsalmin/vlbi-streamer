@@ -47,13 +47,14 @@ static void usage(char *binary){
   fprintf(stderr, 
       "usage: %s [OPTION]... name time\n"
       "-i INTERFACE	Which interface to capture from\n"
-      "-t {fanout|udpstream|splicer|TODO	Capture type(Default: udpstream)\n"
+      "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)\n"
       "-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
+      "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
       "-h HOST		Specify host(Required for send\n"
-      "-w {aio|def|dummy}	use AIO-writer, system default or DUMMY writer\n"
+      "-w {aio|def|splice|dummy}	use AIO-writer, system default or DUMMY writer\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package\n"
 #endif
@@ -99,7 +100,7 @@ static void parse_options(int argc, char **argv){
   opt.tid = 0;
   opt.async = 0;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:q"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:p:q"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -111,7 +112,7 @@ static void parse_options(int argc, char **argv){
 	else if (!strcmp(optarg, "udpstream")){
 	  opt.capture_type = CAPTURE_W_UDPSTREAM;
 	}
-	else if (!strcmp(optarg, "splicer")){
+	else if (!strcmp(optarg, "sendfile")){
 	  opt.capture_type = CAPTURE_W_SPLICER;
 	}
 	else if (!strcmp(optarg, "TODO")){
@@ -138,6 +139,8 @@ static void parse_options(int argc, char **argv){
       case 's':
 	opt.port = atoi(optarg);
 	break;
+      case 'p':
+	opt.buf_elem_size = atoi(optarg);
       case 'n':
 	opt.n_threads = atoi(optarg);
 	break;

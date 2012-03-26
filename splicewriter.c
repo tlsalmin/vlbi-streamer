@@ -72,7 +72,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     ret = splice_all(start, ioi->fd, count);
     */
   while(count >0){
-    ret = vmsplice(sp->pipes[1], &(sp->iov), 1, SPLICE_F_MOVE|SPLICE_F_GIFT);
+    ret = vmsplice(sp->pipes[1], &(sp->iov), 1, SPLICE_F_GIFT);
     if(ret <0)
       break;
     count -= ret;
