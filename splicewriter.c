@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <string.h>
 
 #include "streamer.h"
 #include "common_wrt.h"
@@ -15,6 +16,7 @@
 
 //#define PIPE_STUFF_IN_WRITELOOP
 #define IOVEC_SPLIT_TO_IOV_MAX
+#define MAX_IOVEC 16
 
 struct splice_ops{
   struct iovec* iov;
@@ -51,7 +53,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
   sp->iov =(struct iovec*)malloc(sizeof(struct iovec));
 #else
-  sp->iov = (struct iovec*)malloc(IOV_MAX * sizeof(struct iovec));
+  sp->iov = (struct iovec*)malloc(MAX_IOVEC * sizeof(struct iovec));
 #endif
 
 #ifndef PIPE_STUFF_IN_WRITELOOP
@@ -72,6 +74,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
   size_t trycount;
   //int err = 0;
   int i=0;
+  off_t oldoffset;
   int pagesize = sysconf(_SC_PAGE_SIZE);
   int pages_to_set = count/pagesize;
   //int nr_segs;
@@ -88,6 +91,8 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
   struct iovec * iov;
 #endif
 
+  /* Get current file offset. Used for writeback */
+  oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
   ret = count;
   /* TODO: Bidirectional
   if(ioi->read)
@@ -105,7 +110,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     /* Split the request into page aligned chunks 	*/
     /* TODO: find out where the max size is defined.	*/
     /* Currently splice can handle 16*pagesize 		*/
-    while(trycount>0 && i< 16){
+    while(trycount>0 && i< MAX_IOVEC){
       iov->iov_base = point_to_start; 
       iov->iov_len = pagesize;
       point_to_start += pagesize;
@@ -165,11 +170,22 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     fprintf(stderr, "SPLICEWRITER: Error happened on %s with start %lu and count %lu\n", ioi->filename, (long)start, count);
     return 0;
   }
-  else{
+  /* Having bad performance. Linus recommends this stuff  at 			*/
+  /* http://lkml.indiana.edu/hypermail/linux/kernel/1005.2/01845.html 		*/
+  /* and http://lkml.indiana.edu/hypermail/linux/kernel/1005.2/01953.html 	*/
+
+  ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
+  if(ret>=0){
 #ifdef DEBUG_OUTPUT 
   fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
 #endif
   }
+  else{
+    perror("splice sync");
+    fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->filename, strerror(ret));
+    return ret;
+  }
+  ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_DONTNEED);
 
   return total_w;
 }
