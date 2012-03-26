@@ -329,7 +329,7 @@ void *rbuf_write_loop(void *buffo){
   // Main thread stopped so just write
   /* TODO: On asynch io, this will not check the last writes */
   //if(rbuf->diff > 0){
-  if ((diff = diff_max(*tail, *head, rbuf->num_elems)) < DO_W_STUFF_EVERY){
+  if ((diff = diff_max(*tail, *head, rbuf->num_elems)) > 0){
     write_after_checks(be,diff,head,tail);
     if(rbuf->async){
       sleep(1);

@@ -381,6 +381,7 @@ int main(int argc, char **argv)
       exit(-1);
     }
     be->se = &(threads[i]);
+    threads[i].be = be;
 
   }
   for(i=0;i<opt.n_threads;i++){
@@ -429,6 +430,8 @@ int main(int argc, char **argv)
   //Close all threads. Buffers and writers are closed in the threads close
   for(i=0;i<opt.n_threads;i++){
     threads[i].close(threads[i].opt, &stats);
+    free(threads[i].be->recer);
+    free(threads[i].be);
   }
   pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
@@ -436,8 +439,9 @@ int main(int argc, char **argv)
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif
   print_stats(&stats, &opt);
+  free(opt.device_name);
 
   //return 0;
   //pthread_exit(NULL);
-  exit(0);
+  return 0;
 }
