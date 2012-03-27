@@ -6,8 +6,7 @@
 #include "aioringbuf.h"
 #include <pthread.h>
 //#include "aiowriter.h"
-//Not used anymore
-//#define HD_WRITE_N_SIZE 128
+#define DO_WRITES_IN_FIXED_BLOCKS
 
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -144,7 +143,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
   return spot;
 }
 //alias for scheduling packets for writing
-inline int write_after_checks(struct buffer_entity * be, int diff_final,int* head,int* tail){
+inline int write_after_checks(struct buffer_entity * be, int diff_final,int head,int* tail){
   int ret=0; //,diff_final;
   /* Better for multithreading that we just copy the value  */
   //struct ringbuf * rbuf = (struct ringbuf * )be->opt;
@@ -206,7 +205,7 @@ inline int write_after_checks(struct buffer_entity * be, int diff_final,int* hea
     fprintf(stderr, "Omg write final smaller that 0\n");
 
   //if(diff_final > 0){
-  ret = write_bytes(be,*head,tail,diff_final);
+  ret = write_bytes(be,head,tail,diff_final);
   //}
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   /*
@@ -302,6 +301,9 @@ void *rbuf_write_loop(void *buffo){
   struct ringbuf * rbuf = (struct ringbuf *)be->opt;
   int diff,ret;
   int *head, *tail;
+#ifdef DO_WRITES_IN_FIXED_BLOCKS
+  int limited_head;
+#endif
   rbuf_init_head_n_tail(rbuf,&head,&tail);
   while(rbuf->running){
     pthread_mutex_lock(rbuf->headlock);
@@ -314,9 +316,15 @@ void *rbuf_write_loop(void *buffo){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     rbuf->is_blocked = 0;
 #endif
+#ifdef DO_WRITES_IN_FIXED_BLOCKS
+    diff = diff < DO_W_STUFF_EVERY ? diff : DO_W_STUFF_EVERY;
+    limited_head = (*tail+diff)%rbuf->num_elems;
+#else
+    limited_head = *head;
+#endif
     pthread_mutex_unlock(rbuf->headlock);
     if(diff > 0){
-      ret = write_after_checks(be,diff, head, tail);
+      ret = write_after_checks(be,diff, limited_head, tail);
       if(ret<=0){
 	fprintf(stderr, "Write returned error %d\n", ret);
 	be->se->stop(be->se);
@@ -354,7 +362,7 @@ void *rbuf_write_loop(void *buffo){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "diffmax reported: we have %d left in buffer after completion\n", diff);
 #endif
-    write_after_checks(be,diff,head,tail);
+    write_after_checks(be,diff,*head,tail);
     if(rbuf->async){
       sleep(1);
       rbuf_check(be);

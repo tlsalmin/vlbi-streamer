@@ -389,6 +389,7 @@ void* sendfile_writer(void *se)
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
   int ffd = spec_ops->be->recer->getfd(spec_ops->be->recer);
+  void *buf = (void*)malloc(spec_ops->buf_elem_size);
 
   int pipes[2];
   err = pipe(pipes);
@@ -417,8 +418,8 @@ void* sendfile_writer(void *se)
 
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
-      //err = splice(spec_ops->fd, 0, pipes[1], 0, spec_ops->buf_elem_size,0);
-      err = splice(spec_ops->fd, 0, pipes[1], 0, 500,0);
+      err = splice(spec_ops->fd, 0, pipes[1], 0, spec_ops->buf_elem_size,SPLICE_F_MOVE|SPLICE_F_MORE);
+      //err = splice(spec_ops->fd, 0, pipes[1], 0, 500,0);
 
       if(err < 0){
 	if(err == EINTR)
@@ -427,6 +428,9 @@ void* sendfile_writer(void *se)
 	  perror("RECV error");
 	pthread_mutex_unlock(spec_ops->cumlock);
 	break;
+      }
+      else{
+	splice(pipes[0], NULL, ffd, NULL, spec_ops->buf_elem_size, SPLICE_F_MOVE|SPLICE_F_MORE);
       }
       pthread_mutex_unlock(spec_ops->cumlock);
       /*
