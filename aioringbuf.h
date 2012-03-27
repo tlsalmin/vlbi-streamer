@@ -29,6 +29,7 @@ struct ringbuf{
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   pthread_mutex_t *headlock;
   pthread_cond_t *iosignal;
+  int is_blocked;
 #endif
 };
 

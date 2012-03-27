@@ -18,6 +18,8 @@
 //#define IOVEC_SPLIT_TO_IOV_MAX
 #define MAX_IOVEC 16
 
+//#define DISABLE_WRITE
+
 struct splice_ops{
   struct iovec* iov;
   int pipes[2];
@@ -103,6 +105,9 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     ret = splice_all(start, ioi->fd, count);
     */
 
+#ifdef DISABLE_WRITE
+  total_w = count;
+#else 
   while(count >0){
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
     point_to_start = start;
@@ -182,6 +187,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     return ret;
   }
   ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
+#endif //DISABLE_WRITE
 
   return total_w;
 }

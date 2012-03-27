@@ -10,7 +10,7 @@
 #define REC_DUMMY 2
 #define REC_DEF 3
 #define REC_SPLICER 5
-#define MEM_GIG 12
+#define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
@@ -30,15 +30,18 @@
 #define CHECK_SEQUENCE 1
 #define DO_SOMETHING_ELSE 2
 
+/* Enable if you don't want extra messaging to nonblocked processes */
+#define CHECK_FOR_BLOCK_BEFORE_SIGNAL
+
 //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
 //#define HD_WRITE_SIZE 16777216
 //#define HD_WRITE_SIZE 1048576
-#define HD_WRITE_SIZE 134217728
+//#define HD_WRITE_SIZE 134217728
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
-//#define HD_WRITE_SIZE 524288
+#define HD_WRITE_SIZE 524288
 //#define HD_WRITE_SIZE 65536
 
 #define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
@@ -93,6 +96,9 @@ struct buffer_entity
   void* (*write_loop)(void *);
   void (*stop)(struct buffer_entity*);
   void (*init_mutex)(struct buffer_entity *, void*,void*);
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  int (*is_blocked)(struct buffer_entity*);
+#endif
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
   struct streamer_entity * se;
@@ -126,6 +132,9 @@ struct streamer_entity
   int (*close)(void*,void*);
   void (*stop)(struct streamer_entity *se);
   void (*close_socket)(struct streamer_entity *se);
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  int (*is_blocked)(struct streamer_entity *se);
+#endif
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;
 };

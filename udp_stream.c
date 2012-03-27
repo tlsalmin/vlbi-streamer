@@ -91,6 +91,9 @@ struct opts
 #ifdef CHECK_OUT_OF_ORDER
   unsigned long int out_of_order;
 #endif
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  int is_blocked;
+#endif
 };
 int phandler_sequence(struct streamer_entity * se, void * buffer){
   return 0;
@@ -116,6 +119,9 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->read = opt->read;
   spec_ops->signal = &(opt->signal);
   spec_ops->running = 1;
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  spec_ops->is_blocked = 0;
+#endif
 
   /*
    * If we're reading, recording entity should read the indicedata
@@ -348,8 +354,15 @@ void * udp_sender(void *opt){
     void *buf;
 
     pthread_mutex_lock(spec_ops->headlock);
-    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL)
+    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+      spec_ops->is_blocked = 1;
+#endif
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+    }
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+    spec_ops->is_blocked = 0;
+#endif
     /* Read the indice of the current file */ 
     //INDEX_FILE_TYPE pindex = *(spec_ops->packet_index + spec_ops->total_captured_bytes * sizeof(INDEX_FILE_TYPE));
 
@@ -370,7 +383,11 @@ void * udp_sender(void *opt){
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
       err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-      if(i%DO_W_STUFF_EVERY == 0)// || err == 0)
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+      if(i%DO_W_STUFF_EVERY == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
+#else
+      if(i%DO_W_STUFF_EVERY == 0)
+#endif
 	pthread_cond_signal(spec_ops->iosignal);
       pthread_mutex_unlock(spec_ops->headlock);
 #endif
@@ -483,10 +500,16 @@ void* udp_streamer(void *se)
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
     pthread_mutex_lock(spec_ops->headlock);
     while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL && spec_ops->running){
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+      spec_ops->is_blocked = 1;
+#endif
       fprintf(stdout, "UDP_STREAMER: Buffer full. Going to sleep\n");
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
       fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
     }
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+    spec_ops->is_blocked = 0;
+#endif
     /*
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
@@ -522,7 +545,11 @@ void* udp_streamer(void *se)
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 	/* Signal writer that we've processed some packets and 	*/
 	/* it should wake up unless it's busy writing		*/
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+	if(i%DO_W_STUFF_EVERY == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
+#else
 	if(i%DO_W_STUFF_EVERY == 0)
+#endif
 	  pthread_cond_signal(spec_ops->iosignal);
 	/* Used buffer so we can release headlock */
 	pthread_mutex_unlock(spec_ops->headlock);
@@ -620,11 +647,22 @@ int close_udp_streamer(void *opt_own, void *stats){
 #endif
   /* TODO: Make this nicer */
   if(spec_ops->read == 0){
+    //fprintf(stderr, "WUTTT\n");
+    if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->get_filename(spec_ops->be->recer) != NULL){
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
+      fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif
-    if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
-      fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
+      if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0){
+	fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
+      }
+#ifdef DEBUG_OUTPUT
+      else
+	fprintf(stdout, "UDP_STREAMER: Index file written OK\n");
+#endif
+    }
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "UDP_STREAMER: No index file writing set\n");
+#endif
   }
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
@@ -645,18 +683,26 @@ void udps_close_socket(struct streamer_entity *se){
     if(ret <0)
       perror("Socket shutdown");
 }
-void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+int udps_is_blocked(struct streamer_entity *se){
+  return ((struct opts *)(se->opt))->is_blocked;
+}
+#endif
+void udps_init_default(struct opt_s *opt, struct streamer_entity * se, struct buffer_entity *be){
   se->init = setup_udp_socket;
-  se->start = udp_streamer;
   se->close = close_udp_streamer;
-  se->opt = se->init(opt, be);
-  se->stop = udps_stop;
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  se->is_blocked = udps_is_blocked;
+#endif
   se->close_socket = udps_close_socket;
+  se->opt = se->init(opt, be);
+}
+void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
+  udps_init_default(opt,se,be);
+  se->start = udp_streamer;
+  se->stop = udps_stop;
   }
 void udps_init_udp_sender(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
-  se->init = setup_udp_socket;
+  udps_init_default(opt,se,be);
   se->start = udp_sender;
-  se->close = close_udp_streamer;
-  se->opt = se->init(opt, be);
-  se->close_socket = udps_close_socket;
   }
