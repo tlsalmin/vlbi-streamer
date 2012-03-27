@@ -10,7 +10,7 @@
 #define REC_DUMMY 2
 #define REC_DEF 3
 #define REC_SPLICER 5
-#define MEM_GIG 4
+#define MEM_GIG 12
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
@@ -34,7 +34,8 @@
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
 //#define HD_WRITE_SIZE 16777216
-#define HD_WRITE_SIZE 1048576
+//#define HD_WRITE_SIZE 1048576
+#define HD_WRITE_SIZE 134217728
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
 //#define HD_WRITE_SIZE 524288
