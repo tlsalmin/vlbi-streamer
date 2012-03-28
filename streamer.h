@@ -10,7 +10,7 @@
 #define REC_DUMMY 2
 #define REC_DEF 3
 #define REC_SPLICER 5
-#define MEM_GIG 8
+#define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
