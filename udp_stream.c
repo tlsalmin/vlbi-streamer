@@ -503,9 +503,13 @@ void* udp_streamer(void *se)
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
       spec_ops->is_blocked = 1;
 #endif
+#ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Buffer full. Going to sleep\n");
+#endif
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+#ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
+#endif
     }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     spec_ops->is_blocked = 0;

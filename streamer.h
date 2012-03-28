@@ -1,7 +1,7 @@
 #ifndef STREAMER
 #define STREAMER
 //Rate as in GB/s
-#define RATE 1
+#define RATE 10
 #define WRITER_AIOW_RBUF 0
 #define WRITER_DUMMY 1
 #define WRITER_TODO 4
@@ -10,7 +10,7 @@
 #define REC_DUMMY 2
 #define REC_DEF 3
 #define REC_SPLICER 5
-#define MEM_GIG 4
+#define MEM_GIG 8
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
@@ -18,7 +18,7 @@
 #define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
 #define BYTES_PER_ENTRY 2
-#define DEBUG_OUTPUT
+//#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
 /* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
@@ -37,11 +37,11 @@
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
 //#define HD_WRITE_SIZE 16777216
-//#define HD_WRITE_SIZE 1048576
+#define HD_WRITE_SIZE 1048576
 //#define HD_WRITE_SIZE 134217728
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144
-#define HD_WRITE_SIZE 524288
+//#define HD_WRITE_SIZE 524288
 //#define HD_WRITE_SIZE 65536
 
 #define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)

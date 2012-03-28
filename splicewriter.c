@@ -9,20 +9,27 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "streamer.h"
 #include "common_wrt.h"
 #include "splicewriter.h"
 
+
+
 //#define PIPE_STUFF_IN_WRITELOOP
-//#define IOVEC_SPLIT_TO_IOV_MAX
-#define MAX_IOVEC 16
+#define IOVEC_SPLIT_TO_IOV_MAX
+/* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
+#define MAX_PIPE_SIZE 1048576
+//#define MAX_IOVEC 16
 
 //#define DISABLE_WRITE
 
 struct splice_ops{
   struct iovec* iov;
   int pipes[2];
+  int max_pipe_length;
+  int pagesize;
 };
 /*
 int splice_all(int from, int to, long long bytes){
@@ -48,21 +55,38 @@ int splice_all(int from, int to, long long bytes){
 */
 int init_splice(struct opt_s *opts, struct recording_entity * re){
   int ret = common_w_init(opts, re);
+  int maxbytes_inpipe;
   if(ret < 0)
     return -1;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct splice_ops * sp = (struct splice_ops*)malloc(sizeof(struct splice_ops));
-#ifndef IOVEC_SPLIT_TO_IOV_MAX
-  sp->iov =(struct iovec*)malloc(sizeof(struct iovec));
-#else
-  sp->iov = (struct iovec*)malloc(MAX_IOVEC * sizeof(struct iovec));
-#endif
 
 #ifndef PIPE_STUFF_IN_WRITELOOP
   ret = pipe(sp->pipes);
   if(ret<0)
     return -1;
 #endif
+  /* TODO: Handle error for pipe size change */
+#ifdef F_SETPIPE_SZ
+  fcntl(sp->pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
+  maxbytes_inpipe = fcntl(sp->pipes[1], F_GETPIPE_SZ);
+#else
+  /* Old headers so can't query the size. presume its 64KB */
+  maxbytes_inpipe = 65536;
+#endif
+
+  sp->pagesize = sysconf(_SC_PAGE_SIZE);
+  sp->max_pipe_length = maxbytes_inpipe / sp->pagesize;
+
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "Max pipe size is %d pages with pagesize %d and buffer bytemax %d\n", sp->max_pipe_length, sp->pagesize, maxbytes_inpipe);
+#endif
+#ifndef IOVEC_SPLIT_TO_IOV_MAX
+  sp->iov =(struct iovec*)malloc(sizeof(struct iovec));
+#else
+  sp->iov = (struct iovec*)malloc(sp->max_pipe_length * sizeof(struct iovec));
+#endif
+
 
 
   ioi->extra_param = (void*)sp;
@@ -75,8 +99,6 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
   void * point_to_start=start;
   size_t trycount;
-  int pagesize = sysconf(_SC_PAGE_SIZE);
-  int pages_to_set = count/pagesize;
 #endif
   //int err = 0;
   int i=0;
@@ -117,53 +139,51 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     /* Split the request into page aligned chunks 	*/
     /* TODO: find out where the max size is defined.	*/
     /* Currently splice can handle 16*pagesize 		*/
-    while(trycount>0 && i< MAX_IOVEC){
+    while(trycount>0 && i < sp->max_pipe_length){
       iov->iov_base = point_to_start; 
-      iov->iov_len = pagesize;
-      point_to_start += pagesize;
+      /* TODO: Might need to set this only in init 	*/
+      iov->iov_len = sp->pagesize;
+      point_to_start += sp->pagesize;
       iov += 1;
-      trycount-=pagesize;
+      trycount-=sp->pagesize;
       /*  Check that we don't go negative on the count */
       /* TODO: This will break if buffer entities aren't pagesize aligned */
       if(trycount>=0)
-      i++;
+	i++;
     }
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Prepared iovec of %i elements for %i bytes\n", i, i*pagesize);
+    fprintf(stdout, "Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
 #endif
-#endif
-
-#ifdef IOVEC_SPLIT_TO_IOV_MAX
-      ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT);
 #else
-      ret = vmsplice(sp->pipes[1], sp->iov, 1, SPLICE_F_GIFT);
-#endif
+    i=1;
+#endif  /* IOVEC_SPLIT_TO_IOV_MAX */
+
+    /* NOTE: SPLICE_F_MORE not *yet* used on vmsplice */
+      ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
+
       if(ret <0)
 	break;
+      /*
 #ifdef DEBUG_OUTPUT 
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
       else
-	fprintf(stdout, "Vmsplice accepted %i bytes when given %i bytes\n", ret, i*pagesize);
-      start += ret;
-      count -= ret;
+	fprintf(stdout, "Vmsplice accepted %i bytes when given %i bytes\n", ret, i*(sp->pagesize));
 #endif
 #endif
+*/
 
-#ifndef IOVEC_SPLIT_TO_IOV_MAX
-      count -= ret;
-      ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, ret, SPLICE_F_MOVE);
-#else
-      ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, i*pagesize, SPLICE_F_MOVE);
-#endif
+      ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
+
       if(ret<0)
 	break;
+      start += ret;
+      count -= ret;
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
       sp->iov->iov_base += ret;
       sp->iov->iov_len = count;
 #endif
 
       // Update statistics 
-      ioi->bytes_exchanged += ret;
       total_w += ret;
   }
   if(ret <0){
@@ -186,9 +206,11 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->filename, strerror(ret));
     return ret;
   }
+  /* TODO: Check ret */
   ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
-#endif //DISABLE_WRITE
+#endif /* DISABLE_WRITE */
 
+  ioi->bytes_exchanged += total_w;
   return total_w;
 }
 int splice_get_w_fflags(){
