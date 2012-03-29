@@ -9,7 +9,8 @@ struct common_io_info{
   INDEX_FILE_TYPE elem_size;
   int f_flags;
   INDEX_FILE_TYPE * indices;
-  int read;
+  //int read;
+  unsigned int optbits;
   INDEX_FILE_TYPE indexfile_count;
   void * extra_param;
 };

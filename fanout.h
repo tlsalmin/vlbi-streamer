@@ -2,8 +2,8 @@
 #define FANOUT
 #ifndef PACKET_FANOUT
 #define PACKET_FANOUT		18
-#define PACKET_FANOUT_HASH		0
-#define PACKET_FANOUT_LB		1
+#define PACKET_FANOUT_HASH              0
+#define PACKET_FANOUT_LB                1
 #endif
 #define THREADED
 #ifndef THREADED

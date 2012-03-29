@@ -2,23 +2,45 @@
 #define STREAMER
 //Rate as in GB/s
 #define RATE 10
-#define WRITER_AIOW_RBUF 0
-#define WRITER_DUMMY 1
-#define WRITER_TODO 4
-#define REC_AIO 0
-#define REC_TODO 1
-#define REC_DUMMY 2
-#define REC_DEF 3
-#define REC_SPLICER 5
+#define B(x) (1 << x)
+
+/* What buf entity to use. Used by buf_type*/ 
+#define LOCKER_WRITER		0x0000000f 
+#define WRITER_AIOW_RBUF 	B(0)
+#define WRITER_DUMMY 		B(1)
+
+/* What HD writer to use. Used by rec_type*/
+#define LOCKER_REC		0x000000f0
+#define REC_AIO 		B(4)
+#define REC_DUMMY 		B(5)
+#define REC_DEF 		B(6)
+#define REC_SPLICER 		B(7)
+
+/* How to capture packets. */
+#define LOCKER_CAPTURE		0x00000f00
+#define CAPTURE_W_FANOUT 	B(8)
+#define CAPTURE_W_UDPSTREAM 	B(9)
+#define CAPTURE_W_SPLICER 	B(10)
+#define CAPTURE_W_TODO 		B(11)
+
+/* How fanout works */
+/*
+#define LOCKER_FANOUT		0x0000f000
+#define PACKET_FANOUT_HASH     	0x01 << 12
+#define PACKET_FANOUT_LB        0x01 << 13
+*/
+
+/* Global stuff */
+#define CHECK_SEQUENCE 		B(12)
+#define ASYNC_WRITE		B(13)
+#define READMODE		B(14)
+
 #define MEM_GIG 4
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
-#define FORCE_WRITE 1
-#define DONT_FORCE_WRITE 0
 #define MAX_OPEN_FILES 32
-#define BYTES_PER_ENTRY 2
-//#define DEBUG_OUTPUT
+#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
 /* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
@@ -27,8 +49,7 @@
 #define INDEX_FILE_PRINT lu
 /* Moving the rbuf-stuff to its own thread */
 #define SPLIT_RBUF_AND_IO_TO_THREAD
-#define CHECK_SEQUENCE 1
-#define DO_SOMETHING_ELSE 2
+
 
 /* Enable if you don't want extra messaging to nonblocked processes */
 #define CHECK_FOR_BLOCK_BEFORE_SIGNAL
@@ -44,40 +65,47 @@
 //#define HD_WRITE_SIZE 524288
 //#define HD_WRITE_SIZE 65536
 
-#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
+//#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling
 #include <pthread.h>
 #include <netdb.h> // struct hostent
 struct opt_s
 {
   char *filename;
+
+  /* Lock that spans over all threads. Used for tracking packets 	*/
+  /* by sequence number							*/
   long unsigned int  cumul;
   pthread_mutex_t cumlock;
   char *device_name;
-  int capture_type;
+
+  unsigned int optbits;
   int root_pid;
-  int fanout_type;
   unsigned int time;
   int port;
   int socket;
   int n_threads;
-  //void * packet_index;
+  int do_w_stuff_every;
   unsigned long max_num_packets;
-  //struct rec_point * points;
   char * filenames[MAX_OPEN_FILES];
-  int buf_type;
-  int rec_type;
+
+  /* Moved to optbits */
+  //int capture_type;
+  //int buf_type;
+  //int rec_type;
+  //int fanout_type;
+  //int async;
+  //int read;
+  //int handle;
+
   /* Bloat TODO Find alternative place for this */
-  int async;
   INDEX_FILE_TYPE buf_elem_size;
   int buf_num_elems;
-  int read;
   //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
   int tid;
   char * hostname;
   unsigned long serverip;
-  int handle;
   pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
@@ -108,10 +136,10 @@ struct recording_entity
 {
   void * opt;
   int (*init)(struct opt_s * , struct recording_entity*);
-  int (*write)(struct recording_entity*,void*,size_t);
+  long (*write)(struct recording_entity*,void*,size_t);
   int (*wait)(struct recording_entity *);
   int (*close)(struct recording_entity*, void *);
-  int (*check)(struct recording_entity*);
+  long (*check)(struct recording_entity*);
   int (*getfd)(struct recording_entity*);
   int (*get_w_flags)();
   int (*get_r_flags)();
@@ -144,8 +172,7 @@ struct stats
   unsigned long total_written;
   unsigned long incomplete;
   unsigned long dropped;
-  //Cheating here to keep infra constitent
+  //Cheating here to keep infra consistent
   int * packet_index;
-  //unsigned long total_packets;
 };
 #endif

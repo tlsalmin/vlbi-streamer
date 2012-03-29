@@ -87,8 +87,8 @@ int aiow_get_r_fflags(){
     return  O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
 }
 
-int aiow_write(struct recording_entity * re, void * start, size_t count){
-  int ret;
+long aiow_write(struct recording_entity * re, void * start, size_t count){
+  long ret;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Performing read/write\n");
 #endif
@@ -97,7 +97,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
 
   struct iocb *ib[1];
   ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
-  if(ioi->read == 1)
+  if(ioi->optbits & READMODE)
     io_prep_pread(ib[0], ioi->fd, start, count, ioi->offset);
   else
     io_prep_pwrite(ib[0], ioi->fd, start, count, ioi->offset);
@@ -113,7 +113,7 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   ret = io_submit(*((io_context_t*)(ioi->extra_param)), 1, ib);
 
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "AIOW: Submitted %d reads/writes\n", ret);
+  fprintf(stdout, "AIOW: Submitted %ld reads/writes\n", ret);
 #endif
   if(ret <0){
     perror("AIOW: io_submit");
@@ -121,22 +121,22 @@ int aiow_write(struct recording_entity * re, void * start, size_t count){
   }
   ioi->offset += count;
   //ioi->bytes_exchanged += count;
-  return ret;
+  return count;
 }
-int aiow_check(struct recording_entity * re){
+long aiow_check(struct recording_entity * re){
   //Just poll, so we can keep receiving more packets
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
   static struct timespec timeout = { 0, 0 };
   struct io_event event;
   io_context_t * ctx = (io_context_t*)ioi->extra_param;
-  int ret = io_getevents(*(ctx), 0, 1, &event, &timeout);
+  long ret = io_getevents(*(ctx), 0, 1, &event, &timeout);
   //
   if(ret > 0){
     if((signed long )event.res > 0){
     ioi->bytes_exchanged += event.res;
     ret = event.res;
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIOW: Check return %d, read/written %lu bytes\n", ret, event.res);
+    fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);
 #endif
     }
     else{

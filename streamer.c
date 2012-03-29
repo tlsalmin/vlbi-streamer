@@ -19,10 +19,6 @@
 #include "defwriter.h"
 #include "sendfile_streamer.h"
 #include "splicewriter.h"
-#define CAPTURE_W_FANOUT 0
-#define CAPTURE_W_UDPSTREAM 1
-#define CAPTURE_W_SPLICER 2
-#define CAPTURE_W_TODO 3
 #define TUNE_AFFINITY
 
 #define CORES 6
@@ -48,7 +44,7 @@ static void usage(char *binary){
       "usage: %s [OPTION]... name time\n"
       "-i INTERFACE	Which interface to capture from\n"
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)\n"
-      "-a {lb|hash}	Fanout type(Default: lb)\n"
+      //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
@@ -85,39 +81,46 @@ static void parse_options(int argc, char **argv){
   memset(&opt, 0, sizeof(struct opt_s));
   opt.filename = NULL;
   opt.device_name = NULL;
-  opt.capture_type = CAPTURE_W_FANOUT;
-  opt.fanout_type = PACKET_FANOUT_LB;
+
+  /* Opts using optbits */
+  //opt.capture_type = CAPTURE_W_FANOUT;
+  opt.optbits |= CAPTURE_W_UDPSTREAM;
+  //opt.fanout_type = PACKET_FANOUT_LB;
+  //opt.optbits |= PACKET_FANOUT_LB;
   opt.root_pid = getpid();
   opt.port = 2222;
   opt.n_threads = 1;
   opt.buf_elem_size = BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
-  opt.buf_type = WRITER_AIOW_RBUF;
-  opt.rec_type= REC_DEF;
+  //opt.buf_type = WRITER_AIOW_RBUF;
+  opt.optbits |= WRITER_AIOW_RBUF;
+  //opt.rec_type= REC_DEF;
+  opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
-  opt.handle = 0;
-  opt.read = 0;
+  //opt.handle = 0;
+  //opt.read = 0;
   opt.tid = 0;
-  opt.async = 0;
+  //opt.async = 0;
+  //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:a:s:n:m:h:w:p:q"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:q"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
 	break;
       case 't':
+	opt.optbits &= ~LOCKER_CAPTURE;
 	if (!strcmp(optarg, "fanout")){
-	  opt.capture_type = CAPTURE_W_FANOUT;
+	  //opt.capture_type = CAPTURE_W_FANOUT;
+	  opt.optbits |= CAPTURE_W_FANOUT;
 	}
 	else if (!strcmp(optarg, "udpstream")){
-	  opt.capture_type = CAPTURE_W_UDPSTREAM;
+	  //opt.capture_type = CAPTURE_W_UDPSTREAM;
+	  opt.optbits |= CAPTURE_W_UDPSTREAM;
 	}
 	else if (!strcmp(optarg, "sendfile")){
-	  opt.capture_type = CAPTURE_W_SPLICER;
-	}
-	else if (!strcmp(optarg, "TODO")){
-	  opt.capture_type = CAPTURE_W_TODO;
-	//TODO: Add if other capture types added
+	  //opt.capture_type = CAPTURE_W_SPLICER;
+	  opt.optbits |= CAPTURE_W_SPLICER;
 	}
 	else {
 	  fprintf(stderr, "Unknown packet capture type [%s]\n", optarg);
@@ -125,17 +128,24 @@ static void parse_options(int argc, char **argv){
 	  exit(1);
 	}
 	break;
+	/*
       case 'a':
-	if (!strcmp(optarg, "hash"))
-	  opt.fanout_type = PACKET_FANOUT_HASH;
-	else if (!strcmp(optarg, "lb"))
-	  opt.fanout_type = PACKET_FANOUT_LB;
+	opt.optbits &= ~LOCKER_FANOUT;
+	if (!strcmp(optarg, "hash")){
+	  //opt.fanout_type = PACKET_FANOUT_HASH;
+	  opt.optbits |= PACKET_FANOUT_HASH;
+	  }
+	else if (!strcmp(optarg, "lb")){
+	  //opt.fanout_type = PACKET_FANOUT_LB;
+	  opt.optbits |= PACKET_FANOUT_LB;
+	}
 	else {
 	  fprintf(stderr, "Unknown fanout type [%s]\n", optarg);
 	  usage(argv[0]);
 	  exit(1);
 	}
 	break;
+	*/
       case 's':
 	opt.port = atoi(optarg);
 	break;
@@ -146,14 +156,19 @@ static void parse_options(int argc, char **argv){
 	break;
       case 'q':
 #ifdef CHECK_OUT_OF_ORDER
-	opt.handle |= CHECK_SEQUENCE;
+	//opt.handle |= CHECK_SEQUENCE;
+	opt.optbits |= CHECK_SEQUENCE;
 	break;
 #endif
       case 'm':
-	if (!strcmp(optarg, "r"))
-	  opt.read = 0;
-	else if (!strcmp(optarg, "s"))
-	  opt.read = 1;
+	if (!strcmp(optarg, "r")){
+	  opt.optbits &= ~READMODE;
+	  //opt.read = 0;
+	}
+	else if (!strcmp(optarg, "s")){
+	  //opt.read = 1;
+	  opt.optbits |= READMODE;
+	}
 	else {
 	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
 	  usage(argv[0]);
@@ -161,21 +176,37 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
       case 'w':
+	opt.optbits &= ~LOCKER_REC;
 	if (!strcmp(optarg, "aio")){
+	  /*
 	  opt.rec_type = REC_AIO;
 	  opt.async = 1;
+	  */
+	  opt.optbits |= REC_AIO|ASYNC_WRITE;
 	}
 	else if (!strcmp(optarg, "def")){
+	  /*
 	  opt.rec_type = REC_DEF;
 	  opt.async = 0;
+	  */
+	  opt.optbits |= REC_DEF;
+	  opt.optbits &= ~ASYNC_WRITE;
 	}
 	else if (!strcmp(optarg, "splice")){
+	  /*
 	  opt.rec_type = REC_SPLICER;
 	  opt.async = 0;
+	  */
+	  opt.optbits |= REC_SPLICER;
+	  opt.optbits &= ~ASYNC_WRITE;
 	}
 	else if (!strcmp(optarg, "dummy")){
+	  /*
 	  opt.rec_type = REC_DUMMY;
 	  opt.buf_type = WRITER_DUMMY;
+	  */
+	  opt.optbits &= ~LOCKER_WRITER;
+	  opt.optbits |= REC_DUMMY|WRITER_DUMMY;
 	}
 	break;
       case 'h':
@@ -200,14 +231,14 @@ static void parse_options(int argc, char **argv){
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
     sprintf(opt.filenames[i], "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
   }
-  if(opt.read)
+  if(opt.optbits & READMODE)
     opt.hostname = argv[1];
   else
     opt.time = atoi(argv[1]);
   opt.cumul = 0;
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform disks stop writing after too many packets */
-  if(!opt.read){
+  if(!(opt.optbits & READMODE)){
     loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
     //TODO: Make macro
     //Split kb/gb stuff to avoid overflow warning
@@ -217,6 +248,9 @@ static void parse_options(int argc, char **argv){
 
   //Set buf_size
   //OK set limiter so that when using one thread, we won't actually allocate 4GB of mem
+  opt.do_w_stuff_every = HD_WRITE_SIZE/opt.buf_elem_size;
+
+  
   int threads;
   if(opt.n_threads < 4)
     threads = 4;
@@ -227,9 +261,9 @@ static void parse_options(int argc, char **argv){
   opt.buf_num_elems = (int)temp;
   fprintf(stdout, "Elem num %d\n", opt.buf_num_elems);
   /*
-  if (opt.rec_type == REC_AIO)
-    opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-    */
+     if (opt.rec_type == REC_AIO)
+     opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+     */
 }
 int main(int argc, char **argv)
 {
@@ -265,7 +299,7 @@ int main(int argc, char **argv)
 #endif
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
-  if(opt.read){
+  if(opt.optbits & READMODE){
     struct hostent *hostptr;
 
     hostptr = gethostbyname(opt.hostname);
@@ -279,7 +313,7 @@ int main(int argc, char **argv)
     fprintf(stdout, "Resolved hostname\n");
 #endif
   }
-  
+
   //Create message queue
   pthread_mutex_init(&(opt.cumlock), NULL);
   pthread_cond_init (&opt.signal, NULL);
@@ -298,7 +332,7 @@ int main(int argc, char **argv)
      * only require the setting of opt->read to one for 
      * sending stuff
      */
-    switch(opt.rec_type){
+    switch(opt.optbits & LOCKER_REC){
       case REC_AIO:
 	err = aiow_init_rec_entity(&opt, re);
 	//NOTE: elem_size is read inside if we're reading
@@ -312,8 +346,6 @@ int main(int argc, char **argv)
       case REC_SPLICER:
 	err = splice_init_splice(&opt, re);
 	break;
-      case REC_TODO:
-	break;
     }
     if(err < 0){
       fprintf(stderr, "Error in writer init\n");
@@ -324,7 +356,7 @@ int main(int argc, char **argv)
     re->be = be;
 
     //Initialize recorder entity
-    switch(opt.buf_type)
+    switch(opt.optbits & LOCKER_WRITER)
     {
       case WRITER_AIOW_RBUF:
 	//Helper function
@@ -336,9 +368,6 @@ int main(int argc, char **argv)
       case WRITER_DUMMY:
 	err = rbuf_init_dummy(&opt, be);
 	break;
-      case WRITER_TODO:
-	//Implement own writer here
-	break;
     }
     if(err < 0){
       fprintf(stderr, "Error in buffer init\n");
@@ -346,7 +375,7 @@ int main(int argc, char **argv)
     }
 
 
-    switch(opt.capture_type)
+    switch(opt.optbits & LOCKER_CAPTURE)
     {
       /*
        * When adding a new capture technique add it here
@@ -358,13 +387,7 @@ int main(int argc, char **argv)
 	threads[i].opt = threads[i].init(&opt, be);
 	break;
       case CAPTURE_W_UDPSTREAM:
-	/*
-	threads[i].init = setup_udp_socket;
-	threads[i].start = udp_streamer;
-	threads[i].close = close_udp_streamer;
-	threads[i].opt = threads[i].init(&opt, be);
-	*/
-	if(opt.read)
+	if(opt.optbits & READMODE)
 	  udps_init_udp_sender(&opt, &(threads[i]), be);
 	else
 	  udps_init_udp_receiver(&opt, &(threads[i]), be);
@@ -372,9 +395,10 @@ int main(int argc, char **argv)
       case CAPTURE_W_SPLICER:
 	sendfile_init_writer(&opt, &(threads[i]), be);
 	break;
-      case CAPTURE_W_TODO:
-	fprintf(stderr, "Not yet implemented");
-	exit(0);
+      default:
+	fprintf(stdout, "DUR %X\n", opt.optbits);
+	break;
+	
     }
     if(threads[i].opt == NULL){
       fprintf(stderr, "Error in thread init\n");
@@ -409,7 +433,7 @@ int main(int argc, char **argv)
 
   init_stat(&stats);
   /* If we're capturing, time the threads and run them down after we're done */
-  if(!opt.read){
+  if(!(opt.optbits & READMODE)){
     sleep(opt.time);
     for(i = 0;i<opt.n_threads;i++){
       threads[i].stop(&(threads[i]));

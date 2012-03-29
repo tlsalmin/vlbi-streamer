@@ -76,10 +76,12 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #endif
 
   sp->pagesize = sysconf(_SC_PAGE_SIZE);
+  /* Ok lets try to align with physical page size */
+  //sp->pagesize = 65536;
   sp->max_pipe_length = maxbytes_inpipe / sp->pagesize;
 
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Max pipe size is %d pages with pagesize %d and buffer bytemax %d\n", sp->max_pipe_length, sp->pagesize, maxbytes_inpipe);
+  fprintf(stdout, "SPLICEWRITER: Max pipe size is %d pages with pagesize %d and buffer bytemax %d\n", sp->max_pipe_length, sp->pagesize, maxbytes_inpipe);
 #endif
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
   sp->iov =(struct iovec*)malloc(sizeof(struct iovec));
@@ -94,8 +96,8 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   return 1;
 }
 
-int splice_write(struct recording_entity * re, void * start, size_t count){
-  int ret = 0;
+long splice_write(struct recording_entity * re, void * start, size_t count){
+  long ret = 0;
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
   void * point_to_start=start;
   size_t trycount;
@@ -104,7 +106,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
   int i=0;
   off_t oldoffset;
   //int nr_segs;
-  unsigned long total_w =0;
+  long total_w =0;
 #ifdef DEBUG_OUTPUT 
   fprintf(stdout, "SPLICEWRITER: Issuing write of %lu\n", count);
 #endif
@@ -139,7 +141,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     /* Split the request into page aligned chunks 	*/
     /* TODO: find out where the max size is defined.	*/
     /* Currently splice can handle 16*pagesize 		*/
-    while(trycount>0 && i < sp->max_pipe_length){
+    while(trycount>0 && i < sp->max_pipe_length && i < IOV_MAX){
       iov->iov_base = point_to_start; 
       /* TODO: Might need to set this only in init 	*/
       iov->iov_len = sp->pagesize;
@@ -152,7 +154,7 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
 	i++;
     }
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
+    fprintf(stdout, "SPLICEWRITER: Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
 #endif
 #else
     i=1;
@@ -161,8 +163,10 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     /* NOTE: SPLICE_F_MORE not *yet* used on vmsplice */
       ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
 
-      if(ret <0)
+      if(ret <0){
+	fprintf(stderr, "SPLICEWRITER: vmsplice failed for %i elements and %d bytes\n", i, i*(sp->pagesize));
 	break;
+      }
       /*
 #ifdef DEBUG_OUTPUT 
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
@@ -174,8 +178,10 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
 
       ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
 
-      if(ret<0)
+      if(ret<0){
+	fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes\n", ret);
 	break;
+      }
       start += ret;
       count -= ret;
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
@@ -189,13 +195,17 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
   if(ret <0){
     perror("SPLICEWRITER: Error on write/read");
     fprintf(stderr, "SPLICEWRITER: Error happened on %s with start %lu and count %lu\n", ioi->filename, (long)start, count);
-    return 0;
+    return total_w;
   }
   /* Having bad performance. Linus recommends this stuff  at 			*/
   /* http://lkml.indiana.edu/hypermail/linux/kernel/1005.2/01845.html 		*/
   /* and http://lkml.indiana.edu/hypermail/linux/kernel/1005.2/01953.html 	*/
 
-  ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
+  /* WEIRD: When I dont call sync_file_range and posix_fadvise the log shows 	*/
+  /* that the receive buffers don't go to full. Speed is low at about 3Gb/s 	*/
+  /* When both are called, speed goes to 5Gb/s and buffer fulls are logged	*/
+
+  ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
   if(ret>=0){
 #ifdef DEBUG_OUTPUT 
   fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
@@ -206,7 +216,6 @@ int splice_write(struct recording_entity * re, void * start, size_t count){
     fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->filename, strerror(ret));
     return ret;
   }
-  /* TODO: Check ret */
   ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
 #endif /* DISABLE_WRITE */
 

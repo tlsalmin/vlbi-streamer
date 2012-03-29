@@ -1,5 +1,4 @@
 
-//64 MB ring buffer
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -50,6 +49,7 @@ struct opts
   int time;
   int port;
   int ffd;
+  int do_w_stuff_every;
   unsigned long max_num_packets;
   //void * packet_index;
   long unsigned int * cumul;
@@ -64,7 +64,8 @@ struct opts
   //Duplicate here, but meh
   int buf_elem_size;
   //Used for bidirectional usage
-  int read;
+  //int read;
+  unsigned int optbits;
   int (*handle_packet)(struct streamer_entity*,void*);
 #ifdef CHECK_OUT_OF_ORDER
   //Lazy to use in handle_packet
@@ -93,6 +94,8 @@ struct opts
  * buffer_entity and recording_entity
  */
 
+/* TODO: Most of these could go to some default init function to remove duplicate */
+/* code */
 void * sendfile_init(struct opt_s * opt, struct buffer_entity * se)
 {
   int err, len, def;
@@ -106,14 +109,16 @@ void * sendfile_init(struct opt_s * opt, struct buffer_entity * se)
   //spec_ops->id = opt->tid++;
   spec_ops->cumul = &(opt->cumul);
   spec_ops->cumlock = &(opt->cumlock);
-  spec_ops->read = opt->read;
+  //spec_ops->read = opt->read;
+  spec_ops->optbits = opt->optbits;
   spec_ops->signal = &(opt->signal);
   spec_ops->running = 1;
+  spec_ops->do_w_stuff_every = opt->do_w_stuff_every;
 
   /*
    * If we're reading, recording entity should read the indicedata
    */
-  if(spec_ops->read){
+  if(spec_ops->optbits & READMODE){
     spec_ops->max_num_packets = spec_ops->be->recer->get_n_packets(spec_ops->be->recer);
     spec_ops->packet_index = spec_ops->be->recer->get_packet_index(spec_ops->be->recer);
   }
@@ -149,7 +154,7 @@ void * sendfile_init(struct opt_s * opt, struct buffer_entity * se)
     opt->socket = spec_ops->fd;
 
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Doing HD-write stuff every %d\n", DO_W_STUFF_EVERY);
+  fprintf(stdout, "Doing HD-write stuff every %d\n", spec_ops->do_w_stuff_every);
 #endif
 
     if (spec_ops->fd < 0) {
@@ -215,7 +220,7 @@ void * sendfile_init(struct opt_s * opt, struct buffer_entity * se)
     addr->sin_family = AF_INET;           
     addr->sin_port = htons(spec_ops->port);    
     //TODO: check if IF binding helps
-    if(spec_ops->read == 1){
+    if(spec_ops->optbits & READMODE){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "Connecting to %s\n", opt->hostname);
 #endif
@@ -316,7 +321,7 @@ void * udp_sender(void *opt){
     {
       err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-      if(i%DO_W_STUFF_EVERY == 0)// || err == 0)
+      if(i%spec_ops->do_write_stuff_every == 0)// || err == 0)
 	pthread_cond_signal(spec_ops->iosignal);
       pthread_mutex_unlock(spec_ops->headlock);
 #endif
@@ -334,7 +339,7 @@ void * udp_sender(void *opt){
     }
     i++;
 #ifndef SPLIT_RBUF_AND_IO_TO_THREAD
-    if(i%DO_W_STUFF_EVERY == 0 || err == 0){
+    if(i%spec_ops->do_write_stuff_every == 0 || err == 0){
       err = handle_packets_udp(err, spec_ops, 0);
 
       if(err < 0){
@@ -389,7 +394,6 @@ void* sendfile_writer(void *se)
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
   int ffd = spec_ops->be->recer->getfd(spec_ops->be->recer);
-  void *buf = (void*)malloc(spec_ops->buf_elem_size);
 
   int pipes[2];
   err = pipe(pipes);
@@ -485,7 +489,7 @@ int close_sendfile(void *opt_own, void *stats){
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
   /* TODO: Make this nicer */
-  if(spec_ops->read == 0){
+  if(!(spec_ops->optbits & READMODE)){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif

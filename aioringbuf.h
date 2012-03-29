@@ -10,6 +10,7 @@ struct ringbuf{
   void* tail;
   */
   //This might just be easier with uints
+  unsigned int optbits;
   int writer_head;
   int hdwriter_head;
   int tail;
@@ -20,12 +21,10 @@ struct ringbuf{
   int diff;
   int running;
 #endif
-  /* Neither used in real writing */
-  int ready_to_io;
-  int last_io_i;
+  int do_w_stuff_every;
 
-  int async;
-  int read;
+  //int async;
+  //int read;
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   pthread_mutex_t *headlock;
   pthread_cond_t *iosignal;

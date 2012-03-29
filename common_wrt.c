@@ -68,8 +68,8 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     fprintf(stdout, "COMMON_WRT: File preallocated\n");
 #endif
   }
-  else
 #ifdef DEBUG_OUTPUT
+  else
     fprintf(stdout, "COMMON_WRT: Not fallocating\n");
 #endif
   return err;
@@ -168,14 +168,14 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   loff_t prealloc_bytes;
   //struct stat statinfo;
   int err =0;
-  ioi->read = opt->read;
+  ioi->optbits = opt->optbits;
 
   //ioi->latest_write_num = 0;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "COMMON_WRT: Initializing write point\n");
 #endif
   //Check if file exists
-  if(ioi->read == 1){
+  if(ioi->optbits & READMODE){
     ioi->f_flags = re->get_r_flags();
     prealloc_bytes = 0;
   }
@@ -200,7 +200,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
-  if(ioi->read==1){
+  if(ioi->optbits & READMODE){
     err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
     if(err<0){
       perror("DEFWRITER: Reading indices");
@@ -243,7 +243,7 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
-  if(ioi->read == 1){
+  if(ioi->optbits & READMODE){
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
     if(err<0)
       perror("COMMON_WRT: ftruncate");

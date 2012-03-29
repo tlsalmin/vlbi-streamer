@@ -43,13 +43,15 @@
 //Gatherer specific options
 struct opts
 {
+  unsigned int optbits;
+
   int running;
   int fd;
-  int fanout_arg;
   char* device_name;
   int root_pid;
   int time;
   int port;
+  int do_w_stuff_every;
   unsigned long max_num_packets;
   //void * packet_index;
   long unsigned int * cumul;
@@ -63,16 +65,14 @@ struct opts
   //Duplicate here, but meh
   int buf_elem_size;
   //Used for bidirectional usage
-  int read;
+  //int read;
   int (*handle_packet)(struct streamer_entity*,void*);
 #ifdef CHECK_OUT_OF_ORDER
   //Lazy to use in handle_packet
   INDEX_FILE_TYPE last_packet;
 #endif
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   pthread_mutex_t * headlock;
   pthread_cond_t * iosignal;
-#endif
   //struct sockaddr target;
 
   pthread_cond_t * signal;
@@ -116,17 +116,19 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   //spec_ops->id = opt->tid++;
   spec_ops->cumul = &(opt->cumul);
   spec_ops->cumlock = &(opt->cumlock);
-  spec_ops->read = opt->read;
+  //spec_ops->read = opt->read;
+  spec_ops->optbits = opt->optbits;
   spec_ops->signal = &(opt->signal);
   spec_ops->running = 1;
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   spec_ops->is_blocked = 0;
 #endif
+  spec_ops->do_w_stuff_every = opt->do_w_stuff_every;
 
   /*
    * If we're reading, recording entity should read the indicedata
    */
-  if(spec_ops->read){
+  if(spec_ops->optbits & READMODE){
     spec_ops->max_num_packets = spec_ops->be->recer->get_n_packets(spec_ops->be->recer);
     spec_ops->packet_index = spec_ops->be->recer->get_packet_index(spec_ops->be->recer);
   }
@@ -139,7 +141,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
    * TODO: Make this an array of function pointers and conform to other modules
    */ 
 #ifdef CHECK_OUT_OF_ORDER
-  if(opt->handle & CHECK_SEQUENCE)
+  if(spec_ops->optbits & CHECK_SEQUENCE)
     spec_ops->handle_packet = phandler_sequence;
 #endif
   //spec_ops->packet_index = opt->packet_index;
@@ -161,8 +163,10 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
     opt->socket = spec_ops->fd;
 
+    /* TODO: Remove DO_W_STUFF_EVERY since packet size is defined at invocation */
+    /* Changed from compile-time						*/
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Doing HD-write stuff every %d\n", DO_W_STUFF_EVERY);
+  fprintf(stdout, "Doing HD-write stuff every %d\n", spec_ops->do_w_stuff_every);
 #endif
 
     if (spec_ops->fd < 0) {
@@ -228,7 +232,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     addr->sin_family = AF_INET;           
     addr->sin_port = htons(spec_ops->port);    
     //TODO: check if IF binding helps
-    if(spec_ops->read == 1){
+    if(spec_ops->optbits & READMODE){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "Connecting to %s\n", opt->hostname);
 #endif
@@ -315,7 +319,6 @@ void * udp_sender(void *opt){
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
 
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   spec_ops->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
   spec_ops->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
   pthread_mutex_init(spec_ops->headlock, NULL);
@@ -326,7 +329,6 @@ void * udp_sender(void *opt){
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
-#endif
   /* Segfault from here */
   int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
   if (rc){
@@ -382,15 +384,13 @@ void * udp_sender(void *opt){
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
       err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-      if(i%DO_W_STUFF_EVERY == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
+      if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
 #else
-      if(i%DO_W_STUFF_EVERY == 0)
+      if(i%spec_ops->do_w_stuff_every == 0)
 #endif
 	pthread_cond_signal(spec_ops->iosignal);
       pthread_mutex_unlock(spec_ops->headlock);
-#endif
       *(spec_ops->cumul) += 1;
 #ifdef MULTITHREAD_SEND_DEBUG
       fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
@@ -404,23 +404,12 @@ void * udp_sender(void *opt){
       //break;
     }
     i++;
-#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
-    if(i%DO_W_STUFF_EVERY == 0 || err == 0){
-      err = handle_packets_udp(err, spec_ops, 0);
-
-      if(err < 0){
-	fprintf(stderr, "UDP_STREAMER: HD stuffing of buffer failed\n");
-	break;
-      }
-    }
-#endif
     spec_ops->total_captured_packets++;
 #ifdef MULTITHREAD_SEND_DEBUG
     fprintf(stdout, "incrementing pindex\n");
 #endif
     pindex++;
   }
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
@@ -432,7 +421,6 @@ void * udp_sender(void *opt){
 
   pthread_join(rbuf_thread,NULL);
   pthread_mutex_destroy(spec_ops->headlock);
-#endif
 
   pthread_exit(NULL);
 }
@@ -457,7 +445,6 @@ void* udp_streamer(void *se)
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   spec_ops->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
   spec_ops->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
   pthread_mutex_init(spec_ops->headlock, NULL);
@@ -479,7 +466,6 @@ void* udp_streamer(void *se)
   fprintf(stdout, "UDP_STREAMER: Ringbuf thread started\n");
 #endif 
   
-#endif
 
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
@@ -497,7 +483,6 @@ void* udp_streamer(void *se)
     //long unsigned int nth_package;
 
     /* This breaks separation of modules. Needs to be implemented in every receiver */
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
     pthread_mutex_lock(spec_ops->headlock);
     while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL && spec_ops->running){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
@@ -511,6 +496,7 @@ void* udp_streamer(void *se)
       fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
 #endif
     }
+
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     spec_ops->is_blocked = 0;
 #endif
@@ -519,11 +505,6 @@ void* udp_streamer(void *se)
     fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
 #endif
 */
-    {
-#else
-    if((buf = spec_ops->be->get_writebuf(spec_ops->be)) != NULL){
-#endif
-
       //Try a semaphore here to limit interrupt utilization.
       //Probably doesn't help .. Actually worked really nicely to 
       //reduce Software interrupts on one core!
@@ -543,17 +524,15 @@ void* udp_streamer(void *se)
 	else
 	  perror("RECV error");
 	pthread_mutex_unlock(spec_ops->cumlock);
+	spec_ops->running = 0;
 	break;
       }
+      /* Success! */
       else{
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 	/* Signal writer that we've processed some packets and 	*/
 	/* it should wake up unless it's busy writing		*/
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-	if(i%DO_W_STUFF_EVERY == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
-#else
-	if(i%DO_W_STUFF_EVERY == 0)
-#endif
+	if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
 	  pthread_cond_signal(spec_ops->iosignal);
 	/* Used buffer so we can release headlock */
 	pthread_mutex_unlock(spec_ops->headlock);
@@ -562,6 +541,20 @@ void* udp_streamer(void *se)
 	*daspot = *(spec_ops->cumul);
 	*(spec_ops->cumul) += 1;
 	pthread_mutex_unlock(spec_ops->cumlock);
+#ifdef CHECK_OUT_OF_ORDER
+	spec_ops->last_packet = *daspot;
+#endif
+
+	spec_ops->total_captured_bytes +=(unsigned int) err;
+	spec_ops->total_captured_packets += 1;
+	if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
+	  daspot++;
+	else{
+	  fprintf(stderr, "UDP_STREAMER: Out of space on index file");
+	  break;
+	}
+	if(spec_ops->handle_packet != NULL)
+	  spec_ops->handle_packet(se,buf);
       }
 
 
@@ -569,65 +562,25 @@ void* udp_streamer(void *se)
       //TODO: Make exit or alternative solution if we receive more packets.
       //Maybe write the package data to disk. Allocation extra space is easiest solution
       /*
-      if(nth_package < spec_ops->max_num_packets){
-	INDEX_FILE_TYPE  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
-	*daspot = nth_package;
-      }
-      */
-#ifdef CHECK_OUT_OF_ORDER
-      spec_ops->last_packet = *daspot;
-#endif
-
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets += 1;
-      if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
-	daspot++;
-      else{
-	fprintf(stderr, "UDP_STREAMER: Out of space on index file");
-	break;
-      }
-    }
-    //If write buffer is full
-#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
-    else{
-      err = 0;
-#ifdef DEBUG_OUTPUT
-      fprintf(stdout, "UDP_STREAMER: Buffer full!\n");
-#endif
-    }
-#endif
-
-    if(spec_ops->handle_packet != NULL)
-      spec_ops->handle_packet(se,buf);
-
+	 if(nth_package < spec_ops->max_num_packets){
+	 INDEX_FILE_TYPE  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
+       *daspot = nth_package;
+       }
+       */
     //TODO: Handle packets at maybe every 10 packets or so
     i++;
-#ifndef SPLIT_RBUF_AND_IO_TO_THREAD
-    if(i%DO_W_STUFF_EVERY == 0 || err == 0){
-      err = handle_packets_udp(err, spec_ops, time_left);
-    }
-    if(err < 0){
-      fprintf(stderr, "UDP_STREAMER: Packet handling failed\n");
-      break;
-    }
-#endif
   }
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
+  fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
-    spec_ops->be->stop(spec_ops->be); 
-    /* Wake the thread up if its asleep */
-    pthread_mutex_lock(spec_ops->headlock);
-    pthread_cond_signal(spec_ops->iosignal);
-    pthread_mutex_unlock(spec_ops->headlock);
+  spec_ops->be->stop(spec_ops->be); 
+  /* Wake the thread up if its asleep */
+  pthread_mutex_lock(spec_ops->headlock);
+  pthread_cond_signal(spec_ops->iosignal);
+  pthread_mutex_unlock(spec_ops->headlock);
 
-    pthread_join(rbuf_thread,NULL);
-    pthread_mutex_destroy(spec_ops->headlock);
-#else
-  if(err >= 0)
-    flush_writes(spec_ops);
-#endif
+  pthread_join(rbuf_thread,NULL);
+  pthread_mutex_destroy(spec_ops->headlock);
 
   fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
   pthread_exit(NULL);
@@ -650,11 +603,11 @@ int close_udp_streamer(void *opt_own, void *stats){
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
   /* TODO: Make this nicer */
-  if(spec_ops->read == 0){
+  if(!(spec_ops->optbits & READMODE)){
     //fprintf(stderr, "WUTTT\n");
     if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->get_filename(spec_ops->be->recer) != NULL){
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
+      fprintf(stdout, "UDP_STREAMER: Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif
       if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0){
 	fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
@@ -665,17 +618,16 @@ int close_udp_streamer(void *opt_own, void *stats){
 #endif
     }
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: No index file writing set\n");
+    else
+      fprintf(stdout, "UDP_STREAMER: No index file writing set\n");
 #endif
   }
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
   free(spec_ops->packet_index);
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   free(spec_ops->headlock);
   free(spec_ops->iosignal);
-#endif
   free(spec_ops);
   return 0;
 }
@@ -683,9 +635,9 @@ void udps_stop(struct streamer_entity *se){
   ((struct opts *)se->opt)->running = 0;
 }
 void udps_close_socket(struct streamer_entity *se){
-    int ret = shutdown(((struct opts*)se->opt)->fd, SHUT_RDWR);
-    if(ret <0)
-      perror("Socket shutdown");
+  int ret = shutdown(((struct opts*)se->opt)->fd, SHUT_RDWR);
+  if(ret <0)
+    perror("Socket shutdown");
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){
@@ -705,8 +657,8 @@ void udps_init_udp_receiver(struct opt_s *opt, struct streamer_entity *se, struc
   udps_init_default(opt,se,be);
   se->start = udp_streamer;
   se->stop = udps_stop;
-  }
+}
 void udps_init_udp_sender(struct opt_s *opt, struct streamer_entity *se, struct buffer_entity *be){
   udps_init_default(opt,se,be);
   se->start = udp_sender;
-  }
+}

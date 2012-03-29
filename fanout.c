@@ -58,6 +58,7 @@ struct opts
   int root_pid;
   int time;
   int fanout_type;
+  unsigned int optbits;
   struct tpacket_req req;
   struct tpacket_hdr * ps_header_start;
   struct tpacket_hdr * header;
@@ -75,7 +76,8 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
   spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
-  spec_ops->fanout_type = opt->fanout_type;
+  //spec_ops->fanout_type = opt->fanout_type;
+  spec_ops->optbits = opt->optbits;
 
   //spec_ops->fanout_arg = opt->fanout_arg;
   int err; 
@@ -139,7 +141,7 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
   //Set the fanout option
   //TODO: Check if we can create the socket just once and then only set this
   //per thread
-  spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (spec_ops->fanout_type << 16));
+  spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (PACKET_FANOUT_LB << 16));
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_FANOUT,
       &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));
   if (err) {
