@@ -523,8 +523,10 @@ void* udp_streamer(void *se)
       if(err < 0){
 	if(err == EINTR)
 	  fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
-	else
+	else{
 	  perror("RECV error");
+	  fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)buf);
+	}
 	pthread_mutex_unlock(spec_ops->cumlock);
 	spec_ops->running = 0;
 	break;

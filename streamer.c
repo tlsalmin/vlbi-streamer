@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
 #include "streamer.h"
@@ -212,6 +213,12 @@ static void parse_options(int argc, char **argv){
 	  */
 	  opt.optbits &= ~LOCKER_WRITER;
 	  opt.optbits |= REC_DUMMY|WRITER_DUMMY;
+	  opt.optbits &= ~ASYNC_WRITE;
+	}
+	else {
+	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
+	  usage(argv[0]);
+	  exit(1);
 	}
 	break;
       case 'h':
@@ -256,13 +263,32 @@ static void parse_options(int argc, char **argv){
   opt.do_w_stuff_every = HD_WRITE_SIZE/opt.buf_elem_size;
 
   
-  int threads;
+  int threads = opt.n_threads;
+  /*
   if(opt.n_threads < 4)
     threads = 4;
   else
-    threads = opt.n_threads;
-  unsigned long temp = MEM_GIG *1024*1024;
-  temp = (temp*1024)/(opt.buf_elem_size*threads);
+  */
+    //threads = opt.n_threads;
+  struct rlimit rl;
+  /* Query max size */
+  /* TODO: Doesn't work properly althought mem seems to be unlimited */
+  ret = getrlimit(RLIMIT_DATA, &rl);
+  if(ret < 0){
+    fprintf(stderr, "Failed to get rlimit of memory\n");
+    exit(1);
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
+#endif
+  unsigned long temp = (unsigned long)MEM_GIG*GIG;
+  if (temp > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
+#endif
+    temp = rl.rlim_cur;
+  }
+  temp = (temp)/((long)opt.buf_elem_size*(long)threads);
   opt.buf_num_elems = (int)temp;
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size));
   /*

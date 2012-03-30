@@ -67,7 +67,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     /* TODO: Check other flags aswell				*/
     /* TODO: Not sure if shared needed as threads share id 	*/
     //rbuf->buffer = mmap(NULL, (rbuf->num_elems)*(rbuf->elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, rbuf->huge_fd,0);
-    rbuf->buffer = mmap(NULL, (rbuf->num_elems)*(rbuf->elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+    rbuf->buffer = mmap(NULL, ((unsigned long)rbuf->num_elems)*((unsigned long)rbuf->elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
     if(rbuf->buffer ==MAP_FAILED){
       perror("MMAP");
       fprintf(stderr, "RINGBUF: Couldn't allocate hugepages\n");
@@ -87,7 +87,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "RINGBUF: Memaligning buffer\n");
 #endif
-    err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
+    err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)rbuf->num_elems)*((unsigned long)rbuf->elem_size));
   }
   if (err < 0 || rbuf->buffer == 0) {
     perror("make_write_buffer");
@@ -166,7 +166,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
      * when asked for a buffer to send, we give the tail buffer and so the tail chases the head
      * where hdwriter_head tells how many spots we've gotten into the memory
      */
-  if(rbuf->optbits & ASYNC_WRITE){
+  if(!(rbuf->optbits & ASYNC_WRITE)){
     if(rbuf->optbits & READMODE){
       head = &(rbuf->tail);
       rest = &(rbuf->writer_head);
@@ -198,7 +198,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
 #endif
   }
   else
-    spot = rbuf->buffer + ((*head)*rbuf->elem_size);
+    spot = rbuf->buffer + (((long unsigned)*head)*(long unsigned)rbuf->elem_size);
   return spot;
 }
 

@@ -36,6 +36,9 @@
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
 
+#define MEG			B(20)
+#define GIG			B(30)
+
 #define HUGEPAGESUPPORT
 
 #define MEM_GIG 4

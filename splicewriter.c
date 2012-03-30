@@ -18,7 +18,7 @@
 
 
 //#define PIPE_STUFF_IN_WRITELOOP
-//#define IOVEC_SPLIT_TO_IOV_MAX
+#define IOVEC_SPLIT_TO_IOV_MAX
 /* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
 #define MAX_PIPE_SIZE 1048576
 //#define MAX_IOVEC 16
@@ -156,9 +156,11 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
       if(trycount>=0)
 	i++;
     }
+    /*
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "SPLICEWRITER: Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
 #endif
+    */
 #else
     i=1;
 #endif  /* IOVEC_SPLIT_TO_IOV_MAX */
@@ -208,7 +210,6 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   /* that the receive buffers don't go to full. Speed is low at about 3Gb/s 	*/
   /* When both are called, speed goes to 5Gb/s and buffer fulls are logged	*/
 
-  /*
   ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
   if(ret>=0){
 #ifdef DEBUG_OUTPUT 
@@ -221,7 +222,6 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
     return ret;
   }
   ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
-  */
 #endif /* DISABLE_WRITE */
 
   ioi->bytes_exchanged += total_w;
