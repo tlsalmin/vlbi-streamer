@@ -29,6 +29,7 @@ struct ringbuf{
   pthread_mutex_t *headlock;
   pthread_cond_t *iosignal;
   int is_blocked;
+  int huge_fd;
 #endif
 };
 

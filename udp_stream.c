@@ -491,7 +491,9 @@ void* udp_streamer(void *se)
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Buffer full. Going to sleep\n");
 #endif
+
       pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Wake up from your asleep\n");
 #endif
@@ -533,10 +535,12 @@ void* udp_streamer(void *se)
 	/* it should wake up unless it's busy writing		*/
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 	if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
+#else
+	if(i%spec_ops->do_w_stuff_every == 0)
+#endif
 	  pthread_cond_signal(spec_ops->iosignal);
 	/* Used buffer so we can release headlock */
 	pthread_mutex_unlock(spec_ops->headlock);
-#endif
 	//nth_package = *(spec_ops->cumul);
 	*daspot = *(spec_ops->cumul);
 	*(spec_ops->cumul) += 1;

@@ -34,7 +34,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       }
       else{
 #ifdef DEBUG_OUTPUT
-	fprintf(stdout, "File doesn't exist. Creating it\n");
+	fprintf(stdout, "COMMON_WRT: File doesn't exist. Creating it\n");
 #endif
 	flags |= O_CREAT;
 	err = 0;
@@ -48,7 +48,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 
   //This will overwrite existing file.TODO: Check what is the desired default behaviour 
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Opening file %s\n", filename);
+  fprintf(stdout, "COMMON_WRT: Opening file %s\n", filename);
 #endif
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
   if(*fd < 0){
@@ -269,4 +269,35 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
+#ifdef HUGEPAGESUPPORT
+/*
+ * Find hugetlbfs easily (usually /mnt/huge)
+ * stolen from: http://lwn.net/Articles/375096/
+ */
+char *find_hugetlbfs(char *fsmount, int len)
+{
+	char format[256];
+	char fstype[256];
+	char *ret = NULL;
+	FILE *fd;
+
+	snprintf(format, 255, "%%*s %%%ds %%255s %%*s %%*d %%*d", len);
+
+	fd = fopen("/proc/mounts", "r");
+	if (!fd) {
+		perror("fopen");
+		return NULL;
+	}
+
+	while (fscanf(fd, format, fsmount, fstype) == 2) {
+		if (!strcmp(fstype, "hugetlbfs")) {
+			ret = fsmount;
+			break;
+		}
+	}
+
+	fclose(fd);
+	return ret;
+}
+#endif
 

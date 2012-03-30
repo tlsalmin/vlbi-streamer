@@ -3,9 +3,12 @@
 #include <sys/uio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "aioringbuf.h"
 #include <pthread.h>
-//#include "aiowriter.h"
+#include <fcntl.h>
+#include <sys/mman.h>
+
+#include "aioringbuf.h"
+#include "common_wrt.h"
 #define DO_WRITES_IN_FIXED_BLOCKS
 
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
@@ -16,7 +19,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     return -1;
   
   be->opt = rbuf;
-  /* Main arg for bidirectionality of the functions */
+  /* Main arg for bidirectionality of the functions 		*/
   //rbuf->read = opt->read;
 
   rbuf->optbits = opt->optbits;
@@ -27,7 +30,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   rbuf->tail = rbuf->hdwriter_head = 0;
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   if(rbuf->optbits & READMODE)
-  /* If we're reading, we want to fill in the buffer */
+  /* If we're reading, we want to fill in the buffer 		*/
     rbuf->diff = rbuf->num_elems;
   else
     rbuf->diff = 0;
@@ -40,13 +43,52 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
 
 
-  /* TODO: Make choosable or just get rid of async totally */
+  /* TODO: Make choosable or just get rid of async totally 	*/
   //rbuf->async = opt->async;
 
+#ifdef HUGEPAGESUPPORT
+  if(rbuf->optbits & USE_HUGEPAGE){
+    /* Init fd for hugetlbfs					*/
+    /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
+    /*
+
+    char hugefs[FILENAME_MAX];
+    find_hugetlbfs(hugefs, FILENAME_MAX);
+    
+    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "RINGBUF: Memaligning buffer\n");
+    fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
 #endif
-  err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
+
+    common_open_file(&(rbuf->huge_fd), O_RDWR,hugefs,0);
+    //rbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
+    */
+
+    /* TODO: Check other flags aswell				*/
+    /* TODO: Not sure if shared needed as threads share id 	*/
+    //rbuf->buffer = mmap(NULL, (rbuf->num_elems)*(rbuf->elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, rbuf->huge_fd,0);
+    rbuf->buffer = mmap(NULL, (rbuf->num_elems)*(rbuf->elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+    if(rbuf->buffer ==MAP_FAILED){
+      perror("MMAP");
+      fprintf(stderr, "RINGBUF: Couldn't allocate hugepages\n");
+      //remove(hugefs);
+      err = -1;
+    }
+    else{
+      err = 0;
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "RINGBUF: mmapped to hugepages\n");
+#endif
+    }
+  }
+  else
+#endif /* HUGEPAGESUPPORT */
+  {
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "RINGBUF: Memaligning buffer\n");
+#endif
+    err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), rbuf->num_elems*rbuf->elem_size);
+  }
   if (err < 0 || rbuf->buffer == 0) {
     perror("make_write_buffer");
     return -1;
@@ -56,11 +98,25 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 }
 int  rbuf_close(struct buffer_entity* be, void *stats){
 //TODO: error handling
+  struct ringbuf * rbuf = (struct ringbuf *)be->opt;
   int ret = 0;
   if(be->recer->close != NULL)
     be->recer->close(be->recer, stats);
-  free(((struct ringbuf *)be->opt)->buffer);
-  free((struct ringbuf*)be->opt);
+  if(rbuf->optbits & USE_HUGEPAGE){
+    munmap(rbuf->buffer, rbuf->elem_size*rbuf->num_elems);
+    close(rbuf->huge_fd);
+    char hugefs[FILENAME_MAX];
+    find_hugetlbfs(hugefs, FILENAME_MAX);
+    
+    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
+#endif
+    remove(hugefs);
+  }
+  else
+    free(rbuf->buffer);
+  free(rbuf);
   //free(be->recer);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Buffer closed\n");
@@ -137,6 +193,9 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
 
   if(!increment(rbuf, head, rest)){
     spot = NULL;
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "AIORINGBUF: BUF FULL\n");
+#endif
   }
   else
     spot = rbuf->buffer + ((*head)*rbuf->elem_size);
@@ -175,7 +234,7 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     count = (endi) * ((long)(rbuf->elem_size));
 
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %i diff %i elems %i, %lu bytes\n", *tail, *tail+endi, endi, rbuf->num_elems, count);
+      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, %lu bytes\n", *tail, *tail+endi, endi, rbuf->num_elems, count);
 #endif
     ret = be->recer->write(be->recer, start, count);
     if(ret<=0){
@@ -196,7 +255,7 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
   return 1;
 }
 void rbuf_init_head_n_tail(struct ringbuf *rbuf, int** head, int** tail){
-  if(rbuf->optbits & ASYNC_WRITE){
+  if(!(rbuf->optbits & ASYNC_WRITE)){
     if(rbuf->optbits & READMODE){
       *tail = &(rbuf->writer_head);
       *head = &(rbuf->tail);
@@ -240,13 +299,15 @@ void *rbuf_write_loop(void *buffo){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     rbuf->is_blocked = 0;
 #endif
+
+    pthread_mutex_unlock(rbuf->headlock);
+
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
     diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
     limited_head = (*tail+diff)%rbuf->num_elems;
 #else
     limited_head = *head;
 #endif
-    pthread_mutex_unlock(rbuf->headlock);
     if(diff > 0){
       ret = write_bytes(be,limited_head, tail,diff);
       if(ret<=0){
@@ -254,9 +315,11 @@ void *rbuf_write_loop(void *buffo){
 	/* If streamer is blocked, wake it up 	*/
 	/* TODO: Move to separate function 	*/
 	be->se->stop(be->se);
+	/*
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 	if(be->se->is_blocked(be->se))
 #endif
+*/
 	{
 	  pthread_mutex_lock(rbuf->headlock);
 	  pthread_cond_signal(rbuf->iosignal);
@@ -301,7 +364,8 @@ void *rbuf_write_loop(void *buffo){
     diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
 #endif
 */
-    write_bytes(be,*head,tail,diff);
+    ret = write_bytes(be,*head,tail,diff);
+    /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
     if(rbuf->optbits & ASYNC_WRITE){
       sleep(5);
       rbuf_check(be);

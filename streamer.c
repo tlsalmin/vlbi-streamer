@@ -47,6 +47,7 @@ static void usage(char *binary){
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
+      "-u 		Use hugepages\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
       "-h HOST		Specify host(Required for send\n"
@@ -103,7 +104,7 @@ static void parse_options(int argc, char **argv){
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:q"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:qu"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -151,6 +152,10 @@ static void parse_options(int argc, char **argv){
 	break;
       case 'p':
 	opt.buf_elem_size = atoi(optarg);
+	break;
+      case 'u':
+	opt.optbits |= USE_HUGEPAGE;
+	break;
       case 'n':
 	opt.n_threads = atoi(optarg);
 	break;
@@ -259,7 +264,7 @@ static void parse_options(int argc, char **argv){
   unsigned long temp = MEM_GIG *1024*1024;
   temp = (temp*1024)/(opt.buf_elem_size*threads);
   opt.buf_num_elems = (int)temp;
-  fprintf(stdout, "Elem num %d\n", opt.buf_num_elems);
+  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size));
   /*
      if (opt.rec_type == REC_AIO)
      opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
