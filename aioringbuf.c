@@ -104,6 +104,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
     be->recer->close(be->recer, stats);
   if(rbuf->optbits & USE_HUGEPAGE){
     munmap(rbuf->buffer, rbuf->elem_size*rbuf->num_elems);
+    /*
     close(rbuf->huge_fd);
     char hugefs[FILENAME_MAX];
     find_hugetlbfs(hugefs, FILENAME_MAX);
@@ -113,6 +114,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
     fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
 #endif
     remove(hugefs);
+    */
   }
   else
     free(rbuf->buffer);
