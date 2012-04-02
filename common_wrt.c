@@ -184,7 +184,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     ioi->f_flags = re->get_w_flags();
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
     //for s seconds.
-    prealloc_bytes = (RATE*opt->time*1024)/(opt->n_threads*8);
+    prealloc_bytes = ((unsigned long)opt->rate*opt->time)/(opt->n_threads*8);
     //Split kb/gb stuff to avoid overflow warning
     prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors

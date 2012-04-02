@@ -93,6 +93,9 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     perror("make_write_buffer");
     return -1;
   }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "RINGBUF: Memory allocated\n");
+#endif
 
   return 0;
 }

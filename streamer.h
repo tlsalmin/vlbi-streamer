@@ -1,7 +1,8 @@
 #ifndef STREAMER
 #define STREAMER
 //Rate as in GB/s
-#define RATE 10
+//Made an argument and changed to MB/s
+//#define RATE 10
 #define B(x) (1 << x)
 
 /* What buf entity to use. Used by buf_type*/ 
@@ -41,7 +42,8 @@
 
 #define HUGEPAGESUPPORT
 
-#define MEM_GIG 4
+#define MEM_GIG 1
+//The default size
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
@@ -93,6 +95,7 @@ struct opt_s
   int port;
   int socket;
   int n_threads;
+  int rate;
   int do_w_stuff_every;
   unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];

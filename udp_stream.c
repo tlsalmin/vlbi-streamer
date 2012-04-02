@@ -166,7 +166,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     /* TODO: Remove DO_W_STUFF_EVERY since packet size is defined at invocation */
     /* Changed from compile-time						*/
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Doing HD-write stuff every %d\n", spec_ops->do_w_stuff_every);
+  fprintf(stdout, "UDP_STREAMER: Doing HD-write stuff every %d\n", spec_ops->do_w_stuff_every);
 #endif
 
     if (spec_ops->fd < 0) {
@@ -175,15 +175,17 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     }
 
 
-    //struct sockaddr_ll ll;
-    struct ifreq ifr;
-    //Get the interface index
-    memset(&ifr, 0, sizeof(ifr));
-    strcpy(ifr.ifr_name, spec_ops->device_name);
-    err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
-    if (err < 0) {
-      perror("SIOCGIFINDEX");
-      return NULL;
+    if(spec_ops->device_name != NULL){
+      //struct sockaddr_ll ll;
+      struct ifreq ifr;
+      //Get the interface index
+      memset(&ifr, 0, sizeof(ifr));
+      strcpy(ifr.ifr_name, spec_ops->device_name);
+      err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
+      if (err < 0) {
+	perror("SIOCGIFINDEX");
+	return NULL;
+      }
     }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
     //Stolen from http://seclists.org/tcpdump/2010/q2/99

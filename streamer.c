@@ -51,6 +51,7 @@ static void usage(char *binary){
       "-u 		Use hugepages\n"
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
+      "-r RATE		Expected network rate in MB(default: 10000)\n"
       "-h HOST		Specify host(Required for send\n"
       "-w {aio|def|splice|dummy}	use AIO-writer, system default or DUMMY writer\n"
 #ifdef CHECK_OUT_OF_ORDER
@@ -99,13 +100,14 @@ static void parse_options(int argc, char **argv){
   //opt.rec_type= REC_DEF;
   opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
+  opt.rate = 10000;
   //opt.handle = 0;
   //opt.read = 0;
   opt.tid = 0;
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:qu"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:qur:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -130,7 +132,8 @@ static void parse_options(int argc, char **argv){
 	  exit(1);
 	}
 	break;
-	/*
+	/* Fanout choosing removed and set to default LB since
+	 * Implementation not that feasible anyway
       case 'a':
 	opt.optbits &= ~LOCKER_FANOUT;
 	if (!strcmp(optarg, "hash")){
@@ -148,6 +151,9 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
 	*/
+      case 'r':
+	opt.rate = atoi(optarg);
+	break;
       case 's':
 	opt.port = atoi(optarg);
 	break;
@@ -249,10 +255,9 @@ static void parse_options(int argc, char **argv){
     opt.time = atoi(argv[1]);
   opt.cumul = 0;
   /* Calc the max per thread amount of packets we can receive */
-  /* TODO: Systems with non-uniform disks stop writing after too many packets */
+  /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
   if(!(opt.optbits & READMODE)){
-    loff_t prealloc_bytes = (RATE*opt.time*1024*1024)/(opt.buf_elem_size);
-    //TODO: Make macro
+    loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
     //Split kb/gb stuff to avoid overflow warning
     prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
     opt.max_num_packets = prealloc_bytes;
@@ -494,7 +499,8 @@ int main(int argc, char **argv)
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif
   print_stats(&stats, &opt);
-  free(opt.device_name);
+  if(opt.device_name != NULL)
+    free(opt.device_name);
 
   //return 0;
   //pthread_exit(NULL);
