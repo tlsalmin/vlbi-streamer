@@ -10,11 +10,11 @@ then
   echo "Please give streamer uid as parameters"
   exit 0
 fi
-UID=$(id -u $1)
+THE_USER_ID=$(id -u $1)
 echo "Setting and creating $NR_HUGE of $HUGESIZE KB pages"
 echo $NR_HUGE > /proc/sys/vm/nr_hugepages
 if [ ! -d "/mnt/huge" ]
 then
   mkdir /mnt/huge
 fi
-$(mount -t hugetlbfs -o uid=$UID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
+$(mount -t hugetlbfs -o uid=$THE_USER_ID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)

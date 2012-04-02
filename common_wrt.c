@@ -74,7 +74,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 #endif
   return err;
 }
-int common_write_index_data(const char * filename_orig, int elem_size, void *data, int count){
+int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count){
   //struct io_info * ioi = (struct io_info*)re->opt;
   int err = 0;
   char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -88,22 +88,28 @@ int common_write_index_data(const char * filename_orig, int elem_size, void *dat
 
   common_open_file(&fd, f_flags, filename, 0);
 
+  FILE * file = fdopen(fd, "w");
   //Write the elem size to the first index
-  err = write(fd, (void*)&(elem_size), sizeof(INDEX_FILE_TYPE));
+  //err = write(fd, (void*)&(elem_size), sizeof(INDEX_FILE_TYPE));
+  err = fwrite((void*)&(elem_size), sizeof(elem_size), 1, file);
   if(err<0)
     perror("COMMON_WRT: Index file size write");
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Wrote %d as elem size",elem_size);
+  fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
+  INDEX_FILE_TYPE *debughelp = data;
+  fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
 #endif
 
   //Write the data
-  err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
+  //err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
+  err = fwrite(data, sizeof(INDEX_FILE_TYPE), count, file);
   if(err<0){
     perror("COMMON_WRT: Index file write");
     fprintf(stderr, "Filename was %s\n", filename);
   }
 
-  close(fd);
+  //close(fd);
+  fclose(file);
   free(filename);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "COMMON_WRT: Index file written\n");
@@ -111,16 +117,17 @@ int common_write_index_data(const char * filename_orig, int elem_size, void *dat
 
   return err;
 }
-int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size, void * pindex, INDEX_FILE_TYPE *count){
+//int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size, void * pindex, INDEX_FILE_TYPE *count){
+int common_handle_indices(struct common_io_info *ioi){
   char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   int f_flags = O_RDONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
   int fd,err;
-  int num_elems;
+  //unsigned long num_elems;
   //Duplicate stat here, since first done in aiow_read, but meh.
   struct stat statinfo;
 
 
-  sprintf(filename, "%s%s", filename_orig, ".index");
+  sprintf(filename, "%s%s", ioi->filename, ".index");
 
   common_open_file(&fd, f_flags, filename, 0);
 
@@ -129,13 +136,13 @@ int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size
    * INDEX_FILE_TYPE = The size of our index-counter.(Eg 32bit integer or 64bit).
    */
   //Read the elem size from the first index
-  err = read(fd, elem_size, sizeof(INDEX_FILE_TYPE));
+  err = read(fd, &(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
   if(err<0){
     perror("COMMON_WRT: Index file size read");
     return err;
   }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Elem size here %lu\n", *elem_size);
+  fprintf(stdout, "Elem size here %lu\n", ioi->elem_size);
 #endif 
 
   //ioi->elem_size = err;
@@ -146,14 +153,17 @@ int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size
     return err;
   }
   //NOTE: Reducing first element, which simply tells size of elements
-  num_elems = (statinfo.st_size-sizeof(INDEX_FILE_TYPE))/sizeof(INDEX_FILE_TYPE);
-  pindex = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(num_elems));
+  ioi->indexfile_count = (statinfo.st_size-sizeof(INDEX_FILE_TYPE))/sizeof(INDEX_FILE_TYPE);
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "COMMON_WRT: Total number of elements in index file: %lu\n", ioi->indexfile_count);
+#endif
+  ioi->indices = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(ioi->indexfile_count));
 
-  *count = 0;
-  INDEX_FILE_TYPE* pointer = pindex;
+  //*count = 0;
+  INDEX_FILE_TYPE* pointer = ioi->indices;
   while((err = read(fd, pointer, sizeof(INDEX_FILE_TYPE)))>0){
     pointer++;
-    count += 1;
+    //count += 1;
   }
   
   close(fd);
@@ -201,7 +211,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
   if(ioi->optbits & READMODE){
-    err = common_handle_indices(ioi->filename, &(ioi->elem_size), (void*)ioi->indices, &(ioi->indexfile_count));
+    err = common_handle_indices(ioi);
     if(err<0){
       perror("DEFWRITER: Reading indices");
       return -1;
@@ -225,6 +235,7 @@ INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
 }
 unsigned long common_nofpacks(struct recording_entity *re){
   struct common_io_info * ioi = re->opt;
+  fprintf(stdout, "%lu\n", ioi->indexfile_count);
   return ioi->indexfile_count;
   //return ((struct common_io_info*)re->opt)->indexfile_count;
 }
@@ -243,7 +254,7 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
-  if(ioi->optbits & READMODE){
+  if(!(ioi->optbits & READMODE)){
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
     if(err<0)
       perror("COMMON_WRT: ftruncate");

@@ -444,11 +444,6 @@ void rbuf_stop_running(struct buffer_entity *be){
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
-/*
-   int rbuf_write_index_data(struct buffer_entity *be, void * data, int count){
-   return be->recer->write_index_data(be->recer,data,count);
-   }
-   */
 long rbuf_fake_recer_write(struct recording_entity * re, void* s, size_t count){
   return count;
 }
@@ -458,18 +453,6 @@ int rbuf_is_blocked(struct buffer_entity *be){
 }
 #endif
 int rbuf_init_dummy(struct opt_s * opt, struct buffer_entity *be){
-  /*
-     be->init = rbuf_init;
-     be->write = dummy_write_wrapped;
-     be->get_writebuf = rbuf_get_buf_to_write;
-     be->write_loop = rbuf_write_loop;
-     be->stop = rbuf_stop_running
-     be->wait = NULL;
-     be->close = rbuf_close;
-  //be->write_index_data = NULL;
-  be->init_mutex = rbuf_init_mutex_n_signal;
-  return be->init(opt,be);
-  */
   be->recer->write = rbuf_fake_recer_write;
   be->recer->close = NULL;
   be->recer->write_index_data = NULL;
@@ -494,7 +477,6 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   be->is_blocked = rbuf_is_blocked;
 #endif
-  //be->write_index_data = common_write_index_data;
   be->init_mutex = rbuf_init_mutex_n_signal;
 
   return be->init(opt,be); 

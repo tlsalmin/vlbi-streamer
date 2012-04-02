@@ -21,6 +21,8 @@
 #define IOVEC_SPLIT_TO_IOV_MAX
 /* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
 #define MAX_PIPE_SIZE 1048576
+/* Read a claim that proper scatter gather requires fopen not open */
+#define USE_FOPEN
 //#define MAX_IOVEC 16
 
 //#define DISABLE_WRITE
@@ -30,6 +32,9 @@ struct splice_ops{
   int pipes[2];
   int max_pipe_length;
   int pagesize;
+#ifdef USE_FOPEN
+  FILE* fd;
+#endif
 };
 /*
 int splice_all(int from, int to, long long bytes){
@@ -92,7 +97,12 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   sp->iov = (struct iovec*)malloc(sp->max_pipe_length * sizeof(struct iovec));
 #endif
 
-
+#ifdef USE_FOPEN
+  if(ioi->optbits & READMODE)
+    sp->fd = fdopen(ioi->fd, "r");
+  else
+    sp->fd = fdopen(ioi->fd, "w");
+#endif
 
   ioi->extra_param = (void*)sp;
 

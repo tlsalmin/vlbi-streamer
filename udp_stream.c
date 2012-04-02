@@ -331,7 +331,7 @@ void * udp_sender(void *opt){
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
-  /* Segfault from here */
+#endif 
   int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
   if (rc){
     printf("ERROR; return code from pthread_create() is %d\n", rc);
@@ -339,7 +339,6 @@ void * udp_sender(void *opt){
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Ringbuf thread started\n");
-#endif 
 #endif
   /*
 #ifdef DEBUG_OUTPUT
@@ -351,9 +350,15 @@ void * udp_sender(void *opt){
   spec_ops->be->write(spec_ops->be, 0);
   */
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "UDP_STREAMER: Starting sender-thread\n");
+  fprintf(stdout, "UDP_STREAMER: Starting sender-thread for %lu packets\n", spec_ops->max_num_packets);
 #endif
-  //While we have packets to send TODO: Change max_num_packets name
+
+  /* The sending is currently organized as a safe, but suboptimal. The whole loop is iterated 	*/
+  /* Every time we have sent a package, eventhought the current sender might have many packets 	*/
+  /* It could send in a row, but there are possible deadlocks if we're not careful when 	*/
+  /* implementing the more efficient sender							*/
+
+  //While we have packets to send TODO: Change total_capture_packets name to bidirectional
   while(spec_ops->total_captured_packets < spec_ops->max_num_packets){
     void *buf;
 
@@ -381,18 +386,14 @@ void * udp_sender(void *opt){
     /* TODO :This might be a lot faster if we peek the next packet also. The nature of the receiving
      * program indicates differently thought */
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
+    fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
       err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
-#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-      if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
-#else
-      if(i%spec_ops->do_w_stuff_every == 0)
-#endif
-	pthread_cond_signal(spec_ops->iosignal);
-      pthread_mutex_unlock(spec_ops->headlock);
+
+
+      /* Increment to the next sendable packet */
       *(spec_ops->cumul) += 1;
 #ifdef MULTITHREAD_SEND_DEBUG
       fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
@@ -406,6 +407,17 @@ void * udp_sender(void *opt){
       //break;
     }
     i++;
+
+    /* Sending the packets deemed more crucial so only releasing io mutex and signaling after
+     * We've sent the package */
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+    if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
+#else
+    if(i%spec_ops->do_w_stuff_every == 0)
+#endif
+	pthread_cond_signal(spec_ops->iosignal);
+    /* Release io thread to check on head */
+    pthread_mutex_unlock(spec_ops->headlock);
     spec_ops->total_captured_packets++;
 #ifdef MULTITHREAD_SEND_DEBUG
     fprintf(stdout, "incrementing pindex\n");
@@ -467,7 +479,7 @@ void* udp_streamer(void *se)
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Ringbuf thread started\n");
 #endif 
-  
+
 
   if (spec_ops->fd < 0)
     exit(spec_ops->fd);
@@ -506,75 +518,75 @@ void* udp_streamer(void *se)
 #endif
     /*
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
+fprintf(stdout, "UDP_STREAMER: Got buffer to write to\n");
 #endif
 */
-      //Try a semaphore here to limit interrupt utilization.
-      //Probably doesn't help .. Actually worked really nicely to 
-      //reduce Software interrupts on one core!
-      //TODO: read doesn't timeout if we aren't receiving any packets
+    //Try a semaphore here to limit interrupt utilization.
+    //Probably doesn't help .. Actually worked really nicely to 
+    //reduce Software interrupts on one core!
+    //TODO: read doesn't timeout if we aren't receiving any packets
 
-      //Critical sec in logging n:th packet
-      pthread_mutex_lock(spec_ops->cumlock);
-      err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
-      /*
+    //Critical sec in logging n:th packet
+    pthread_mutex_lock(spec_ops->cumlock);
+    err = read(spec_ops->fd, buf, spec_ops->buf_elem_size);
+    /*
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
+fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
 #endif
 */
-      if(err < 0){
-	if(err == EINTR)
-	  fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
-	else{
-	  perror("RECV error");
-	  fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)buf);
-	}
-	pthread_mutex_unlock(spec_ops->cumlock);
-	spec_ops->running = 0;
-	break;
-      }
-      /* Success! */
+    if(err < 0){
+      if(err == EINTR)
+	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
       else{
-	/* Signal writer that we've processed some packets and 	*/
-	/* it should wake up unless it's busy writing		*/
+	perror("RECV error");
+	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)buf);
+      }
+      pthread_mutex_unlock(spec_ops->cumlock);
+      spec_ops->running = 0;
+      break;
+    }
+    /* Success! */
+    else{
+      /* Signal writer that we've processed some packets and 	*/
+      /* it should wake up unless it's busy writing		*/
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-	if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
+      if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)
 #else
 	if(i%spec_ops->do_w_stuff_every == 0)
 #endif
 	  pthread_cond_signal(spec_ops->iosignal);
-	/* Used buffer so we can release headlock */
-	pthread_mutex_unlock(spec_ops->headlock);
-	//nth_package = *(spec_ops->cumul);
-	*daspot = *(spec_ops->cumul);
-	*(spec_ops->cumul) += 1;
-	pthread_mutex_unlock(spec_ops->cumlock);
+      /* Used buffer so we can release headlock */
+      pthread_mutex_unlock(spec_ops->headlock);
+      //nth_package = *(spec_ops->cumul);
+      *daspot = *(spec_ops->cumul);
+      *(spec_ops->cumul) += 1;
+      pthread_mutex_unlock(spec_ops->cumlock);
 #ifdef CHECK_OUT_OF_ORDER
-	spec_ops->last_packet = *daspot;
+      spec_ops->last_packet = *daspot;
 #endif
 
-	spec_ops->total_captured_bytes +=(unsigned int) err;
-	spec_ops->total_captured_packets += 1;
-	if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
-	  daspot++;
-	else{
-	  fprintf(stderr, "UDP_STREAMER: Out of space on index file");
-	  break;
-	}
-	if(spec_ops->handle_packet != NULL)
-	  spec_ops->handle_packet(se,buf);
+      spec_ops->total_captured_bytes +=(unsigned int) err;
+      spec_ops->total_captured_packets += 1;
+      if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
+	daspot++;
+      else{
+	fprintf(stderr, "UDP_STREAMER: Out of space on index file");
+	break;
       }
+      if(spec_ops->handle_packet != NULL)
+	spec_ops->handle_packet(se,buf);
+    }
 
 
-      //Write the index of the received package
-      //TODO: Make exit or alternative solution if we receive more packets.
-      //Maybe write the package data to disk. Allocation extra space is easiest solution
-      /*
-	 if(nth_package < spec_ops->max_num_packets){
-	 INDEX_FILE_TYPE  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
-       *daspot = nth_package;
-       }
-       */
+    //Write the index of the received package
+    //TODO: Make exit or alternative solution if we receive more packets.
+    //Maybe write the package data to disk. Allocation extra space is easiest solution
+    /*
+       if(nth_package < spec_ops->max_num_packets){
+       INDEX_FILE_TYPE  *daspot = spec_ops->packet_index + spec_ops->total_captured_packets*sizeof(int);
+     *daspot = nth_package;
+     }
+     */
     //TODO: Handle packets at maybe every 10 packets or so
     i++;
   }
@@ -617,7 +629,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif
-      if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0){
+      if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),(long unsigned)spec_ops->buf_elem_size, (void*)spec_ops->packet_index, (long unsigned)spec_ops->total_captured_packets) <0){
 	fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
       }
 #ifdef DEBUG_OUTPUT

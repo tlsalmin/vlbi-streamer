@@ -154,7 +154,7 @@ struct recording_entity
   int (*getfd)(struct recording_entity*);
   int (*get_w_flags)();
   int (*get_r_flags)();
-  int (*write_index_data)(const char*, int, void*, int);
+  int (*write_index_data)(const char*, long unsigned, void*, long unsigned);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/
   unsigned long (*get_n_packets)(struct recording_entity*);

@@ -15,8 +15,8 @@ struct common_io_info{
   void * extra_param;
 };
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
-int common_write_index_data(const char * filename_orig, int elem_size, void *data, int count);
-int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size, void * pindex, INDEX_FILE_TYPE *count);
+int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count);
+int common_handle_indices(struct common_io_info *ioi);
 int common_w_init(struct opt_s* opt, struct recording_entity *re);
 INDEX_FILE_TYPE * common_pindex(struct recording_entity *re);
 unsigned long common_nofpacks(struct recording_entity *re);

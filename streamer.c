@@ -42,7 +42,7 @@ int resolve_host(char *host, struct in_addr * ia){
  */
 static void usage(char *binary){
   fprintf(stderr, 
-      "usage: %s [OPTION]... name time\n"
+      "usage: %s [OPTION]... name (time to receive / host to send to)\n"
       "-i INTERFACE	Which interface to capture from\n"
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
@@ -52,7 +52,6 @@ static void usage(char *binary){
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
-      "-h HOST		Specify host(Required for send\n"
       "-w {aio|def|splice|dummy}	use AIO-writer, system default or DUMMY writer\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package\n"
@@ -67,6 +66,10 @@ void init_stat(struct stats *stats){
   stats->dropped = 0;
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
+  if(opts->optbits & READMODE){
+//TODO
+  }
+  else{
   fprintf(stdout, "Stats for %s \n"
       "Packets: %lu\n"
       "Bytes: %lu\n"
@@ -77,6 +80,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Net receive Speed: %luMb/s\n"
       "HD write Speed: %luMb/s\n"
       ,opts->filename, opts->cumul, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
+  }
 }
 static void parse_options(int argc, char **argv){
   int ret,i;
@@ -107,7 +111,7 @@ static void parse_options(int argc, char **argv){
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:h:w:p:qur:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -227,8 +231,6 @@ static void parse_options(int argc, char **argv){
 	  exit(1);
 	}
 	break;
-      case 'h':
-	break;
       default:
 	usage(argv[0]);
 	exit(1);
@@ -346,7 +348,7 @@ int main(int argc, char **argv)
     memcpy(&(opt.serverip), (char *)hostptr->h_addr, sizeof(opt.serverip));
 
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Resolved hostname\n");
+    fprintf(stdout, "STREAMER: Resolved hostname\n");
 #endif
   }
 
