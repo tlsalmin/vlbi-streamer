@@ -64,6 +64,7 @@ struct opts
   struct buffer_entity * be;
   //Duplicate here, but meh
   int buf_elem_size;
+  struct sockaddr_in *sin;
   //Used for bidirectional usage
   //int read;
   int (*handle_packet)(struct streamer_entity*,void*);
@@ -155,7 +156,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->port = opt->port;
 
   //If socket ready, just set it
-  if(!opt->socket == 0){
+  if(!(opt->socket == 0)){
     spec_ops->fd = opt->socket;
     //If we're the initializing thread, init socket and share
   }
@@ -221,29 +222,47 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
      */
     len = sizeof(def);
     def=0;
-    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+      fprintf(stdout, "HURR\n");
+    if(spec_ops->optbits & READMODE){
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Defaults: RCVBUF %d\n",def);
+      fprintf(stdout, "UDP_STREAMER: Defaults: SENDBUF %d\n",def);
 #endif
+    }
+    else{
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: Defaults: RCVBUF %d\n",def);
+#endif
+    }
 
 
     //prep port
-    struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+    //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+    spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
     //socklen_t len = sizeof(struct sockaddr_in);
-    memset(addr, 0, sizeof(struct sockaddr_in));   
-    addr->sin_family = AF_INET;           
-    addr->sin_port = htons(spec_ops->port);    
+    memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
+    spec_ops->sin->sin_family = AF_INET;           
+    spec_ops->sin->sin_port = htons(spec_ops->port);    
     //TODO: check if IF binding helps
     if(spec_ops->optbits & READMODE){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "Connecting to %s\n", opt->hostname);
 #endif
-      addr->sin_addr.s_addr = opt->serverip;
-      err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(*addr));
+      //addr->sin_addr.s_addr = opt->serverip;
+      err = inet_pton(opt->hostname, &(spec_ops->sin->sin.addr));
+      if(err ==0){
+	perror("UDP_STREAMER: Inet aton");
+	return NULL;
+      }
+      //err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(addr));
+      err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
+      //spec_ops->sin = addr;
     }
     else{
-      addr->sin_addr.s_addr = INADDR_ANY;
-      err = bind(spec_ops->fd, (struct sockaddr *) addr, sizeof(struct sockaddr_in));
+      spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
+      err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(struct sockaddr_in));
+      //free(addr);
     }
 
     //Bind to a socket
@@ -255,7 +274,6 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     else
       fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
 #endif
-    free(addr);
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
     //set hardware timestamping
@@ -390,7 +408,8 @@ void * udp_sender(void *opt){
 #endif
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
-      err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
+      //err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
+      err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin, sizeof(struct sockadd_in));
 
 
       /* Increment to the next sendable packet */
@@ -648,6 +667,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   free(spec_ops->packet_index);
   free(spec_ops->headlock);
   free(spec_ops->iosignal);
+  free(spec_ops->sin);
   free(spec_ops);
   return 0;
 }
