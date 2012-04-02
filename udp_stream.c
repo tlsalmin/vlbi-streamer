@@ -65,6 +65,7 @@ struct opts
   //Duplicate here, but meh
   int buf_elem_size;
   struct sockaddr_in *sin;
+  size_t sinsize;
   //Used for bidirectional usage
   //int read;
   int (*handle_packet)(struct streamer_entity*,void*);
@@ -222,7 +223,6 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
      */
     len = sizeof(def);
     def=0;
-      fprintf(stdout, "HURR\n");
     if(spec_ops->optbits & READMODE){
       err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
 #ifdef DEBUG_OUTPUT
@@ -249,19 +249,23 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "Connecting to %s\n", opt->hostname);
 #endif
-      //addr->sin_addr.s_addr = opt->serverip;
-      err = inet_pton(opt->hostname, &(spec_ops->sin->sin.addr));
+      spec_ops->sin->sin_addr.s_addr = opt->serverip;
+      spec_ops->sinsize = sizeof(struct sockaddr_in);
+
+      /*
+      err = inet_aton(opt->hostname, &(spec_ops->sin->sin_addr));
       if(err ==0){
 	perror("UDP_STREAMER: Inet aton");
 	return NULL;
       }
-      //err = connect(spec_ops->fd, (struct sockaddr*) addr, sizeof(addr));
-      err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
+      */
+      //err = connect(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
+      //err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
       //spec_ops->sin = addr;
     }
     else{
       spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
-      err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(struct sockaddr_in));
+      err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
       //free(addr);
     }
 
@@ -409,7 +413,7 @@ void * udp_sender(void *opt){
     {
       /* Send packet, increment and broadcast that the current packet needed has been incremented */
       //err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
-      err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin, sizeof(struct sockadd_in));
+      err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
 
 
       /* Increment to the next sendable packet */

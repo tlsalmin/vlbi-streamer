@@ -476,8 +476,8 @@ int main(int argc, char **argv)
     for(i = 0;i<opt.n_threads;i++){
       threads[i].stop(&(threads[i]));
     }
+    threads[0].close_socket(&(threads[0]));
   }
-  threads[0].close_socket(&(threads[0]));
 
 
   for (i = 0; i < opt.n_threads; i++) {
