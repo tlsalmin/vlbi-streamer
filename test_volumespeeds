@@ -1,0 +1,125 @@
+#!/bin/bash
+TEMPFILE=67847125125
+TEMPFILE2=678471251252
+CUR=0
+for i in `mount|grep -E 'sd|md' |awk '{print $3}'`
+do
+  DRIVES[CUR]=$i
+  CUR=$((CUR+1))
+done
+#DRIVES=(/mnt/disk13 /mnt/disk1 /mnt/disk2 /mnt/disk3 /mnt/disk4 /mnt/disk5 /mnt/disk6 /mnt/disk7 /mnt/disk8 /mnt/disk9 /mnt/disk10 /mnt/disk11 /mnt/disk12 /mnt/disk0)
+DABS=1048576
+SHM=/dev/shm
+TESTMEGS=$1
+CONVFLAGS=fdatasync
+FLAGS=direct
+COUNT=$(((TESTMEGS*1024*1024)/DABS))
+SCALE=0
+
+
+function wtest {
+  dd if=$SHM/$TEMPFILE bs=$DABS count=$COUNT of=$1/$TEMPFILE conv=$CONVFLAGS oflag=$FLAGS &> /dev/null
+}
+function rtest {
+  dd if=$1/$TEMPFILE bs=$DABS count=$COUNT of=/dev/null iflag=$FLAGS &> /dev/null
+}
+function rwtest {
+  dd if=$1/$TEMPFILE bs=$DABS count=$COUNT of=$1/$TEMPFILE2 conv=$CONVFLAGS oflag=$FLAGS iflag=$FLAGS &> /dev/null
+}
+
+WACCU=0
+RACCU=0
+RWACCU=0
+#This uses the /dev/shm as the tmpfs
+if [ ! -d "$SHM" ]; then
+  echo "Please use a tmpfs-type ram-mounted directory to store the"
+  echo "test file. If it's at another location, change this script"
+  echo "to point to the correct location"
+  exit 0
+fi
+echo "Generating testfile for $TESTMEGS MB. This will take a while.."
+#echo "$DABS" $(((TESTGIGS*1024*1024*1024)/DABS))
+dd if=/dev/urandom of=$SHM/$TEMPFILE bs=$DABS count=$COUNT &> /dev/null
+echo "Generation done. Testing each disk individually"
+
+for i in "${DRIVES[@]}"
+do
+  if [ ! -d "${i}" ];then 
+    echo "Directory ${i} not found! Please create or append this script"
+    echo "To use the proper locations"
+    exit 0
+  fi
+  echo "Testing Write to ${i}"
+  START=$(date +%s.%N)
+  wtest ${i}
+  END=$(date +%s.%N)
+  WSPEED=$(echo "scale=$SCALE; $TESTMEGS/($END - $START)" | bc -l)
+  WACCU=$((WACCU+WSPEED))
+  echo "Testing read from ${i}"
+  START=$(date +%s.%N)
+  rtest ${i}
+  END=$(date +%s.%N)
+  RSPEED=$(echo "scale=$SCALE; $TESTMEGS/($END - $START)" | bc -l)
+  RACCU=$((RACCU+WSPEED))
+  echo "Testing read+write on ${i}"
+  START=$(date +%s.%N)
+  rwtest ${i}
+  END=$(date +%s.%N)
+  RWSPEED=$(echo "scale=$SCALE; $TESTMEGS/($END - $START)" | bc -l)
+  RWACCU=$((RWACCU+WSPEED))
+  echo "Disk ${i} 	- W: $WSPEED MB/s R: $RSPEED MB/s RW: $RWSPEED MB/s"
+  rm ${i}/$TEMPFILE
+  rm ${i}/$TEMPFILE2
+done
+
+echo "Testing parallel writes to all disks"
+START=$(date +%s.%N)
+for i in "${DRIVES[@]}"
+do
+  wtest ${i} &
+done
+for job in `jobs -p`
+do
+  wait $job
+done
+END=$(date +%s.%N)
+WSPEED=$(echo "scale=$SCALE; ($TESTMEGS * ${#DRIVES[@]})/($END - $START)" | bc -l)
+
+echo "Testing parallel reads on all disks"
+START=$(date +%s.%N)
+for i in "${DRIVES[@]}"
+do
+  rtest ${i} &
+done
+for job in `jobs -p`
+do
+  wait $job
+done
+END=$(date +%s.%N)
+RSPEED=$(echo "scale=$SCALE; ($TESTMEGS * ${#DRIVES[@]})/($END - $START)" | bc -l)
+
+echo "Testing parallel reads+writes to all disks"
+START=$(date +%s.%N)
+for i in "${DRIVES[@]}"
+do
+  rwtest ${i} &
+done
+for job in `jobs -p`
+do
+  wait $job
+done
+END=$(date +%s.%N)
+RWSPEED=$(echo "scale=$SCALE; ($TESTMEGS * ${#DRIVES[@]})/($END - $START)" | bc -l)
+
+echo "All Disks accumulated: 	- W: $WACCU MB/s R: $RACCU MB/s RW: $RWACCU MB/s"
+echo "All Disks parallel: 	- W: $WSPEED MB/s R: $RSPEED MB/s RW: $RWSPEED MB/s"
+
+echo "Cleaning up"
+for i in "${DRIVES[@]}"
+do
+  rm ${i}/$TEMPFILE
+  rm ${i}/$TEMPFILE2
+done
+
+rm $SHM/$TEMPFILE
+exit 0

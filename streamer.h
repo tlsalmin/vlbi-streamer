@@ -42,7 +42,7 @@
 
 #define HUGEPAGESUPPORT
 
-#define MEM_GIG 1
+#define MEM_GIG 4
 //The default size
 #define BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
