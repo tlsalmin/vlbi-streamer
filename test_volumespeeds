@@ -50,11 +50,12 @@ do
   #Only used if drives aren't probed
   if [ ! -d "${i}" ]
   then 
-    echo "Directory ${i} not found! Please create or append this script"
+    echo "Directory ${i} not found. Please create or append this script"
     echo "To use the proper locations"
-  elif [ ! -w "${i}" ]
+  #elif [ ! `touch ${i}/$TEMPFILE` ]
+  elif [ ! -w "${i}" ]
   then
-    echo "lul"
+    echo "Folder ${i} not writable as current user. Skipping"
   else
     echo "Testing Write to ${i}"
     START=$(date +%s.%N)
