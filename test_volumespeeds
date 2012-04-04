@@ -37,7 +37,7 @@ RWACCU=0
 if [ ! -d "$SHM" ]; then
   echo "Please use a tmpfs-type ram-mounted directory to store the"
   echo "test file. If it's at another location, change this script"
-  echo "to point to the correct location"
+  echo "variable SHM to point to the correct location"
   exit 0
 fi
 echo "Generating testfile for $TESTMEGS MB. This will take a while.."

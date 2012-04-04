@@ -48,7 +48,9 @@ static void usage(char *binary){
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
+#ifdef HUGEPAGESUPPORT
       "-u 		Use hugepages\n"
+#endif
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"

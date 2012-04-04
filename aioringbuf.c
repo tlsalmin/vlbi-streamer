@@ -11,6 +11,12 @@
 #include "common_wrt.h"
 #define DO_WRITES_IN_FIXED_BLOCKS
 
+/* Check if we really have HUGEPAGE-support 	*/
+/* TODO: Handled in configure-script		*/
+#ifndef MAP_HUGETLB
+#undef HUGEPAGESUPPORT
+#endif
+
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
@@ -105,6 +111,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
   int ret = 0;
   if(be->recer->close != NULL)
     be->recer->close(be->recer, stats);
+#ifdef HUGEPAGESUPPORT
   if(rbuf->optbits & USE_HUGEPAGE){
     munmap(rbuf->buffer, rbuf->elem_size*rbuf->num_elems);
     /*
@@ -120,6 +127,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
     */
   }
   else
+#endif /* HUGEPAGESUPPORT */
     free(rbuf->buffer);
   free(rbuf);
   //free(be->recer);
