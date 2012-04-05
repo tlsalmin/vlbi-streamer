@@ -1,5 +1,5 @@
-#ifndef AIORINGBUF
-#define AIORINGBUF
+#ifndef RINGBUF_H
+#define RINGBUF_H
 #include "streamer.h"
 #define SLEEP_ON_IO
 

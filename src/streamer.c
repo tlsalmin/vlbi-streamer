@@ -101,8 +101,8 @@ static void parse_options(int argc, char **argv){
   opt.n_threads = 1;
   opt.buf_elem_size = BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
-  //opt.buf_type = WRITER_AIOW_RBUF;
-  opt.optbits |= WRITER_AIOW_RBUF;
+  //opt.buf_type = WRITER_AIOW;
+  opt.optbits |= WRITER_AIOW;
   //opt.rec_type= REC_DEF;
   opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
@@ -398,7 +398,7 @@ int main(int argc, char **argv)
     //Initialize recorder entity
     switch(opt.optbits & LOCKER_WRITER)
     {
-      case WRITER_AIOW_RBUF:
+      case WRITER_AIOW:
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
 #ifdef DEBUG_OUTPUT

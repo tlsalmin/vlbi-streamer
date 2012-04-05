@@ -207,7 +207,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
   if(!increment(rbuf, head, rest)){
     spot = NULL;
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIORINGBUF: BUF FULL\n");
+    fprintf(stdout, "RINGBUF_H: BUF FULL\n");
 #endif
   }
   else
@@ -256,7 +256,7 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     }
     else{
       if(ret != count){
-	fprintf(stderr, "AIORINGBUF: Write wrote %ld out of %lu\n", ret, count);
+	fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
 	/* TODO: Handle incrementing so we won't lose data */
       }
       //increment_amount(rbuf, &(rbuf->hdwriter_head), endi);

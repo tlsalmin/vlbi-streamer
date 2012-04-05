@@ -16,7 +16,7 @@
 
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
-#define WRITER_AIOW_RBUF 	B(0)
+#define WRITER_AIOW 	B(0)
 #define WRITER_DUMMY 		B(1)
 
 /* What HD writer to use. Used by rec_type*/

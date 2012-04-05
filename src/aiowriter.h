@@ -1,3 +1,4 @@
+#ifdef HAVE_LIBAIO
 #ifndef AIOWRITER
 #define AIOWRITER
 #include "streamer.h"
@@ -20,3 +21,4 @@ int aiow_nofpacks(struct recording_entity *re);
 int* aiow_pindex(struct recording_entity *re);
 */
 #endif
+#endif /* HAVE_LIBAIO */
