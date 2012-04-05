@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include "aioringbuf.h"
+#include "ringbuf.h"
 #include "common_wrt.h"
 #define DO_WRITES_IN_FIXED_BLOCKS
 

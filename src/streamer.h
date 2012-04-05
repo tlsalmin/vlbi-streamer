@@ -1,5 +1,14 @@
 #ifndef STREAMER
 #define STREAMER
+ 	
+#ifdef __cplusplus
+#  define BEGIN_C_DECLS extern "C" {
+#  define END_C_DECLS   }
+#else /* !__cplusplus */
+#  define BEGIN_C_DECLS
+#  define END_C_DECLS
+#endif /* __cplusplus */
+
 //Rate as in GB/s
 //Made an argument and changed to MB/s
 //#define RATE 10

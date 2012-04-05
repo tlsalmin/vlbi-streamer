@@ -35,7 +35,7 @@
 #include <net/if.h>
 #include "streamer.h"
 //Moved to generic, shouldn't need anymore
-//#include "aioringbuf.h"
+//#include "ringbuf.h"
 //#include "aiowriter.h"
 
 #define MULTITHREAD_SEND_DEBUG
@@ -315,7 +315,7 @@ int handle_packets_udp(int recv, struct opts * spec_ops, double time_left){
   return err;
 }
 /* NOTE: not used anymore after moving ringbuf to separate threads */
-//TODO: Implement as generic function on aioringbuffer for changable backends
+//TODO: Implement as generic function on ringbuffer for changable backends
 void flush_writes(struct opts *spec_ops){
   spec_ops->be->write(spec_ops->be, 1);
   sleep(2);

@@ -14,7 +14,7 @@
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
-#include "aioringbuf.h"
+#include "ringbuf.h"
 #include "aiowriter.h"
 #include "common_wrt.h"
 #include "defwriter.h"

@@ -199,7 +199,7 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
 #endif //MMAP_TECH
   return spec_ops;
 }
-void handle_captured_packets(uint64_t *i, struct opts * spec_ops, int full){
+void handle_captured_packets(unsigned long *i, struct opts * spec_ops, int full){
   while((spec_ops->header->tp_status & TP_STATUS_USER) | (full && (*i)<RING_FRAME_NR)){
     if (spec_ops->header->tp_status & TP_STATUS_COPY){
       spec_ops->incomplete++;
@@ -238,7 +238,7 @@ void *fanout_thread(void *se)
   spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
-  uint64_t i=0;
+  unsigned long i=0;
 
 
   if (spec_ops->fd < 0)

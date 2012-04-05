@@ -34,7 +34,7 @@
 #include <net/if.h>
 #include "streamer.h"
 //Moved to generic, shouldn't need anymore
-//#include "aioringbuf.h"
+//#include "ringbuf.h"
 //#include "aiowriter.h"
 
 #define MULTITHREAD_SEND_DEBUG
@@ -253,7 +253,7 @@ void * sendfile_init(struct opt_s * opt, struct buffer_entity * se)
   return spec_ops;
 }
 /* NOTE: not used anymore after moving ringbuf to separate threads */
-//TODO: Implement as generic function on aioringbuffer for changable backends
+//TODO: Implement as generic function on ringbuffer for changable backends
 /*
  * NOTE: pthreads requires this arguments function to be void* so no  struct streaming_entity
  *
