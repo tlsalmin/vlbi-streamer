@@ -11,11 +11,14 @@
 #include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
+#include "config.h"
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
 #include "ringbuf.h"
+#ifdef HAVE_LIBAIO
 #include "aiowriter.h"
+#endif
 #include "common_wrt.h"
 #include "defwriter.h"
 #include "sendfile_streamer.h"
@@ -48,13 +51,17 @@ static void usage(char *binary){
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
-#ifdef HUGEPAGESUPPORT
+#ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"
 #endif
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
-      "-w {aio|def|splice|dummy}	use AIO-writer, system default or DUMMY writer\n"
+      "-w {"
+#ifdef HAVE_LIBAIO
+      "aio|"
+#endif
+      "def|splice|dummy}	Choose writer to use(Default: defwriter)\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package\n"
 #endif
@@ -101,8 +108,8 @@ static void parse_options(int argc, char **argv){
   opt.n_threads = 1;
   opt.buf_elem_size = BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
-  //opt.buf_type = WRITER_AIOW;
-  opt.optbits |= WRITER_AIOW;
+  //opt.buf_type = BUFFER_RINGBUF;
+  opt.optbits |= BUFFER_RINGBUF;
   //opt.rec_type= REC_DEF;
   opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
@@ -167,7 +174,9 @@ static void parse_options(int argc, char **argv){
 	opt.buf_elem_size = atoi(optarg);
 	break;
       case 'u':
+#ifdef HAVE_HUGEPAGES
 	opt.optbits |= USE_HUGEPAGE;
+#endif
 	break;
       case 'n':
 	opt.n_threads = atoi(optarg);
@@ -195,14 +204,7 @@ static void parse_options(int argc, char **argv){
 	break;
       case 'w':
 	opt.optbits &= ~LOCKER_REC;
-	if (!strcmp(optarg, "aio")){
-	  /*
-	  opt.rec_type = REC_AIO;
-	  opt.async = 1;
-	  */
-	  opt.optbits |= REC_AIO|ASYNC_WRITE;
-	}
-	else if (!strcmp(optarg, "def")){
+	if (!strcmp(optarg, "def")){
 	  /*
 	  opt.rec_type = REC_DEF;
 	  opt.async = 0;
@@ -210,6 +212,15 @@ static void parse_options(int argc, char **argv){
 	  opt.optbits |= REC_DEF;
 	  opt.optbits &= ~ASYNC_WRITE;
 	}
+#ifdef HAVE_LIBAIO
+	else if (!strcmp(optarg, "aio")){
+	  /*
+	  opt.rec_type = REC_AIO;
+	  opt.async = 1;
+	  */
+	  opt.optbits |= REC_AIO|ASYNC_WRITE;
+	}
+#endif
 	else if (!strcmp(optarg, "splice")){
 	  /*
 	  opt.rec_type = REC_SPLICER;
@@ -299,7 +310,9 @@ static void parse_options(int argc, char **argv){
   }
   temp = (temp)/((long)opt.buf_elem_size*(long)threads);
   opt.buf_num_elems = (int)temp;
+#ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size));
+#endif
   /*
      if (opt.rec_type == REC_AIO)
      opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -373,12 +386,14 @@ int main(int argc, char **argv)
      * sending stuff
      */
     switch(opt.optbits & LOCKER_REC){
+#if HAVE_LIBAIO
       case REC_AIO:
 	err = aiow_init_rec_entity(&opt, re);
 	//NOTE: elem_size is read inside if we're reading
 	break;
+#endif
       case REC_DUMMY:
-	err = aiow_init_dummy(&opt, re);
+	err = rec_init_dummy(&opt, re);
 	break;
       case REC_DEF:
 	err = def_init_def(&opt, re);
@@ -398,7 +413,7 @@ int main(int argc, char **argv)
     //Initialize recorder entity
     switch(opt.optbits & LOCKER_WRITER)
     {
-      case WRITER_AIOW:
+      case BUFFER_RINGBUF:
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
 #ifdef DEBUG_OUTPUT
@@ -449,9 +464,9 @@ int main(int argc, char **argv)
 
   }
   for(i=0;i<opt.n_threads;i++){
-#ifdef DEBUG_OUTPUT
+//#ifdef DEBUG_OUTPUT
     printf("STREAMER: In main, starting thread %d\n", i);
-#endif
+//#endif
 
     rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, (void*)&threads[i]);
     if (rc){

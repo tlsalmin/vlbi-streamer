@@ -4,10 +4,21 @@
 AC_PREREQ([2.67])
 AC_INIT([vlbi-streamer], [0.1], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
-AC_CONFIG_HEADER([src/config.h])
 
 # Checks for programs.
 AC_PROG_CC
+
+#Options
+
+AC_MSG_CHECKING(--enable-hugegpages argument)
+AC_ARG_ENABLE(hugepages,
+    [  --enable-hugepages         Disable support for hugepages.],
+    [enable_hugepages=$enableval],
+    [enable_hugepages="yes"])
+AC_MSG_RESULT($enable_hugepages)
+AS_IF([test "x$enable_hugepages" != "xno"],[
+  AC_DEFINE(HAVE_HUGEPAGES, 1, [Compile with hugepage support])
+  ])
 
 # Checks for libraries.
 ADD_LIBS=""
@@ -17,29 +28,45 @@ if test "$OK" = "0"; then
   AC_MSG_WARN([Could not find library pthread])
   AC_MSG_ERROR([Cannot continue])
 fi
-OK=1
-AC_DEFINE([HAVE_LIBAIO], 1, [Include libaio use in streamer])
-AC_CHECK_LIB([aio],[io_submit], ADD_LIBS="$ADD_LIBS -laio", [OK=0])
-if test "$OK" = "0"; then
-  AC_MSG_WARN([Could not find library libaio])
-  AC_MSG_WARN([libaio writing backend support])
-  AC_MSG_WARN([wont be included])
-  AC_DEFINE([HAVE_LIBAIO], 0, [Include libaio use in streamer])
-fi
-AC_SUBST(ADD_LIBS)
-# Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
 
-#Options
+dnl Check for libaio and enable if found
 AC_MSG_CHECKING(--enable-libaio argument)
 AC_ARG_ENABLE(libaio,
     [  --enable-libaio         Include libaio backend.],
     [enable_libaio=$enableval],
-    [enable_libaio="no"])
+    [enable_libaio="yes"])
 AC_MSG_RESULT($enable_libaio)
-if test "$enable_libaio" = "yes"; then
-  AC_DEFINE(HAVE_LIBAIO)
-fi
+AS_IF([test "x$enable_libaio" != "xno"], [
+       AC_CHECK_LIB([aio],[io_submit], [
+		     ADD_LIBS="$ADD_LIBS -laio"
+		     AC_DEFINE(HAVE_LIBAIO, 1, [Compile with added libaio backend])
+		     ], [
+			 AC_MSG_WARN([Could not find library libaio])
+			 AC_MSG_WARN([libaio writing backend disabled])
+			 enable_libaio="no"
+			 ])
+])
+#AC_DEFINE([HAVE_LIBAIO], 0,[hur])
+#AC_MSG_WARN([hur dis $HAVE_LIBAIO ur])
+dnl Its a bit silly to define em twice..
+AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
+
+AC_MSG_CHECKING([--enable-debug argument])
+AC_ARG_ENABLE(debug,
+    [  --enable-debug         Include libaio backend.],
+    [enable_debug=$enableval],
+    [enable_debug="no"])
+AC_MSG_RESULT($enable_debug)
+AS_IF([test "x$enable_debug" != "xno"], [
+		     AC_DEFINE(DEBUG_OUTPUT, 1, [Print debug_output to stdout])
+		     ])
+AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
+
+dnl Push the libs
+AC_SUBST(ADD_LIBS)
+# Checks for header files.
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
+
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
@@ -54,4 +81,5 @@ AC_CHECK_FUNCS([ftruncate gethostbyname memset munmap socket strdup strerror])
 AM_INIT_AUTOMAKE
 
 #AC_CONFIG_FILES([Makefile])
+AC_CONFIG_HEADER([src/config.h])
 AC_OUTPUT(Makefile src/Makefile)

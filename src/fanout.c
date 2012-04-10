@@ -44,6 +44,7 @@
 #endif
 
 #include <net/if.h>
+#include "config.h"
 #include "fanout.h"
 #include "streamer.h"
 

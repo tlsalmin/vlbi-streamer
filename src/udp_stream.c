@@ -34,6 +34,7 @@
 
 #include <net/if.h>
 #include "streamer.h"
+#include "config.h"
 //Moved to generic, shouldn't need anymore
 //#include "ringbuf.h"
 //#include "aiowriter.h"

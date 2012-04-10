@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 
 #include <net/if.h>
+#include "config.h"
 #include "streamer.h"
 //Moved to generic, shouldn't need anymore
 //#include "ringbuf.h"

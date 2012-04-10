@@ -5,17 +5,22 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include "config.h"
+#ifdef HAVE_HUGEPAGES
 #include <sys/mman.h>
+#endif
 
 #include "ringbuf.h"
 #include "common_wrt.h"
 #define DO_WRITES_IN_FIXED_BLOCKS
 
 /* Check if we really have HUGEPAGE-support 	*/
-/* TODO: Handled in configure-script		*/
+/* moved to configure-script */
+/*
 #ifndef MAP_HUGETLB
-#undef HUGEPAGESUPPORT
+#undef HAVE_HUGEPAGES
 #endif
+*/
 
 int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -52,7 +57,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   /* TODO: Make choosable or just get rid of async totally 	*/
   //rbuf->async = opt->async;
 
-#ifdef HUGEPAGESUPPORT
+#ifdef HAVE_HUGEPAGES
   if(rbuf->optbits & USE_HUGEPAGE){
     /* Init fd for hugetlbfs					*/
     /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
@@ -88,7 +93,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     }
   }
   else
-#endif /* HUGEPAGESUPPORT */
+#endif /* HAVE_HUGEPAGES */
   {
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "RINGBUF: Memaligning buffer\n");
@@ -111,7 +116,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
   int ret = 0;
   if(be->recer->close != NULL)
     be->recer->close(be->recer, stats);
-#ifdef HUGEPAGESUPPORT
+#ifdef HAVE_HUGEPAGES
   if(rbuf->optbits & USE_HUGEPAGE){
     munmap(rbuf->buffer, rbuf->elem_size*rbuf->num_elems);
     /*
@@ -127,7 +132,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
     */
   }
   else
-#endif /* HUGEPAGESUPPORT */
+#endif /* HAVE_HUGEPAGES */
     free(rbuf->buffer);
   free(rbuf);
   //free(be->recer);

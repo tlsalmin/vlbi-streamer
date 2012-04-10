@@ -16,7 +16,7 @@
 
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
-#define WRITER_AIOW 	B(0)
+#define BUFFER_RINGBUF 		B(0)
 #define WRITER_DUMMY 		B(1)
 
 /* What HD writer to use. Used by rec_type*/
@@ -49,7 +49,8 @@
 #define MEG			B(20)
 #define GIG			B(30)
 
-#define HUGEPAGESUPPORT
+//Moved to HAVE_HUGEPAGES
+//#define HAVE_HUGEPAGES
 
 #define MEM_GIG 4
 //The default size
@@ -57,7 +58,8 @@
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 32
-#define DEBUG_OUTPUT
+//Moved to configure
+//#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
 /* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/

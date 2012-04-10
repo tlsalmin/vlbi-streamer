@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <sys/uio.h>
 #include <sys/stat.h>
+#include "config.h"
 #ifdef DEBUG_OUTPUT
 #include <time.h>
 #endif
@@ -199,12 +200,5 @@ int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
   re->getfd = common_getfd;
 
   return re->init(opt,re);
-}
-int aiow_init_dummy(struct opt_s *op , struct recording_entity *re){
-  /*
-  re->init = null;
-  re-write = dummy_write_wrapped;
-  */
-  return 1;
 }
 

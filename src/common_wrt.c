@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <string.h>
+#include "config.h"
 
 
 #include "streamer.h"
@@ -280,7 +281,7 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
-#ifdef HUGEPAGESUPPORT
+#ifdef HAVE_HUGEPAGES
 /*
  * Find hugetlbfs easily (usually /mnt/huge)
  * stolen from: http://lwn.net/Articles/375096/

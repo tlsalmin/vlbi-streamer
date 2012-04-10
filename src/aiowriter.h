@@ -1,4 +1,3 @@
-#ifdef HAVE_LIBAIO
 #ifndef AIOWRITER
 #define AIOWRITER
 #include "streamer.h"
@@ -14,11 +13,9 @@ int aiow_close(struct recording_entity * re, void * stats);
 int aiow_wait_for_write(struct recording_entity * re);
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re);
 //int aiow_write_index_data(struct recording_entity* re, void* data, int count);
-int aiow_init_dummy(struct opt_s *opt, struct recording_entity *re);
 const char * aiow_get_filename(struct recording_entity *re);
 /*
 int aiow_nofpacks(struct recording_entity *re);
 int* aiow_pindex(struct recording_entity *re);
 */
 #endif
-#endif /* HAVE_LIBAIO */

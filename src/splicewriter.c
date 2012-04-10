@@ -11,6 +11,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "config.h"
+
 #include "streamer.h"
 #include "common_wrt.h"
 #include "splicewriter.h"
