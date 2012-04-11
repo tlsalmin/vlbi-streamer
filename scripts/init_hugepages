@@ -1,5 +1,5 @@
 #!/bin/bash
-#Number of pages in KB
+#Size of pages in KB
 HUGESIZE=2048
 #Buffer size in GB
 BUFFERSIZE=8
