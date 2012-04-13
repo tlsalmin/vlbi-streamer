@@ -18,7 +18,6 @@ struct ringbuf{
   int elem_size;
   int num_elems;
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-  int diff;
   int running;
 #endif
   int do_w_stuff_every;

@@ -78,10 +78,10 @@
 //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-//#define HD_WRITE_SIZE 16777216
+#define HD_WRITE_SIZE 16777216
 //#define HD_WRITE_SIZE 1048576
 /* Size of current default huge page */
-#define HD_WRITE_SIZE 2097152
+//#define HD_WRITE_SIZE 2097152
 //#define HD_WRITE_SIZE 134217728
 //#define HD_WRITE_SIZE 33554432
 //#define HD_WRITE_SIZE 262144

@@ -154,11 +154,13 @@ long aiow_check(struct recording_entity * re){
       }
     }
   }
+  /*
   else{
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "AIOW: Check: No writes done\n");
 #endif
   }
+  */
 
   /*
    * TODO: Change implementation for reads also

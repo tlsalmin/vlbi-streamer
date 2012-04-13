@@ -39,14 +39,11 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   rbuf->num_elems = opt->buf_num_elems;
   rbuf->elem_size = opt->buf_elem_size;
   rbuf->writer_head = 0;
-  rbuf->tail = rbuf->hdwriter_head = 0;
+  rbuf->tail = rbuf->hdwriter_head = (rbuf->num_elems-1);
   if(rbuf->optbits & READMODE){
   /* If we're reading, we want to fill in the buffer 		*/
     rbuf->tail = -1;
-    rbuf->diff = rbuf->num_elems;
   }
-  else
-    rbuf->diff = 0;
   rbuf->running = 0;
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   rbuf->is_blocked = 0;
@@ -164,12 +161,12 @@ int diff_max(int a , int b, int max){
 /* Changing the packet-head (writed_head on record and tail on send) 	*/
 /* are the only callers for this so increment diff			*/
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
-  if(*head == (*restrainer-1)){
+  //if(*head == (*restrainer-1)){
+  if(diff_max(*head, *restrainer, rbuf->num_elems) == 1){
     return 0;
   }
   else{
     increment_amount(rbuf, head, 1);
-    //rbuf->diff++;
     return 1;
   }
 }
@@ -287,6 +284,7 @@ void rbuf_init_head_n_tail(struct ringbuf *rbuf, int** head, int** tail){
     }
   }
   else{
+    //TODO: Something fishy here. Think this through
     if(rbuf->optbits & READMODE){
       *tail = &(rbuf->writer_head);
       *head= &(rbuf->tail);
@@ -420,9 +418,6 @@ void *rbuf_read_loop(void *buffo){
 #endif
       while(rbuf->async_writes_submitted >0){
 	usleep(100);
-#ifdef DEBUG_OUTPUT
-	fprintf(stdout, "RINGBUF: Shill no HURR\n");
-#endif
 	rbuf_check(be);
       }
     }
@@ -448,6 +443,9 @@ void *rbuf_write_loop(void *buffo){
     while(((diff = diff_max(*tail, *head, rbuf->num_elems)) < rbuf->do_w_stuff_every) && rbuf->running){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
       rbuf->is_blocked = 1;
+#endif
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "RINGBUF: Not enough to write %d", diff);
 #endif
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     }
@@ -523,18 +521,19 @@ void *rbuf_write_loop(void *buffo){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "RINGBUF: Closing up: diffmax reported: we have %d left in buffer after completion\n", diff);
 #endif
-      /* TODO: Enable when write_bytes working properly
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
-diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
+      diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
 #endif
-*/
       ret = write_bytes(be,*head,tail,diff);
       /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
       if(rbuf->optbits & ASYNC_WRITE){
-	while(rbuf->async_writes_submitted >0){
-	  sleep(1);
-	  rbuf_check(be);
-	}
+	rbuf_check(be);
+      }
+    }
+    if(rbuf->optbits & ASYNC_WRITE){
+      while(rbuf->async_writes_submitted >0){
+	usleep(100);
+	rbuf_check(be);
       }
     }
   }
