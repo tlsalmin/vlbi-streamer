@@ -134,17 +134,30 @@ long aiow_check(struct recording_entity * re){
   //
   if(ret > 0){
     if((signed long )event.res > 0){
-    ioi->bytes_exchanged += event.res;
-    ret = event.res;
+      ioi->bytes_exchanged += event.res;
+      ret = event.res;
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);
+      fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);
 #endif
     }
     else{
-      fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);
-      perror("AIOW: Check");
-      return -1;
+      if(errno == 0){
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "AIOWRITER: end of file! %ld %lu\n", event.res, errno);
+#endif
+	return 1;//event.res;
+      }
+      else{
+	fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);
+	perror("AIOW: Check");
+	return -1;
+      }
     }
+  }
+  else{
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "AIOW: Check: No writes done\n");
+#endif
   }
 
   /*

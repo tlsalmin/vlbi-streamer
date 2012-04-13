@@ -61,9 +61,16 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 #endif
   if(fallosize > 0){
     err = fallocate(*fd, 0,0, fallosize);
-    if(err == -1){
-      fprintf(stderr, "Fallocate failed on %s\n", filename);
-      return err;
+    if(err < 0){
+      perror("fallocate");
+      if(errno == EOPNOTSUPP){
+	fprintf(stdout, "COMMON_WRT: Not fallocating, since not supported\n");
+	err = 1;
+	}
+      else{
+	fprintf(stderr, "COMMON_WRT: Fallocate failed on %s\n", filename);
+	return err;
+      }
     }
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "COMMON_WRT: File preallocated\n");

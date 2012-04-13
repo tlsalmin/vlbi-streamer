@@ -428,12 +428,13 @@ void * udp_sender(void *opt){
 
     pthread_mutex_lock(spec_ops->cumlock);
     /* Not yet time to send this package so go to sleep */
-    while(*pindex > *(spec_ops->cumul)){
+    while(*pindex != *(spec_ops->cumul)){
 #ifdef MULTITHREAD_SEND_DEBUG
       fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
       /* Check for error in send */
       if(*(spec_ops->cumul) < 0){
+	fprintf(stderr, "UDP_STREAMER: Error in other thread. Exiting\n");
 	return sender_exit(spec_ops, &rbuf_thread);
       }
       pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
@@ -464,7 +465,7 @@ void * udp_sender(void *opt){
     }
     else{
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "incrementing pindex\n");
+      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: incrementing pindex\n");
 #endif
       pindex++;
       if(*pindex != *(spec_ops->cumul)){
@@ -476,6 +477,8 @@ void * udp_sender(void *opt){
       }
       /* TODO: This a little bit of an extra unlock, but it'll do for now */
       pthread_mutex_unlock(spec_ops->cumlock);
+      spec_ops->total_captured_bytes +=(unsigned int) err;
+      spec_ops->total_captured_packets++;
     }
     i++;
 
@@ -489,7 +492,6 @@ void * udp_sender(void *opt){
 	pthread_cond_signal(spec_ops->iosignal);
     /* Release io thread to check on head */
     pthread_mutex_unlock(spec_ops->headlock);
-    spec_ops->total_captured_packets++;
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");

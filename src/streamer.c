@@ -11,6 +11,7 @@
 #include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
+#include <time.h>
 #include "config.h"
 #include "streamer.h"
 #include "fanout.h"
@@ -76,7 +77,14 @@ void init_stat(struct stats *stats){
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
   if(opts->optbits & READMODE){
-//TODO
+  fprintf(stdout, "Stats for %s \n"
+      "Packets: %lu\n"
+      "Bytes: %lu\n"
+      "Read: %lu\n"
+      "Time: %f\n"
+      //"Net send Speed: %fMb/s\n"
+      //"HD read Speed: %fMb/s\n"
+      ,opts->filename, opts->cumul, stats->total_bytes, stats->total_written,((float)opts->time/(float)CLOCKS_PER_SEC));//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
   fprintf(stdout, "Stats for %s \n"
@@ -321,6 +329,7 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   int i;
+  clock_t start_t;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Reading parameters\n");
@@ -463,6 +472,18 @@ int main(int argc, char **argv)
     threads[i].be = be;
 
   }
+  
+    /* TODO: Used while forming packet index for sending */
+  if(opt.optbits & READMODE){
+    unsigned long total_packets = 0;
+    for(i=0;i<opt.n_threads;i++)
+      total_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "STREAMER: Total packets: %lu\n", total_packets);
+#endif
+
+  }
+
   for(i=0;i<opt.n_threads;i++){
 //#ifdef DEBUG_OUTPUT
     printf("STREAMER: In main, starting thread %d\n", i);
@@ -496,6 +517,10 @@ int main(int argc, char **argv)
     threads[0].close_socket(&(threads[0]));
     ////pthread_mutex_destroy(opt.cumlock);
   }
+  else
+  {
+    start_t= clock();
+    }
 
 
   for (i = 0; i < opt.n_threads; i++) {
@@ -503,6 +528,11 @@ int main(int argc, char **argv)
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
+  }
+  /* Log the time */
+  if(opt.optbits & READMODE){
+    /* Too fast sending so I'll keep this in ticks and use floats in stats */
+    opt.time = (clock() - start_t);
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
