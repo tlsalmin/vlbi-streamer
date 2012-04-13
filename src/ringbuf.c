@@ -34,6 +34,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //rbuf->read = opt->read;
 
   rbuf->optbits = opt->optbits;
+  rbuf->async_writes_submitted = 0;
 
   rbuf->num_elems = opt->buf_num_elems;
   rbuf->elem_size = opt->buf_elem_size;
@@ -255,8 +256,9 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
       fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, %lu bytes\n", *tail, *tail+endi, endi, rbuf->num_elems, count);
 #endif
     ret = be->recer->write(be->recer, start, count);
+    rbuf->async_writes_submitted++;
     if(ret<=0){
-      fprintf(stderr, "Error in Rec entity write: %ld\n", ret);
+      fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld\n", ret);
       return -1;
     }
     else{
@@ -302,18 +304,27 @@ void *rbuf_write_loop(void *buffo){
   struct ringbuf * rbuf = (struct ringbuf *)be->opt;
   int diff,ret=0;
   int *head, *tail;
+  unsigned long packets_left = rbuf->do_w_stuff_every;
+  unsigned long minp = 0;
+  if(rbuf->optbits & READMODE){
+    unsigned long packets_left = be->se->get_max_packets(be->se);
+  }
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
   int limited_head;
 #endif
   rbuf_init_head_n_tail(rbuf,&head,&tail);
   while(rbuf->running){
+    minp = min(rbuf->do_w_stuff_every, packets_left);
     pthread_mutex_lock(rbuf->headlock);
-    while((diff = diff_max(*tail, *head, rbuf->num_elems)) < rbuf->do_w_stuff_every && rbuf->running){
+    while(((diff = diff_max(*tail, *head, rbuf->num_elems)) < minp) && rbuf->running){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
       rbuf->is_blocked = 1;
 #endif
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     }
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d\n", diff, *tail, *head);
+#endif
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     rbuf->is_blocked = 0;
 #endif
@@ -321,7 +332,7 @@ void *rbuf_write_loop(void *buffo){
     pthread_mutex_unlock(rbuf->headlock);
 
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
-    diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
+    diff = diff < minp ? diff : minp;
     limited_head = (*tail+diff)%rbuf->num_elems;
 #else
     limited_head = *head;
@@ -329,7 +340,7 @@ void *rbuf_write_loop(void *buffo){
     if(diff > 0){
       ret = write_bytes(be,limited_head, tail,diff);
       if(ret<=0){
-	fprintf(stderr, "Write returned error %d\n", ret);
+	fprintf(stderr, "RINGBUG: Write returned error %d\n", ret);
 	/* If streamer is blocked, wake it up 	*/
 	/* TODO: Move to separate function 	*/
 	be->se->stop(be->se);
@@ -365,6 +376,12 @@ void *rbuf_write_loop(void *buffo){
 	    pthread_cond_signal(rbuf->iosignal);
 	    pthread_mutex_unlock(rbuf->headlock);
 	  }
+	/* Decrement the packet number we wan't to read */
+	if(rbuf->optbits & READMODE){
+	  packets_left-=diff;
+	  if(packets_left == 0)
+	    rbuf->running =0 ;
+	}
       }
     }
   }
@@ -373,29 +390,47 @@ void *rbuf_write_loop(void *buffo){
 #endif
   // Main thread stopped so just write
   /* TODO: On asynch io, this will not check the last writes */
-  while (ret >= 0 && (diff = diff_max(*tail, *head, rbuf->num_elems)) > 0){
+  if(ret >=0){
+    /* TODO: Move away from silly async-wait times and 	*/
+    /* Just use a counter for number of writes 		*/
+    if(rbuf->optbits & READMODE){
+      if(rbuf->optbits & ASYNC_WRITE){
+	while(rbuf->async_writes_submitted >0){
+	  sleep(1);
+	  rbuf_check(be);
+	}
+      }
+    }
+    else{
+      while((diff = diff_max(*tail, *head, rbuf->num_elems)) > 0){
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "RINGBUF: diffmax reported: we have %d left in buffer after completion\n", diff);
+	fprintf(stdout, "RINGBUF: Closing up: diffmax reported: we have %d left in buffer after completion\n", diff);
 #endif
-    /* TODO: Enable when write_bytes working properly
+	/* TODO: Enable when write_bytes working properly
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
-    diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
+diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
 #endif
 */
-    ret = write_bytes(be,*head,tail,diff);
-    /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
-    if(rbuf->optbits & ASYNC_WRITE){
-      sleep(5);
-      rbuf_check(be);
+	ret = write_bytes(be,*head,tail,diff);
+	/* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
+	if(rbuf->optbits & ASYNC_WRITE){
+	  while(rbuf->async_writes_submitted >0){
+	  sleep(1);
+	  rbuf_check(be);
+	  }
+	}
+      }
     }
   }
   pthread_exit(NULL);
 }
-#endif
+#endif /*SPLIT_RBUF_AND_IO_TO_THREAD*/
 int rbuf_check(struct buffer_entity *be){
   int ret = 0, returnable = 0;
   struct ringbuf * rbuf = (struct ringbuf * )be->opt;
   while ((ret = be->recer->check(be->recer))>0){
+    /* Write done so decrement async_writes_submitted */
+    rbuf->async_writes_submitted--;
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "RINGBUF: %d Writes complete.\n", ret/rbuf->elem_size);
 #endif
@@ -479,6 +514,11 @@ void rbuf_init_mutex_n_signal(struct buffer_entity *be, void * mutex, void * sig
   //return 1;
 }
 #endif
+/* We only need to cancel it while writing, so use writer_head */
+void rbuf_cancel_writebuf(struct buffer_entity *be){
+  struct ringbuf *rbuf = be->opt;
+  rbuf->writer_head = (rbuf->writer_head -1) % rbuf->num_elems;
+}
 int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->init = rbuf_init;
   //be->write = rbuf_aio_write;
@@ -487,6 +527,7 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->close = rbuf_close;
   be->write_loop = rbuf_write_loop;
   be->stop = rbuf_stop_running;
+  be->cancel_writebuf = rbuf_cancel_writebuf;
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   be->is_blocked = rbuf_is_blocked;
 #endif

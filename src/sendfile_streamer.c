@@ -38,8 +38,6 @@
 //#include "ringbuf.h"
 //#include "aiowriter.h"
 
-#define MULTITHREAD_SEND_DEBUG
-
 //Gatherer specific options
 struct opts
 {

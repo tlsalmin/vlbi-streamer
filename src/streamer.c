@@ -494,6 +494,7 @@ int main(int argc, char **argv)
       threads[i].stop(&(threads[i]));
     }
     threads[0].close_socket(&(threads[0]));
+    ////pthread_mutex_destroy(opt.cumlock);
   }
 
 

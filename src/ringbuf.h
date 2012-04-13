@@ -22,6 +22,7 @@ struct ringbuf{
   int running;
 #endif
   int do_w_stuff_every;
+  int async_writes_submitted;
 
   //int async;
   //int read;

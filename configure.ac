@@ -53,7 +53,7 @@ AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
 
 AC_MSG_CHECKING([--enable-debug argument])
 AC_ARG_ENABLE(debug,
-    [  --enable-debug         Include libaio backend.],
+    [  --enable-debug         Enable debug output.],
     [enable_debug=$enableval],
     [enable_debug="no"])
 AC_MSG_RESULT($enable_debug)
@@ -61,6 +61,17 @@ AS_IF([test "x$enable_debug" != "xno"], [
 		     AC_DEFINE(DEBUG_OUTPUT, 1, [Print debug_output to stdout])
 		     ])
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
+
+AC_MSG_CHECKING([--enable-multisenddebug argument])
+AC_ARG_ENABLE(multisenddebug,
+    [  --enable-multisenddebug         Enable multisend debug output.],
+    [enable_multisenddebug=$enableval],
+    [enable_multisenddebug="no"])
+AC_MSG_RESULT($enable_multisenddebug)
+AS_IF([test "x$enable_multisenddebug" != "xno"], [
+		     AC_DEFINE(MULTITHREAD_SEND_DEBUG, 1, [Print multisenddebug_output to stdout])
+		     ])
+AM_CONDITIONAL([MULTITHREAD_SEND_DEBUG], [test "${enable_multisenddebug}" = "yes"])
 
 dnl Push the libs
 AC_SUBST(ADD_LIBS)

@@ -28,16 +28,26 @@ long def_write(struct recording_entity * re, void * start, size_t count){
     else
       ret = write(ioi->fd, start, count);
     if(ret <=0){
+      if(ioi->optbits & READMODE){
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "DEFWRITER: End of file!\n");
+#endif
+	total_w += count;
+	ioi->bytes_exchanged += count;
+	return count;
+      }
+      else{
       perror("DEFWRITER: Error on write/read");
-      fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu\n", ioi->filename,  count);
+      fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %i\n", ioi->filename,  count, ret);
       return -1;
+      }
     }
     else{
 #ifdef DEBUG_OUTPUT 
       fprintf(stdout, "DEFWRITER: Write done for %ld\n", ret);
 #endif
       if(ret < count)
-	fprintf(stderr, "DEFWRITER: Write wrote only %ld out of %lu", ret, count);
+	fprintf(stderr, "DEFWRITER: Write wrote only %ld out of %lu\n", ret, count);
       total_w += ret;
       count -= ret;
       ioi->bytes_exchanged += ret;

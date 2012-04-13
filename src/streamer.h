@@ -14,6 +14,8 @@
 //#define RATE 10
 #define B(x) (1 << x)
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
 #define BUFFER_RINGBUF 		B(0)
@@ -140,6 +142,7 @@ struct buffer_entity
   int (*init)(struct opt_s* , struct buffer_entity*);
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
+  void (*cancel_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
   //int (*write_index_data)(struct buffer_entity*, void*, int);
@@ -185,6 +188,7 @@ struct streamer_entity
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct streamer_entity *se);
 #endif
+  unsigned long (*get_max_packets)(struct streamer_entity *se);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;
 };
