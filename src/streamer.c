@@ -47,8 +47,8 @@ int resolve_host(char *host, struct in_addr * ia){
 static void usage(char *binary){
   fprintf(stderr, 
       "usage: %s [OPTION]... name (time to receive / host to send to)\n"
-      "-i INTERFACE	Which interface to capture from\n"
-      "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)\n"
+      "-i INTERFACE	Which interface to bind to(Not required)\n"
+      "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
@@ -56,7 +56,7 @@ static void usage(char *binary){
       "-u 		Use hugepages\n"
 #endif
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
-      "-p SIZE		Set buffer size to SIZE(Needs to be aligned with sent packet size)\n"
+      "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
       "-w {"
 #ifdef HAVE_LIBAIO
@@ -64,7 +64,7 @@ static void usage(char *binary){
 #endif
       "def|splice|dummy}	Choose writer to use(Default: defwriter)\n"
 #ifdef CHECK_OUT_OF_ORDER
-      "-q 		Check if packets are in order from first 64bits of package\n"
+      "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
 #endif
       ,binary);
 }

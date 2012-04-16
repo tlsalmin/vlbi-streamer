@@ -12,7 +12,7 @@ AC_PROG_CC
 
 AC_MSG_CHECKING(--enable-hugegpages argument)
 AC_ARG_ENABLE(hugepages,
-    [  --enable-hugepages         Disable support for hugepages.],
+    [  --enable-hugepages         Enable support for hugepages.],
     [enable_hugepages=$enableval],
     [enable_hugepages="yes"])
 AC_MSG_RESULT($enable_hugepages)

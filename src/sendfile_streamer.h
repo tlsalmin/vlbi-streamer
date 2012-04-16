@@ -1,6 +1,5 @@
 #ifndef SENDFILE_STREAMER
 #define SENDFILE_STREAMER
-#define CHECK_OUT_OF_ORDER
 //#define UDP_STREAM_THREADS 12
 #include <net/if.h>
 #include <poll.h>
