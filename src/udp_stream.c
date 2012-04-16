@@ -52,6 +52,8 @@ struct opts
   int time;
   int port;
   int do_w_stuff_every;
+  int *wait_micros_between_packets;
+  int *microwait;
   unsigned long max_num_packets;
   //void * packet_index;
   long unsigned int * cumul;
@@ -638,7 +640,7 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
 	daspot++;
       else{
-	fprintf(stderr, "UDP_STREAMER: Out of space on index file");
+	fprintf(stderr, "UDP_STREAMER: Out of space on index file\n");
 	break;
       }
       if(spec_ops->handle_packet != NULL)

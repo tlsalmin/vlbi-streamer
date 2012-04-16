@@ -117,8 +117,15 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
   fprintf(stdout, "AIOW: Submitted %ld reads/writes\n", ret);
 #endif
   if(ret <0){
+    /* an errno == 0 means that the submit just failed. 	*/
+    /* This is probably due to too many requests pending 	*/
+    /* Just return 0 so the thread doesn't shut down		*/
     perror("AIOW: io_submit");
-    return -1;
+    fprintf(stdout, "perror number %d\n", errno);
+    if(errno == 0)
+      return 0;
+    else
+      return -1;
   }
   ioi->offset += count;
   //ioi->bytes_exchanged += count;

@@ -58,6 +58,7 @@ static void usage(char *binary){
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
+      "-a MYYs		Wait MYYS microeconds between packet sends\n"
       "-w {"
 #ifdef HAVE_LIBAIO
       "aio|"
@@ -128,7 +129,7 @@ static void parse_options(int argc, char **argv){
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -172,6 +173,10 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
 	*/
+      case 'a':
+	opt.optbits |= WAIT_BETWEEN;
+	opt.wait_micros_between_packets = atoi(optarg);
+	break;
       case 'r':
 	opt.rate = atoi(optarg);
 	break;

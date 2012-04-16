@@ -47,6 +47,7 @@
 #define ASYNC_WRITE		B(13)
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
+#define WAIT_BETWEEN		B(16)
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -110,6 +111,7 @@ struct opt_s
   int n_threads;
   int rate;
   int do_w_stuff_every;
+  int wait_micros_between_packets;
   unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
 

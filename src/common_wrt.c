@@ -243,7 +243,6 @@ INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
 }
 unsigned long common_nofpacks(struct recording_entity *re){
   struct common_io_info * ioi = re->opt;
-  fprintf(stdout, "%lu\n", ioi->indexfile_count);
   return ioi->indexfile_count;
   //return ((struct common_io_info*)re->opt)->indexfile_count;
 }
