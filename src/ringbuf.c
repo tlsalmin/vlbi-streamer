@@ -38,11 +38,18 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
   rbuf->num_elems = opt->buf_num_elems;
   rbuf->elem_size = opt->buf_elem_size;
-  rbuf->writer_head = 0;
-  rbuf->tail = rbuf->hdwriter_head = (rbuf->num_elems-1);
+  //rbuf->writer_head = 0;
+  //rbuf->tail = rbuf->hdwriter_head = (rbuf->num_elems-1);
   if(rbuf->optbits & READMODE){
-  /* If we're reading, we want to fill in the buffer 		*/
+    rbuf->hdwriter_head = rbuf->writer_head = 0;
     rbuf->tail = -1;
+  /* If we're reading, we want to fill in the buffer 		*/
+    //rbuf->tail = -1;
+    //if(rbuf->optbits & ASYNC_WRITE)
+      //rbuf->hdwriter_head =0;
+  }
+  else{
+    rbuf->tail = rbuf->hdwriter_head = rbuf->writer_head = 0;
   }
   rbuf->running = 0;
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
@@ -296,7 +303,7 @@ void rbuf_init_head_n_tail(struct ringbuf *rbuf, int** head, int** tail){
   }
 }
 //rbuf->last_io_i = diff_final;
-/* main func for writing and sleeping on buffer empty */ 
+/* main func for reading and sleeping on full buffer */
 void *rbuf_read_loop(void *buffo){
   struct buffer_entity * be = (struct buffer_entity *)buffo;
   struct ringbuf * rbuf = (struct ringbuf *)be->opt;
@@ -336,10 +343,16 @@ void *rbuf_read_loop(void *buffo){
   rbuf->running = 1;
   while(rbuf->running){
     minp = min(rbuf->do_w_stuff_every, packets_left);
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "RINGBUF: Locking head\n");
+#endif
     pthread_mutex_lock(rbuf->headlock);
     while(((diff = diff_max(*tail, *head, rbuf->num_elems)) < minp) && rbuf->running){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
       rbuf->is_blocked = 1;
+#endif
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "RINGBUF: diff not enough %d. Going to sleep\n", diff);
 #endif
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     }
@@ -386,7 +399,7 @@ void *rbuf_read_loop(void *buffo){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 	if(!(rbuf->optbits & ASYNC_WRITE)&& be->se->is_blocked(be->se) == 1)
 #else
-	  if(!(rbuf->optbits & ASYNC_WRITE))
+	if(!(rbuf->optbits & ASYNC_WRITE))
 #endif
 	  {
 	    // Signal if thread is waiting for space 
@@ -397,13 +410,18 @@ void *rbuf_read_loop(void *buffo){
 	    pthread_cond_signal(rbuf->iosignal);
 	    pthread_mutex_unlock(rbuf->headlock);
 	  }
-	  else
-	    rbuf_check(be);
+	else
+	  rbuf_check(be);
 	/* Decrement the packet number we wan't to read */
+	fprintf(stdout, "Packets left %lu\n", packets_left);
 	packets_left-=diff;
 	/* If we've done loading all the packets, run ringbuf down */
-	if(packets_left == 0)
+	if(packets_left <= 0){
+#ifdef DEBUG_OUTPUT
+	  fprintf(stdout, "RINGBUF: All packets read!\n");
+#endif
 	  rbuf->running =0;
+	}
       }
     }
   }
