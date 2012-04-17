@@ -84,10 +84,10 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Packets: %lu\n"
       "Bytes: %lu\n"
       "Read: %lu\n"
-      "Time: %f\n"
+      "Time: %lus\n"
       //"Net send Speed: %fMb/s\n"
       //"HD read Speed: %fMb/s\n"
-      ,opts->filename, opts->cumul, stats->total_bytes, stats->total_written,((float)opts->time/(float)CLOCKS_PER_SEC));//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+      ,opts->filename, opts->cumul, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
   fprintf(stdout, "Stats for %s \n"
@@ -342,7 +342,9 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   int i;
-  clock_t start_t;
+#ifdef HAVE_LRT
+  struct timespec start_t;
+#endif
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Reading parameters\n");
@@ -532,7 +534,11 @@ int main(int argc, char **argv)
   }
   else
   {
-    start_t= clock();
+#ifdef HAVE_LRT
+    clock_gettime(CLOCK_REALTIME, &start_t);
+#else
+    //TODO
+#endif
     }
 
 
@@ -545,7 +551,15 @@ int main(int argc, char **argv)
   /* Log the time */
   if(opt.optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
-    opt.time = (clock() - start_t);
+#ifdef HAVE_LRT
+    struct timespec end_t;
+    clock_gettime(CLOCK_REALTIME, &end_t);
+    opt.time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
+#else
+    fprintf(stderr, "STREAMER: lrt not present. Setting time to 1\n");
+    opt.time = 1;
+    //opt.time = (clock() - start_t);
+#endif
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");

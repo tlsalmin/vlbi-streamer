@@ -15,6 +15,7 @@
 #define B(x) (1 << x)
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
+#define BILLION 1E9l
 
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
@@ -106,7 +107,7 @@ struct opt_s
 
   unsigned int optbits;
   int root_pid;
-  unsigned int time;
+  unsigned long time;
   int port;
   int socket;
   int n_threads;

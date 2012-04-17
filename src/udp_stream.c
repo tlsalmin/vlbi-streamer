@@ -2,7 +2,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#define BILLION 1E9l
 #define ONLY_INCREMENT_TIMER
 #include "config.h"
 #include <stddef.h>
