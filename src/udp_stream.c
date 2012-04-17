@@ -1,8 +1,10 @@
-
 //64 MB ring buffer
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#define BILLION 1E9l
+#define ONLY_INCREMENT_TIMER
+#include "config.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,7 +16,6 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <time.h>
 #ifdef MMAP_TECH
 #include <sys/mman.h>
 #include <sys/poll.h>
@@ -22,6 +23,9 @@
 
 #include <pthread.h>
 
+#ifdef HAVE_RATELIMITER
+#include <time.h> 
+#endif
 #include <unistd.h>
 
 #include <linux/if_ether.h>
@@ -34,7 +38,6 @@
 
 #include <net/if.h>
 #include "streamer.h"
-#include "config.h"
 //Moved to generic, shouldn't need anymore
 //#include "ringbuf.h"
 //#include "aiowriter.h"
@@ -52,8 +55,10 @@ struct opts
   int time;
   int port;
   int do_w_stuff_every;
-  int *wait_micros_between_packets;
-  int *microwait;
+#ifdef HAVE_RATELIMITER
+  int *wait_nanoseconds;
+  struct timespec *wait_last_sent;
+#endif
   unsigned long max_num_packets;
   //void * packet_index;
   long unsigned int * cumul;
@@ -127,12 +132,19 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   spec_ops->is_blocked = 0;
 #endif
+  /* TODO: This could be changed to a quarter or similar, since the writer will fall behind 	*/
+  /* Since this only signals the writer 							*/
   spec_ops->do_w_stuff_every = opt->do_w_stuff_every;
 
   /*
    * If we're reading, recording entity should read the indicedata
    */
   if(spec_ops->optbits & READMODE){
+#ifdef HAVE_RATELIMITER
+    /* Making this a pointer, so we can later adjust it accordingly */
+    spec_ops->wait_nanoseconds = &(opt->wait_nanoseconds);
+    spec_ops->wait_last_sent = &(opt->wait_last_sent);
+#endif
     spec_ops->max_num_packets = spec_ops->be->recer->get_n_packets(spec_ops->be->recer);
     spec_ops->packet_index = spec_ops->be->recer->get_packet_index(spec_ops->be->recer);
   }
@@ -159,7 +171,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   spec_ops->port = opt->port;
 
   //If socket ready, just set it
-  if(!(opt->socket == 0)){
+  if(opt->socket != 0){
     spec_ops->fd = opt->socket;
     /* If we're in send-mode, we need to set the proper sockadd_in for sending 		*/
     /* TODO: Check if we can bind the socket to an ip beforehand so this wouldn't 	*/
@@ -182,7 +194,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
   }
   else{
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if(!(spec_ops->optbits & READMODE))
+    //if(!(spec_ops->optbits & READMODE))
       opt->socket = spec_ops->fd;
 
     /* TODO: Remove DO_W_STUFF_EVERY since packet size is defined at invocation */
@@ -357,12 +369,13 @@ void *sender_exit(struct opts *spec_ops, pthread_t * rbuf_thread){
   pthread_exit(NULL);
 }
 /*
+ * Sending handler for an UDP-stream
+ *
  * NOTE: pthreads requires this arguments function to be void* so no  struct streaming_entity
  *
  * This is almost the same as udp_handler, but making it bidirectional might have overcomplicated
  * the logic and lead to high probability of bugs
  *
- * Sending handler for an UDP-stream
  */
 void * udp_sender(void *opt){
   struct streamer_entity *be =(struct streamer_entity*) opt;
@@ -448,7 +461,68 @@ void * udp_sender(void *opt){
 #endif
     /* Send packet, increment and broadcast that the current packet needed has been incremented */
     //err = send(spec_ops->fd, buf, spec_ops->buf_elem_size, 0);
+#ifdef HAVE_RATELIMITER
+    if(spec_ops->optbits & WAIT_BETWEEN){
+      long wait= 0;
+      if(spec_ops->wait_last_sent->tv_sec == 0 && spec_ops->wait_last_sent->tv_nsec == 0){
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
+#endif
+	clock_gettime(CLOCK_REALTIME, spec_ops->wait_last_sent);
+      }
+      else{
+	/* waittime - (time_now - time_last) needs to be positive if we need to wait 	*/
+	/* 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep	*/
+	/* accuracy									*/
+	struct timespec now;
+	clock_gettime(CLOCK_REALTIME, &now);
+	wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->wait_last_sent->tv_sec*BILLION + spec_ops->wait_last_sent->tv_nsec);
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
+#endif
+	if(wait < *(spec_ops->wait_nanoseconds)){
+	  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
+#ifdef DEBUG_OUTPUT
+	  fprintf(stdout, "UDP_STREAMER: Sleeping %d ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
+#endif	
+	  usleep((*(spec_ops->wait_nanoseconds) - wait)/1000);
+	}
+	//*(spec_ops->wait_last_sent) = clock();//*(spec_ops->wait_nanoseconds);
+	//*(spec_ops->wait_last_sent) += *(spec_ops->wait_nanoseconds);
+	/* If we've drifter a bit too far from the clock 'cause of a context switch etc */
+	/*
+	if(wait < -100)
+	  *(spec_ops->wait_last_sent) = clock();
+	else
+	  *(spec_ops->wait_last_sent) += *(spec_ops->wait_nanoseconds);
+	  */
+#ifdef ONLY_INCREMENT_TIMER
+	if(wait > *(spec_ops->wait_nanoseconds)){
+#ifdef DEBUG_OUTPUT
+	  fprintf(stdout, "UDP_STREAMER: Runaway wait. Resetting to now\n");
+#endif
+	  spec_ops->wait_last_sent->tv_sec = now.tv_sec;
+	  spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
+	}
+	else{
+	  if(spec_ops->wait_last_sent->tv_nsec + *(spec_ops->wait_nanoseconds) > BILLION){
+	    spec_ops->wait_last_sent->tv_sec++;
+	    spec_ops->wait_last_sent->tv_nsec = *(spec_ops->wait_nanoseconds)-(BILLION - spec_ops->wait_last_sent->tv_nsec);
+	  }
+	  else
+	    spec_ops->wait_last_sent->tv_nsec += *(spec_ops->wait_nanoseconds);
+	}
+#else
+	spec_ops->wait_last_sent->tv_sec = now.tv_sec;
+	spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
+#endif
+      }
+    }
+#endif /* HAVE_RATELIMITER */
     err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
+#ifdef HAVE_RATELIMITER
+    //*(spec_ops->wait_last_sent) = clock();
+#endif
 
 
     /* Increment to the next sendable packet */

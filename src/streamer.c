@@ -58,7 +58,9 @@ static void usage(char *binary){
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
-      "-a MYYs		Wait MYYS microeconds between packet sends\n"
+#ifdef HAVE_RATELIMITER
+      "-a MYY		Wait MYY microseconds between packet sends\n"
+#endif
       "-w {"
 #ifdef HAVE_LIBAIO
       "aio|"
@@ -174,8 +176,14 @@ static void parse_options(int argc, char **argv){
 	break;
 	*/
       case 'a':
+#ifdef HAVE_RATELIMITER
 	opt.optbits |= WAIT_BETWEEN;
-	opt.wait_micros_between_packets = atoi(optarg);
+	opt.wait_nanoseconds = atoi(optarg)*1000;
+	opt.wait_last_sent.tv_sec = 0;
+	opt.wait_last_sent.tv_nsec = 0;
+#else
+	fprintf(stderr, "STREAMER: Rate limiter not compiled\n");
+#endif
 	break;
       case 'r':
 	opt.rate = atoi(optarg);

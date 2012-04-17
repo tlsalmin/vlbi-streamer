@@ -73,6 +73,22 @@ AS_IF([test "x$enable_multisenddebug" != "xno"], [
 		     ])
 AM_CONDITIONAL([MULTITHREAD_SEND_DEBUG], [test "${enable_multisenddebug}" = "yes"])
 
+AC_MSG_CHECKING([--enable-ratelimiter argument])
+AC_ARG_ENABLE(ratelimiter,
+    [  --enable-ratelimiter         Enable rate limiting in sending.],
+    [enable_ratelimiter=$enableval],
+    [enable_ratelimiter="yes"])
+AC_MSG_RESULT($enable_ratelimiter)
+AS_IF([test "x$enable_ratelimiter" != "xno"], [
+       AC_CHECK_LIB([rt],[clock_gettime],[
+		     ADD_LIBS="$ADD_LIBS -lrt"
+		     AC_DEFINE(HAVE_RATELIMITER, 1, [Print ratelimiter_output to stdout])
+		     ],[
+			AC_MSG_WARN([Couldnt find library rt])
+			AC_MSG_WARN([rate limiter disabled])
+			])
+       ])
+AM_CONDITIONAL([HAVE_RATELIMITER], [test "${enable_ratelimiter}" = "yes"])
 dnl Push the libs
 AC_SUBST(ADD_LIBS)
 # Checks for header files.

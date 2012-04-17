@@ -91,6 +91,7 @@
 
 //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling
+#include "config.h"
 #include <pthread.h>
 #include <netdb.h> // struct hostent
 struct opt_s
@@ -111,7 +112,10 @@ struct opt_s
   int n_threads;
   int rate;
   int do_w_stuff_every;
-  int wait_micros_between_packets;
+#ifdef HAVE_RATELIMITER
+  int wait_nanoseconds;
+  struct timespec wait_last_sent;
+#endif
   unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
 
