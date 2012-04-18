@@ -753,8 +753,9 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
   pthread_exit(NULL);
   */
 }
-void get_udp_stats(struct opts *spec_ops, void *stats){
+void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
+  struct opts *spec_ops = (struct opts*)sp;
   //stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
@@ -762,7 +763,7 @@ void get_udp_stats(struct opts *spec_ops, void *stats){
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
-  get_udp_stats(spec_ops,  stats);
+  get_udp_stats(opt_own,  stats);
 
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
@@ -824,6 +825,7 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity * se, struct bu
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   se->is_blocked = udps_is_blocked;
 #endif
+  se->get_stats = get_udp_stats;
   se->close_socket = udps_close_socket;
   se->get_max_packets = udps_get_max_packets;
   se->opt = se->init(opt, be);

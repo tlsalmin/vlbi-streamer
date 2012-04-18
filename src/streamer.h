@@ -48,7 +48,10 @@
 #define ASYNC_WRITE		B(13)
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
+
 #define WAIT_BETWEEN		B(16)
+#define VERBOSE			B(17)
+#define MOUNTPOINT_VERBOSE	B(18)
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -173,6 +176,7 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   long (*check)(struct recording_entity*);
   int (*getfd)(struct recording_entity*);
+  void (*get_stats)(void*, void*);
   int (*get_w_flags)();
   int (*get_r_flags)();
   int (*write_index_data)(const char*, long unsigned, void*, long unsigned);
@@ -192,6 +196,8 @@ struct streamer_entity
   int (*close)(void*,void*);
   void (*stop)(struct streamer_entity *se);
   void (*close_socket)(struct streamer_entity *se);
+  /* Added to get periodic stats */
+  void (*get_stats)(void*, void*);
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct streamer_entity *se);
 #endif

@@ -208,18 +208,21 @@ int aiow_close(struct recording_entity * re, void * stats){
  * Helper function for initializing a recording_entity
  */
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
+  /*
+  re->write_index_data = common_write_index_data;
+  re->get_n_packets = common_nofpacks;
+  re->get_packet_index = common_pindex;
+  re->get_filename = common_wrt_get_filename;
+  re->getfd = common_getfd;
+  */
+  common_init_common_functions(opt,re);
   re->init = aiow_init;
   re->write = aiow_write;
   re->wait = aiow_wait_for_write;
   re->close = aiow_close;
   re->check = aiow_check;
-  re->write_index_data = common_write_index_data;
-  re->get_n_packets = common_nofpacks;
-  re->get_packet_index = common_pindex;
-  re->get_filename = common_wrt_get_filename;
   re->get_r_flags = aiow_get_r_fflags;
   re->get_w_flags = aiow_get_w_fflags;
-  re->getfd = common_getfd;
 
   return re->init(opt,re);
 }

@@ -25,6 +25,9 @@
 #include "sendfile_streamer.h"
 #include "splicewriter.h"
 #define TUNE_AFFINITY
+#define KB 1024
+#define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
+//#define UGLY_HACKS_ON_STATS
 
 #define CORES 6
 extern char *optarg;
@@ -69,14 +72,48 @@ static void usage(char *binary){
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
 #endif
+      "-v 		Verbose. Print stats on all transfers\n"
+      "-V 		Verbose. Print stats on individual mountpoint transfers\n"
       ,binary);
 }
+/* Why don't I just memset? */
 void init_stat(struct stats *stats){
   stats->total_bytes = 0;
   stats->incomplete = 0;
   stats->total_written = 0;
   //stats->total_packets = 0;
   stats->dropped = 0;
+}
+void neg_stats(struct stats* st1, struct stats* st2){
+  /* We sometimes get a situation, where the previous val is larger 	*/
+  /* than the new value. This shouldn't happen! For now I'll just add	*/
+  /* an ugly hack here. TODO: Solve					*/
+#ifdef UGLY_HACKS_ON_STATS
+  if(st1->total_bytes < st2->total_bytes)
+    st1->total_bytes =0 ;
+  else
+#endif
+  st1->total_bytes -= st2->total_bytes;
+  st1->incomplete -= st2->incomplete;
+#ifdef UGLY_HACKS_ON_STATS
+  if(st1->total_written < st2->total_written)
+    st1->total_written =0 ;
+  else
+#endif
+  st1->total_written -= st2->total_written;
+  st1->dropped -= st2->dropped;
+}
+void add_stats(struct stats* st1, struct stats* st2){
+  st1->total_bytes += st2->total_bytes;
+  st1->incomplete += st2->incomplete;
+  st1->total_written += st2->total_written;
+  st1->dropped += st2->dropped;
+}
+void print_intermediate_stats(struct stats *stats){
+  fprintf(stdout, "Net Send/Receive completed: \t%luMb/s\n"
+      "HD Read/write completed \t%luMb/s\n"
+      "Dropped %lu\tIncomplete %lu\n"
+      ,BYTES_TO_MBITSPS(stats->total_bytes), BYTES_TO_MBITSPS(stats->total_written), stats->dropped, stats->incomplete);
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
   if(opts->optbits & READMODE){
@@ -96,7 +133,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Dropped: %lu\n"
       "Incomplete: %lu\n"
       "Written: %lu\n"
-      "Time: %d\n"
+      "Time: %lu\n"
       "Net receive Speed: %luMb/s\n"
       "HD write Speed: %luMb/s\n"
       ,opts->filename, opts->cumul, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
@@ -131,10 +168,16 @@ static void parse_options(int argc, char **argv){
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:vV"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
+	break;
+      case 'v':
+	opt.optbits |= VERBOSE;
+	break;
+      case 'V':
+	opt.optbits |= MOUNTPOINT_VERBOSE;
 	break;
       case 't':
 	opt.optbits &= ~LOCKER_CAPTURE;
@@ -490,11 +533,13 @@ int main(int argc, char **argv)
   
     /* TODO: Used while forming packet index for sending */
   if(opt.optbits & READMODE){
-    unsigned long total_packets = 0;
+    //unsigned long total_packets = 0;
+    /* Double using this for different purpose on readside. BAD! */
+    opt.max_num_packets =0 ;
     for(i=0;i<opt.n_threads;i++)
-      total_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
+      opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "STREAMER: Total packets: %lu\n", total_packets);
+    fprintf(stdout, "STREAMER: Total packets: %lu\n", opt.max_num_packets);
 #endif
 
   }
@@ -523,25 +568,91 @@ int main(int argc, char **argv)
   }
 
   init_stat(&stats);
+  /* HERP so many ifs .. WTB Refactoring time*/
+  if(opt.optbits & READMODE){
+#ifdef HAVE_LRT
+      clock_gettime(CLOCK_REALTIME, &start_t);
+#else
+      //TODO
+#endif
+  }
   /* If we're capturing, time the threads and run them down after we're done */
+  /* Print speed etc. */
+  if(opt.optbits & VERBOSE){
+
+    /* Init the stats */
+    struct stats stats_prev, stats_now;//, stats_temp;
+    int sleeptodo;
+    memset(&stats_prev, 0,sizeof(struct stats));
+    //memset(&stats_now, 0,sizeof(struct stats));
+    fprintf(stdout, "STREAMER: Printing stats per second\n");
+    fprintf(stdout, "----------------------------------------\n");
+
+    if(opt.optbits & READMODE)
+      sleeptodo= 1;
+    else
+      sleeptodo = opt.time;
+    while(sleeptodo >0){
+      sleep(1);
+      memset(&stats_now, 0,sizeof(struct stats));
+
+      /* Query and print the stats */
+      for(i=0;i<opt.n_threads;i++){
+	threads[i].get_stats(threads[i].opt, &stats_now);
+	threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
+      }
+      //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
+      neg_stats(&stats_now, &stats_prev);
+
+      print_intermediate_stats(&stats_now);
+      //fprintf(stdout, "Time %ds \t------------------------\n", opt.time-sleeptodo+1);
+      if(!(opt.optbits & READMODE))
+	  fprintf(stdout, "Time %lds\n", opt.time-sleeptodo+1);
+      else
+	  fprintf(stdout, "Time %ds\n", sleeptodo);
+      fprintf(stdout, "----------------------------------------\n");
+
+      if(!(opt.optbits & READMODE))
+	sleeptodo--;
+      else
+	sleeptodo++;
+      add_stats(&stats_prev, &stats_now);
+      //memcpy(&stats_prev, &stats_temp, sizeof(struct stats));
+      if(opt.optbits & READMODE){
+	if(opt.cumul >= opt.max_num_packets-1)
+	  sleeptodo = 0;
+	/*pthread_tryjoin_np Keeps returning EBUSY so not using this */
+	/*
+	int ret, j, breaker = 0;
+	for(j=0;j<opt.n_threads;j++){
+	  ret = pthread_tryjoin_np(pthreads_array[i], NULL);
+	  if(ret == EBUSY){
+	    breaker = -1;
+	    fprintf(stdout, "STREAMER: Tryjoin got: %d\n", ret);
+	  }
+	  else 
+	    fprintf(stdout, "STREAMER: Thread %d done with %d and exited\n", j, ret);
+	}
+	// All threads done 
+	if (breaker== 0)
+	  break;
+	*/
+      }
+    }
+  }
+  else{
+    if(!(opt.optbits & READMODE)){
+      sleep(opt.time);
+      ////pthread_mutex_destroy(opt.cumlock);
+    }
+  }
+  /* Close the sockets on readmode */
   if(!(opt.optbits & READMODE)){
-    sleep(opt.time);
     for(i = 0;i<opt.n_threads;i++){
       threads[i].stop(&(threads[i]));
     }
     threads[0].close_socket(&(threads[0]));
-    ////pthread_mutex_destroy(opt.cumlock);
   }
-  else
-  {
-#ifdef HAVE_LRT
-    clock_gettime(CLOCK_REALTIME, &start_t);
-#else
-    //TODO
-#endif
-    }
-
-
   for (i = 0; i < opt.n_threads; i++) {
     rc = pthread_join(pthreads_array[i], NULL);
     if (rc<0) {
@@ -555,6 +666,7 @@ int main(int argc, char **argv)
     struct timespec end_t;
     clock_gettime(CLOCK_REALTIME, &end_t);
     opt.time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
+    //fprintf(stdout, "END: %lus %luns, START: %lus, %luns\n", end_t.tv_sec, end_t.tv_nsec, start_t.tv_sec, start_t.tv_nsec);
 #else
     fprintf(stderr, "STREAMER: lrt not present. Setting time to 1\n");
     opt.time = 1;

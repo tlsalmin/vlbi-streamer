@@ -260,17 +260,18 @@ int splice_close(struct recording_entity *re, void *stats){
 }
 
 int splice_init_splice(struct opt_s *opt, struct recording_entity *re){
-  re->init = init_splice;
-  re->close = splice_close;
-  re->write_index_data = common_write_index_data;
 
-  re->write = splice_write;
-  
+  common_init_common_functions(opt,re);
+  /*
+  re->write_index_data = common_write_index_data;
   re->get_n_packets = common_nofpacks;
   re->get_packet_index = common_pindex;
-
   re->get_filename = common_wrt_get_filename;
+  */
 
+  re->init = init_splice;
+  re->close = splice_close;
+  re->write = splice_write;
   re->get_r_flags = splice_get_r_fflags;
   re->get_w_flags = splice_get_w_fflags;
 

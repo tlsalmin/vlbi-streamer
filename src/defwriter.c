@@ -38,7 +38,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
       perror("DEFWRITER: Error on write/read");
-      fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %i\n", ioi->filename,  count, ret);
+      fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %ld\n", ioi->filename,  count, ret);
       return -1;
       }
     }
@@ -63,17 +63,18 @@ int def_get_r_fflags(){
 }
 
 int def_init_def(struct opt_s *opt, struct recording_entity *re){
-  re->init = common_w_init;
-  re->close = common_close;
-  re->write_index_data = common_write_index_data;
+  common_init_common_functions(opt,re);
+  //re->init = common_w_init;
+  //re->close = common_close;
+  //re->write_index_data = common_write_index_data;
 
   re->write = def_write;
   
-  re->get_n_packets = common_nofpacks;
-  re->get_packet_index = common_pindex;
+  //re->get_n_packets = common_nofpacks;
+  //re->get_packet_index = common_pindex;
 
-  re->get_filename = common_wrt_get_filename;
-  re->getfd = common_getfd;
+  //re->get_filename = common_wrt_get_filename;
+  //re->getfd = common_getfd;
 
   re->get_r_flags = def_get_r_fflags;
   re->get_w_flags = def_get_w_fflags;

@@ -246,12 +246,18 @@ unsigned long common_nofpacks(struct recording_entity *re){
   return ioi->indexfile_count;
   //return ((struct common_io_info*)re->opt)->indexfile_count;
 }
+void get_io_stats(void * opt, void * st){
+  struct common_io_info *ioi = (struct common_io_info*)opt;
+  struct stats * stats = (struct stats*)st;
+  stats->total_written += ioi->bytes_exchanged;
+}
 int common_close(struct recording_entity * re, void * stats){
   int err;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
 
-  struct stats* stat = (struct stats*)stats;
-  stat->total_written += ioi->bytes_exchanged;
+  //struct stats* stat = (struct stats*)stats;
+  //stat->total_written += ioi->bytes_exchanged;
+  get_io_stats(re->opt, stats);
   /*
      char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
      sprintf(indexfile, "%s%s", ioi->filename, ".index");
@@ -286,6 +292,17 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 }
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
+}
+void common_init_common_functions(struct opt_s * opt, struct recording_entity *re){
+  re->init = common_w_init;
+  re->close = common_close;
+  re->write_index_data = common_write_index_data;
+  re->get_n_packets = common_nofpacks;
+  re->get_packet_index = common_pindex;
+  re->get_stats = get_io_stats;
+
+  re->get_filename = common_wrt_get_filename;
+  re->getfd = common_getfd;
 }
 #ifdef HAVE_HUGEPAGES
 /*
