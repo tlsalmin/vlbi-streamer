@@ -1,0 +1,27 @@
+#!/bin/bash
+DAPREFIX=/usr
+
+wget http://www.hep.man.ac.uk/u/rich/Tools_Software/udpmon/udpmon_extra-1.2.6.tar.gz
+wget http://www.hep.man.ac.uk/u/rich/Tools_Software/libhj/libhj-4.2.6.tar.gz
+tar -xvvzf udpmon_extra-1.2.6.tar.gz
+tar -xvvzf libhj-4.2.6.tar.gz
+cd libhj-4.2.6/
+./configure --prefix=$DAPREFIX
+make clean
+if [ $? -eq 2]
+then
+  sed -i.bak -e '/^dnl\ SUBDIRS/d' Makefile
+  make clean
+fi
+sudo make install
+cd ../udpmon_extra-1.2.6/
+./configure --prefix=$DAPREFIX --with-hj-location=$DAPREFIX
+make clean
+make
+sudo make install
+echo "cleaning up"
+cd ..
+rm libhj-4.2.6.tar.gz
+rm udpmon_extra-1.2.6.tar.gz
+
+
