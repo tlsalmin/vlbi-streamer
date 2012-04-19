@@ -795,11 +795,12 @@ int close_udp_streamer(void *opt_own, void *stats){
   spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);
   /* So if we're reading, just let the recorder end free the packet_index */
-  if(!(spec_ops->optbits & READMODE))
+  if(!(spec_ops->optbits & READMODE)){
     free(spec_ops->packet_index);
+    free(spec_ops->sin);
+  }
   free(spec_ops->headlock);
   free(spec_ops->iosignal);
-  free(spec_ops->sin);
   free(spec_ops);
   return 0;
 }

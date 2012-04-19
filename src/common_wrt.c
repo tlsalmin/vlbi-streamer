@@ -29,8 +29,9 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   if (err < 0) {
     if (errno == ENOENT){
       //We're reading the file
-      if(flags & O_RDONLY){
-	perror("COMMON_WRT: File not found, eventhought we're in send-mode");
+      /* Goddang what's the big idea setting O_RDONLY to 00 */
+      if(!(flags & (O_WRONLY|O_RDWR))){
+	perror("COMMON_WRT: File not found, eventhought we wan't to read");
 	return -1;
       }
       else{
@@ -189,15 +190,19 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->optbits = opt->optbits;
 
   //ioi->latest_write_num = 0;
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "COMMON_WRT: Initializing write point\n");
-#endif
-  //Check if file exists
   if(ioi->optbits & READMODE){
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "COMMON_WRT: Initializing read point\n");
+    fprintf(stdout, "COMMON_WRT: Getting read flags\n");
+#endif
     ioi->f_flags = re->get_r_flags();
     prealloc_bytes = 0;
   }
   else{
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "COMMON_WRT: Initializing write point\n");
+    fprintf(stdout, "COMMON_WRT: Getting write flags and calculating falloc\n");
+#endif
     //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
     ioi->f_flags = re->get_w_flags();
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
