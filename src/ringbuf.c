@@ -118,7 +118,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 int  rbuf_close(struct buffer_entity* be, void *stats){
 //TODO: error handling
   struct ringbuf * rbuf = (struct ringbuf *)be->opt;
-  int ret = 0;
+  //int ret = 0;
   if(be->recer->close != NULL)
     be->recer->close(be->recer, stats);
 #ifdef HAVE_HUGEPAGES
@@ -144,7 +144,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "RINGBUF: Buffer closed\n");
 #endif
-  return ret;
+  return 0;
 }
 
 //Calling this directly requires, that you know you won't go past a restrictor
@@ -280,7 +280,7 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
       pthread_mutex_unlock(rbuf->headlock);
     }
   }
-  return 1;
+  return 0;
 }
 void rbuf_init_head_n_tail(struct ringbuf *rbuf, int** head, int** tail){
   if(!(rbuf->optbits & ASYNC_WRITE)){
@@ -376,7 +376,7 @@ void *rbuf_read_loop(void *buffo){
 #endif
     if(diff > 0){
       ret = write_bytes(be,limited_head, tail,diff);
-      if(ret<=0){
+      if(ret!=0){
 	fprintf(stderr, "RINGBUG: Write returned error %d\n", ret);
 	/* If streamer is blocked, wake it up 	*/
 	/* TODO: Move to separate function 	*/
@@ -488,7 +488,7 @@ void *rbuf_write_loop(void *buffo){
 #endif
     if(diff > 0){
       ret = write_bytes(be,limited_head, tail,diff);
-      if(ret<0){
+      if(ret!=0){
 	fprintf(stderr, "RINGBUG: Write returned error %d. Stopping\n", ret);
 	/* If streamer is blocked, wake it up 	*/
 	/* TODO: Move to separate function 	*/
@@ -508,9 +508,11 @@ void *rbuf_write_loop(void *buffo){
       }
       /* We get a zero if its not a straight error, but not a full write 	*/
       /* Or an io_submit that wasn't queued					*/
+      /*
       else if (ret == 0){
 	fprintf(stderr, "RINGBUF: Incomplete or failed async write. Not stopping\n");
       }
+      */
       else{
 	/* If we either just wrote the stuff in write_after_checks(synchronious 	*/
 	/* blocking write or check in async mode) returned a > 0 amount of writes  */
@@ -550,22 +552,32 @@ void *rbuf_write_loop(void *buffo){
 #endif
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
       //aio can overload on write requests, so making just one big for it
-      if(!(rbuf->optbits & ASYNC_WRITE)){
+      //if(!(rbuf->optbits & ASYNC_WRITE)){
 	diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
 	limited_head = (*tail+diff)%rbuf->num_elems;
-      }
-      else
-	limited_head = *head;
+      //}
+      //else
+	//limited_head = *head;
+#else
+      limited_head = *head;
 #endif
       ret = write_bytes(be,limited_head,tail,diff);
+      if(ret != 0){
+	fprintf(stderr, "RINGBUF: Error in write. Exiting\n");
+	break;
+      }
       /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
       if(rbuf->optbits & ASYNC_WRITE){
+	usleep(100);
 	rbuf_check(be);
       }
     }
     if(rbuf->optbits & ASYNC_WRITE){
       while(rbuf->async_writes_submitted >0){
-	usleep(100);
+#ifdef DEBUG_OUTPUT
+	fprintf(stdout, "RINGBUF: Sleeping and waiting for async to complete %d writes submitted\n", rbuf->async_writes_submitted);
+#endif
+	usleep(1000);
 	rbuf_check(be);
       }
     }

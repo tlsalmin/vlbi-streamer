@@ -32,7 +32,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       /* Goddang what's the big idea setting O_RDONLY to 00 */
       if(!(flags & (O_WRONLY|O_RDWR))){
 	perror("COMMON_WRT: File not found, eventhought we wan't to read");
-	return -1;
+	return EACCES;
       }
       else{
 #ifdef DEBUG_OUTPUT
@@ -44,7 +44,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     }
     else{
       fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
-      return -1;
+      return err;
     }
   }
 
@@ -55,7 +55,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
   if(*fd < 0){
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
-    return -1;
+    return errno;
   }
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "COMMON_WRT: File opened\n");
@@ -66,7 +66,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       perror("fallocate");
       if(errno == EOPNOTSUPP){
 	fprintf(stdout, "COMMON_WRT: Not fallocating, since not supported\n");
-	err = 1;
+	err = 0;
 	}
       else{
 	fprintf(stderr, "COMMON_WRT: Fallocate failed on %s\n", filename);
@@ -95,29 +95,49 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   sprintf(filename, "%s%s", filename_orig, ".index");
   int f_flags = O_WRONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
 
-  common_open_file(&fd, f_flags, filename, 0);
+  err = common_open_file(&fd, f_flags, filename, 0);
+  if(err != 0){
+    fprintf(stdout, "COMMON_WRT: File open failed when trying to write index data on %s\n", filename);
+    return err;
+  }
 
   FILE * file = fdopen(fd, "w");
   //Write the elem size to the first index
   //err = write(fd, (void*)&(elem_size), sizeof(INDEX_FILE_TYPE));
   err = fwrite((void*)&(elem_size), sizeof(elem_size), 1, file);
-  if(err<0)
-    perror("COMMON_WRT: Index file size write");
+  if(err != 1){
+    if(err == -1)
+      perror("COMMON_WRT: Index file size write");
+    else
+      fprintf(stderr, "COMMON_WRT: Index file size write didn't write as much as requested!. Wrote only %d\n", err);
+    return err;
+  }
+  else{
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
   INDEX_FILE_TYPE *debughelp = data;
   fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
 #endif
-
+    err =0;
+  }
   //Write the data
   //err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
   err = fwrite(data, sizeof(INDEX_FILE_TYPE), count, file);
-  if(err<0){
-    perror("COMMON_WRT: Index file write");
-    fprintf(stderr, "Filename was %s\n", filename);
+  if(err != count){
+    if(err == -1)
+      perror("COMMON_WRT: Writing indices");
+    else
+      fprintf(stderr, "COMMON_WRT: indice writedidn't write as much as requested!. Wrote only %d\n", err);
+    return err;
   }
-
-  //close(fd);
+  else{
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
+  INDEX_FILE_TYPE *debughelp = data;
+  fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
+#endif
+    err =0;
+  }
   fclose(file);
   free(filename);
 #ifdef DEBUG_OUTPUT
@@ -126,11 +146,10 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
 
   return err;
 }
-//int common_handle_indices(const char *filename_orig, INDEX_FILE_TYPE * elem_size, void * pindex, INDEX_FILE_TYPE *count){
 int common_handle_indices(struct common_io_info *ioi){
   char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   int f_flags = O_RDONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
-  int fd,err;
+  int fd,err = 0;
   //unsigned long num_elems;
   //Duplicate stat here, since first done in aiow_read, but meh.
   struct stat statinfo;
@@ -138,7 +157,11 @@ int common_handle_indices(struct common_io_info *ioi){
 
   sprintf(filename, "%s%s", ioi->filename, ".index");
 
-  common_open_file(&fd, f_flags, filename, 0);
+  err = common_open_file(&fd, f_flags, filename, 0);
+  if(err != 0){
+    fprintf(stderr, "COMMON_WRT: Failed to read index data on %s", filename);
+    return err;
+  }
 
   /*
    * elem_size = Size of the packets we received when receiving the stream
@@ -151,7 +174,7 @@ int common_handle_indices(struct common_io_info *ioi){
     return err;
   }
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "Elem size here %lu\n", ioi->elem_size);
+  fprintf(stdout, "COMMON_WRT: Elem size here %lu\n", ioi->elem_size);
 #endif 
 
   //ioi->elem_size = err;
@@ -167,6 +190,11 @@ int common_handle_indices(struct common_io_info *ioi){
   fprintf(stdout, "COMMON_WRT: Total number of elements in index file: %lu\n", ioi->indexfile_count);
 #endif
   ioi->indices = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(ioi->indexfile_count));
+  if(ioi->indices == NULL){
+    fprintf(stderr, "COMMON_WRT: Indice malloc failed!\n");
+    return -1;
+  }
+
 
   //*count = 0;
   INDEX_FILE_TYPE* pointer = ioi->indices;
@@ -174,6 +202,11 @@ int common_handle_indices(struct common_io_info *ioi){
     pointer++;
     //count += 1;
   }
+  if(err <0){
+    fprintf(stderr, "COMMON_WRT: Error when reading indices %s\n", strerror(errno));
+    return err;
+  }
+  err = 0;
   
   close(fd);
   free(filename);
@@ -205,19 +238,24 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 #endif
     //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
     ioi->f_flags = re->get_w_flags();
+
+    /* Why did i do this twice? */
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
     //for s seconds.
-    prealloc_bytes = ((unsigned long)opt->rate*opt->time)/(opt->n_threads*8);
+    //prealloc_bytes = ((unsigned long)opt->rate*opt->time)/(opt->n_threads*8);
     //Split kb/gb stuff to avoid overflow warning
-    prealloc_bytes = prealloc_bytes*1024*1024;
+    //prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
+
+    prealloc_bytes = opt->max_num_packets* opt->buf_elem_size;
+
   }
   //fprintf(stdout, "wut\n");
   ioi->filename = opt->filenames[opt->taken_rpoints++];
   err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
-  if(err<0){
-    fprintf(stderr, "COMMON_WRT: Error in file open: %s\n", ioi->filename);
-    return -1;
+  if(err!=0){
+    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
+    return err;
   }
   //TODO: Set offset accordingly if file already exists. Not sure if
   //needed, since data consistency would take a hit anyway
@@ -225,8 +263,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->bytes_exchanged = 0;
   if(ioi->optbits & READMODE){
     err = common_handle_indices(ioi);
-    if(err<0){
-      perror("DEFWRITER: Reading indices");
+    if(err != 0){
+      fprintf(stderr, "COMMON_WRT: Reading indices returned %d", err);
       return -1;
     }
     else{
@@ -239,6 +277,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   else{
     ioi->elem_size = opt->buf_elem_size;
   }
+  err = 0;
   return err;
 }
 INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
@@ -257,7 +296,7 @@ void get_io_stats(void * opt, void * st){
   stats->total_written += ioi->bytes_exchanged;
 }
 int common_close(struct recording_entity * re, void * stats){
-  int err;
+  int err=0;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
 
   //struct stats* stat = (struct stats*)stats;
@@ -274,8 +313,10 @@ int common_close(struct recording_entity * re, void * stats){
   //Shrink to size we received if we're writing
   if(!(ioi->optbits & READMODE)){
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
-    if(err<0)
+    if(err!=0){
       perror("COMMON_WRT: ftruncate");
+      return err;
+    }
   }
   else{
     free(ioi->indices);
@@ -316,28 +357,28 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
  */
 char *find_hugetlbfs(char *fsmount, int len)
 {
-	char format[256];
-	char fstype[256];
-	char *ret = NULL;
-	FILE *fd;
+  char format[256];
+  char fstype[256];
+  char *ret = NULL;
+  FILE *fd;
 
-	snprintf(format, 255, "%%*s %%%ds %%255s %%*s %%*d %%*d", len);
+  snprintf(format, 255, "%%*s %%%ds %%255s %%*s %%*d %%*d", len);
 
-	fd = fopen("/proc/mounts", "r");
-	if (!fd) {
-		perror("fopen");
-		return NULL;
-	}
+  fd = fopen("/proc/mounts", "r");
+  if (!fd) {
+    perror("fopen");
+    return NULL;
+  }
 
-	while (fscanf(fd, format, fsmount, fstype) == 2) {
-		if (!strcmp(fstype, "hugetlbfs")) {
-			ret = fsmount;
-			break;
-		}
-	}
+  while (fscanf(fd, format, fsmount, fstype) == 2) {
+    if (!strcmp(fstype, "hugetlbfs")) {
+      ret = fsmount;
+      break;
+    }
+  }
 
-	fclose(fd);
-	return ret;
+  fclose(fd);
+  return ret;
 }
 #endif
 

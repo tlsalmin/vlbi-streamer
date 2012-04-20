@@ -148,8 +148,18 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     spec_ops->packet_index = spec_ops->be->recer->get_packet_index(spec_ops->be->recer);
   }
   else{
-    spec_ops->max_num_packets = opt->max_num_packets;
-    spec_ops->packet_index = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*opt->max_num_packets);
+    spec_ops->max_num_packets = opt->max_num_packets*2;
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "UDP_STREAMER: Trying to malloc %lu bytes for %lu packets\n", opt->max_num_packets/spec_ops->buf_elem_size, opt->max_num_packets);
+#endif
+      /* NOTE: We're allocating twice the equally divided packets. */
+    spec_ops->packet_index = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*spec_ops->max_num_packets);
+    if(spec_ops->packet_index == NULL){
+      perror("UDP_STREAMER: Indice Malloc");
+      fprintf(stderr, "UDP_STREAMER: Mallocing packet indice mem failed!. Returned null\n");
+      fprintf(stderr, "UDP_STREAMER: Tried to malloc %lu bytes for %lu packets\n", sizeof(INDEX_FILE_TYPE)*opt->max_num_packets, opt->max_num_packets);
+      return NULL;
+    }
     }
 
   /*
@@ -482,7 +492,7 @@ void * udp_sender(void *opt){
 	if(wait < *(spec_ops->wait_nanoseconds)){
 	  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
 #ifdef DEBUG_OUTPUT
-	  fprintf(stdout, "UDP_STREAMER: Sleeping %d ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
+	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
 #endif	
 	  usleep((*(spec_ops->wait_nanoseconds) - wait)/1000);
 	}
@@ -778,7 +788,7 @@ int close_udp_streamer(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "UDP_STREAMER: Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif
-      if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),(long unsigned)spec_ops->buf_elem_size, (void*)spec_ops->packet_index, (long unsigned)spec_ops->total_captured_packets) <0){
+      if (spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),(long unsigned)spec_ops->buf_elem_size, (void*)spec_ops->packet_index, (long unsigned)spec_ops->total_captured_packets) != 0){
 	fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
       }
 #ifdef DEBUG_OUTPUT
@@ -797,8 +807,9 @@ int close_udp_streamer(void *opt_own, void *stats){
   /* So if we're reading, just let the recorder end free the packet_index */
   if(!(spec_ops->optbits & READMODE)){
     free(spec_ops->packet_index);
-    free(spec_ops->sin);
   }
+  //else
+  free(spec_ops->sin);
   free(spec_ops->headlock);
   free(spec_ops->iosignal);
   free(spec_ops);

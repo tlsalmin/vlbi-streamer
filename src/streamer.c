@@ -336,10 +336,24 @@ static void parse_options(int argc, char **argv){
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
   if(!(opt.optbits & READMODE)){
-    loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
+    /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
+    /* bytes_per_sec * bytes = total_bytes */
+    /* total_bytes / threads = bytes per thread */
+    /* bytes_per_thread/opt.buf_elem_size = packets_per_thread */
+
+    /* Making this very verbose, since its only done once */
+    loff_t bytes_per_sec = (((unsigned long)opt.rate)*1024l*1024l)/8;
+    loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt.n_threads);
+    loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt.time);
+    loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt.buf_elem_size);
+    //loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
     //Split kb/gb stuff to avoid overflow warning
-    prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
-    opt.max_num_packets = prealloc_bytes;
+    //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
+    /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
+    opt.max_num_packets = packets_per_thread;
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
+#endif
   }
 
   //Set buf_size
@@ -469,7 +483,7 @@ int main(int argc, char **argv)
 	err = splice_init_splice(&opt, re);
 	break;
     }
-    if(err < 0){
+    if(err != 0){
       fprintf(stderr, "Error in writer init\n");
       exit(-1);
     }
@@ -491,7 +505,7 @@ int main(int argc, char **argv)
 	err = rbuf_init_dummy(&opt, be);
 	break;
     }
-    if(err < 0){
+    if(err != 0){
       fprintf(stderr, "Error in buffer init\n");
       exit(-1);
     }
