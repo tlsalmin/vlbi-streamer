@@ -408,6 +408,7 @@ static void parse_options(int argc, char **argv){
   //opt.buf_num_elems = (int)temp;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %d\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
+  opt.buf_num_elems = opt.buf_elem_size/opt.n_threads;
 #endif
   /*
      if (opt.rec_type == REC_AIO)
