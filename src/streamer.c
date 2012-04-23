@@ -376,7 +376,11 @@ static void parse_options(int argc, char **argv){
   /* Calc how many elementes we get into the buffer to fill the minimun */
   /* amount of memory we want to use					*/
   opt.buf_num_elems = 1;
-  while(buf_size < HD_MIN_WRITE_SIZE && !(buf_size % 512 == 0)){
+  while(buf_size < HD_MIN_WRITE_SIZE){
+    buf_size += opt.buf_elem_size;
+    opt.buf_num_elems++;
+  }
+  while(!(buf_size % 512 == 0)){
     buf_size += opt.buf_elem_size;
     opt.buf_num_elems++;
   }
