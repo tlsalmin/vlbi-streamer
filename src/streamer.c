@@ -355,16 +355,7 @@ static void parse_options(int argc, char **argv){
     fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
   }
-
-
   
-  int threads = opt.n_threads;
-  /*
-  if(opt.n_threads < 4)
-    threads = 4;
-  else
-  */
-    //threads = opt.n_threads;
   struct rlimit rl;
   /* Query max size */
   /* TODO: Doesn't work properly althought mem seems to be unlimited */
@@ -373,13 +364,10 @@ static void parse_options(int argc, char **argv){
     fprintf(stderr, "Failed to get rlimit of memory\n");
     exit(1);
   }
-
-
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
 #endif
   /* Check for memory limit						*/
-  unsigned long buf_size = opt.buf_elem_size;
   unsigned long minmem = MIN_MEM_GIG*GIG;
   if (minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
 #ifdef DEBUG_OUTPUT
@@ -390,6 +378,7 @@ static void parse_options(int argc, char **argv){
   /* Calc how many elementes we get into the buffer to fill the minimun */
   /* amount of memory we want to use					*/
   opt.buf_num_elems = 1;
+  unsigned long buf_size = opt.buf_elem_size;
   while(buf_size < HD_MIN_WRITE_SIZE){
     buf_size += opt.buf_elem_size;
     opt.buf_num_elems++;
@@ -404,16 +393,10 @@ static void parse_options(int argc, char **argv){
     buf_size += opt.buf_elem_size;
     opt.buf_num_elems++;
   }
-  //temp = (temp)/((long)opt.buf_elem_size*(long)threads);
-  //opt.buf_num_elems = (int)temp;
+  opt.buf_num_elems = opt.buf_num_elems/opt.n_threads;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %d\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
-  opt.buf_num_elems = opt.buf_elem_size/opt.n_threads;
 #endif
-  /*
-     if (opt.rec_type == REC_AIO)
-     opt.f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-     */
 }
 int main(int argc, char **argv)
 {
