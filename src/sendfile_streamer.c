@@ -479,6 +479,7 @@ void get_sendfile_stats(struct opts *spec_ops, void *stats){
 }
 int close_sendfile(void *opt_own, void *stats){
   struct opts *spec_ops = (struct opts *)opt_own;
+  int err;
   get_sendfile_stats(spec_ops,  stats);
 
   //close(spec_ops->fd);
@@ -492,8 +493,17 @@ int close_sendfile(void *opt_own, void *stats){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "Writing index data to %s\n", spec_ops->be->recer->get_filename(spec_ops->be->recer));
 #endif
-    if (spec_ops->be->recer->write_index_data != NULL && spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets) <0)
-      fprintf(stderr, "UDP_STREAMER: Index data write failed\n");
+    if (spec_ops->be->recer->write_index_data != NULL){
+      err = spec_ops->be->recer->write_index_data(spec_ops->be->recer->get_filename(spec_ops->be->recer),spec_ops->buf_elem_size, (void*)spec_ops->packet_index, spec_ops->total_captured_packets);
+      if(err != 0)
+	fprintf(stderr, "SENDFILE_STREAMER: Index data write failed\n");
+#ifdef DEBUG_OUTPUT
+      else
+	fprintf(stdout, "SENDFILE_STREAMER: Index data written ok\n");
+#endif
+    }
+    else
+      fprintf(stdout, "SENDFILE_STREAMER: Indexwriter function null. Not writing\n");
   }
   //stats->packet_index = spec_ops->packet_index;
   spec_ops->be->close(spec_ops->be, stats);

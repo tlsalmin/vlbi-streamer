@@ -49,14 +49,21 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   free(iocb);
 }
 */
+struct extra_parameters{
+  io_context_t ctx;
+  struct iocb ib[MAX_EVENTS];
+  int used_events;
+  int i;
+};
 //Read init is so similar to write, that i'll just add a parameter
 int aiow_init(struct opt_s* opt, struct recording_entity *re){
   int ret;
+  struct extra_parameters * ep;
 
   ret = common_w_init(opt,re);
-  if(ret<0){
+  if(ret!=0){
     fprintf(stderr, "Common w init returned error %d\n", ret);
-    return -1;
+    return ret;
   }
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
@@ -64,22 +71,28 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Preparing iostructs\n");
 #endif
-  ioi->extra_param =(io_context_t *) malloc(sizeof(io_context_t));
-  void * errpoint = memset((void*)ioi->extra_param, 0, sizeof(io_context_t));
+  //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
+  ioi->extra_param = (void*) malloc(sizeof(struct extra_parameters));
+  ep = (struct extra_parameters *) ioi->extra_param;
+  ep->used_events = 0;
+  memset(&(ep->ib), 0,sizeof(struct iocb)*MAX_EVENTS);
+  ep->i = 0;
+  //ioi->extra_param =(io_context_t *) malloc(sizeof(io_context_t));
+  void * errpoint = memset((void*)&(ep->ctx), 0, sizeof(io_context_t));
   if(errpoint== NULL){
     perror("AIOW: Memset ctx");
     return -1;
   }
-  io_context_t* ctx = (io_context_t*)ioi->extra_param;
+  //io_context_t* ctx = (io_context_t*)ioi->extra_param;
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Queue init\n");
 #endif
-  ret = io_queue_init(MAX_EVENTS, ctx);
+  ret = io_queue_init(MAX_EVENTS, &(ep->ctx));
   if(ret < 0){
     perror("AIOW: IO_QUEUE_INIT");
     return -1;
   }
-  return ret;
+  return 0;
 }
 int aiow_get_w_fflags(){
     return  O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
@@ -95,23 +108,37 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
 #endif
 
   struct common_io_info * ioi = (struct common_io_info * )re->opt;
+  struct extra_parameters * ep = (struct extra_parameters*)ioi->extra_param;
 
-  struct iocb *ib[1];
-  ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
-  if(ioi->optbits & READMODE)
-    io_prep_pread(ib[0], ioi->fd, start, count, ioi->offset);
-  else
-    io_prep_pwrite(ib[0], ioi->fd, start, count, ioi->offset);
+  if(ep->used_events < MAX_EVENTS){
+  //struct iocb *ib[1];
+  //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
+    if(ioi->optbits & READMODE)
+      io_prep_pread(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);
+    else
+      io_prep_pwrite(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);
+  }
+  else{
+#ifdef DEBUG_OUTPUT
+    fprintf(stdout, "AIOWRITER: Requests full! Returning 0\n");
+#endif
+    //TODO: IOwait or sleep
+    return 0;
+    }
 
   //io_set_callback(ib[0], wr_done);
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Prepared read/write for %lu bytes\n", count);
 #endif
+  struct iocb * ibi[1];
+  ibi[0] = &(ep->ib[ep->i]);
 
   //Not sure if 3rd argument safe, but running 
   //one iocb at a time anyway
-  ret = io_submit(*((io_context_t*)(ioi->extra_param)), 1, ib);
+  ret = io_submit(*((io_context_t*)(ioi->extra_param)), 1, ibi);
+  ep->used_events++;
+  ep->i = (ep->i + 1)%MAX_EVENTS;
 
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "AIOW: Submitted %ld reads/writes\n", ret);
@@ -136,10 +163,12 @@ long aiow_check(struct recording_entity * re){
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
   static struct timespec timeout = { 0, 0 };
   struct io_event event;
-  io_context_t * ctx = (io_context_t*)ioi->extra_param;
-  long ret = io_getevents(*(ctx), 0, 1, &event, &timeout);
+  struct extra_parameters *ep = (struct extra_parameters *)ioi->extra_param;
+  //io_context_t * ctx = ep->ctx;
+  long ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
   //
   if(ret > 0){
+    ep->used_events-=ret;
     if((signed long )event.res > 0){
       ioi->bytes_exchanged += event.res;
       ret = event.res;
@@ -150,7 +179,7 @@ long aiow_check(struct recording_entity * re){
     else{
       if(errno == 0){
 #ifdef DEBUG_OUTPUT
-	fprintf(stdout, "AIOWRITER: end of file! %ld %lu\n", event.res, errno);
+	fprintf(stdout, "AIOWRITER: end of file! %lu %d\n", event.res, errno);
 #endif
 	return 1;//event.res;
       }
@@ -160,6 +189,7 @@ long aiow_check(struct recording_entity * re){
 	return -1;
       }
     }
+
   }
   /*
   else{
@@ -198,10 +228,14 @@ int aiow_wait_for_write(struct recording_entity* re){
 }
 int aiow_close(struct recording_entity * re, void * stats){
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  struct extra_parameters *ep = (struct extra_parameters*)ioi->extra_param;
 
-  io_destroy(*(io_context_t*)ioi->extra_param);
-
+  io_destroy(ep->ctx);
+  free(ep);
   common_close(re, stats);
+  /* Done in common_close */
+  //free(ioi);
+
   return 0;
 }
 /*

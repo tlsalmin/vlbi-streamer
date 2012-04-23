@@ -1,8 +1,14 @@
 #!/bin/bash
 DAPREFIX=/usr
 
+if [ ! -e "./udpmon_extra-1.2.6.tar.gz" ]
+then
 wget http://www.hep.man.ac.uk/u/rich/Tools_Software/udpmon/udpmon_extra-1.2.6.tar.gz
+fi
+if [ ! -e "./libhj-4.2.6.tar.gz" ]
+then
 wget http://www.hep.man.ac.uk/u/rich/Tools_Software/libhj/libhj-4.2.6.tar.gz
+fi
 tar -xvvzf udpmon_extra-1.2.6.tar.gz
 tar -xvvzf libhj-4.2.6.tar.gz
 cd libhj-4.2.6/
@@ -20,6 +26,13 @@ make clean
 make
 make install
 echo "cleaning up"
+echo $PATH|grep /usr/sbin
+if [ ! $? -eq 0 ]
+then
+  export PATH=$PATH:/usr/sbin
+  echo "Exported path only to local shell. For longer use, change your"
+  echo "PATH-variable to hold also /usr/sbin(not default on some distros"
+fi
 cd ..
 rm libhj-4.2.6.tar.gz
 rm udpmon_extra-1.2.6.tar.gz
