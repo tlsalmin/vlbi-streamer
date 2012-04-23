@@ -468,7 +468,7 @@ void *rbuf_write_loop(void *buffo){
       rbuf->is_blocked = 1;
 #endif
 #ifdef DEBUG_OUTPUT
-      fprintf(stdout, "RINGBUF: Not enough to write %d", diff);
+      fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
 #endif
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     }

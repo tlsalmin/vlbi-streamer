@@ -59,9 +59,10 @@
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
 
-#define MEM_GIG 4
+#define MIN_MEM_GIG 4l
+//#define MAX_MEM_GIG 8
 //The default size
-#define BUF_ELEM_SIZE 8192
+#define DEF_BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 32
@@ -83,7 +84,8 @@
 //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-#define HD_WRITE_SIZE 16777216
+#define HD_MIN_WRITE_SIZE 16777216
+//#define HD_WRITE_SIZE_MAX 33554432
 //#define HD_WRITE_SIZE 1048576
 /* Size of current default huge page */
 //#define HD_WRITE_SIZE 2097152

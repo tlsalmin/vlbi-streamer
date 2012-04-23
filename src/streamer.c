@@ -154,7 +154,7 @@ static void parse_options(int argc, char **argv){
   opt.root_pid = getpid();
   opt.port = 2222;
   opt.n_threads = 1;
-  opt.buf_elem_size = BUF_ELEM_SIZE;
+  opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
   //opt.buf_type = BUFFER_RINGBUF;
   opt.optbits |= BUFFER_RINGBUF;
@@ -342,9 +342,6 @@ static void parse_options(int argc, char **argv){
     opt.max_num_packets = prealloc_bytes;
   }
 
-  //Set buf_size
-  //OK set limiter so that when using one thread, we won't actually allocate 4GB of mem
-  opt.do_w_stuff_every = HD_WRITE_SIZE/opt.buf_elem_size;
 
   
   int threads = opt.n_threads;
@@ -362,20 +359,37 @@ static void parse_options(int argc, char **argv){
     fprintf(stderr, "Failed to get rlimit of memory\n");
     exit(1);
   }
+
+
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
 #endif
-  unsigned long temp = (unsigned long)MEM_GIG*GIG;
-  if (temp > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
+  /* Check for memory limit						*/
+  unsigned long buf_size = opt.buf_elem_size;
+  unsigned long minmem = MIN_MEM_GIG*GIG;
+  if (minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
 #endif
-    temp = rl.rlim_cur;
+    minmem = rl.rlim_cur;
   }
-  temp = (temp)/((long)opt.buf_elem_size*(long)threads);
-  opt.buf_num_elems = (int)temp;
+  /* Calc how many elementes we get into the buffer to fill the minimun */
+  /* amount of memory we want to use					*/
+  opt.buf_num_elems = 1;
+  while(buf_size < HD_MIN_WRITE_SIZE && !(buf_size % 512 == 0)){
+    buf_size += opt.buf_elem_size;
+    opt.buf_num_elems++;
+  }
+  //fprintf(stdout, "minmem %lu MMM %d, LM%lu\n", minmem, MIN_MEM_GIG, (MIN_MEM_GIG << 30));
+  opt.do_w_stuff_every = buf_size/opt.buf_elem_size;
+  while(buf_size < minmem){
+    buf_size += opt.buf_elem_size;
+    opt.buf_num_elems++;
+  }
+  //temp = (temp)/((long)opt.buf_elem_size*(long)threads);
+  //opt.buf_num_elems = (int)temp;
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size));
+  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %d\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif
   /*
      if (opt.rec_type == REC_AIO)
@@ -599,7 +613,8 @@ int main(int argc, char **argv)
       /* Query and print the stats */
       for(i=0;i<opt.n_threads;i++){
 	threads[i].get_stats(threads[i].opt, &stats_now);
-	threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
+	if(threads[i].be->recer->get_stats != NULL)
+	  threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
       }
       //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
       neg_stats(&stats_now, &stats_prev);

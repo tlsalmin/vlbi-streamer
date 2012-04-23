@@ -16,19 +16,19 @@
 long def_write(struct recording_entity * re, void * start, size_t count){
   long ret = 0;
   long total_w = 0;
-#ifdef DEBUG_OUTPUT 
-  fprintf(stdout, "DEFWRITER: Issuing write of %lu\n", count);
-#endif
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
 
   /* Loop until we've gotten everything written */
   while(count >0){
+#ifdef DEBUG_OUTPUT 
+    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu\n", count,start);
+#endif
     if(ioi->optbits & READMODE)
       ret = read(ioi->fd, start, count);
     else
       ret = write(ioi->fd, start, count);
     if(ret <=0){
-      if(ioi->optbits & READMODE){
+      if(ret == 0 && (ioi->optbits & READMODE)){
 #ifdef DEBUG_OUTPUT
 	fprintf(stdout, "DEFWRITER: End of file!\n");
 #endif
@@ -37,9 +37,9 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 	return count;
       }
       else{
-      perror("DEFWRITER: Error on write/read");
-      fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %ld\n", ioi->filename,  count, ret);
-      return -1;
+	perror("DEFWRITER: Error on write/read");
+	fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %ld\n", ioi->filename,  count, ret);
+	return -1;
       }
     }
     else{

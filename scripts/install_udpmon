@@ -13,12 +13,12 @@ then
   sed -i.bak -e '/^dnl\ SUBDIRS/d' Makefile
   make clean
 fi
-sudo make install
+make install
 cd ../udpmon_extra-1.2.6/
 ./configure --prefix=$DAPREFIX --with-hj-location=$DAPREFIX
 make clean
 make
-sudo make install
+make install
 echo "cleaning up"
 cd ..
 rm libhj-4.2.6.tar.gz
