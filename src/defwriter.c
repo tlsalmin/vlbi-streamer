@@ -21,7 +21,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   /* Loop until we've gotten everything written */
   while(count >0){
 #ifdef DEBUG_OUTPUT 
-    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu\n", count,start);
+    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu\n", count,(long unsigned)start);
 #endif
     if(ioi->optbits & READMODE)
       ret = read(ioi->fd, start, count);

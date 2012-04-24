@@ -39,6 +39,67 @@ static struct opt_s opt;
 /*
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
  */
+int calculate_buffer_sizes(struct opt_s *opt){
+  /* Calc how many elementes we get into the buffer to fill the minimun */
+  /* amount of memory we want to use					*/
+
+  /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
+  unsigned long magic = 8;
+  //unsigned long bufsize;// = opt.buf_elem_size;
+  int found = 0;
+
+  fprintf(stdout, "STREAMER: Calculating total buffer size between "
+      "%lu GB to %luGB,"
+      " size %lu packets, "
+      "Doing maximum %luMB size writes\n"
+      ,opt->minmem, opt->maxmem, opt->buf_elem_size, opt->do_w_stuff_every/MEG);
+  /* Set do_w_stuff to minimum wanted */
+  unsigned long temp = opt->do_w_stuff_every/opt->buf_elem_size;
+  fprintf(stdout, "%lu\n",temp);
+  opt->do_w_stuff_every = temp*(opt->buf_elem_size);
+  /* Increase block division to fill min amount of memory */
+  while((opt->do_w_stuff_every)*magic*(opt->n_threads) < (opt->minmem)*GIG){
+    magic++;
+  }
+  temp = opt->do_w_stuff_every;
+  while((found == 0) && (magic > 0)){
+    /* Increase buffer size until its BLOCK_ALIGNed */
+    while((opt->do_w_stuff_every)*magic*(opt->n_threads) < (opt->maxmem)*GIG){
+      if(opt->do_w_stuff_every % BLOCK_ALIGN == 0){
+	found=1;
+	opt->buf_num_elems = (opt->do_w_stuff_every*magic)/opt->buf_elem_size;
+	opt->do_w_stuff_every = opt->do_w_stuff_every/opt->buf_elem_size;
+	break;
+      }
+      opt->do_w_stuff_every+=opt->buf_elem_size;
+    }
+    if(found == 0){
+      opt->do_w_stuff_every = temp;
+      magic--;
+    }
+  }
+  if(found ==0){
+    fprintf(stderr, "STREAMER: Didnt find lAlignment"
+	"%lu GB to %luGB"
+	", Each buffer having %lu bytes"
+	", Writing in %lu size blocks"
+	", %lu Blocks per buffer"
+	", Elements in buffer %d\n"
+	,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every,magic ,opt->buf_num_elems);
+    //fprintf(stdout, "STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/magic);
+    return -1;
+  }
+  else{
+  fprintf(stdout, "STREAMER: Alignment found between "
+      "%lu GB to %luGB"
+      ", Each buffer having %lu bytes"
+      ", Writing in %lu size blocks"
+      ", Elements in buffer %d\n"
+      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems);
+    //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),magic, (opt->buf_num_elems*opt->buf_elem_size)/magic);
+    return 0;
+  }
+}
 int resolve_host(char *host, struct in_addr * ia){
   int err=0;
   return err;
@@ -149,6 +210,7 @@ static void parse_options(int argc, char **argv){
   /* Opts using optbits */
   //opt.capture_type = CAPTURE_W_FANOUT;
   opt.optbits |= CAPTURE_W_UDPSTREAM;
+  opt.do_w_stuff_every = HD_MIN_WRITE_SIZE;
   //opt.fanout_type = PACKET_FANOUT_LB;
   //opt.optbits |= PACKET_FANOUT_LB;
   opt.root_pid = getpid();
@@ -162,19 +224,30 @@ static void parse_options(int argc, char **argv){
   opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
   opt.rate = 10000;
+  opt.minmem = MIN_MEM_GIG;
+  opt.maxmem = MAX_MEM_GIG;
   //opt.handle = 0;
   //opt.read = 0;
   opt.tid = 0;
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:vV"))!= -1){
+  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:vVI:A:W:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
 	break;
       case 'v':
 	opt.optbits |= VERBOSE;
+	break;
+      case 'I':
+	opt.minmem = atoi(optarg);
+	break;
+      case 'W':
+	opt.do_w_stuff_every = atoi(optarg)*MEG;
+	break;
+      case 'A':
+	opt.maxmem = atoi(optarg);
 	break;
       case 'V':
 	opt.optbits |= MOUNTPOINT_VERBOSE;
@@ -368,44 +441,16 @@ static void parse_options(int argc, char **argv){
   fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
 #endif
   /* Check for memory limit						*/
-  unsigned long minmem = MIN_MEM_GIG*GIG;
-  if (minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
+  //unsigned long minmem = MIN_MEM_GIG*GIG;
+  if (opt.minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
 #endif
-    minmem = rl.rlim_cur;
+    opt.minmem = rl.rlim_cur;
   }
-  /* Calc how many elementes we get into the buffer to fill the minimun */
-  /* amount of memory we want to use					*/
-
-  /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
-  unsigned long magic = 8;
-  //unsigned long bufsize;// = opt.buf_elem_size;
-  int found = 0;
-
-  /* Set do_w_stuff to minimum wanted */
-  unsigned long temp = HD_MIN_WRITE_SIZE/opt.buf_elem_size;
-  opt.do_w_stuff_every = temp*opt.buf_elem_size;
-  /* Increase block division to fill min amount of memory */
-  while(opt.do_w_stuff_every*magic*opt.n_threads < MIN_MEM_GIG*GIG){
-    magic++;
-  }
-  /* Increase buffer size until its BLOCK_ALIGNed */
-  while(opt.do_w_stuff_every*magic*opt.n_threads < MAX_MEM_GIG*GIG){
-    if(opt.do_w_stuff_every % BLOCK_ALIGN == 0){
-      found=1;
-      opt.buf_num_elems = (opt.do_w_stuff_every*magic)/opt.buf_elem_size;
-      opt.do_w_stuff_every = opt.do_w_stuff_every/opt.buf_elem_size;
-      break;
-    }
-    opt.do_w_stuff_every+=opt.buf_elem_size;
-  }
-  if(found ==0){
-    fprintf(stdout, "Didnt find alignment for %lu on %lu threads, with w_every %lu\n", opt.buf_elem_size,opt.n_threads, (opt.buf_elem_size*opt.buf_num_elems)/magic);
-    exit(-1);
-  }
-  else{
-    fprintf(stdout, "Alignment found for %lu size packet with %lu threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt.buf_elem_size,opt.n_threads ,opt.buf_num_elems*opt.buf_elem_size,magic, (opt.buf_num_elems*opt.buf_elem_size)/magic);
+  if(!(opt.optbits & READMODE)){
+    if (calculate_buffer_sizes(&opt) != 0)
+      exit(-1);
   }
 
   /*
@@ -427,7 +472,7 @@ static void parse_options(int argc, char **argv){
      opt.buf_num_elems = opt.buf_num_elems/opt.n_threads;
      */
 #ifdef DEBUG_OUTPUT
-  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %d\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
+  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %lu\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif
 }
 int main(int argc, char **argv)

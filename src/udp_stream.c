@@ -53,7 +53,7 @@ struct opts
   int root_pid;
   int time;
   int port;
-  int do_w_stuff_every;
+  unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int *wait_nanoseconds;
   struct timespec *wait_last_sent;
@@ -209,7 +209,7 @@ void * setup_udp_socket(struct opt_s * opt, struct buffer_entity * se)
     /* TODO: Remove DO_W_STUFF_EVERY since packet size is defined at invocation */
     /* Changed from compile-time						*/
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "UDP_STREAMER: Doing HD-write stuff every %d\n", spec_ops->do_w_stuff_every);
+    fprintf(stdout, "UDP_STREAMER: Doing HD-write stuff every %lu\n", spec_ops->do_w_stuff_every);
 #endif
 
     if (spec_ops->fd < 0) {

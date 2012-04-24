@@ -20,7 +20,7 @@ struct ringbuf{
 #ifdef SPLIT_RBUF_AND_IO_TO_THREAD
   int running;
 #endif
-  int do_w_stuff_every;
+  unsigned long do_w_stuff_every;
   int async_writes_submitted;
 
   //int async;

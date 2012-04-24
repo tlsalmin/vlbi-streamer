@@ -375,7 +375,10 @@ void *rbuf_read_loop(void *buffo){
     limited_head = *head;
 #endif
     if(diff > 0){
-      ret = write_bytes(be,limited_head, tail,diff);
+      if(minp < rbuf->do_w_stuff_every)
+	ret = end_transaction(be,limited_head, tail,diff);
+      else
+	ret = write_bytes(be,limited_head, tail,diff);
       if(ret!=0){
 	fprintf(stderr, "RINGBUG: Write returned error %d\n", ret);
 	/* If streamer is blocked, wake it up 	*/
@@ -454,7 +457,7 @@ void *rbuf_read_loop(void *buffo){
 int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
   struct ringbuf * rbuf = (struct ringbuf * )be->opt;
   unsigned long wrote_extra = 0;
-  int ret = 0;
+  long int ret = 0;
   
   unsigned long count = diff*(rbuf->elem_size);
   void * start = rbuf->buffer + (*tail * rbuf->elem_size);
@@ -486,6 +489,7 @@ int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
     increment_amount(rbuf, tail, diff);
     pthread_mutex_unlock(rbuf->headlock);
   }
+  return 0;
 }
 /* main func for writing and sleeping on buffer empty */ 
 void *rbuf_write_loop(void *buffo){
@@ -584,6 +588,7 @@ void *rbuf_write_loop(void *buffo){
     /* TODO: Move away from silly async-wait times and 	*/
     /* Just use a counter for number of writes 		*/
     while((diff = diff_max(*tail, *head, rbuf->num_elems)) > 0){
+      int ret = 0;
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "RINGBUF: Closing up: diffmax reported: we have %d left in buffer after completion\n", diff);
 #endif
@@ -594,7 +599,7 @@ void *rbuf_write_loop(void *buffo){
       /* on the disk. IO_DIRECT requires block bytes aligned writes(512) 	*/
       /* So we increment it to the next full bytecount				*/
       if(diff < rbuf->do_w_stuff_every){
-	end_transaction(be, *head,tail,diff);
+	ret = end_transaction(be, *head,tail,diff);
       }
       else{
 	/*

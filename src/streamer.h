@@ -120,10 +120,12 @@ struct opt_s
   int root_pid;
   unsigned long time;
   int port;
+  long minmem;
+  long maxmem;
   int socket;
   int n_threads;
   int rate;
-  int do_w_stuff_every;
+  unsigned long  do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   struct timespec wait_last_sent;
@@ -222,4 +224,5 @@ struct stats
   //Cheating here to keep infra consistent
   int * packet_index;
 };
+int calculate_buffer_sizes(struct opt_s *opt);
 #endif
