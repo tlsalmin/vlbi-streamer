@@ -450,6 +450,43 @@ void *rbuf_read_loop(void *buffo){
 #endif
   pthread_exit(NULL);
 }
+/* Need to do 512 byte aligned write at end */
+int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
+  struct ringbuf * rbuf = (struct ringbuf * )be->opt;
+  unsigned long wrote_extra = 0;
+  int ret = 0;
+  
+  unsigned long count = diff*(rbuf->elem_size);
+  void * start = rbuf->buffer + (*tail * rbuf->elem_size);
+  while(count % 512 != 0){
+    count++;
+    wrote_extra++;
+  }
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "RINGBUF: Have to write %lu extra bytes\n", wrote_extra);
+#endif
+
+  ret = be->recer->write(be->recer, start, count);
+  if(ret<0){
+    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld\n", ret);
+    return -1;
+  }
+  else if (ret == 0){
+    //Don't increment
+  }
+  else{
+    if(rbuf->optbits & ASYNC_WRITE)
+      rbuf->async_writes_submitted++;
+    if(ret != count){
+      fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
+      /* TODO: Handle incrementing so we won't lose data */
+    }
+    //increment_amount(rbuf, &(rbuf->hdwriter_head), endi);
+    pthread_mutex_lock(rbuf->headlock);
+    increment_amount(rbuf, tail, diff);
+    pthread_mutex_unlock(rbuf->headlock);
+  }
+}
 /* main func for writing and sleeping on buffer empty */ 
 void *rbuf_write_loop(void *buffo){
   struct buffer_entity * be = (struct buffer_entity *)buffo;
@@ -553,36 +590,51 @@ void *rbuf_write_loop(void *buffo){
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
       //aio can overload on write requests, so making just one big for it
       //if(!(rbuf->optbits & ASYNC_WRITE)){
-	diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
+      /* NOTE: Due to arbitrary size packets, we need to write extra data 	*/
+      /* on the disk. IO_DIRECT requires block bytes aligned writes(512) 	*/
+      /* So we increment it to the next full bytecount				*/
+      if(diff < rbuf->do_w_stuff_every){
+	end_transaction(be, *head,tail,diff);
+      }
+      else{
+	/*
+	   while(diff*(rbuf->elem_size) % 512 != 0)
+	   diff++;
+	   }
+	   */
+	if (diff > rbuf->do_w_stuff_every)
+	  diff = rbuf->do_w_stuff_every;
+	//diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
 	limited_head = (*tail+diff)%rbuf->num_elems;
-      //}
-      //else
+	//}
+	//else
 	//limited_head = *head;
 #else
-      limited_head = *head;
+	limited_head = *head;
 #endif
-      ret = write_bytes(be,limited_head,tail,diff);
-      if(ret != 0){
-	fprintf(stderr, "RINGBUF: Error in write. Exiting\n");
-	break;
-      }
-      /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
-      if(rbuf->optbits & ASYNC_WRITE){
-	usleep(100);
-	rbuf_check(be);
-      }
-    }
-    if(rbuf->optbits & ASYNC_WRITE){
-      while(rbuf->async_writes_submitted >0){
-#ifdef DEBUG_OUTPUT
-	fprintf(stdout, "RINGBUF: Sleeping and waiting for async to complete %d writes submitted\n", rbuf->async_writes_submitted);
-#endif
-	usleep(1000);
-	rbuf_check(be);
-      }
+	ret = write_bytes(be,limited_head,tail,diff);
+	if(ret != 0){
+	  fprintf(stderr, "RINGBUF: Error in write. Exiting\n");
+	  break;
+	}
+	/* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
+	if(rbuf->optbits & ASYNC_WRITE){
+	  usleep(100);
+	  rbuf_check(be);
+	}
     }
   }
-  pthread_exit(NULL);
+  if(rbuf->optbits & ASYNC_WRITE){
+    while(rbuf->async_writes_submitted >0){
+#ifdef DEBUG_OUTPUT
+      fprintf(stdout, "RINGBUF: Sleeping and waiting for async to complete %d writes submitted\n", rbuf->async_writes_submitted);
+#endif
+      usleep(1000);
+      rbuf_check(be);
+    }
+  }
+}
+pthread_exit(NULL);
 }
 int rbuf_check(struct buffer_entity *be){
   int ret = 0, returnable = 0;
@@ -607,6 +659,11 @@ int rbuf_check(struct buffer_entity *be){
     /* ret/buf_size = number of buffs we've written */
 
     num_written = ret/rbuf->elem_size;
+
+    /* This might happen on last write, when we need to write some extra */
+    /* stuff to keep the writes Block aligned				*/
+    if(num_written > rbuf->do_w_stuff_every)
+      num_written = rbuf->do_w_stuff_every;
 
     /* TODO: If we receive IO done out of order, we'll potentially release  */
     /* Buffer entries that haven't yet been released. Trusting that this 	*/

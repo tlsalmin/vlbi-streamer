@@ -59,7 +59,10 @@
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
 
-#define MIN_MEM_GIG 4l
+#define MIN_MEM_GIG 1l
+#define MAX_MEM_GIG 4l
+/* TODO query this */
+#define BLOCK_ALIGN 512
 //#define MAX_MEM_GIG 8
 //The default size
 #define DEF_BUF_ELEM_SIZE 8192
@@ -85,15 +88,18 @@
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
 #define HD_MIN_WRITE_SIZE 16777216
-//#define HD_WRITE_SIZE_MAX 33554432
-//#define HD_WRITE_SIZE 1048576
+//#define HD_MIN_WRITE_SIZE 1048576
 /* Size of current default huge page */
-//#define HD_WRITE_SIZE 2097152
-//#define HD_WRITE_SIZE 134217728
-//#define HD_WRITE_SIZE 33554432
-//#define HD_WRITE_SIZE 262144
+//#define HD_MIN_WRITE_SIZE 2097152
+//#define HD_MIN_WRITE_SIZE 134217728
+//#define HD_MIN_WRITE_SIZE 33554432
+//#define HD_MIN_WRITE_SIZE 262144
 //#define HD_WRITE_SIZE 524288
-//#define HD_WRITE_SIZE 65536
+//#define HD_MIN_WRITE_SIZE 65536
+/* Tested with misc/bytaligntest.c that dividing the buffer 	*/
+/* to 16 blocks gives a good byte aling and only doesn't work	*/
+/* on crazy sized packets like 50kB+ */
+//#define MAGIC_BUFFERDIVISION 16
 
 //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling

@@ -377,23 +377,52 @@ static void parse_options(int argc, char **argv){
   }
   /* Calc how many elementes we get into the buffer to fill the minimun */
   /* amount of memory we want to use					*/
-  opt.buf_num_elems = 1;
-  unsigned long buf_size = opt.buf_elem_size;
-  while(buf_size < HD_MIN_WRITE_SIZE){
-    buf_size += opt.buf_elem_size;
-    opt.buf_num_elems++;
+
+  /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
+  unsigned long magic = 12;
+  unsigned long bufsize;// = opt.buf_elem_size;
+  int found = 0;
+
+  unsigned long temp = HD_MIN_WRITE_SIZE/opt.buf_elem_size;
+  bufsize = temp*opt.buf_elem_size;
+  while(bufsize*magic*opt.n_threads < MIN_MEM_GIG*GIG){
+    bufsize+=opt.buf_elem_size;
   }
-  while(!(buf_size % 512 == 0)){
-    buf_size += opt.buf_elem_size;
-    opt.buf_num_elems++;
+  while(bufsize*magic*opt.n_threads < MAX_MEM_GIG*GIG){
+    if(bufsize % BLOCK_ALIGN == 0){
+      found=1;
+      opt.buf_num_elems = (bufsize*magic)/opt.buf_elem_size;
+      opt.do_w_stuff_every = bufsize/opt.buf_elem_size;
+      break;
+    }
+    bufsize+=opt.buf_elem_size;
   }
-  //fprintf(stdout, "minmem %lu MMM %d, LM%lu\n", minmem, MIN_MEM_GIG, (MIN_MEM_GIG << 30));
-  opt.do_w_stuff_every = buf_size/opt.buf_elem_size;
-  while(buf_size < minmem){
-    buf_size += opt.buf_elem_size;
-    opt.buf_num_elems++;
+  if(found ==0){
+    fprintf(stdout, "Didnt find alignment for %lu on %lu threads, with w_every %lu\n", opt.buf_elem_size,opt.n_threads, (opt.buf_elem_size*opt.buf_num_elems)/magic);
+    exit(-1);
   }
-  opt.buf_num_elems = opt.buf_num_elems/opt.n_threads;
+  else{
+    fprintf(stdout, "Alignment found for %lu size packet with %lu threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt.buf_elem_size,opt.n_threads ,opt.buf_num_elems*opt.buf_elem_size,magic, (opt.buf_num_elems*opt.buf_elem_size)/magic);
+  }
+
+  /*
+     opt.buf_num_elems = 1;
+     unsigned long buf_size = opt.buf_elem_size;
+     while(buf_size < HD_MIN_WRITE_SIZE){
+     buf_size += opt.buf_elem_size;
+     opt.buf_num_elems++;
+     }
+     while(!(buf_size % BLOCK_ALIGN == 0)){
+     buf_size += opt.buf_elem_size;
+     opt.buf_num_elems++;
+     }
+     opt.do_w_stuff_every = buf_size/opt.buf_elem_size;
+     while(buf_size < minmem){
+     buf_size += opt.buf_elem_size;
+     opt.buf_num_elems++;
+     }
+     opt.buf_num_elems = opt.buf_num_elems/opt.n_threads;
+     */
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %d\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif
