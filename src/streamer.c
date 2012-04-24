@@ -379,23 +379,26 @@ static void parse_options(int argc, char **argv){
   /* amount of memory we want to use					*/
 
   /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
-  unsigned long magic = 12;
-  unsigned long bufsize;// = opt.buf_elem_size;
+  unsigned long magic = 8;
+  //unsigned long bufsize;// = opt.buf_elem_size;
   int found = 0;
 
+  /* Set do_w_stuff to minimum wanted */
   unsigned long temp = HD_MIN_WRITE_SIZE/opt.buf_elem_size;
-  bufsize = temp*opt.buf_elem_size;
-  while(bufsize*magic*opt.n_threads < MIN_MEM_GIG*GIG){
-    bufsize+=opt.buf_elem_size;
+  opt.do_w_stuff_every = temp*opt.buf_elem_size;
+  /* Increase block division to fill min amount of memory */
+  while(opt.do_w_stuff_every*magic*opt.n_threads < MIN_MEM_GIG*GIG){
+    magic++;
   }
-  while(bufsize*magic*opt.n_threads < MAX_MEM_GIG*GIG){
-    if(bufsize % BLOCK_ALIGN == 0){
+  /* Increase buffer size until its BLOCK_ALIGNed */
+  while(opt.do_w_stuff_every*magic*opt.n_threads < MAX_MEM_GIG*GIG){
+    if(opt.do_w_stuff_every % BLOCK_ALIGN == 0){
       found=1;
-      opt.buf_num_elems = (bufsize*magic)/opt.buf_elem_size;
-      opt.do_w_stuff_every = bufsize/opt.buf_elem_size;
+      opt.buf_num_elems = (opt.do_w_stuff_every*magic)/opt.buf_elem_size;
+      opt.do_w_stuff_every = opt.do_w_stuff_every/opt.buf_elem_size;
       break;
     }
-    bufsize+=opt.buf_elem_size;
+    opt.do_w_stuff_every+=opt.buf_elem_size;
   }
   if(found ==0){
     fprintf(stdout, "Didnt find alignment for %lu on %lu threads, with w_every %lu\n", opt.buf_elem_size,opt.n_threads, (opt.buf_elem_size*opt.buf_num_elems)/magic);
