@@ -269,7 +269,9 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     }
     else{
       opt->buf_elem_size = ioi->elem_size;
-      calculate_buffer_sizes(opt);
+      /* If we haven't calculated optsize yet */
+      if(opt->buf_num_elems == 0)
+	calculate_buffer_sizes(opt);
 #ifdef DEBUG_OUTPUT
       fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
 #endif

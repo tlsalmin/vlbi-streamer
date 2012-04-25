@@ -94,8 +94,9 @@ int calculate_buffer_sizes(struct opt_s *opt){
       "%lu GB to %luGB"
       ", Each buffer having %lu bytes"
       ", Writing in %lu size blocks"
-      ", Elements in buffer %d\n"
-      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems);
+      ", Elements in buffer %d"
+      ", Total used memory: %luB\n"
+      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems, opt->buf_num_elems*opt->buf_elem_size*opt->n_threads);
     //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),magic, (opt->buf_num_elems*opt->buf_elem_size)/magic);
     return 0;
   }

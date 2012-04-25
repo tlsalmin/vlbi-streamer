@@ -514,13 +514,16 @@ void *rbuf_write_loop(void *buffo){
       pthread_cond_wait(rbuf->iosignal, rbuf->headlock);
     }
 #ifdef DEBUG_OUTPUT
-	fprintf(stdout, "RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d\n", diff, *tail, *head);
+    fprintf(stdout, "RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d\n", diff, *tail, *head);
 #endif
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
     rbuf->is_blocked = 0;
 #endif
     pthread_mutex_unlock(rbuf->headlock);
 
+    /* We might be stopped inbetween by the streamer entity */
+    if(!rbuf->running)
+      break;
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
     diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
     limited_head = (*tail+diff)%rbuf->num_elems;
@@ -536,7 +539,7 @@ void *rbuf_write_loop(void *buffo){
 	be->se->stop(be->se);
 	/*
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-	if(be->se->is_blocked(be->se))
+if(be->se->is_blocked(be->se))
 #endif
 */
 	{
@@ -550,10 +553,10 @@ void *rbuf_write_loop(void *buffo){
       /* We get a zero if its not a straight error, but not a full write 	*/
       /* Or an io_submit that wasn't queued					*/
       /*
-      else if (ret == 0){
-	fprintf(stderr, "RINGBUF: Incomplete or failed async write. Not stopping\n");
-      }
-      */
+	 else if (ret == 0){
+	 fprintf(stderr, "RINGBUF: Incomplete or failed async write. Not stopping\n");
+	 }
+	 */
       else{
 	/* If we either just wrote the stuff in write_after_checks(synchronious 	*/
 	/* blocking write or check in async mode) returned a > 0 amount of writes  */
@@ -609,24 +612,24 @@ void *rbuf_write_loop(void *buffo){
 	   */
 	if (diff > rbuf->do_w_stuff_every)
 	  diff = rbuf->do_w_stuff_every;
-	//diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
-	limited_head = (*tail+diff)%rbuf->num_elems;
-	//}
-	//else
-	//limited_head = *head;
+      //diff = diff < rbuf->do_w_stuff_every ? diff : rbuf->do_w_stuff_every;
+      limited_head = (*tail+diff)%rbuf->num_elems;
+      //}
+      //else
+      //limited_head = *head;
 #else
-	limited_head = *head;
+      limited_head = *head;
 #endif
-	ret = write_bytes(be,limited_head,tail,diff);
-	if(ret != 0){
-	  fprintf(stderr, "RINGBUF: Error in write. Exiting\n");
-	  break;
-	}
-	/* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
-	if(rbuf->optbits & ASYNC_WRITE){
-	  usleep(100);
-	  rbuf_check(be);
-	}
+      ret = write_bytes(be,limited_head,tail,diff);
+      if(ret != 0){
+	fprintf(stderr, "RINGBUF: Error in write. Exiting\n");
+	break;
+      }
+      /* TODO: add a counter for n. of writes so we'll be sure we've written everything in async */
+      if(rbuf->optbits & ASYNC_WRITE){
+	usleep(100);
+	rbuf_check(be);
+      }
     }
   }
   if(rbuf->optbits & ASYNC_WRITE){

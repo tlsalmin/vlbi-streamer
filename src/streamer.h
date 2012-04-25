@@ -59,8 +59,8 @@
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
 
-#define MIN_MEM_GIG 1l
-#define MAX_MEM_GIG 4l
+#define MIN_MEM_GIG 4l
+#define MAX_MEM_GIG 12l
 /* TODO query this */
 #define BLOCK_ALIGN 512
 //#define MAX_MEM_GIG 8

@@ -1,0 +1,93 @@
+#!/bin/bash
+PACKETSIZE=8192
+PORT=2222
+TARGET=127.0.0.1
+TESTTIME=5
+THREADS=6
+METHODS=(def aio splice)
+#VERBOSE=" > /dev/null"
+VERBOSE="-v"
+WAIT=40
+
+echo "Cleaning up leftovers from previous test"
+for i in /mnt/disk*
+do
+for j in "${METHODS[@]}"
+do 
+  rm $i/multi_$j &> /dev/null
+  rm $i/one_$j &> /dev/null
+done
+done
+
+echo "Testing sending with nonexisting files"
+for i in "${METHODS[@]}"
+do
+  src/vlbistreamer -u $PORT -m s -n 1 -w $i this_should_not_exist 127.0.0.1 &> /dev/null
+  #Identical lines, but the other gives an error WTF?
+  #if [ ! $? -eq 0 ]
+  if [ $? -eq 0 ]
+  then
+    echo "Started sending, eventhought no file on $i writer!"
+    exit -1
+  fi
+  echo -e ". $i\t\tok"
+done
+echo -e "Nonexisting files test ... \tOK"
+echo "Testing receiving/sending from localhost on 1 thread"
+for i in "${METHODS[@]}"
+do
+  echo -e "Testing writing $i"
+  udpmon_send -u $PORT -p $PACKETSIZE -t $((TESTTIME*2)) -d $TARGET -w $WAIT > /dev/null &
+  src/vlbistreamer -n 1 -m r -s $PORT -w def -p $PACKETSIZE one_$i $TESTTIME  $VERBOSE
+  if [ ! $? -eq 0 ]
+  then
+    echo "Error on one thread $i writer"  
+    exit -1
+  fi
+  #Kills the sender. Doesn't actually work :/
+  killall udpmon_send
+  echo -e "$i writer one thread ... \tOK"
+  echo -e "Testing sending $i"
+  src/vlbistreamer -n 1 -m s -s $PORT -w def -p $PACKETSIZE one_$i $TARGET $VERBOSE
+  if [ ! $? -eq 0 ]
+  then
+    echo "Error on one thread $i writer"  
+    exit -1
+  fi
+  echo -e "$i sending one thread ... \tOK"
+done
+for i in "${METHODS[@]}"
+do
+  echo -e "Testing writing $THREAD threads $i"
+  udpmon_send -u $PORT -p $PACKETSIZE -t $((TESTTIME*2)) -d $TARGET -w $WAIT > /dev/null &
+  src/vlbistreamer -n $THREADS -m r -s $PORT -w def -p $PACKETSIZE multi_$i $TESTTIME  $VERBOSE
+  if [ ! $? -eq 0 ]
+  then
+    echo "Error on $THREADS threads $i writer"  
+    exit -1
+  fi
+  #Kills the sender. Doesn't actually work :/
+  killall udpmon_send
+  echo -e "$i writer $THREADS threads ... \tOK"
+  echo -e "Testing sending $i"
+  src/vlbistreamer -n $THREADS -m s -s $PORT -w def -p $PACKETSIZE multi_$i $TARGET  $VERBOSE
+  if [ ! $? -eq 0 ]
+  then
+    echo "Error on $THREADS threads $i writer"  
+    exit -1
+  fi
+  echo -e "$i sending $THREADS threads ... \tOK"
+done
+
+echo "Cleaning up"
+for i in /mnt/disk*
+do
+for j in "${METHODS[@]}"
+do 
+  rm $i/multi_$j &> /dev/null
+  rm $i/one_$j &> /dev/null
+done
+done
+
+
+exit 0
