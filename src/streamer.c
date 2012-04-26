@@ -36,9 +36,6 @@ extern int optind, optopt;
 
 static struct opt_s opt;
 
-/*
- * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
- */
 int calculate_buffer_sizes(struct opt_s *opt){
   /* Calc how many elementes we get into the buffer to fill the minimun */
   /* amount of memory we want to use					*/
@@ -101,6 +98,9 @@ int calculate_buffer_sizes(struct opt_s *opt){
     return 0;
   }
 }
+/*
+ * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
+ */
 int resolve_host(char *host, struct in_addr * ia){
   int err=0;
   return err;
@@ -121,6 +121,10 @@ static void usage(char *binary){
       "-u 		Use hugepages\n"
 #endif
       "-m {s|r}		Send or Receive the data(Default: receive)\n"
+      "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
+      "-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
+      "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
+      "-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
 #ifdef HAVE_RATELIMITER
@@ -150,6 +154,7 @@ void neg_stats(struct stats* st1, struct stats* st2){
   /* We sometimes get a situation, where the previous val is larger 	*/
   /* than the new value. This shouldn't happen! For now I'll just add	*/
   /* an ugly hack here. TODO: Solve					*/
+  /* NOTE: This doesn't affect the final stats				*/
 #ifdef UGLY_HACKS_ON_STATS
   if(st1->total_bytes < st2->total_bytes)
     st1->total_bytes =0 ;
@@ -453,25 +458,6 @@ static void parse_options(int argc, char **argv){
     if (calculate_buffer_sizes(&opt) != 0)
       exit(-1);
   }
-
-  /*
-     opt.buf_num_elems = 1;
-     unsigned long buf_size = opt.buf_elem_size;
-     while(buf_size < HD_MIN_WRITE_SIZE){
-     buf_size += opt.buf_elem_size;
-     opt.buf_num_elems++;
-     }
-     while(!(buf_size % BLOCK_ALIGN == 0)){
-     buf_size += opt.buf_elem_size;
-     opt.buf_num_elems++;
-     }
-     opt.do_w_stuff_every = buf_size/opt.buf_elem_size;
-     while(buf_size < minmem){
-     buf_size += opt.buf_elem_size;
-     opt.buf_num_elems++;
-     }
-     opt.buf_num_elems = opt.buf_num_elems/opt.n_threads;
-     */
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %lu\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif

@@ -86,6 +86,6 @@ int rec_init_dummy(struct opt_s *op , struct recording_entity *re){
   re->init = null;
   re-write = dummy_write_wrapped;
   */
-  return 1;
+  return 0;
 }
 
