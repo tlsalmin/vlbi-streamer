@@ -123,7 +123,7 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   //Write the data
   //err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
   err = fwrite(data, sizeof(INDEX_FILE_TYPE), count, file);
-  if(err != count){
+  if((unsigned long)err != count){
     if(err == -1)
       perror("COMMON_WRT: Writing indices");
     else
@@ -222,6 +222,18 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   int err =0;
   ioi->optbits = opt->optbits;
 
+
+  //re->diskbranch = &(opt->diskbranch);
+  D("Adding writer to diskbranch");
+  struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+  le->entity = (void*)re;
+  le->child = NULL;
+  le->father = NULL;
+  re->self= le;
+  add_to_entlist(opt->diskbranch, le);
+  D("Writer added to diskbranch");
+
+
   //ioi->latest_write_num = 0;
   if(ioi->optbits & READMODE){
 #ifdef DEBUG_OUTPUT
@@ -247,7 +259,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     //prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
 
-    prealloc_bytes = opt->max_num_packets* opt->buf_elem_size;
+    //prealloc_bytes = opt->max_num_packets* opt->buf_elem_size;
+    prealloc_bytes=0;
 
   }
   //fprintf(stdout, "wut\n");

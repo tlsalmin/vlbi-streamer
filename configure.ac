@@ -1,6 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
+: ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.67])
 AC_INIT([vlbi-streamer], [0.1.1], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
@@ -59,7 +60,7 @@ AC_ARG_ENABLE(debug,
 AC_MSG_RESULT($enable_debug)
 AS_IF([test "x$enable_debug" != "xno"], [
 		     AC_DEFINE(DEBUG_OUTPUT, 1, [Print debug_output to stdout])
-		     ])
+		     ], AC_DEFINE(DEBUG_OUTPUT, 0, [Print debug_output to stdout]))
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
 
 AC_MSG_CHECKING([--enable-multisenddebug argument])

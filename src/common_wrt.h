@@ -1,6 +1,7 @@
 #ifndef COMMON_IO_FUNCS
 #define COMMON_IO_FUNCS
 #include "streamer.h"
+/* TODO: Remove duplicates */
 struct common_io_info{
   char * filename;
   int fd;

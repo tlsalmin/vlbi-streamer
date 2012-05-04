@@ -46,7 +46,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #ifdef DEBUG_OUTPUT 
       fprintf(stdout, "DEFWRITER: Write done for %ld\n", ret);
 #endif
-      if(ret < count)
+      if((unsigned long)ret < count)
 	fprintf(stderr, "DEFWRITER: Write wrote only %ld out of %lu\n", ret, count);
       total_w += ret;
       count -= ret;

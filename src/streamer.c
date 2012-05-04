@@ -14,7 +14,7 @@
 #include <time.h>
 #include "config.h"
 #include "streamer.h"
-#include "fanout.h"
+//#include "fanout.h"
 #include "udp_stream.h"
 #include "ringbuf.h"
 #ifdef HAVE_LIBAIO
@@ -22,9 +22,9 @@
 #endif
 #include "common_wrt.h"
 #include "defwriter.h"
-#include "sendfile_streamer.h"
+//#include "sendfile_streamer.h"
 #include "splicewriter.h"
-#define TUNE_AFFINITY
+//#define TUNE_AFFINITY
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
@@ -36,6 +36,76 @@ extern int optind, optopt;
 
 static struct opt_s opt;
 
+void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
+{
+  if(*root == NULL){
+    (*root) = toadd;
+  }
+  else{
+    fprintf(stdout, "HURRR\n");
+    while((*root)->child != NULL)
+      root = &((*root)->child);
+    toadd->father = *root;
+    toadd->child = NULL;
+    (*root)->child= toadd;
+  }
+}
+/* Initial add */
+void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  add_to_next(&(br->freelist), en);
+  pthread_mutex_unlock(&(br->branchlock));
+}
+void mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en)
+{
+  if(en == *from){
+    *from = en->child;
+    if(en->child != NULL)
+      en->child->father = NULL;
+  }
+  else
+  {
+    en->father->child = en->child;
+    if(en->child != NULL)
+      en->child->father = en->father;
+  }
+  add_to_next(to, en);
+}
+/* Set this entity into the free to use list		*/
+void set_free(struct entity_list_branch *br, struct listed_entity* en)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  //Only special case if the entity is at the start of the list
+  mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
+  pthread_cond_signal(&(br->busysignal));
+  pthread_mutex_unlock(&(br->branchlock));
+}
+void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
+{
+  mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
+}
+/* Get a free entity from the branch			*/
+void* get_free(struct entity_list_branch *br)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  while(br->freelist == NULL)
+    pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+  void * temp = br->freelist->entity;
+  mutex_free_set_busy(br, br->freelist);
+  pthread_mutex_unlock(&(br->branchlock));
+  return temp;
+}
+/* Set this entity as busy in this branch		*/
+void set_busy(struct entity_list_branch *br, struct listed_entity* en)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  mutex_free_set_busy(br,en);
+  pthread_mutex_unlock(&(br->branchlock));
+}
+void streamer_get_stats(struct entity_list_branch *be)
+{
+}
 int calculate_buffer_sizes(struct opt_s *opt){
   /* Calc how many elementes we get into the buffer to fill the minimun */
   /* amount of memory we want to use					*/
@@ -87,13 +157,23 @@ int calculate_buffer_sizes(struct opt_s *opt){
     return -1;
   }
   else{
+
+    /*
+    long filesztemp =0;
+    while(filesztemp < opt.filesize)
+      filesztemp+=opt.do_w_stuff_every;
+    opt.filesize= filesztemp;
+    */
+    //opt.filesize = opt->buf_num_elems*(opt->buf_elem_size);
+
   fprintf(stdout, "STREAMER: Alignment found between "
       "%lu GB to %luGB"
       ", Each buffer having %lu bytes"
       ", Writing in %lu size blocks"
       ", Elements in buffer %d"
+      ", Filesize as %lu"
       ", Total used memory: %luB\n"
-      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems, opt->buf_num_elems*opt->buf_elem_size*opt->n_threads);
+      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems, (unsigned long)opt->buf_num_elems*(opt->buf_num_elems),opt->buf_num_elems*opt->buf_elem_size*opt->n_threads);
     //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),magic, (opt->buf_num_elems*opt->buf_elem_size)/magic);
     return 0;
   }
@@ -226,6 +306,8 @@ static void parse_options(int argc, char **argv){
   //TODO: Add option for choosing backend
   //opt.buf_type = BUFFER_RINGBUF;
   opt.optbits |= BUFFER_RINGBUF;
+  /* Calculated automatically when aligment is calculated */
+  //opt.filesize = FILE_SPLIT_TO_BLOCKS;
   //opt.rec_type= REC_DEF;
   opt.optbits |= REC_DEF;
   opt.taken_rpoints = 0;
@@ -414,26 +496,28 @@ static void parse_options(int argc, char **argv){
   opt.cumul = 0;
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
-  if(!(opt.optbits & READMODE)){
+  //if(!(opt.optbits & READMODE)){
     /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
     /* bytes_per_sec * bytes = total_bytes */
     /* total_bytes / threads = bytes per thread */
     /* bytes_per_thread/opt.buf_elem_size = packets_per_thread */
 
     /* Making this very verbose, since its only done once */
+  /*
     loff_t bytes_per_sec = (((unsigned long)opt.rate)*1024l*1024l)/8;
     loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt.n_threads);
     loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt.time);
     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt.buf_elem_size);
     //loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
+    */
     //Split kb/gb stuff to avoid overflow warning
     //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
     /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
-    opt.max_num_packets = packets_per_thread;
+    //opt.max_num_packets = packets_per_thread;
 #ifdef DEBUG_OUTPUT
-    fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
+    //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
-  }
+  //}
   
   struct rlimit rl;
   /* Query max size */
@@ -465,6 +549,7 @@ static void parse_options(int argc, char **argv){
 int main(int argc, char **argv)
 {
   int i;
+  int err;
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
@@ -484,9 +569,24 @@ int main(int argc, char **argv)
      break;
      }
      */
-  struct streamer_entity threads[opt.n_threads];
-  pthread_t pthreads_array[opt.n_threads];
+  //struct streamer_entity threads[opt.n_threads];
+  struct streamer_entity streamer_ent;
+
+  pthread_t rbuf_pthreads[opt.n_threads];
+  pthread_t streamer_pthread;
   struct stats stats;
+
+  opt.membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  opt.diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+
+  opt.membranch->freelist = NULL;
+  opt.membranch->busylist = NULL;
+
+  pthread_mutex_init(&(opt.membranch->branchlock), NULL);
+  pthread_mutex_init(&(opt.diskbranch->branchlock), NULL);
+  pthread_cond_init(&(opt.membranch->busysignal), NULL);
+  pthread_cond_init(&(opt.diskbranch->busysignal), NULL);
+
   //pthread_attr_t attr;
   int rc;
 #ifdef TUNE_AFFINITY
@@ -515,17 +615,16 @@ int main(int argc, char **argv)
   }
 
   //Create message queue
-  pthread_mutex_init(&(opt.cumlock), NULL);
-  pthread_cond_init (&opt.signal, NULL);
-
-
-#ifdef DEBUG_OUTPUT
-  fprintf(stdout, "STREAMER: Initializing threads\n");
-#endif
+  //pthread_mutex_init(&(optm.cumlock), NULL);
+  //pthread_cond_init (&opt.signal, NULL);
   for(i=0;i<opt.n_threads;i++){
-    int err = 0;
-    struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
+    //int err = 0;
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
+    /*
+    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+    le->entity = (void*)re;
+    add_to_entlist(opt.diskbranch, le);
+    */
 
     /*
      * NOTE: AIOW-stuff and udp-streamer are bidirectional and
@@ -553,9 +652,24 @@ int main(int argc, char **argv)
       fprintf(stderr, "Error in writer init\n");
       exit(-1);
     }
+    /* Add the recording entity to the diskbranch */
+  }
+
+
+#ifdef DEBUG_OUTPUT
+  fprintf(stdout, "STREAMER: Initializing threads\n");
+#endif
+  for(i=0;i<opt.n_threads;i++){
+    //int err = 0;
+    struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
+    /*
+    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+    le->entity = (void*)be;
+    add_to_entlist(&(opt.diskbranch), le);
+    */
     //Make elements accessible
-    be->recer = re;
-    re->be = be;
+    //be->recer = re;
+    //re->be = be;
 
     //Initialize recorder entity
     switch(opt.optbits & LOCKER_WRITER)
@@ -575,85 +689,81 @@ int main(int argc, char **argv)
       fprintf(stderr, "Error in buffer init\n");
       exit(-1);
     }
+    //TODO: Change write loop to just loop. Now means both read and write
+    rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
+#ifdef TUNE_AFFINITY
+    CPU_SET(i%processors,&cpuset);
 
+    rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
+    if(rc != 0)
+      printf("Error: setting affinity");
+    CPU_ZERO(&cpuset);
+#endif
+  }
 
-    switch(opt.optbits & LOCKER_CAPTURE)
-    {
-      /*
-       * When adding a new capture technique add it here
-       */
-      case CAPTURE_W_FANOUT:
-	threads[i].init = setup_socket;
-	threads[i].start = fanout_thread;
-	threads[i].close = close_fanout;
-	threads[i].opt = threads[i].init(&opt, be);
-	break;
-      case CAPTURE_W_UDPSTREAM:
-	if(opt.optbits & READMODE)
-	  udps_init_udp_sender(&opt, &(threads[i]), be);
-	else
-	  udps_init_udp_receiver(&opt, &(threads[i]), be);
-	break;
-      case CAPTURE_W_SPLICER:
-	sendfile_init_writer(&opt, &(threads[i]), be);
-	break;
-      default:
-	fprintf(stdout, "DUR %X\n", opt.optbits);
-	break;
-	
-    }
-    if(threads[i].opt == NULL){
-      fprintf(stderr, "Error in thread init\n");
-      exit(-1);
-    }
-    be->se = &(threads[i]);
-    threads[i].be = be;
+  /* Format the capturing thread */
+  switch(opt.optbits & LOCKER_CAPTURE)
+  {
+    case CAPTURE_W_UDPSTREAM:
+      if(opt.optbits & READMODE)
+	err = udps_init_udp_sender(&opt, &(streamer_ent));
+      else
+	err = udps_init_udp_receiver(&opt, &(streamer_ent));
+      break;
+    case CAPTURE_W_SPLICER:
+      //err = sendfile_init_writer(&opt, &(streamer_ent));
+      break;
+    default:
+      fprintf(stdout, "DUR %X\n", opt.optbits);
+      break;
 
   }
-  
-    /* TODO: Used while forming packet index for sending */
+  if(err != 0){
+    fprintf(stderr, "Error in thread init\n");
+    exit(-1);
+  }
+
+  //be->se = &(threads[i]);
+  //threads[i].be = be;
+
+  //TODO: Packet index recovery 
+  /*
   if(opt.optbits & READMODE){
     //unsigned long total_packets = 0;
-    /* Double using this for different purpose on readside. BAD! */
     opt.max_num_packets =0 ;
     for(i=0;i<opt.n_threads;i++)
-      opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
+      //TODO: Fix sendside
+      //opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
 #ifdef DEBUG_OUTPUT
     fprintf(stdout, "STREAMER: Total packets: %lu\n", opt.max_num_packets);
 #endif
 
   }
+  */
 
-  for(i=0;i<opt.n_threads;i++){
-//#ifdef DEBUG_OUTPUT
-    printf("STREAMER: In main, starting thread %d\n", i);
-//#endif
+  /* Just start the one receiver */
+  //for(i=0;i<opt.n_threads;i++){
+    //#ifdef DEBUG_OUTPUT
+    printf("STREAMER: In main, starting receiver thread \n");
+    //#endif
 
-    rc = pthread_create(&pthreads_array[i], NULL, threads[i].start, (void*)&threads[i]);
+    rc = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
     if (rc){
       printf("ERROR; return code from pthread_create() is %d\n", rc);
       exit(-1);
     }
     //Spread processes out to n cores
     //NOTE: setaffinity should be used after thread has been started
-#ifdef TUNE_AFFINITY
-    CPU_SET(i%processors,&cpuset);
 
-    rc = pthread_setaffinity_np(pthreads_array[i], sizeof(cpu_set_t), &cpuset);
-    if(rc != 0)
-      printf("Error: setting affinity");
-    CPU_ZERO(&cpuset);
-#endif
-
-  }
+  //}
 
   init_stat(&stats);
   /* HERP so many ifs .. WTB Refactoring time*/
   if(opt.optbits & READMODE){
 #ifdef HAVE_LRT
-      clock_gettime(CLOCK_REALTIME, &start_t);
+    clock_gettime(CLOCK_REALTIME, &start_t);
 #else
-      //TODO
+    //TODO
 #endif
   }
   /* If we're capturing, time the threads and run them down after we're done */
@@ -676,21 +786,27 @@ int main(int argc, char **argv)
       sleep(1);
       memset(&stats_now, 0,sizeof(struct stats));
 
+      streamer_ent.get_stats(streamer_ent.opt, &stats_now);
       /* Query and print the stats */
+      /*
       for(i=0;i<opt.n_threads;i++){
-	threads[i].get_stats(threads[i].opt, &stats_now);
+	//threads[i].get_stats(threads[i].opt, &stats_now);
 	if(threads[i].be->recer->get_stats != NULL)
 	  threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
       }
+      */
+      //TODO: Write end stats
+      //streamer_get_stats(&(opt.diskbranch));
+
       //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
       neg_stats(&stats_now, &stats_prev);
 
       print_intermediate_stats(&stats_now);
       //fprintf(stdout, "Time %ds \t------------------------\n", opt.time-sleeptodo+1);
       if(!(opt.optbits & READMODE))
-	  fprintf(stdout, "Time %lds\n", opt.time-sleeptodo+1);
+	fprintf(stdout, "Time %lds\n", opt.time-sleeptodo+1);
       else
-	  fprintf(stdout, "Time %ds\n", sleeptodo);
+	fprintf(stdout, "Time %ds\n", sleeptodo);
       fprintf(stdout, "----------------------------------------\n");
 
       if(!(opt.optbits & READMODE))
@@ -699,26 +815,12 @@ int main(int argc, char **argv)
 	sleeptodo++;
       add_stats(&stats_prev, &stats_now);
       //memcpy(&stats_prev, &stats_temp, sizeof(struct stats));
+      /*
       if(opt.optbits & READMODE){
 	if(opt.cumul >= opt.max_num_packets-1)
 	  sleeptodo = 0;
-	/*pthread_tryjoin_np Keeps returning EBUSY so not using this */
-	/*
-	int ret, j, breaker = 0;
-	for(j=0;j<opt.n_threads;j++){
-	  ret = pthread_tryjoin_np(pthreads_array[i], NULL);
-	  if(ret == EBUSY){
-	    breaker = -1;
-	    fprintf(stdout, "STREAMER: Tryjoin got: %d\n", ret);
-	  }
-	  else 
-	    fprintf(stdout, "STREAMER: Thread %d done with %d and exited\n", j, ret);
-	}
-	// All threads done 
-	if (breaker== 0)
-	  break;
-	*/
       }
+      */
     }
   }
   else{
@@ -729,17 +831,19 @@ int main(int argc, char **argv)
   }
   /* Close the sockets on readmode */
   if(!(opt.optbits & READMODE)){
-    for(i = 0;i<opt.n_threads;i++){
-      threads[i].stop(&(threads[i]));
-    }
-    threads[0].close_socket(&(threads[0]));
+    //for(i = 0;i<opt.n_threads;i++){
+      //threads[i].stop(&(threads[i]));
+    //}
+    streamer_ent.stop(&(streamer_ent));
+    //threads[0].close_socket(&(threads[0]));
+    streamer_ent.close_socket(&(streamer_ent));
   }
-  for (i = 0; i < opt.n_threads; i++) {
-    rc = pthread_join(pthreads_array[i], NULL);
+  //for (i = 0; i < opt.n_threads; i++) {
+    rc = pthread_join(streamer_pthread, NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
-  }
+  //}
   /* Log the time */
   if(opt.optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
@@ -758,12 +862,14 @@ int main(int argc, char **argv)
   fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
 #endif
   //Close all threads. Buffers and writers are closed in the threads close
-  for(i=0;i<opt.n_threads;i++){
-    threads[i].close(threads[i].opt, &stats);
-    free(threads[i].be->recer);
-    free(threads[i].be);
-  }
-  pthread_mutex_destroy(&(opt.cumlock));
+  //for(i=0;i<opt.n_threads;i++){
+    //threads[i].close(threads[i].opt, &stats);
+    streamer_ent.close(streamer_ent.opt, &stats);
+    //TODO Free this stuff elsewhere
+    //free(threads[i].be->recer);
+    //free(threads[i].be);
+  //}
+  //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
 #ifdef DEBUG_OUTPUT
   fprintf(stdout, "STREAMER: Threads closed\n");
@@ -771,6 +877,8 @@ int main(int argc, char **argv)
   print_stats(&stats, &opt);
   if(opt.device_name != NULL)
     free(opt.device_name);
+  free(opt.membranch);
+  free(opt.diskbranch);
 
   //return 0;
   //pthread_exit(NULL);

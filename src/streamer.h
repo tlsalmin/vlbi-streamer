@@ -69,6 +69,10 @@
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 32
+#define D(str, ...)\
+  do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__, __VA_ARGS__ 1); } while(0)
+#define E(str, ...)\
+  do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__, __VA_ARGS__ 1); } while(0)
 //Moved to configure
 //#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
@@ -87,7 +91,10 @@
 //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
 //But this only happens on buffer size > (atleast) 30000
 //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
+//Default write size as 16MB
 #define HD_MIN_WRITE_SIZE 16777216
+//Default file size as 500MB
+#define FILE_SPLIT_TO_BLOCKS B(29)l
 //#define HD_MIN_WRITE_SIZE 1048576
 /* Size of current default huge page */
 //#define HD_MIN_WRITE_SIZE 2097152
@@ -106,6 +113,39 @@
 #include "config.h"
 #include <pthread.h>
 #include <netdb.h> // struct hostent
+/* This holds any entity, which can be set to either 	*/
+/* A branches free or busy-list				*/
+/* Cant decide if rather traverse the lists and remove	*/
+/* father or keep it as is, to avoid traversing		*/
+struct listed_entity
+{
+  struct listed_entity* child;
+  struct listed_entity* father;
+  void* entity;
+};
+/* Holds all the listed_entits of a common type		*/
+/* The idea is to manipulate and request entities from 	*/
+/* this branch						*/
+struct entity_list_branch
+{
+  struct listed_entity *freelist;
+  struct listed_entity *busylist;
+  pthread_mutex_t branchlock;
+  /* Added here so the get_free caller can sleep	*/
+  /* On non-free branch					*/
+  pthread_cond_t busysignal;
+};
+/* Initial add */
+void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
+/* Set this entity into the free to use list		*/
+void set_free(struct entity_list_branch *br, struct listed_entity* en);
+/* Get a free entity from the branch			*/
+void* get_free(struct entity_list_branch *br);
+/* Set this entity as busy in this branch		*/
+void set_busy(struct entity_list_branch *br, struct listed_entity* en);
+void streamer_get_stats(struct entity_list_branch *be);
+
+/* All the options for the main thread			*/
 struct opt_s
 {
   char *filename;
@@ -113,16 +153,18 @@ struct opt_s
   /* Lock that spans over all threads. Used for tracking packets 	*/
   /* by sequence number							*/
   long unsigned int  cumul;
-  pthread_mutex_t cumlock;
+  //pthread_mutex_t cumlock;
   char *device_name;
 
   unsigned int optbits;
   int root_pid;
   unsigned long time;
   int port;
-  long minmem;
-  long maxmem;
+  unsigned long minmem;
+  unsigned long maxmem;
   int socket;
+  struct entity_list_branch *membranch;
+  struct entity_list_branch *diskbranch;
   int n_threads;
   int rate;
   unsigned long  do_w_stuff_every;
@@ -130,8 +172,9 @@ struct opt_s
   int wait_nanoseconds;
   struct timespec wait_last_sent;
 #endif
-  unsigned long max_num_packets;
+  //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
+  unsigned long filesize;
 
   /* Moved to optbits */
   //int capture_type;
@@ -150,7 +193,7 @@ struct opt_s
   int tid;
   char * hostname;
   unsigned long serverip;
-  pthread_cond_t signal;
+  //pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
 };
@@ -174,8 +217,15 @@ struct buffer_entity
 #endif
   //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
-  struct streamer_entity * se;
+  //struct streamer_entity * se;
+  /* used to set the writer to free */
+  struct listed_entity * self;
+  //struct entity_list_branch *membranch;
+  //struct entity_list_branch *diskbranch;
   //struct rec_point * rp;
+
+  pthread_mutex_t *headlock;
+  pthread_cond_t *iosignal;
 };
 struct recording_entity
 {
@@ -195,13 +245,17 @@ struct recording_entity
   unsigned long (*get_n_packets)(struct recording_entity*);
   INDEX_FILE_TYPE* (*get_packet_index)(struct recording_entity*);
   struct buffer_entity *be;
+  /* Used to set the buffer free */
+  struct listed_entity *self;
+  /* Used to query for a free writer and free self */
+  //struct entity_list_branch *diskbranch;
 };
 
 //Generic struct for a streamer entity
 struct streamer_entity
 {
   void *opt;
-  void* (*init)(struct opt_s *,struct buffer_entity*);
+  int (*init)(struct opt_s *, struct streamer_entity *se);
   void* (*start)(void*);
   int (*close)(void*,void*);
   void (*stop)(struct streamer_entity *se);
@@ -214,6 +268,8 @@ struct streamer_entity
   unsigned long (*get_max_packets)(struct streamer_entity *se);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;
+  struct listed_entity *rbuf;
+  //struct entity_list_branch *membranch;
 };
 struct stats
 {
@@ -224,5 +280,6 @@ struct stats
   //Cheating here to keep infra consistent
   int * packet_index;
 };
+
 int calculate_buffer_sizes(struct opt_s *opt);
 #endif

@@ -10,27 +10,24 @@ struct ringbuf{
   void* tail;
   */
   //This might just be easier with uints
-  unsigned int optbits;
+  struct opt_s* opt;
+  //unsigned int optbits;
   int writer_head;
   int hdwriter_head;
   int tail;
   void* buffer;
-  int elem_size;
-  int num_elems;
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
+  //int elem_size;
+  //int num_elems;
   int running;
-#endif
-  unsigned long do_w_stuff_every;
+  //unsigned long do_w_stuff_every;
   int async_writes_submitted;
 
   //int async;
   //int read;
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
-  pthread_mutex_t *headlock;
-  pthread_cond_t *iosignal;
+  //pthread_mutex_t *headlock;
+  //pthread_cond_t *iosignal;
   int is_blocked;
   int huge_fd;
-#endif
 };
 
 //Increments pwriter head. Returns negative, if 
@@ -55,7 +52,5 @@ int rbuf_init_dummy(struct opt_s *opt, struct buffer_entity *be);
 int rbuf_check(struct buffer_entity *be);
 //int rbuf_write_index_data(struct buffer_entity* be, void * data, int size);
 int write_bytes(struct buffer_entity * re, int head, int *tail, int diff);
-#ifdef SPLIT_RBUF_AND_IO_TO_THREAD
 void rbuf_init_mutex_n_signal(struct buffer_entity *be, void * mutex, void * signal);
-#endif
 #endif
