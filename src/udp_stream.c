@@ -93,7 +93,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 #endif
 
   /*
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 #endif
 */
@@ -161,13 +161,13 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   def=0;
   if(spec_ops->opt->optbits & READMODE){
     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "UDP_STREAMER: Defaults: SENDBUF %d\n",def);
 #endif
   }
   else{
     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "UDP_STREAMER: Defaults: RCVBUF %d\n",def);
 #endif
   }
@@ -197,7 +197,7 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
   //TODO: check if IF binding helps
   if(spec_ops->opt->optbits & READMODE){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "Connecting to %s\n", opt->hostname);
 #endif
     spec_ops->sin->sin_addr.s_addr = opt->serverip;
@@ -226,7 +226,7 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
     fprintf(stderr, "Port: %d\n", spec_ops->opt->port);
     INIT_ERROR
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   else
     fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
 #endif
@@ -263,7 +263,7 @@ void * udp_sender(void *opt){
   //spec_ops->be->init_mutex(spec_ops->be, spec_ops->headlock, spec_ops->iosignal);
 
   /*
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
 #endif 
   int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
@@ -273,7 +273,7 @@ void * udp_sender(void *opt){
   }
   */
   /*
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: Filling buffer\n");
 #endif
 spec_ops->be->write(spec_ops->be, 1);
@@ -326,7 +326,7 @@ spec_ops->be->write(spec_ops->be, 0);
     if(spec_ops->optbits & WAIT_BETWEEN){
       long wait= 0;
       if(spec_ops->wait_last_sent->tv_sec == 0 && spec_ops->wait_last_sent->tv_nsec == 0){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
 #endif
 	clock_gettime(CLOCK_REALTIME, spec_ops->wait_last_sent);
@@ -338,19 +338,19 @@ spec_ops->be->write(spec_ops->be, 0);
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
 	wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->wait_last_sent->tv_sec*BILLION + spec_ops->wait_last_sent->tv_nsec);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
 #endif
 	if(wait < *(spec_ops->wait_nanoseconds)){
 	  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
 #endif	
 	  usleep((*(spec_ops->wait_nanoseconds) - wait)/1000);
 	}
 #ifdef ONLY_INCREMENT_TIMER
 	if(wait > *(spec_ops->wait_nanoseconds)){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	  fprintf(stdout, "UDP_STREAMER: Runaway wait. Resetting to now\n");
 #endif
 	  spec_ops->wait_last_sent->tv_sec = now.tv_sec;
@@ -422,7 +422,7 @@ spec_ops->be->write(spec_ops->be, 0);
     pthread_mutex_unlock(spec_ops->headlock);
   }
 */
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
   //return sender_exit(spec_ops);
@@ -448,7 +448,7 @@ void* udp_receiver(void *streamo)
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
 #endif
   while(spec_ops->running){
@@ -463,7 +463,7 @@ void* udp_receiver(void *streamo)
 
     err = read(spec_ops->fd, buf, spec_ops->opt->buf_elem_size);
     /*
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
 #endif
 */
@@ -491,10 +491,12 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       }
       /* We've received a buffer full. Change the buffer! */
       if(i == spec_ops->opt->buf_num_elems){
-	D("HERPJSDFLKKKKKKÖ\n\n\n\n\n");
 	D("Buffer filled, Getting another");
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+	i=0;
       }
+      else
+	i++;
 
       spec_ops->opt->cumul += 1;
 #ifdef CHECK_OUT_OF_ORDER
@@ -516,9 +518,8 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       if(spec_ops->handle_packet != NULL)
 	spec_ops->handle_packet(se,buf);
     }
-    i++;
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
   //return sender_exit(spec_ops);
@@ -552,7 +553,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
   //stats->packet_index = spec_ops->packet_index;

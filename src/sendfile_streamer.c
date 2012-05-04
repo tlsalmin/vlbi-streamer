@@ -71,7 +71,7 @@ void* sendfile_writer(void *se)
 
   //time(&t_start);
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
 #endif
   //while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){

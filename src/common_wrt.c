@@ -35,7 +35,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 	return EACCES;
       }
       else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	fprintf(stdout, "COMMON_WRT: File doesn't exist. Creating it\n");
 #endif
 	flags |= O_CREAT;
@@ -49,7 +49,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   }
 
   //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Opening file %s\n", filename);
 #endif
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
@@ -57,7 +57,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
     return errno;
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: File opened\n");
 #endif
   if(fallosize > 0){
@@ -73,11 +73,11 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 	return err;
       }
     }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "COMMON_WRT: File preallocated\n");
 #endif
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   else
     fprintf(stdout, "COMMON_WRT: Not fallocating\n");
 #endif
@@ -89,7 +89,7 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   int fd;
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Writing index file\n");
 #endif
   sprintf(filename, "%s%s", filename_orig, ".index");
@@ -113,7 +113,7 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
     return err;
   }
   else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
   INDEX_FILE_TYPE *debughelp = data;
   fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
@@ -131,7 +131,7 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
     return err;
   }
   else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
   INDEX_FILE_TYPE *debughelp = data;
   fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
@@ -140,7 +140,7 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   }
   fclose(file);
   free(filename);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Index file written\n");
 #endif
 
@@ -173,7 +173,7 @@ int common_handle_indices(struct common_io_info *ioi){
     perror("COMMON_WRT: Index file size read");
     return err;
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Elem size here %lu\n", ioi->elem_size);
 #endif 
 
@@ -186,7 +186,7 @@ int common_handle_indices(struct common_io_info *ioi){
   }
   //NOTE: Reducing first element, which simply tells size of elements
   ioi->indexfile_count = (statinfo.st_size-sizeof(INDEX_FILE_TYPE))/sizeof(INDEX_FILE_TYPE);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Total number of elements in index file: %lu\n", ioi->indexfile_count);
 #endif
   ioi->indices = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(ioi->indexfile_count));
@@ -236,7 +236,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
   //ioi->latest_write_num = 0;
   if(ioi->optbits & READMODE){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "COMMON_WRT: Initializing read point\n");
     fprintf(stdout, "COMMON_WRT: Getting read flags\n");
 #endif
@@ -244,7 +244,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     prealloc_bytes = 0;
   }
   else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "COMMON_WRT: Initializing write point\n");
     fprintf(stdout, "COMMON_WRT: Getting write flags and calculating falloc\n");
 #endif
@@ -285,7 +285,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
       /* If we haven't calculated optsize yet */
       if(opt->buf_num_elems == 0)
 	calculate_buffer_sizes(opt);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
       fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
 #endif
     }
@@ -344,7 +344,7 @@ int common_close(struct recording_entity * re, void * stats){
   free(ioi->filename);
 
   free(ioi);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Writer closed\n");
 #endif
   return 0;

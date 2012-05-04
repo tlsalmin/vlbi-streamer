@@ -10,7 +10,7 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include "config.h"
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 #include <time.h>
 #endif
 
@@ -43,7 +43,7 @@ static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
   if(res != iocb->u.c.nbytes){
     fprintf(stderr, "write missed bytes expect %lu got %li", iocb->u.c.nbytes, res2);
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "Write callback done. Wrote %li bytes\n", res);
 #endif
   free(iocb);
@@ -68,7 +68,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Preparing iostructs\n");
 #endif
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
@@ -84,7 +84,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
     return -1;
   }
   //io_context_t* ctx = (io_context_t*)ioi->extra_param;
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Queue init\n");
 #endif
   ret = io_queue_init(MAX_EVENTS, &(ep->ctx));
@@ -103,7 +103,7 @@ int aiow_get_r_fflags(){
 
 long aiow_write(struct recording_entity * re, void * start, size_t count){
   long ret;
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Performing read/write\n");
 #endif
 
@@ -119,7 +119,7 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
       io_prep_pwrite(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);
   }
   else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "AIOWRITER: Requests full! Returning 0\n");
 #endif
     //TODO: IOwait or sleep
@@ -128,7 +128,7 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
 
   //io_set_callback(ib[0], wr_done);
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Prepared read/write for %lu bytes\n", count);
 #endif
   struct iocb * ibi[1];
@@ -140,7 +140,7 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
   ep->used_events++;
   ep->i = (ep->i + 1)%MAX_EVENTS;
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Submitted %ld reads/writes\n", ret);
 #endif
   if(ret <0){
@@ -172,13 +172,13 @@ long aiow_check(struct recording_entity * re){
     if((signed long )event.res > 0){
       ioi->bytes_exchanged += event.res;
       ret = event.res;
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
       fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);
 #endif
     }
     else{
       if(errno == 0){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	fprintf(stdout, "AIOWRITER: end of file! %lu %d\n", event.res, errno);
 #endif
 	return 1;//event.res;
@@ -193,7 +193,7 @@ long aiow_check(struct recording_entity * re){
   }
   /*
   else{
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "AIOW: Check: No writes done\n");
 #endif
   }
@@ -219,7 +219,7 @@ int aiow_wait_for_write(struct recording_entity* re){
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Buffer full %s. Going to sleep\n", ioi->filename);
 #endif
   //Doesn't really sleep :/

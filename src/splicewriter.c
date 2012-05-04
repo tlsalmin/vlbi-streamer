@@ -77,7 +77,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #ifdef F_SETPIPE_SZ
   fcntl(sp->pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
   maxbytes_inpipe = fcntl(sp->pipes[1], F_GETPIPE_SZ);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "SPLICEWRITER: Maximum pipe size set to %d\n", maxbytes_inpipe);
 #endif
 #else
@@ -90,7 +90,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   //sp->pagesize = 65536;
   sp->max_pipe_length = maxbytes_inpipe / sp->pagesize;
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "SPLICEWRITER: Max pipe size is %d pages with pagesize %d and buffer bytemax %d\n", sp->max_pipe_length, sp->pagesize, maxbytes_inpipe);
 #endif
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
@@ -122,7 +122,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   off_t oldoffset;
   //int nr_segs;
   long total_w =0;
-#ifdef DEBUG_OUTPUT 
+#if(DEBUG_OUTPUT) 
   fprintf(stdout, "SPLICEWRITER: Issuing write of %lu\n", count);
 #endif
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
@@ -169,7 +169,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 	i++;
     }
     /*
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "SPLICEWRITER: Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
 #endif
     */
@@ -185,7 +185,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 	break;
       }
       /*
-#ifdef DEBUG_OUTPUT 
+#if(DEBUG_OUTPUT) 
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
       else
 	fprintf(stdout, "Vmsplice accepted %i bytes when given %i bytes\n", ret, i*(sp->pagesize));
@@ -228,7 +228,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 
   ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
   if(ret>=0){
-#ifdef DEBUG_OUTPUT 
+#if(DEBUG_OUTPUT) 
   fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
 #endif
   }

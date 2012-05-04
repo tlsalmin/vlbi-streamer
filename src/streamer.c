@@ -38,11 +38,12 @@ static struct opt_s opt;
 
 void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
 {
+  toadd->child = NULL;
+  toadd->father = NULL;
   if(*root == NULL){
     (*root) = toadd;
   }
   else{
-    fprintf(stdout, "HURRR\n");
     while((*root)->child != NULL)
       root = &((*root)->child);
     toadd->father = *root;
@@ -89,8 +90,10 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
 void* get_free(struct entity_list_branch *br)
 {
   pthread_mutex_lock(&(br->branchlock));
-  while(br->freelist == NULL)
+  while(br->freelist == NULL){
+    D("Failed to get free buffer. Sleeping");
     pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+  }
   void * temp = br->freelist->entity;
   mutex_free_set_busy(br, br->freelist);
   pthread_mutex_unlock(&(br->branchlock));
@@ -514,7 +517,7 @@ static void parse_options(int argc, char **argv){
     //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
     /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
     //opt.max_num_packets = packets_per_thread;
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
   //}
@@ -527,13 +530,13 @@ static void parse_options(int argc, char **argv){
     fprintf(stderr, "Failed to get rlimit of memory\n");
     exit(1);
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
 #endif
   /* Check for memory limit						*/
   //unsigned long minmem = MIN_MEM_GIG*GIG;
   if (opt.minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
 #endif
     opt.minmem = rl.rlim_cur;
@@ -542,7 +545,7 @@ static void parse_options(int argc, char **argv){
     if (calculate_buffer_sizes(&opt) != 0)
       exit(-1);
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %lu\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif
 }
@@ -554,7 +557,7 @@ int main(int argc, char **argv)
   struct timespec start_t;
 #endif
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Reading parameters\n");
 #endif
   parse_options(argc,argv);
@@ -609,7 +612,7 @@ int main(int argc, char **argv)
     }
     memcpy(&(opt.serverip), (char *)hostptr->h_addr, sizeof(opt.serverip));
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "STREAMER: Resolved hostname\n");
 #endif
   }
@@ -656,7 +659,7 @@ int main(int argc, char **argv)
   }
 
 
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif
   for(i=0;i<opt.n_threads;i++){
@@ -677,7 +680,7 @@ int main(int argc, char **argv)
       case BUFFER_RINGBUF:
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
 	fprintf(stdout, "Initialized buffer for thread %d\n", i);
 #endif
 	break;
@@ -734,7 +737,7 @@ int main(int argc, char **argv)
     for(i=0;i<opt.n_threads;i++)
       //TODO: Fix sendside
       //opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
     fprintf(stdout, "STREAMER: Total packets: %lu\n", opt.max_num_packets);
 #endif
 
@@ -743,7 +746,7 @@ int main(int argc, char **argv)
 
   /* Just start the one receiver */
   //for(i=0;i<opt.n_threads;i++){
-    //#ifdef DEBUG_OUTPUT
+    //#if(DEBUG_OUTPUT)
     printf("STREAMER: In main, starting receiver thread \n");
     //#endif
 
@@ -858,7 +861,7 @@ int main(int argc, char **argv)
     //opt.time = (clock() - start_t);
 #endif
   }
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
 #endif
   //Close all threads. Buffers and writers are closed in the threads close
@@ -871,7 +874,7 @@ int main(int argc, char **argv)
   //}
   //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
-#ifdef DEBUG_OUTPUT
+#if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif
   print_stats(&stats, &opt);
