@@ -29,6 +29,10 @@
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
 
+#define BRANCHOP_STOPANDSIGNAL 1
+#define BRANCHOP_GETSTATS 2
+#define BRANCHOP_CLOSERBUF 3
+#define BRANCHOP_CLOSEWRITER 4
 #define CORES 6
 extern char *optarg;
 extern int optind, optopt;
@@ -106,8 +110,51 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   mutex_free_set_busy(br,en);
   pthread_mutex_unlock(&(br->branchlock));
 }
-void streamer_get_stats(struct entity_list_branch *be)
+/* Loop through all write entities and gets stats */
+/* Don't want to write this same thing 4 times , so I'll just add an operation switch */
+/* for it */
+void oper_to_all(struct entity_list_branch *br, int operation,void* param)
 {
+  pthread_mutex_lock(&(br->branchlock));
+  struct listed_entity * le = br->freelist; 
+  while(le != NULL){
+    switch(operation){
+      case BRANCHOP_STOPANDSIGNAL:
+	rbuf_stop_and_signal((struct buffer_entity*)(le->entity));
+	break;
+      case BRANCHOP_GETSTATS:
+	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
+	break;
+      case BRANCHOP_CLOSERBUF:
+	((struct buffer_entity*)le->entity)->close(((struct buffer_entity*)le->entity), param);
+	break;
+      case BRANCHOP_CLOSEWRITER:
+	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
+	break;
+    }
+    le = le->child;
+  }
+  le = br->busylist;
+  while(le != NULL){
+    switch(operation){
+      case BRANCHOP_STOPANDSIGNAL:
+	rbuf_stop_and_signal((struct buffer_entity*)(le->entity));
+	break;
+      case BRANCHOP_GETSTATS:
+	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
+	break;
+      case BRANCHOP_CLOSERBUF:
+	((struct buffer_entity*)le->entity)->close(((struct buffer_entity*)le->entity), param);
+	break;
+      case BRANCHOP_CLOSEWRITER:
+	fprintf(stdout, "HURR AMIA HERe\n");
+	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
+	break;
+    }
+    le = le->child;
+  }
+
+  pthread_mutex_unlock(&(br->branchlock));
 }
 int calculate_buffer_sizes(struct opt_s *opt){
   /* Calc how many elementes we get into the buffer to fill the minimun */
@@ -799,7 +846,7 @@ int main(int argc, char **argv)
       }
       */
       //TODO: Write end stats
-      //streamer_get_stats(&(opt.diskbranch));
+      oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats_now);
 
       //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
       neg_stats(&stats_now, &stats_prev);
@@ -838,15 +885,34 @@ int main(int argc, char **argv)
       //threads[i].stop(&(threads[i]));
     //}
     streamer_ent.stop(&(streamer_ent));
+    udps_close_socket(&streamer_ent);
     //threads[0].close_socket(&(threads[0]));
-    streamer_ent.close_socket(&(streamer_ent));
+    //streamer_ent.close_socket(&(streamer_ent));
   }
   //for (i = 0; i < opt.n_threads; i++) {
-    rc = pthread_join(streamer_pthread, NULL);
+  rc = pthread_join(streamer_pthread, NULL);
+  if (rc<0) {
+    printf("ERROR; return code from pthread_join() is %d\n", rc);
+  }
+  /* Stop the memory threads */
+  oper_to_all(opt.membranch, BRANCHOP_STOPANDSIGNAL, NULL);
+  for(i =0 ;i<opt.n_threads;i++){
+    rc = pthread_join(rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
-  //}
+  }
+  /* Get final stats */
+  streamer_ent.close(streamer_ent.opt, (void*)&stats);
+  oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
+  oper_to_all(opt.diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
+  //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
+
+  print_stats(&stats, &opt);
+
+  /*Close everything */
+
+    //}
   /* Log the time */
   if(opt.optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
@@ -866,18 +932,16 @@ int main(int argc, char **argv)
 #endif
   //Close all threads. Buffers and writers are closed in the threads close
   //for(i=0;i<opt.n_threads;i++){
-    //threads[i].close(threads[i].opt, &stats);
-    streamer_ent.close(streamer_ent.opt, &stats);
-    //TODO Free this stuff elsewhere
-    //free(threads[i].be->recer);
-    //free(threads[i].be);
+  //threads[i].close(threads[i].opt, &stats);
+  //TODO Free this stuff elsewhere
+  //free(threads[i].be->recer);
+  //free(threads[i].be);
   //}
   //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif
-  print_stats(&stats, &opt);
   if(opt.device_name != NULL)
     free(opt.device_name);
   free(opt.membranch);

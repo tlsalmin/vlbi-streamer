@@ -70,7 +70,7 @@
 //Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 32
 #define D(str, ...)\
-  do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__, __VA_ARGS__ 1); } while(0)
+  do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
   do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__, __VA_ARGS__ 1); } while(0)
 //Moved to configure
@@ -113,6 +113,15 @@
 #include "config.h"
 #include <pthread.h>
 #include <netdb.h> // struct hostent
+struct stats
+{
+  unsigned long total_bytes;
+  unsigned long total_written;
+  unsigned long incomplete;
+  unsigned long dropped;
+  //Cheating here to keep infra consistent
+  //int * packet_index;
+};
 /* This holds any entity, which can be set to either 	*/
 /* A branches free or busy-list				*/
 /* Cant decide if rather traverse the lists and remove	*/
@@ -143,7 +152,7 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en);
 void* get_free(struct entity_list_branch *br);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
-void streamer_get_stats(struct entity_list_branch *be);
+void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
 
 /* All the options for the main thread			*/
 struct opt_s
@@ -270,15 +279,6 @@ struct streamer_entity
   struct buffer_entity *be;
   struct listed_entity *rbuf;
   //struct entity_list_branch *membranch;
-};
-struct stats
-{
-  unsigned long total_bytes;
-  unsigned long total_written;
-  unsigned long incomplete;
-  unsigned long dropped;
-  //Cheating here to keep infra consistent
-  int * packet_index;
 };
 
 int calculate_buffer_sizes(struct opt_s *opt);

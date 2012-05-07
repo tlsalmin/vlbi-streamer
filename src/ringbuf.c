@@ -509,7 +509,8 @@ void *rbuf_write_loop(void *buffo){
     pthread_mutex_lock(be->headlock);
     while(((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) < rbuf->opt->do_w_stuff_every) && rbuf->running){
 #if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
+      //fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
+      D("Not enough to write: %d left %d running",, diff, rbuf->running);
 #endif
       pthread_cond_wait(be->iosignal, be->headlock);
     }
@@ -625,6 +626,13 @@ void *rbuf_write_loop(void *buffo){
 	rbuf_check(be);
       }
     }
+    //TODO: Make the previous loop "eternal" as in vlbistreamer should be only invoked once
+    D("Final write cycle complete. Freeing both");
+    //set_free(rbuf->opt->membranch, be->self);
+    if(be->recer != NULL){
+      set_free(rbuf->opt->diskbranch, be->recer->self);
+      be->recer = NULL;
+    }
   }
   pthread_exit(NULL);
 }
@@ -694,6 +702,12 @@ int dummy_write_wrapped(struct buffer_entity *be, int force){
 }
 void rbuf_stop_running(struct buffer_entity *be){
   ((struct ringbuf *)be->opt)->running = 0 ;
+}
+void rbuf_stop_and_signal(struct buffer_entity *be){
+  rbuf_stop_running(be);
+  pthread_mutex_lock(be->headlock);
+  pthread_cond_signal(be->iosignal);
+  pthread_mutex_unlock(be->headlock);
 }
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);

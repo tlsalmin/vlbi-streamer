@@ -335,7 +335,7 @@ int common_close(struct recording_entity * re, void * stats){
     }
   }
   else{
-    free(ioi->indices);
+    //free(ioi->indices);
     /* No need to close indice-file since it was read into memory */
   }
   close(ioi->fd);

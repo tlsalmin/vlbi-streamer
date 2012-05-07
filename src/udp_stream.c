@@ -44,6 +44,11 @@
 int phandler_sequence(struct streamer_entity * se, void * buffer){
   return 0;
 }
+void udps_close_socket(struct streamer_entity *se){
+  int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
+  if(ret <0)
+    perror("Socket shutdown");
+}
 /*
  * TODO: These should take a streamer_entity and confrom to the initialization of 
  * buffer_entity and recording_entity
@@ -519,9 +524,9 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
 	spec_ops->handle_packet(se,buf);
     }
   }
-#if(DEBUG_OUTPUT)
+//#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
-#endif
+//#endif
   //return sender_exit(spec_ops);
   pthread_exit(NULL);
 
@@ -569,11 +574,6 @@ int close_udp_streamer(void *opt_own, void *stats){
 }
 void udps_stop(struct streamer_entity *se){
   ((struct udpopts *)se->opt)->running = 0;
-}
-void udps_close_socket(struct streamer_entity *se){
-  int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
-  if(ret <0)
-    perror("Socket shutdown");
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){
