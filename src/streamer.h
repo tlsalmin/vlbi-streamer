@@ -72,7 +72,7 @@
 #define D(str, ...)\
   do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
-  do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__, __VA_ARGS__ 1); } while(0)
+  do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 //Moved to configure
 //#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this
@@ -175,6 +175,7 @@ struct opt_s
   struct entity_list_branch *membranch;
   struct entity_list_branch *diskbranch;
   int n_threads;
+  int n_drives;
   int rate;
   unsigned long  do_w_stuff_every;
 #ifdef HAVE_RATELIMITER

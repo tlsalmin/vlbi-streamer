@@ -213,9 +213,34 @@ int common_handle_indices(struct common_io_info *ioi){
 
   return err;
 }
+long common_fake_recer_write(struct recording_entity * re, void* s, size_t count){
+  return count;
+}
+int common_close_dummy(struct recording_entity *re, void *st){
+  free((struct common_io_info*)re->opt);
+  return 0;
+}
+int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
+  re->opt = (void*)malloc(sizeof(struct common_io_info));
+  re->write = common_fake_recer_write;
+  re->close = common_close_dummy;
+  D("Adding writer to diskbranch");
+  struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+  le->entity = (void*)re;
+  le->child = NULL;
+  le->father = NULL;
+  re->self= le;
+  add_to_entlist(opt->diskbranch, le);
+  D("Writer added to diskbranch");
+
+  //be->recer->write_index_data = NULL;
+  //return rbuf_init_buf_entity(opt,be);
+  return 0;
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
+  re->get_stats = get_io_stats;
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
   loff_t prealloc_bytes;
   //struct stat statinfo;

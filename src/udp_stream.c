@@ -452,21 +452,31 @@ void* udp_receiver(void *streamo)
   spec_ops->dropped = 0;
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+  void * buf;
 
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
 #endif
   while(spec_ops->running){
-    void * buf;
+
+      if(i == spec_ops->opt->buf_num_elems){
+	E("Buffer filled, Getting another");
+	pthread_mutex_lock(se->be->headlock);
+	pthread_cond_signal(se->be->iosignal);
+	pthread_mutex_unlock(se->be->headlock);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+	i=0;
+      }
 
     buf = se->be->get_writebuf(se->be);
     if(buf == NULL){
       E("Received NULL buf from buffer");
+      E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
       break;
     }
       
 
-    err = read(spec_ops->fd, buf, spec_ops->opt->buf_elem_size);
+    err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);
     /*
 #if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
@@ -487,20 +497,15 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       //TODO: Check how much we actually got!
       /* Signal writer that we've processed some packets and 	*/
       /* it should wake up unless it's busy writing		*/
+      /*
       if(i%spec_ops->opt->do_w_stuff_every == 0){
 	D("Waking up writer");
 	pthread_mutex_lock(se->be->headlock);
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
-	//i=0;
       }
+      */
       /* We've received a buffer full. Change the buffer! */
-      if(i == spec_ops->opt->buf_num_elems){
-	D("Buffer filled, Getting another");
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
-	i=0;
-      }
-      else
 	i++;
 
       spec_ops->opt->cumul += 1;

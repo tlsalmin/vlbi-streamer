@@ -24,7 +24,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
-//#define TUNE_AFFINITY
+#define TUNE_AFFINITY
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
@@ -109,6 +109,22 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   pthread_mutex_lock(&(br->branchlock));
   mutex_free_set_busy(br,en);
   pthread_mutex_unlock(&(br->branchlock));
+}
+void print_br_stats(struct entity_list_branch *br){
+  int free=0,busy=0;
+  pthread_mutex_lock(&(br->branchlock));
+  struct listed_entity *le = br->freelist;
+  while(le != NULL){
+    free++;
+    le = le->child;
+  }
+  le = br->busylist;
+  while(le != NULL){
+    busy++;
+    le = le->child;
+  }
+  pthread_mutex_unlock(&(br->branchlock));
+  fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
 }
 /* Loop through all write entities and gets stats */
 /* Don't want to write this same thing 4 times , so I'll just add an operation switch */
@@ -246,6 +262,7 @@ static void usage(char *binary){
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-n NUM	        Number of threads(Required)\n"
+      "-d DRIVES	Number of drives(Required)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"
@@ -352,6 +369,7 @@ static void parse_options(int argc, char **argv){
   opt.root_pid = getpid();
   opt.port = 2222;
   opt.n_threads = 1;
+  opt.n_drives = 1;
   opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
   //opt.buf_type = BUFFER_RINGBUF;
@@ -369,14 +387,19 @@ static void parse_options(int argc, char **argv){
   opt.tid = 0;
   //opt.async = 0;
   //opt.optbits = 0xff000000;
+  int drives_set = 0;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "i:t:s:n:m:w:p:qur:a:vVI:A:W:"))!= -1){
+  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
 	break;
       case 'v':
 	opt.optbits |= VERBOSE;
+	break;
+      case 'd':
+	opt.n_drives = atoi(optarg);
+	drives_set = 1;
 	break;
       case 'I':
 	opt.minmem = atoi(optarg);
@@ -532,9 +555,11 @@ static void parse_options(int argc, char **argv){
   argc -=optind;
   //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
   opt.filename = argv[0];
-  //opt.points = (struct rec_point *)calloc(opt.n_threads, sizeof(struct rec_point));
+  if(drives_set == 0)
+    opt.n_drives = opt.n_threads;
+  //opt.points = (struct rec_point *)calloc(opt.n_drives, sizeof(struct rec_point));
   //TODO: read diskspots from config file. Hardcoded for testing
-  for(i=0;i<opt.n_threads;i++){
+  for(i=0;i<opt.n_drives;i++){
     opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
     sprintf(opt.filenames[i], "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
@@ -667,7 +692,7 @@ int main(int argc, char **argv)
   //Create message queue
   //pthread_mutex_init(&(optm.cumlock), NULL);
   //pthread_cond_init (&opt.signal, NULL);
-  for(i=0;i<opt.n_threads;i++){
+  for(i=0;i<opt.n_drives;i++){
     //int err = 0;
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
     /*
@@ -689,7 +714,7 @@ int main(int argc, char **argv)
 	break;
 #endif
       case REC_DUMMY:
-	err = rec_init_dummy(&opt, re);
+	err = common_init_dummy(&opt, re);
 	break;
       case REC_DEF:
 	err = def_init_def(&opt, re);
@@ -732,7 +757,7 @@ int main(int argc, char **argv)
 #endif
 	break;
       case WRITER_DUMMY:
-	err = rbuf_init_dummy(&opt, be);
+	err = rbuf_init_buf_entity(&opt, be);
 	break;
     }
     if(err != 0){
@@ -857,6 +882,12 @@ int main(int argc, char **argv)
 	fprintf(stdout, "Time %lds\n", opt.time-sleeptodo+1);
       else
 	fprintf(stdout, "Time %ds\n", sleeptodo);
+
+      fprintf(stdout, "Ringbuffers: ");
+      print_br_stats(opt.membranch);
+      fprintf(stdout, "Recpoints: ");
+      print_br_stats(opt.diskbranch);
+
       fprintf(stdout, "----------------------------------------\n");
 
       if(!(opt.optbits & READMODE))

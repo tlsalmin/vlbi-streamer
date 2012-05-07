@@ -182,7 +182,7 @@ void increment_amount(struct ringbuf * rbuf, int* head, int amount)
 }
 int diff_max(int a , int b, int max){
   if(a>b)
-    return max-a+b;
+    return (max+1)-a+b;
   else
     return b-a;
 }
@@ -191,6 +191,7 @@ int diff_max(int a , int b, int max){
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
   //if(*head == (*restrainer-1)){
   if(diff_max(*head, *restrainer, rbuf->opt->buf_num_elems) == 1){
+    D("Can't give buffer as head at %d restained by %d",, *head,*restrainer);
     return 0;
   }
   else{
@@ -712,20 +713,11 @@ void rbuf_stop_and_signal(struct buffer_entity *be){
 int rbuf_wait(struct buffer_entity * be){
   return be->recer->wait(be->recer);
 }
-long rbuf_fake_recer_write(struct recording_entity * re, void* s, size_t count){
-  return count;
-}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int rbuf_is_blocked(struct buffer_entity *be){
   return((struct ringbuf*)be->opt)->is_blocked;
 }
 #endif
-int rbuf_init_dummy(struct opt_s * opt, struct buffer_entity *be){
-  be->recer->write = rbuf_fake_recer_write;
-  be->recer->close = NULL;
-  be->recer->write_index_data = NULL;
-  return rbuf_init_buf_entity(opt,be);
-}
 void rbuf_init_mutex_n_signal(struct buffer_entity *be, void * mutex, void * signal){
   struct ringbuf *rbuf = be->opt;
   be->headlock = (pthread_mutex_t *)mutex;
