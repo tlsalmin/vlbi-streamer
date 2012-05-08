@@ -2,7 +2,7 @@
 #Size of pages in KB
 HUGESIZE=2048
 #Buffer size in GB
-BUFFERSIZE=8
+BUFFERSIZE=16
 G=G
 NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
 if [ -z "$1" ]

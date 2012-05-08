@@ -21,6 +21,7 @@
 #define LOCKER_WRITER		0x0000000f 
 #define BUFFER_RINGBUF 		B(0)
 #define WRITER_DUMMY 		B(1)
+#define BUFFER_SIMPLE		B(2)
 
 /* What HD writer to use. Used by rec_type*/
 #define LOCKER_REC		0x000000f0

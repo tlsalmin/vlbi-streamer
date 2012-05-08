@@ -24,6 +24,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
+#include "simplebuffer.h"
 #define TUNE_AFFINITY
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
@@ -373,7 +374,7 @@ static void parse_options(int argc, char **argv){
   opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
   //TODO: Add option for choosing backend
   //opt.buf_type = BUFFER_RINGBUF;
-  opt.optbits |= BUFFER_RINGBUF;
+  opt.optbits |= BUFFER_SIMPLE;
   /* Calculated automatically when aligment is calculated */
   //opt.filesize = FILE_SPLIT_TO_BLOCKS;
   //opt.rec_type= REC_DEF;
@@ -757,8 +758,13 @@ int main(int argc, char **argv)
 	fprintf(stdout, "Initialized buffer for thread %d\n", i);
 #endif
 	break;
+      case BUFFER_SIMPLE:
+	err = sbuf_init_buf_entity(&opt,be);
+	D("Initialized simple buffer for thread %d",,i);
+	break;
       case WRITER_DUMMY:
-	err = rbuf_init_buf_entity(&opt, be);
+	err = sbuf_init_buf_entity(&opt, be);
+	D("Initialized simple buffer for thread %d",,i);
 	break;
     }
     if(err != 0){
@@ -766,6 +772,7 @@ int main(int argc, char **argv)
       exit(-1);
     }
     //TODO: Change write loop to just loop. Now means both read and write
+    D("Starting buffer thread");
     rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
 #ifdef TUNE_AFFINITY
     CPU_SET(i%processors,&cpuset);

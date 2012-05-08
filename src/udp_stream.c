@@ -462,6 +462,7 @@ void* udp_receiver(void *streamo)
 
       if(i == spec_ops->opt->buf_num_elems){
 	D("Buffer filled, Getting another");
+	se->be->set_ready(se->be);
 	pthread_mutex_lock(se->be->headlock);
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
@@ -471,11 +472,13 @@ void* udp_receiver(void *streamo)
       }
 
     //buf = se->be->get_writebuf(se->be);
+    /*
     if(buf == NULL){
       E("Received NULL buf from buffer");
       E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
       break;
     }
+    */
       
 
     err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);

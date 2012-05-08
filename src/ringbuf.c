@@ -252,16 +252,6 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
     spot = rbuf->buffer + (((long unsigned)*head)*(long unsigned)rbuf->opt->buf_elem_size);
   return spot;
 }
-/* Get the whole buf and set the incrementable entity 	*/
-/* Used for faster buffer fill to get rid of ploss 	*/
-void* simple_get_buf(struct buffer_entity *be, int ** inc){
-  struct ringbuf* rbuf = (struct ringbuf*)be->opt;
-  if(rbuf->opt->optbits & READMODE)
-    *inc = &(rbuf->tail);
-  else
-    *inc = &(rbuf->writer_head);
-  return rbuf->buffer;
-}
 /*
 void rbuf_set_ready(struct buffer_entity *be){
   ((struct ringbuf*)be->opt)->ready = 1;
@@ -510,67 +500,6 @@ int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
   }
   return 0;
 }
-/*
-void *rbuf_simple_read_loop(void *buffo){
-}
-void *rbuf_simple_write_loop(void *buffo){
-  struct buffer_entity * be = (struct buffer_entity *)buffo;
-  struct ringbuf * rbuf = (struct ringbuf *)be->opt;
-  int ret;
-  int diff;
-  rbuf->running = 1;
-  while(rbuf->running){
-    if(diff == 0 && be->recer != NULL){
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Write cycle complete. Setting self to free\n");
-#endif
-      i=0;
-      set_free(rbuf->opt->membranch, be->self);
-      set_free(rbuf->opt->diskbranch, be->recer->self);
-      be->recer = NULL;
-    }
-    while(rbuf->ready == 0 && rbuf->running == 1){
-      pthread_mutex_lock(be->headlock);
-      pthread_cond_wait(be->iosignal, be->headlock);
-    }
-    pthread_mutex_unlock(be->headlock);
-    if(be->recer == NULL)
-      be->recer = (struct recording_entity*)get_free(rbuf->opt->diskbranch);
-    if(rbuf->opt->optbits & READMODE){
-      diff = rbuf->tail;
-      rbuf->tail = 0;
-    }
-    else{
-      diff = rbuf->writer_head;
-      rbuf->writer_head = 0;
-    }
-    while(diff > 0 && rbuf->running == 1){
-      D(stdout, "RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, %lu bytes\n",, *tail, *tail+endi, endi, rbuf->opt->buf_num_elems, count);
-      ret = be->recer->write(be->recer, rbuf->buffer, rbuf->opt->do_w_stuff_every*(rbuf->opt->buf_elem_size));
-      if(ret<0){
-	E("RINGBUF: Error in Rec entity write: %ld\n", ret);
-	break;
-      }
-      else if (ret == 0){
-	//Don't increment
-      }
-      else{
-	if(rbuf->opt->optbits & ASYNC_WRITE)
-	  rbuf->async_writes_submitted++;
-	if(ret != count){
-	  fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
-	}
-	else
-	{
-	  diff-=rbuf->opt->do_w_stuff_every;
-	}
-      }
-
-    }
-  }
-  pthread_exit(NULL);
-}
-*/
 /* main func for writing and sleeping on buffer empty */ 
 void *rbuf_write_loop(void *buffo){
   struct buffer_entity * be = (struct buffer_entity *)buffo;
@@ -828,7 +757,7 @@ int rbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
     be->write_loop = rbuf_read_loop;
   else
     be->write_loop = rbuf_write_loop;
-  be->simple_get_writebuf = simple_get_buf;
+  //be->simple_get_writebuf = simple_get_buf;
   be->stop = rbuf_stop_running;
   be->cancel_writebuf = rbuf_cancel_writebuf;
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
