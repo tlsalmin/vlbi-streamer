@@ -52,12 +52,14 @@
 #define WAIT_BETWEEN		B(16)
 #define VERBOSE			B(17)
 #define MOUNTPOINT_VERBOSE	B(18)
+#define SIMPLE_BUFFER		B(19)
 
 #define MEG			B(20)
 #define GIG			B(30)
 
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
+//#define WRITE_WHOLE_BUFFER
 
 #define MIN_MEM_GIG 4l
 #define MAX_MEM_GIG 12l
@@ -215,6 +217,8 @@ struct buffer_entity
   int (*init)(struct opt_s* , struct buffer_entity*);
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
+  void* (*simple_get_writebuf)(struct buffer_entity *, int **);
+  void (*set_ready)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );

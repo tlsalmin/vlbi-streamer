@@ -388,6 +388,7 @@ static void parse_options(int argc, char **argv){
   //opt.async = 0;
   //opt.optbits = 0xff000000;
   int drives_set = 0;
+  opt.optbits |= SIMPLE_BUFFER;
   opt.socket = 0;
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:"))!= -1){
     switch (ret){

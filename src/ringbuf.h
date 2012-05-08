@@ -3,6 +3,7 @@
 #include "streamer.h"
 #define SLEEP_ON_IO
 #define SIMPLE_RINGBUF
+#define WRITE_WHOLE_BUFFER
 
 struct ringbuf{
   /*
@@ -13,6 +14,9 @@ struct ringbuf{
   //This might just be easier with uints
   struct opt_s* opt;
   //unsigned int optbits;
+#ifdef WRITE_WHOLE_BUFFER
+  int ready_to_w;
+#endif
   int writer_head;
   int hdwriter_head;
   int tail;

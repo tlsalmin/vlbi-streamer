@@ -441,6 +441,7 @@ void* udp_receiver(void *streamo)
 {
   int err = 0;
   int i=0;
+  int *inc;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   spec_ops->total_captured_bytes = 0;
@@ -452,7 +453,7 @@ void* udp_receiver(void *streamo)
   spec_ops->dropped = 0;
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
-  void * buf;
+  void * buf = se->be->simple_get_writebuf(se->be, &inc);
 
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
@@ -460,15 +461,16 @@ void* udp_receiver(void *streamo)
   while(spec_ops->running){
 
       if(i == spec_ops->opt->buf_num_elems){
-	E("Buffer filled, Getting another");
+	D("Buffer filled, Getting another");
 	pthread_mutex_lock(se->be->headlock);
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+	buf = se->be->simple_get_writebuf(se->be, &inc);
 	i=0;
       }
 
-    buf = se->be->get_writebuf(se->be);
+    //buf = se->be->get_writebuf(se->be);
     if(buf == NULL){
       E("Received NULL buf from buffer");
       E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
@@ -506,7 +508,9 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       }
       */
       /* We've received a buffer full. Change the buffer! */
-	i++;
+      i++;
+      buf+=spec_ops->opt->buf_elem_size;
+      (*inc)++;
 
       spec_ops->opt->cumul += 1;
 #ifdef CHECK_OUT_OF_ORDER
