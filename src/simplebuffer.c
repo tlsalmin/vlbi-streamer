@@ -48,7 +48,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //sbuf->opt->buf_elem_size = opt->buf_elem_size;
   //sbuf->writer_head = 0;
   //sbuf->tail = sbuf->hdwriter_head = (sbuf->opt->buf_num_elems-1);
-  sbuf->diff =0 ;
+  sbuf->diff =0;
+  sbuf->asyncdiff =0;
   sbuf->running = 0;
   //sbuf->opt->do_w_stuff_every = opt->do_w_stuff_every;
 
@@ -102,7 +103,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
     err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
     //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
     //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
-    //preheat_buffer(sbuf->buffer, opt);
+    preheat_buffer(sbuf->buffer, opt);
 
   }
   if (err < 0 || sbuf->buffer == 0) {
@@ -250,6 +251,8 @@ void *sbuf_simple_write_loop(void *buffo){
       D("Got rec entity");
     }
     D("Blocking writes. Left to write %d",,sbuf->diff);
+    //if(sbuf->opt->optbits & ASYNC_WRITE)
+      //sbuf->asyncdiff = sbuf->diff;
     while(sbuf->diff > 0 && sbuf->running == 1){
       ret = simple_write_bytes(be);
       if(ret!=0){
@@ -283,6 +286,54 @@ void sbuf_stop_running(struct buffer_entity *be){
 }
 void sbuf_set_ready(struct buffer_entity *be){
   ((struct simplebuf*)be->opt)->ready_to_act = 1;
+}
+int sbuf_check(struct buffer_entity *be){
+  int ret = 0, returnable = 0;
+  struct simplebuf * sbuf = (struct simplebuf * )be->opt;
+  while ((ret = be->recer->check(be->recer))>0){
+    /* Write done so decrement async_writes_submitted */
+    sbuf->async_writes_submitted--;
+#if(DEBUG_OUTPUT)
+    fprintf(stdout, "RINGBUF: %lu Writes complete.\n", ret/sbuf->opt->buf_elem_size);
+#endif
+    //returnable = ret;
+    //int * to_increment;
+    unsigned long num_written;
+    //TODO: Augment for bidirectionality
+    /*
+    if(sbuf->opt->optbits & READMODE)
+      to_increment = &(sbuf->hdwriter_head);
+    else
+      to_increment = &(sbuf->tail);
+      */
+
+    /* ret tells us how many bytes were written */
+    /* ret/buf_size = number of buffs we've written */
+
+    num_written = ret/sbuf->opt->buf_elem_size;
+
+    /* This might happen on last write, when we need to write some extra */
+    /* stuff to keep the writes Block aligned				*/
+    /*
+    if(num_written > sbuf->opt->do_w_stuff_every)
+      num_written = sbuf->opt->do_w_stuff_every;
+      */
+
+    /* TODO: If we receive IO done out of order, we'll potentially release  */
+    /* Buffer entries that haven't yet been released. Trusting that this 	*/
+    /* won't happen 							*/
+
+    /*
+    pthread_mutex_lock(be->headlock);
+    increment_amount(sbuf, to_increment, num_written);
+    pthread_cond_signal(be->iosignal);
+    pthread_mutex_unlock(be->headlock);
+    */
+    //sbuf->last_io_i = 0;
+    //Only used cause IO_WAIT doesn't work with EXT4 yet 
+    //ret = WRITE_COMPLETE_DONT_SLEEP;
+  }
+  return 0;
 }
 int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->init = sbuf_init;

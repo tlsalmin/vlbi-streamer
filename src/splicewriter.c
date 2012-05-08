@@ -108,7 +108,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 
   ioi->extra_param = (void*)sp;
 
-  return 1;
+  return 0;
 }
 
 long splice_write(struct recording_entity * re, void * start, size_t count){

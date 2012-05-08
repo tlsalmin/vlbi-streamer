@@ -4,6 +4,7 @@
 struct simplebuf{
   struct opt_s *opt;
   int diff;
+  int asyncdiff;
   void* buffer;
   int async_writes_submitted;
   int running;

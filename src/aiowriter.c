@@ -96,9 +96,11 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 }
 int aiow_get_w_fflags(){
     return  O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+    //return  O_WRONLY|O_DIRECT|O_NOATIME;
 }
 int aiow_get_r_fflags(){
     return  O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+    //return  O_RDONLY|O_DIRECT|O_NOATIME;
 }
 
 long aiow_write(struct recording_entity * re, void * start, size_t count){
@@ -156,6 +158,8 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
   }
   ioi->offset += count;
   //ioi->bytes_exchanged += count;
+  if(!(aiow_get_r_fflags() & O_NONBLOCK))
+    ioi->bytes_exchanged+=count;
   return count;
 }
 long aiow_check(struct recording_entity * re){
