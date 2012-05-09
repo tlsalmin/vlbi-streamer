@@ -453,6 +453,7 @@ void* udp_receiver(void *streamo)
   spec_ops->dropped = 0;
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+  CHECK_AND_EXIT(se->be);
   void * buf = se->be->simple_get_writebuf(se->be, &inc);
 
 #if(DEBUG_OUTPUT)
@@ -467,6 +468,7 @@ void* udp_receiver(void *streamo)
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+	CHECK_AND_EXIT(se->be);
 	buf = se->be->simple_get_writebuf(se->be, &inc);
 	i=0;
       }

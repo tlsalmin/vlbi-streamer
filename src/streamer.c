@@ -122,6 +122,11 @@ void* get_free(struct entity_list_branch *br)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
+    if(br->busylist == NULL){
+      D("No entities in list. Returning NULL");
+      pthread_mutex_unlock(&(br->branchlock));
+      return NULL;
+    }
     D("Failed to get free buffer. Sleeping");
     pthread_cond_wait(&(br->busysignal), &(br->branchlock));
   }
@@ -161,14 +166,11 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity * le = br->freelist; 
   struct listed_entity * removable = NULL;
+  //struct buffer_entity *be;
   while(le != NULL){
     switch(operation){
       case BRANCHOP_STOPANDSIGNAL:
 	((struct buffer_entity*)le->entity)->stop((struct buffer_entity*)le->entity);
-	/*
-	struct buffer_entity *be = (struct buffer_entity*)le->entity;
-	be->stop(be);
-	*/
 	break;
       case BRANCHOP_GETSTATS:
 	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
@@ -202,9 +204,10 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
 	removable = le;
 	break;
       case BRANCHOP_CLOSEWRITER:
-	fprintf(stdout, "HURR AMIA HERe\n");
+	D("Closing writer");
 	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
 	removable = le;
+	D("Writer closed");
 	break;
     }
     le = le->child;
@@ -976,7 +979,8 @@ int main(int argc, char **argv)
   }
   else
     D("Streamer thread exit OK");
-  /* Stop the memory threads */
+
+  // Stop the memory threads 
   oper_to_all(opt.membranch, BRANCHOP_STOPANDSIGNAL, NULL);
   int k = 0;
   for(i =0 ;i<opt.n_threads;i++){

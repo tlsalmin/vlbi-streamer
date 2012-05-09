@@ -151,9 +151,11 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
     /* Just return 0 so the thread doesn't shut down		*/
     perror("AIOW: io_submit");
     fprintf(stdout, "perror number %d\n", errno);
+    /*
     if(errno == 0)
       return 0;
     else
+    */
       return -1;
   }
   ioi->offset += count;
@@ -193,7 +195,7 @@ long aiow_check(struct recording_entity * re,int tout){
 #if(DEBUG_OUTPUT)
 	fprintf(stdout, "AIOWRITER: end of file! event.red: %ld  %d\n", event.res, errno);
 #endif
-	return 1;//event.res;
+	return -1;//event.res;
       }
       else{
 	fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);

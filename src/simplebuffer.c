@@ -13,9 +13,9 @@
 #include "simplebuffer.h"
 #include "streamer.h"
 
-void preheat_buffer(void* buf, struct opt_s* opt){
-  memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
-}
+  void preheat_buffer(void* buf, struct opt_s* opt){
+    memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
+  }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
@@ -191,6 +191,13 @@ void* sbuf_getbuf(struct buffer_entity *be, int ** diff){
   *diff = &(sbuf->diff);
   return sbuf->buffer;
 }
+void close_recer(struct buffer_entity *be){
+  struct simplebuf *sbuf = (struct simplebuf *)be->opt;
+  E("Writer broken");
+  remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
+  be->recer->close(be->recer,NULL);
+  be->recer = NULL;
+}
 int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
@@ -203,17 +210,20 @@ int simple_write_bytes(struct buffer_entity *be){
     count = limit;
   else if (limit > count){
     D("Only need to finish transaction");
-    simple_end_transaction(be);
-    return 0;
+    return simple_end_transaction(be);
   }
 
   D("Starting write from %lu with count %lu",,offset,count);
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld\n",, ret);
-    return -1;
+    return -ret;
   }
   else if (ret == 0){
+    if(!(sbuf->opt->optbits & READMODE)){
+      E("Failed write with 0");
+      close_recer(be);
+    }
     //Don't increment
   }
   else{
@@ -225,13 +235,6 @@ int simple_write_bytes(struct buffer_entity *be){
     }
   }
   return 0;
-}
-void close_recer(struct buffer_entity *be){
-  struct simplebuf *sbuf = (struct simplebuf *)be->opt;
-  E("Writer broken");
-  remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
-  be->recer->close(be->recer,NULL);
-  be->recer = NULL;
 }
 int sbuf_async_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
@@ -245,7 +248,15 @@ int sbuf_async_loop(struct buffer_entity *be){
 	return -1;
       }
       D("Checking async");
-      sbuf_check(be,0);
+      ret = sbuf_check(be,0);
+      if(ret!=0){
+	close_recer(be);
+	return -1;
+      }
+    }
+    else if (be->recer == NULL){
+      E("Lost recer. restart!");
+      return -1;
     }
     else{
       D("Only checking. Not writing. asyncdiff still %d",,sbuf->asyncdiff);
@@ -268,6 +279,7 @@ int sbuf_sync_loop(struct buffer_entity *be){
       close_recer(be);
       return -1;
     }
+    D("Writeloop done. diff:  %d",,sbuf->diff);
   }
   return 0;
 }
@@ -279,6 +291,7 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch);
+    CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
 
@@ -294,7 +307,9 @@ int write_buffer(struct buffer_entity *be){
   if(sbuf->diff == 0){
     D("Write cycle complete. Setting self to free");
     set_free(sbuf->opt->membranch, be->self);
-    set_free(sbuf->opt->diskbranch, be->recer->self);
+    /* Might have closed recer already */
+    if(be->recer != NULL)
+      set_free(sbuf->opt->diskbranch, be->recer->self);
     sbuf->ready_to_act = 0;
     be->recer = NULL;
   }
@@ -314,27 +329,32 @@ void *sbuf_simple_write_loop(void *buffo){
       D("Sleeping on ready");
       pthread_mutex_lock(be->headlock);
       pthread_cond_wait(be->iosignal, be->headlock);
+      D("Woke up");
+      pthread_mutex_unlock(be->headlock);
     }
-    pthread_mutex_unlock(be->headlock);
+    /*
     if(sbuf->running == 0)
       break;
+      */
 
-    D("Blocking writes. Left to write %d",,sbuf->diff);
-    savedif = sbuf->diff;
-    ret = -1;
+    if(sbuf->diff > 0){
+      D("Blocking writes. Left to write %d",,sbuf->diff);
+      savedif = sbuf->diff;
+      ret = -1;
 
-    while(ret!= 0 && sbuf->running == 1){
-      /* Write failed so set the diff back to old value and rewrite	*/
-      ret = write_buffer(be);
-      if(ret != 0){
-	D("Error in rec. Returning diff");
-	sbuf->diff = savedif;
+      //while(ret!= 0 && sbuf->running == 1){
+      while(ret!= 0){
+	/* Write failed so set the diff back to old value and rewrite	*/
+	ret = write_buffer(be);
+	if(ret != 0){
+	  D("Error in rec. Returning diff");
+	  sbuf->diff = savedif;
+	}
       }
     }
   }
-  D("Loop over. Finishing");
-  /* Still stuff left to write */
   /*
+  D("Loop over. Finishing");
   if(sbuf->diff > 0){
     D("Blocking writes. Left to write %d",,sbuf->diff);
     savedif = sbuf->diff;
@@ -348,21 +368,18 @@ void *sbuf_simple_write_loop(void *buffo){
 	sbuf->diff = savedif;
       }
     }
-    if(be->recer != NULL){
-      set_free(sbuf->opt->membranch, be->self);
-      set_free(sbuf->opt->diskbranch, be->recer->self);
-      be->recer ==NULL;
-    }
   }
   */
   D("Finished");
   pthread_exit(NULL);
 }
 void sbuf_stop_running(struct buffer_entity *be){
+  D("Stopping sbuf thread");
   ((struct simplebuf*)be->opt)->running = 0;
   pthread_mutex_lock(be->headlock);
   pthread_cond_signal(be->iosignal);
   pthread_mutex_unlock(be->headlock);
+  D("Stopped and signalled");
 }
 void sbuf_set_ready(struct buffer_entity *be){
   ((struct simplebuf*)be->opt)->ready_to_act = 1;
@@ -371,7 +388,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0, returnable = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
-  D("Checking for ready writes. Should be %d left",,sbuf->asyncdiff);
+  D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
   usleep(10000);
   ret = be->recer->check(be->recer, 0);

@@ -65,7 +65,7 @@
 #define MIN_MEM_GIG 4l
 #define MAX_MEM_GIG 12l
 /* TODO query this */
-#define BLOCK_ALIGN 512
+#define BLOCK_ALIGN 4096
 //#define MAX_MEM_GIG 8
 //The default size
 #define DEF_BUF_ELEM_SIZE 8192
@@ -76,6 +76,8 @@
   do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
   do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+#define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
+
 //Moved to configure
 //#define DEBUG_OUTPUT
 //Magic number TODO: Refactor so we won't need this

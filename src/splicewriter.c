@@ -122,11 +122,9 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   off_t oldoffset;
   //int nr_segs;
   long total_w =0;
-#if(DEBUG_OUTPUT) 
-  fprintf(stdout, "SPLICEWRITER: Issuing write of %lu\n", count);
-#endif
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   struct splice_ops *sp = (struct splice_ops *)ioi->extra_param;
+  D( "SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->filename);
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
   sp->iov->iov_base = start;
   sp->iov->iov_len = count;
@@ -216,7 +214,8 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   if(ret <0){
     perror("SPLICEWRITER: Error on write/read");
     fprintf(stderr, "SPLICEWRITER: Error happened on %s with start %lu and count %lu\n", ioi->filename, (long)start, count);
-    return total_w;
+    //return total_w;
+    return -1;
   }
   /* Having bad performance. Linus recommends this stuff  at 			*/
   /* http://lkml.indiana.edu/hypermail/linux/kernel/1005.2/01845.html 		*/

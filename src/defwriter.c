@@ -21,7 +21,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   /* Loop until we've gotten everything written */
   while(count >0){
 #if(DEBUG_OUTPUT) 
-    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu\n", count,(long unsigned)start);
+    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu to %s\n", count,(long unsigned)start, ioi->filename);
 #endif
     if(ioi->optbits & READMODE)
       ret = read(ioi->fd, start, count);
@@ -56,7 +56,8 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   return total_w;
 }
 int def_get_w_fflags(){
-  return O_WRONLY|O_DIRECT|O_NOATIME;
+  //return O_WRONLY|O_DIRECT|O_NOATIME;
+  return O_WRONLY|O_NOATIME;
 }
 int def_get_r_fflags(){
   return O_RDONLY|O_DIRECT|O_NOATIME;
