@@ -162,14 +162,22 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
     ioi->bytes_exchanged+=count;
   return count;
 }
-long aiow_check(struct recording_entity * re){
+long aiow_check(struct recording_entity * re,int tout){
   //Just poll, so we can keep receiving more packets
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
+  long ret;
   static struct timespec timeout = { 0, 0 };
+  static struct timespec rtout = { 1, TIMEOUT_T };
   struct io_event event;
   struct extra_parameters *ep = (struct extra_parameters *)ioi->extra_param;
   //io_context_t * ctx = ep->ctx;
-  long ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
+  if(tout == 1){
+    D("Timeout set on check for %s",, ioi->filename);
+    ret = io_getevents(ep->ctx, 0, 1, &event, &rtout);
+    D("Released on %s",, ioi->filename);
+  }
+  else
+    ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
   //
   if(ret > 0){
     ep->used_events-=ret;
@@ -183,7 +191,7 @@ long aiow_check(struct recording_entity * re){
     else{
       if(errno == 0){
 #if(DEBUG_OUTPUT)
-	fprintf(stdout, "AIOWRITER: end of file! %lu %d\n", event.res, errno);
+	fprintf(stdout, "AIOWRITER: end of file! event.red: %ld  %d\n", event.res, errno);
 #endif
 	return 1;//event.res;
       }
@@ -218,16 +226,15 @@ long aiow_check(struct recording_entity * re){
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
+  struct extra_parameters *ep = (struct extra_parameters*)ioi->extra_param;
   //Needs to be static so ..durr
-  //static struct timespec timeout = { 1, TIMEOUT_T };
+  static struct timespec timeout = { 1, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Buffer full %s. Going to sleep\n", ioi->filename);
-#endif
+  D("AIOW: Buffer full %s. Going to sleep\n",, ioi->filename);
   //Doesn't really sleep :/
-  //return io_queue_wait(*(ioi->ctx), &timeout);
+  //return io_queue_wait(ep->ctx, &timeout);
   return usleep(5000);
 }
 int aiow_close(struct recording_entity * re, void * stats){

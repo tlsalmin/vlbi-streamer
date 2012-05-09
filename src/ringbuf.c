@@ -658,7 +658,7 @@ void *rbuf_write_loop(void *buffo){
 int rbuf_check(struct buffer_entity *be){
   int ret = 0, returnable = 0;
   struct ringbuf * rbuf = (struct ringbuf * )be->opt;
-  while ((ret = be->recer->check(be->recer))>0){
+  while ((ret = be->recer->check(be->recer,0))>0){
     /* Write done so decrement async_writes_submitted */
     if(rbuf->opt->optbits & ASYNC_WRITE)
       rbuf->async_writes_submitted--;

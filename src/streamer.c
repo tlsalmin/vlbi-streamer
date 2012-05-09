@@ -91,6 +91,32 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
 {
   mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
 }
+void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
+  if(!mutex_free)
+    pthread_mutex_lock(&(br->branchlock));
+  if(en == br->freelist){
+    if(en->child != NULL)
+      en->child->father = NULL;
+    br->freelist = en->child;
+  }
+  else	if(en == br->busylist){
+    if(en->child != NULL)
+      en->child->father = NULL;
+    br->busylist = en->child;
+  }
+  else{
+    en->father->child = en->child;
+    if(en->child != NULL)
+      en->child->father = en->father;
+  }
+  en->child = NULL;
+  en->father = NULL;
+
+  free(en);
+
+  if(!mutex_free)
+    pthread_mutex_unlock(&(br->branchlock));
+}
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br)
 {
@@ -134,41 +160,56 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
 {
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity * le = br->freelist; 
+  struct listed_entity * removable = NULL;
   while(le != NULL){
     switch(operation){
       case BRANCHOP_STOPANDSIGNAL:
-	rbuf_stop_and_signal((struct buffer_entity*)(le->entity));
+	((struct buffer_entity*)le->entity)->stop((struct buffer_entity*)le->entity);
+	/*
+	struct buffer_entity *be = (struct buffer_entity*)le->entity;
+	be->stop(be);
+	*/
 	break;
       case BRANCHOP_GETSTATS:
 	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
 	break;
       case BRANCHOP_CLOSERBUF:
 	((struct buffer_entity*)le->entity)->close(((struct buffer_entity*)le->entity), param);
+	removable = le;
 	break;
       case BRANCHOP_CLOSEWRITER:
+	D("Closing writer");
 	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
+	removable = le;
+	D("Writer closed");
 	break;
     }
     le = le->child;
+    if(removable != NULL)
+      remove_from_branch(br,removable,1);
   }
   le = br->busylist;
   while(le != NULL){
     switch(operation){
       case BRANCHOP_STOPANDSIGNAL:
-	rbuf_stop_and_signal((struct buffer_entity*)(le->entity));
+	((struct buffer_entity*)le->entity)->stop((struct buffer_entity*)le->entity);
 	break;
       case BRANCHOP_GETSTATS:
 	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
 	break;
       case BRANCHOP_CLOSERBUF:
 	((struct buffer_entity*)le->entity)->close(((struct buffer_entity*)le->entity), param);
+	removable = le;
 	break;
       case BRANCHOP_CLOSEWRITER:
 	fprintf(stdout, "HURR AMIA HERe\n");
 	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
+	removable = le;
 	break;
     }
     le = le->child;
+    if(removable != NULL)
+      remove_from_branch(br,removable,1);
   }
 
   pthread_mutex_unlock(&(br->branchlock));
@@ -933,14 +974,21 @@ int main(int argc, char **argv)
   if (rc<0) {
     printf("ERROR; return code from pthread_join() is %d\n", rc);
   }
+  else
+    D("Streamer thread exit OK");
   /* Stop the memory threads */
   oper_to_all(opt.membranch, BRANCHOP_STOPANDSIGNAL, NULL);
+  int k = 0;
   for(i =0 ;i<opt.n_threads;i++){
     rc = pthread_join(rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
+    else
+      D("%dth buffer exit OK",,k);
+    k++;
   }
+  D("Getting stats and closing");
   /* Get final stats */
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
   oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);

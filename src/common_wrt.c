@@ -246,6 +246,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //struct stat statinfo;
   int err =0;
   ioi->optbits = opt->optbits;
+  ioi->opt = opt;
 
 
   //re->diskbranch = &(opt->diskbranch);
@@ -337,12 +338,14 @@ void get_io_stats(void * opt, void * st){
   stats->total_written += ioi->bytes_exchanged;
 }
 int common_close(struct recording_entity * re, void * stats){
+  D("Closing writer");
   int err=0;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
 
   //struct stats* stat = (struct stats*)stats;
   //stat->total_written += ioi->bytes_exchanged;
-  get_io_stats(re->opt, stats);
+  if(stats != NULL)
+    get_io_stats(re->opt, stats);
   /*
      char * indexfile = malloc(sizeof(char)*FILENAME_MAX);
      sprintf(indexfile, "%s%s", ioi->filename, ".index");
@@ -353,17 +356,27 @@ int common_close(struct recording_entity * re, void * stats){
 
   //Shrink to size we received if we're writing
   if(!(ioi->optbits & READMODE)){
+    D("Truncating file");
+    /* Enable when we're fallocating again */
+    /*
     err = ftruncate(ioi->fd, ioi->bytes_exchanged);
     if(err!=0){
       perror("COMMON_WRT: ftruncate");
       return err;
     }
+    */
   }
   else{
     //free(ioi->indices);
     /* No need to close indice-file since it was read into memory */
   }
   close(ioi->fd);
+  D("File closed");
+
+  /*
+  remove_from_branch(ioi->opt->diskbranch, re->self);
+  D("Removed from branch");
+  */
 
   //ioi->ctx = NULL;
   free(ioi->filename);

@@ -537,7 +537,7 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
     }
   }
 //#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
+  fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
 //#endif
   //return sender_exit(spec_ops);
   pthread_exit(NULL);

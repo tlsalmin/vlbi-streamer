@@ -8,7 +8,7 @@
 
 int aiow_init(struct opt_s *opt, struct recording_entity * re);
 long aiow_write(struct recording_entity * re, void * start, size_t count);
-long aiow_check(struct recording_entity * re);
+long aiow_check(struct recording_entity * re, int tout);
 int aiow_close(struct recording_entity * re, void * stats);
 int aiow_wait_for_write(struct recording_entity * re);
 int aiow_init_rec_entity(struct opt_s * opt, struct recording_entity * re);

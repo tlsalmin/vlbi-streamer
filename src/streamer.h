@@ -153,6 +153,7 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br);
+void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
@@ -249,7 +250,7 @@ struct recording_entity
   long (*write)(struct recording_entity*,void*,size_t);
   int (*wait)(struct recording_entity *);
   int (*close)(struct recording_entity*, void *);
-  long (*check)(struct recording_entity*);
+  long (*check)(struct recording_entity*, int );
   int (*getfd)(struct recording_entity*);
   void (*get_stats)(void*, void*);
   int (*get_w_flags)();

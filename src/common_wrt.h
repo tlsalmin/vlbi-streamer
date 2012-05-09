@@ -11,6 +11,7 @@ struct common_io_info{
   int f_flags;
   INDEX_FILE_TYPE * indices;
   //int read;
+  struct opt_s *opt;
   unsigned int optbits;
   INDEX_FILE_TYPE indexfile_count;
   void * extra_param;
