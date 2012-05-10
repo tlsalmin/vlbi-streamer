@@ -330,7 +330,6 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   err = mkdir(ioi->filename, 0777);
   umask(process_mask);
   if(err!=0){
-    perror("mkdir");
     if(errno == EEXIST){
       D("Directory exist. OK!");
       }

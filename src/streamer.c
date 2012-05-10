@@ -26,9 +26,13 @@
 #include "splicewriter.h"
 #include "simplebuffer.h"
 #define TUNE_AFFINITY
+#define PRIORITY_SETTINGS
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
+//TODO: Search these
+#define MAX_PRIO_FOR_PTHREAD 10
+#define MIN_PRIO_FOR_PTHREAD 0
 
 #define BRANCHOP_STOPANDSIGNAL 1
 #define BRANCHOP_GETSTATS 2
@@ -684,6 +688,11 @@ int main(int argc, char **argv)
 {
   int i;
   int err;
+#ifdef PRIORITY_SETTINGS
+  pthread_attr_t        pta;
+  struct sched_param    param;
+#endif
+
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
@@ -791,7 +800,23 @@ int main(int argc, char **argv)
     /* Add the recording entity to the diskbranch */
   }
 
+#ifdef PRIORITY_SETTINGS
+  memset(&param, 0, sizeof(param));
+  rc = pthread_attr_init(&pta);
+  if(rc != 0)
+    E("Pthread attr initialization: %s",,strerror(rc));
 
+  rc = pthread_attr_getschedparam(&pta, &param);
+  if(rc != 0)
+    E("Error getting schedparam for pthread attr: %s",,strerror(rc));
+  else
+    D("Schedparam set to %d, Trying to set to minimun %d",, param.sched_priority, MIN_PRIO_FOR_PTHREAD);
+
+  param.sched_priority = MIN_PRIO_FOR_PTHREAD;
+  rc = pthread_attr_setschedparam(&pta, &param);
+  if(rc != 0)
+    E("Error setting schedparam for pthread attr: %s",,strerror(rc));
+#endif
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Initializing threads\n");
 #endif
@@ -799,10 +824,10 @@ int main(int argc, char **argv)
     //int err = 0;
     struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
     /*
-    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-    le->entity = (void*)be;
-    add_to_entlist(&(opt.diskbranch), le);
-    */
+       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+       le->entity = (void*)be;
+       add_to_entlist(&(opt.diskbranch), le);
+       */
     //Make elements accessible
     //be->recer = re;
     //re->be = be;
@@ -832,7 +857,11 @@ int main(int argc, char **argv)
     }
     //TODO: Change write loop to just loop. Now means both read and write
     D("Starting buffer thread");
+#ifdef PRIORITY_SETTINGS
+    rc = pthread_create(&rbuf_pthreads[i], &pta, be->write_loop,(void*)be);
+#else
     rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
+#endif
 #ifdef TUNE_AFFINITY
     if(cpusetter == processors)
       cpusetter = 1;
@@ -876,47 +905,52 @@ int main(int argc, char **argv)
 
   //TODO: Packet index recovery 
   /*
-  if(opt.optbits & READMODE){
-    //unsigned long total_packets = 0;
-    opt.max_num_packets =0 ;
-    for(i=0;i<opt.n_threads;i++)
-      //TODO: Fix sendside
-      //opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "STREAMER: Total packets: %lu\n", opt.max_num_packets);
-#endif
+     if(opt.optbits & READMODE){
+  //unsigned long total_packets = 0;
+  opt.max_num_packets =0 ;
+  for(i=0;i<opt.n_threads;i++)
+  //TODO: Fix sendside
+  //opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
 
   }
   */
 
   /* Just start the one receiver */
   //for(i=0;i<opt.n_threads;i++){
-    //#if(DEBUG_OUTPUT)
-    printf("STREAMER: In main, starting receiver thread \n");
-    //#endif
+  //#if(DEBUG_OUTPUT)
+  printf("STREAMER: In main, starting receiver thread \n");
+  //#endif
 
-    rc = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
-    if (rc){
-      printf("ERROR; return code from pthread_create() is %d\n", rc);
-      exit(-1);
-    }
-#ifdef TUNE_AFFINITY
-    /* Put the capture on the first core */
-    CPU_SET(0,&cpuset);
-    /*
-    cpusetter++;
-    if(cpusetter > processors)
-      cpusetter = 1;
-      */
-
-    rc = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
-    if(rc != 0){
-      E("Error: setting affinity: %d",,rc);
-    }
-    CPU_ZERO(&cpuset);
+#ifdef PRIORITY_SETTINGS
+  param.sched_priority = MAX_PRIO_FOR_PTHREAD;
+  rc = pthread_attr_setschedparam(&pta, &param);
+  if(rc != 0)
+    E("Error setting schedparam for pthread attr: %d",, rc);
+  rc = pthread_create(&streamer_pthread, &pta, streamer_ent.start, (void*)&streamer_ent);
+#else
+  rc = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
 #endif
-    //Spread processes out to n cores
-    //NOTE: setaffinity should be used after thread has been started
+  if (rc != 0){
+    printf("ERROR; return code from pthread_create() is %d\n", rc);
+    exit(-1);
+  }
+#ifdef TUNE_AFFINITY
+  /* Put the capture on the first core */
+  CPU_SET(0,&cpuset);
+  /*
+     cpusetter++;
+     if(cpusetter > processors)
+     cpusetter = 1;
+     */
+
+  rc = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
+  if(rc != 0){
+    E("Error: setting affinity: %d",,rc);
+  }
+  CPU_ZERO(&cpuset);
+#endif
+  //Spread processes out to n cores
+  //NOTE: setaffinity should be used after thread has been started
 
   //}
 
@@ -952,10 +986,10 @@ int main(int argc, char **argv)
       streamer_ent.get_stats(streamer_ent.opt, &stats_now);
       /* Query and print the stats */
       /*
-      for(i=0;i<opt.n_threads;i++){
-	//threads[i].get_stats(threads[i].opt, &stats_now);
-	if(threads[i].be->recer->get_stats != NULL)
-	  threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
+	 for(i=0;i<opt.n_threads;i++){
+      //threads[i].get_stats(threads[i].opt, &stats_now);
+      if(threads[i].be->recer->get_stats != NULL)
+      threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
       }
       */
       //TODO: Write end stats
@@ -985,11 +1019,11 @@ int main(int argc, char **argv)
       add_stats(&stats_prev, &stats_now);
       //memcpy(&stats_prev, &stats_temp, sizeof(struct stats));
       /*
-      if(opt.optbits & READMODE){
-	if(opt.cumul >= opt.max_num_packets-1)
-	  sleeptodo = 0;
-      }
-      */
+	 if(opt.optbits & READMODE){
+	 if(opt.cumul >= opt.max_num_packets-1)
+	 sleeptodo = 0;
+	 }
+	 */
     }
   }
   else{
@@ -1001,7 +1035,7 @@ int main(int argc, char **argv)
   /* Close the sockets on readmode */
   if(!(opt.optbits & READMODE)){
     //for(i = 0;i<opt.n_threads;i++){
-      //threads[i].stop(&(threads[i]));
+    //threads[i].stop(&(threads[i]));
     //}
     streamer_ent.stop(&(streamer_ent));
     udps_close_socket(&streamer_ent);
@@ -1039,7 +1073,7 @@ int main(int argc, char **argv)
 
   /*Close everything */
 
-    //}
+  //}
   /* Log the time */
   if(opt.optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
@@ -1073,6 +1107,7 @@ int main(int argc, char **argv)
     free(opt.device_name);
   free(opt.membranch);
   free(opt.diskbranch);
+  pthread_attr_destroy(&pta);
 
   //return 0;
   //pthread_exit(NULL);
