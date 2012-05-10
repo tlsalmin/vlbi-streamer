@@ -725,6 +725,7 @@ int main(int argc, char **argv)
   int rc;
 #ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
+  int cpusetter =1;
 #endif
 
 #ifdef TUNE_AFFINITY
@@ -832,7 +833,10 @@ int main(int argc, char **argv)
     D("Starting buffer thread");
     rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
 #ifdef TUNE_AFFINITY
-    CPU_SET(i%processors,&cpuset);
+    CPU_SET(cpusetter,&cpuset);
+    cpusetter++;
+    if(cpusetter > processors)
+      cpusetter = 1;
 
     rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
     if(rc != 0)
@@ -892,6 +896,20 @@ int main(int argc, char **argv)
       printf("ERROR; return code from pthread_create() is %d\n", rc);
       exit(-1);
     }
+#ifdef TUNE_AFFINITY
+    /* Put the capture on the first core */
+    CPU_SET(0,&cpuset);
+    /*
+    cpusetter++;
+    if(cpusetter > processors)
+      cpusetter = 1;
+      */
+
+    rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
+    if(rc != 0)
+      printf("Error: setting affinity");
+    CPU_ZERO(&cpuset);
+#endif
     //Spread processes out to n cores
     //NOTE: setaffinity should be used after thread has been started
 
