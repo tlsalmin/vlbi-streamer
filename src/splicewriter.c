@@ -24,7 +24,7 @@
 /* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
 #define MAX_PIPE_SIZE 1048576
 /* Read a claim that proper scatter gather requires fopen not open */
-#define USE_FOPEN
+//#define USE_FOPEN
 //#define MAX_IOVEC 16
 
 //#define DISABLE_WRITE
@@ -124,7 +124,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   long total_w =0;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   struct splice_ops *sp = (struct splice_ops *)ioi->extra_param;
-  D( "SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->filename);
+  D( "SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->curfilename);
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
   sp->iov->iov_base = start;
   sp->iov->iov_len = count;
@@ -213,7 +213,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   }
   if(ret <0){
     perror("SPLICEWRITER: Error on write/read");
-    fprintf(stderr, "SPLICEWRITER: Error happened on %s with start %lu and count %lu\n", ioi->filename, (long)start, count);
+    fprintf(stderr, "SPLICEWRITER: Error happened on %s with start %lu and count %lu\n", ioi->curfilename, (long)start, count);
     //return total_w;
     return -1;
   }

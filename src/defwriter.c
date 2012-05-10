@@ -60,8 +60,8 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   return total_w;
 }
 int def_get_w_fflags(){
-  return O_WRONLY|O_DIRECT|O_NOATIME;
-  //return O_WRONLY|O_NOATIME;
+  //return O_WRONLY|O_DIRECT|O_NOATIME;
+  return O_WRONLY|O_NOATIME;
 }
 int def_get_r_fflags(){
   return O_RDONLY|O_DIRECT|O_NOATIME;
