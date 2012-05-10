@@ -834,15 +834,17 @@ int main(int argc, char **argv)
     D("Starting buffer thread");
     rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
 #ifdef TUNE_AFFINITY
-    if(cpusetter > processors)
+    if(cpusetter == processors)
       cpusetter = 1;
     CPU_SET(cpusetter,&cpuset);
     cpusetter++;
 
     D("Tuning buffer thread %i to processor %i",,i,cpusetter);
     rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
-    if(rc != 0)
-      printf("Error: setting affinity");
+    if(rc != 0){
+      perror("Affinity");
+      E("Error: setting affinity");
+    }
     CPU_ZERO(&cpuset);
 #endif
   }
@@ -907,9 +909,10 @@ int main(int argc, char **argv)
       cpusetter = 1;
       */
 
-    rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
-    if(rc != 0)
-      printf("Error: setting affinity");
+    rc = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
+    if(rc != 0){
+      E("Error: setting affinity: %d",,rc);
+    }
     CPU_ZERO(&cpuset);
 #endif
     //Spread processes out to n cores
