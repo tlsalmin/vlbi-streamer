@@ -725,6 +725,7 @@ int main(int argc, char **argv)
   int rc;
 #ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
+  D("Polled %ld processors",,processors);
   int cpusetter =1;
 #endif
 
@@ -833,11 +834,12 @@ int main(int argc, char **argv)
     D("Starting buffer thread");
     rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
 #ifdef TUNE_AFFINITY
-    CPU_SET(cpusetter,&cpuset);
-    cpusetter++;
     if(cpusetter > processors)
       cpusetter = 1;
+    CPU_SET(cpusetter,&cpuset);
+    cpusetter++;
 
+    D("Tuning buffer thread %i to processor %i",,i,cpusetter);
     rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
     if(rc != 0)
       printf("Error: setting affinity");
