@@ -8,6 +8,7 @@ struct simplebuf{
   void* buffer;
   int async_writes_submitted;
   int running;
+  unsigned long file_seqnum;
   int ready_to_act;
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);

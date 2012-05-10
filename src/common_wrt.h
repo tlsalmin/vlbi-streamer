@@ -4,6 +4,7 @@
 /* TODO: Remove duplicates */
 struct common_io_info{
   char * filename;
+  char * curfilename;
   int fd;
   long long offset;
   long long bytes_exchanged;
@@ -12,6 +13,7 @@ struct common_io_info{
   INDEX_FILE_TYPE * indices;
   //int read;
   struct opt_s *opt;
+  unsigned long file_seqnum;
   unsigned int optbits;
   INDEX_FILE_TYPE indexfile_count;
   void * extra_param;

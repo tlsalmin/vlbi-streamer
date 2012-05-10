@@ -17,6 +17,35 @@
 
 /* These should be moved somewhere general, since they should be used by all anyway */
 /* writers anyway */
+int common_open_new_file(void * recco, unsigned long seq){
+  int err;
+  struct recording_entity * re = (struct recording_entity*)recco;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  ioi->file_seqnum = seq;
+
+  ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  sprintf(ioi->curfilename, "%s%08d", ioi->filename,seq); 
+
+  D("Opening new file %s",,ioi->curfilename);
+  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->curfilename, 0);
+  if(err!=0){
+    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
+    return err;
+  }
+  //free(filename);
+  return 0;
+}
+int common_finish_file(void *recco){
+  struct recording_entity * re = (struct recording_entity*)recco;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  int ret = close(ioi->fd);
+  if(ret != 0)
+    E("Error in closing file!");
+  else
+    D("File closed");
+  free(ioi->curfilename);
+  return ret;
+}
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   struct stat statinfo;
   int err =0;
@@ -229,6 +258,8 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   le->entity = (void*)re;
   le->child = NULL;
   le->father = NULL;
+  //le->acquire = common_open_new_file;
+  //le->release = common_finish_file;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);
   D("Writer added to diskbranch");
@@ -255,6 +286,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->entity = (void*)re;
   le->child = NULL;
   le->father = NULL;
+  le->acquire = common_open_new_file;
+  le->release = common_finish_file;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);
   D("Writer added to diskbranch");
@@ -291,11 +324,22 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   }
   //fprintf(stdout, "wut\n");
   ioi->filename = opt->filenames[opt->taken_rpoints++];
-  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->filename, prealloc_bytes);
+
+  D("Creating directory");
+  mode_t process_mask = umask(0);
+  err = mkdir(ioi->filename, 0777);
+  umask(process_mask);
   if(err!=0){
-    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
-    return err;
+    perror("mkdir");
+    if(errno == EEXIST){
+      D("Directory exist. OK!");
+      }
+    else{
+      E("COMMON_WRT: Init: Error in file open: %s",, ioi->filename);
+      return err;
+    }
   }
+
   //TODO: Set offset accordingly if file already exists. Not sure if
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
@@ -370,8 +414,11 @@ int common_close(struct recording_entity * re, void * stats){
     //free(ioi->indices);
     /* No need to close indice-file since it was read into memory */
   }
+  //Done in release
+  /*
   close(ioi->fd);
   D("File closed");
+  */
 
   /*
   remove_from_branch(ioi->opt->diskbranch, re->self);

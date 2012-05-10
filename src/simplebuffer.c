@@ -13,9 +13,16 @@
 #include "simplebuffer.h"
 #include "streamer.h"
 
-  void preheat_buffer(void* buf, struct opt_s* opt){
-    memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
-  }
+int sbuf_acquire(void* buffo, unsigned long seq){
+  ((struct simplebuf*)((struct buffer_entity *)buffo)->opt)->file_seqnum = seq;
+  return 0;
+}
+int sbuf_release(void* buffo){
+  return 0;
+}
+void preheat_buffer(void* buf, struct opt_s* opt){
+  memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
+}
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
@@ -33,6 +40,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   le->entity = (void*)be;
   le->child = NULL;
   le->father = NULL;
+  le->acquire = sbuf_acquire;
+  le->release = sbuf_release;
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
   D("Ringbuf added to membranch");
@@ -291,7 +300,7 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     D("Getting rec entity for buffer");
-    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch);
+    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }

@@ -135,6 +135,8 @@ struct listed_entity
 {
   struct listed_entity* child;
   struct listed_entity* father;
+  int (*acquire)(void*,unsigned long);
+  int (*release)(void*);
   void* entity;
 };
 /* Holds all the listed_entits of a common type		*/
@@ -154,7 +156,7 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br);
+void* get_free(struct entity_list_branch *br, unsigned long seq);
 void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);

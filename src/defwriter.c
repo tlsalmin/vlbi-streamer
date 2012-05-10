@@ -17,11 +17,15 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   long ret = 0;
   long total_w = 0;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
+  if(ioi->fd == 0){
+    E("FD not set! Not writing to stdout!");
+    return -1;
+    }
 
   /* Loop until we've gotten everything written */
   while(count >0){
 #if(DEBUG_OUTPUT) 
-    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu to %s\n", count,(long unsigned)start, ioi->filename);
+    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu to %s\n", count,(long unsigned)start, ioi->curfilename);
 #endif
     if(ioi->optbits & READMODE)
       ret = read(ioi->fd, start, count);

@@ -452,7 +452,7 @@ void* udp_receiver(void *streamo)
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
   CHECK_AND_EXIT(se->be);
   void * buf = se->be->simple_get_writebuf(se->be, &inc);
 
@@ -463,11 +463,18 @@ void* udp_receiver(void *streamo)
 
       if(i == spec_ops->opt->buf_num_elems){
 	D("Buffer filled, Getting another");
+	
+	/* Update cumul so packages are written to different files */
+	spec_ops->opt->cumul += 1;
+
+	/* Set old buffer ready and signal it to start writing */
 	se->be->set_ready(se->be);
 	pthread_mutex_lock(se->be->headlock);
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch);
+
+	/* Get a new buffer */
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
 	CHECK_AND_EXIT(se->be);
 	buf = se->be->simple_get_writebuf(se->be, &inc);
 	i=0;
@@ -517,7 +524,6 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       buf+=spec_ops->opt->buf_elem_size;
       (*inc)++;
 
-      spec_ops->opt->cumul += 1;
 #ifdef CHECK_OUT_OF_ORDER
       //spec_ops->last_packet = *daspot;
 #endif

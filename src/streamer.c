@@ -86,6 +86,11 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en)
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
   pthread_cond_signal(&(br->busysignal));
   pthread_mutex_unlock(&(br->branchlock));
+  if(en->release != NULL){
+    int ret = en->release(en->entity);
+    if(ret != 0)
+      E("Release returned non zero value.(Not handled in any way)");
+  }
 }
 void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
 {
@@ -118,7 +123,7 @@ void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en
     pthread_mutex_unlock(&(br->branchlock));
 }
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br)
+void* get_free(struct entity_list_branch *br, unsigned long seq)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
@@ -130,10 +135,18 @@ void* get_free(struct entity_list_branch *br)
     D("Failed to get free buffer. Sleeping");
     pthread_cond_wait(&(br->busysignal), &(br->branchlock));
   }
-  void * temp = br->freelist->entity;
+  struct listed_entity * temp = br->freelist;
   mutex_free_set_busy(br, br->freelist);
   pthread_mutex_unlock(&(br->branchlock));
-  return temp;
+  if(temp->acquire !=NULL){
+    D("Running acquire on entity");
+    int ret = temp->acquire(temp->entity, seq);
+    if(ret != 0)
+      E("Acquire return non-zero value(Not handled)");
+  }
+  else
+    D("Entity doesn't have an acquire-function");
+  return temp->entity;
 }
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en)
@@ -608,7 +621,7 @@ static void parse_options(int argc, char **argv){
   for(i=0;i<opt.n_drives;i++){
     opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
-    sprintf(opt.filenames[i], "%s%d%s%s", "/mnt/disk", i, "/", opt.filename);
+    sprintf(opt.filenames[i], "%s%d%s%s%s", "/mnt/disk", i, "/", opt.filename,"/");
   }
   if(opt.optbits & READMODE)
     opt.hostname = argv[1];
