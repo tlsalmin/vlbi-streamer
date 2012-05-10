@@ -158,7 +158,7 @@ void print_br_stats(struct entity_list_branch *br){
   pthread_mutex_unlock(&(br->branchlock));
   fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
 }
-/* Loop through all write entities and gets stats */
+/* Loop through all entities and do specified OP */
 /* Don't want to write this same thing 4 times , so I'll just add an operation switch */
 /* for it */
 void oper_to_all(struct entity_list_branch *br, int operation,void* param)

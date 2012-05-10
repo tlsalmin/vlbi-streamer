@@ -290,6 +290,7 @@ int write_buffer(struct buffer_entity *be){
   int ret;
 
   if(be->recer == NULL){
+    D("Getting rec entity for buffer");
     be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");

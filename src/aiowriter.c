@@ -96,6 +96,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 }
 int aiow_get_w_fflags(){
     return  O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
+    //return  O_WRONLY|O_NOATIME|O_NONBLOCK;
     //return  O_WRONLY|O_DIRECT|O_NOATIME;
 }
 int aiow_get_r_fflags(){
