@@ -31,8 +31,8 @@
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
 //TODO: Search these
-#define MAX_PRIO_FOR_PTHREAD 10
-#define MIN_PRIO_FOR_PTHREAD 0
+#define MAX_PRIO_FOR_PTHREAD 4
+#define MIN_PRIO_FOR_PTHREAD 1
 
 #define BRANCHOP_STOPANDSIGNAL 1
 #define BRANCHOP_GETSTATS 2
@@ -812,6 +812,10 @@ int main(int argc, char **argv)
   else
     D("Schedparam set to %d, Trying to set to minimun %d",, param.sched_priority, MIN_PRIO_FOR_PTHREAD);
 
+  rc = pthread_attr_setschedpolicy(&pta, SCHED_FIFO);
+  if(rc != 0)
+    E("Error setting schedtype for pthread attr: %s",,strerror(rc));
+
   param.sched_priority = MIN_PRIO_FOR_PTHREAD;
   rc = pthread_attr_setschedparam(&pta, &param);
   if(rc != 0)
@@ -925,7 +929,7 @@ int main(int argc, char **argv)
   param.sched_priority = MAX_PRIO_FOR_PTHREAD;
   rc = pthread_attr_setschedparam(&pta, &param);
   if(rc != 0)
-    E("Error setting schedparam for pthread attr: %d",, rc);
+    E("Error setting schedparam for pthread attr: %s, to %d",, strerror(rc), MAX_PRIO_FOR_PTHREAD);
   rc = pthread_create(&streamer_pthread, &pta, streamer_ent.start, (void*)&streamer_ent);
 #else
   rc = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
