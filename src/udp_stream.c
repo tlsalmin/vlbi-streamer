@@ -15,10 +15,8 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#ifdef MMAP_TECH
-#include <sys/mman.h>
+#include <sys/mman.h> //FOR MMAP and poll
 #include <sys/poll.h>
-#endif
 
 #include <pthread.h>
 
@@ -39,6 +37,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 #define INIT_ERROR return -1;
+#define BIND_WITH_PF_PACKET
 
 //Gatherer specific options
 int phandler_sequence(struct streamer_entity * se, void * buffer){
@@ -105,12 +104,16 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 
   //spec_ops->port = opt->port;
 
-  spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
+  /* TODO Works with AF_INET but should use PF_PACKET? */
+#ifdef BIND_WITH_PF_PACKET
+  if(spec_ops->opt->optbits & USE_RX_RING)
+    spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+  else
+#endif
+    spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
   //if(!(spec_ops->optbits & READMODE))
   opt->socket = spec_ops->fd;
 
-  /* TODO: Remove DO_W_STUFF_EVERY since packet size is defined at invocation */
-  /* Changed from compile-time						*/
 
   if (spec_ops->fd < 0) {
     perror("socket");
@@ -162,19 +165,37 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   /*
    * Setting the default receive buffer size. Taken from libhj create_udp_socket
    */
-  len = sizeof(def);
-  def=0;
-  if(spec_ops->opt->optbits & READMODE){
-    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "UDP_STREAMER: Defaults: SENDBUF %d\n",def);
-#endif
+  if(spec_ops->opt->optbits & USE_RX_RING){
+    struct tpacket_req req;
+    req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems);
+    req.tp_frame_size = spec_ops->opt->buf_elem_size;
+    req.tp_frame_nr = spec_ops->opt->buf_num_elems;
+    req.tp_block_nr = spec_ops->opt->n_threads;
+    err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
+    if(err != 0){
+      perror("RX_RING");
+      E("RX_RING init: %s",, strerror(err));
+      return -1;
+    }
+    else
+      D("Socket set to RX_RING");
+
   }
   else{
-    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+    len = sizeof(def);
+    def=0;
+    if(spec_ops->opt->optbits & READMODE){
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "UDP_STREAMER: Defaults: RCVBUF %d\n",def);
+      fprintf(stdout, "UDP_STREAMER: Defaults: SENDBUF %d\n",def);
 #endif
+    }
+    else{
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+#if(DEBUG_OUTPUT)
+      fprintf(stdout, "UDP_STREAMER: Defaults: RCVBUF %d\n",def);
+#endif
+    }
   }
 
 #ifdef SO_NO_CHECK
@@ -193,12 +214,17 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
 #endif
 
 
-  //prep port
-  //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+    //prep port
+    //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+    spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
   //socklen_t len = sizeof(struct sockaddr_in);
   memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
-  spec_ops->sin->sin_family = AF_INET;           
+  /*
+  if(spec_ops->opt->optbits & USE_RX_RING)
+    spec_ops->sin->sin_family = PF_PACKET;           
+  else
+  */
+    spec_ops->sin->sin_family = AF_INET;           
   spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
   //TODO: check if IF binding helps
   if(spec_ops->opt->optbits & READMODE){
@@ -221,7 +247,8 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   }
   else{
     spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
-    err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
+    //if(!(spec_ops->opt->optbits & USE_RX_RING))
+      err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
     //free(addr);
   }
 
@@ -235,6 +262,20 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   else
     fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
 #endif
+
+  if(spec_ops->opt->optbits & USE_RX_RING){
+    /* If we're using the rx-ring, reserve space for it here */
+    int flags = MAP_ANONYMOUS|MAP_SHARED;
+    if(spec_ops->opt->optbits & USE_HUGEPAGE)
+      flags |= MAP_HUGETLB;
+    spec_ops->opt->buffer = mmap(NULL, ((unsigned long)spec_ops->opt->buf_num_elems)*((unsigned long)spec_ops->opt->buf_elem_size)*spec_ops->opt->n_threads, PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
+    if(spec_ops->opt->buffer != NULL)
+      D("RX ring mmapped");
+    else{
+      E("Failed to mmap RX-ring");
+      return -1;
+    }
+  }
 
   return 0;
 }
@@ -269,14 +310,14 @@ void * udp_sender(void *opt){
 
   /*
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
+fprintf(stdout, "UDP_STREAMER: Starting ringbuf thread\n");
 #endif 
-  int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
-  if (rc){
-    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    exit(-1);
-  }
-  */
+int rc = pthread_create(&rbuf_thread, NULL,spec_ops->be->write_loop, (void*)spec_ops->be);
+if (rc){
+printf("ERROR; return code from pthread_create() is %d\n", rc);
+exit(-1);
+}
+*/
   /*
 #if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: Filling buffer\n");
@@ -299,141 +340,186 @@ spec_ops->be->write(spec_ops->be, 0);
 
   //TODO: Reimplement when receive-side running again
   /*
-  while(1){
-    void *buf;
+     while(1){
+     void *buf;
 
-    pthread_mutex_lock(spec_ops->headlock);
-    while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
+     pthread_mutex_lock(spec_ops->headlock);
+     while((buf = spec_ops->be->get_writebuf(spec_ops->be)) == NULL){
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-      spec_ops->is_blocked = 1;
+spec_ops->is_blocked = 1;
 #endif
-      pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
-    }
+pthread_cond_wait(spec_ops->iosignal, spec_ops->headlock);
+}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-    spec_ops->is_blocked = 0;
+spec_ops->is_blocked = 0;
 #endif
 
-    pthread_mutex_lock(spec_ops->cumlock);
-    while(*pindex != *(spec_ops->cumul)){
+pthread_mutex_lock(spec_ops->cumlock);
+while(*pindex != *(spec_ops->cumul)){
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
+fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Going to wait. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
-      if(*(spec_ops->cumul) < 0){
-	fprintf(stderr, "UDP_STREAMER: Error in other thread. Exiting\n");
-	return sender_exit(spec_ops, &rbuf_thread);
-      }
-      pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
-    }
+if(*(spec_ops->cumul) < 0){
+fprintf(stderr, "UDP_STREAMER: Error in other thread. Exiting\n");
+return sender_exit(spec_ops, &rbuf_thread);
+}
+pthread_cond_wait(spec_ops->signal,spec_ops->cumlock);
+}
 #ifdef MULTITHREAD_SEND_DEBUG
-    fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
+fprintf(stdout, "MULTITHREAD_SEND_DEBUG: I have the floor. Owner of %lu and need %lu\n", *pindex, *(spec_ops->cumul));
 #endif
 #ifdef HAVE_RATELIMITER
-    if(spec_ops->optbits & WAIT_BETWEEN){
-      long wait= 0;
-      if(spec_ops->wait_last_sent->tv_sec == 0 && spec_ops->wait_last_sent->tv_nsec == 0){
+if(spec_ops->optbits & WAIT_BETWEEN){
+long wait= 0;
+if(spec_ops->wait_last_sent->tv_sec == 0 && spec_ops->wait_last_sent->tv_nsec == 0){
 #if(DEBUG_OUTPUT)
-	fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
+fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
 #endif
-	clock_gettime(CLOCK_REALTIME, spec_ops->wait_last_sent);
-      }
-      else{
-	// waittime - (time_now - time_last) needs to be positive if we need to wait
-	// 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
-	// accuracy	
-	struct timespec now;
-	clock_gettime(CLOCK_REALTIME, &now);
-	wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->wait_last_sent->tv_sec*BILLION + spec_ops->wait_last_sent->tv_nsec);
+clock_gettime(CLOCK_REALTIME, spec_ops->wait_last_sent);
+}
+else{
+  // waittime - (time_now - time_last) needs to be positive if we need to wait
+  // 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
+  // accuracy	
+  struct timespec now;
+  clock_gettime(CLOCK_REALTIME, &now);
+  wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->wait_last_sent->tv_sec*BILLION + spec_ops->wait_last_sent->tv_nsec);
 #if(DEBUG_OUTPUT)
-	fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
+fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
 #endif
-	if(wait < *(spec_ops->wait_nanoseconds)){
-	  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
+if(wait < *(spec_ops->wait_nanoseconds)){
+  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
 #if(DEBUG_OUTPUT)
-	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
+fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (*(spec_ops->wait_nanoseconds) - wait)/1000);
 #endif	
-	  usleep((*(spec_ops->wait_nanoseconds) - wait)/1000);
-	}
+usleep((*(spec_ops->wait_nanoseconds) - wait)/1000);
+}
 #ifdef ONLY_INCREMENT_TIMER
-	if(wait > *(spec_ops->wait_nanoseconds)){
+if(wait > *(spec_ops->wait_nanoseconds)){
 #if(DEBUG_OUTPUT)
-	  fprintf(stdout, "UDP_STREAMER: Runaway wait. Resetting to now\n");
+fprintf(stdout, "UDP_STREAMER: Runaway wait. Resetting to now\n");
 #endif
-	  spec_ops->wait_last_sent->tv_sec = now.tv_sec;
-	  spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
-	}
-	else{
-	  if(spec_ops->wait_last_sent->tv_nsec + *(spec_ops->wait_nanoseconds) > BILLION){
-	    spec_ops->wait_last_sent->tv_sec++;
-	    spec_ops->wait_last_sent->tv_nsec = *(spec_ops->wait_nanoseconds)-(BILLION - spec_ops->wait_last_sent->tv_nsec);
-	  }
-	  else
-	    spec_ops->wait_last_sent->tv_nsec += *(spec_ops->wait_nanoseconds);
-	}
+spec_ops->wait_last_sent->tv_sec = now.tv_sec;
+spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
+}
+else{
+if(spec_ops->wait_last_sent->tv_nsec + *(spec_ops->wait_nanoseconds) > BILLION){
+spec_ops->wait_last_sent->tv_sec++;
+spec_ops->wait_last_sent->tv_nsec = *(spec_ops->wait_nanoseconds)-(BILLION - spec_ops->wait_last_sent->tv_nsec);
+}
+else
+spec_ops->wait_last_sent->tv_nsec += *(spec_ops->wait_nanoseconds);
+}
 #else
-	spec_ops->wait_last_sent->tv_sec = now.tv_sec;
-	spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
+  spec_ops->wait_last_sent->tv_sec = now.tv_sec;
+  spec_ops->wait_last_sent->tv_nsec = now.tv_nsec;
 #endif
-      }
-    }
+  }
+}
 #endif // HAVE_RATELIMITER
-    err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
+err = sendto(spec_ops->fd, buf, spec_ops->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
 #ifdef HAVE_RATELIMITER
-    //(spec_ops->wait_last_sent) = clock();
+//(spec_ops->wait_last_sent) = clock();
 #endif
 
 
-    // Increment to the next sendable packet
-    *(spec_ops->cumul) += 1;
-    if(err < 0){
-      perror("Send packet");
-      // Set the cumul to -1 so we can inform other threads to quit 
-      (*spec_ops->cumul) = -1;
-      shutdown(spec_ops->fd, SHUT_RDWR);
-      pthread_cond_broadcast(spec_ops->signal);
-      pthread_mutex_unlock(spec_ops->cumlock);
-      return sender_exit(spec_ops, &rbuf_thread);
-      //TODO: How to handle error case? Either shut down all threads or keep on trying
-      //pthread_exit(NULL);
-      //break;
-    }
-    else{
+// Increment to the next sendable packet
+*(spec_ops->cumul) += 1;
+if(err < 0){
+  perror("Send packet");
+  // Set the cumul to -1 so we can inform other threads to quit 
+  (*spec_ops->cumul) = -1;
+  shutdown(spec_ops->fd, SHUT_RDWR);
+  pthread_cond_broadcast(spec_ops->signal);
+  pthread_mutex_unlock(spec_ops->cumlock);
+  return sender_exit(spec_ops, &rbuf_thread);
+  //TODO: How to handle error case? Either shut down all threads or keep on trying
+  //pthread_exit(NULL);
+  //break;
+}
+else{
 #ifdef MULTITHREAD_SEND_DEBUG
-      fprintf(stdout, "MULTITHREAD_SEND_DEBUG: incrementing pindex\n");
+  fprintf(stdout, "MULTITHREAD_SEND_DEBUG: incrementing pindex\n");
 #endif
-      pindex++;
-      if(*pindex != *(spec_ops->cumul)){
+  pindex++;
+  if(*pindex != *(spec_ops->cumul)){
 #ifdef MULTITHREAD_SEND_DEBUG
-	fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
+    fprintf(stdout, "MULTITHREAD_SEND_DEBUG: Broadcasting\n");
 #endif
-	// We don't have the next packet
-	pthread_cond_broadcast(spec_ops->signal);
-      }
-      // TODO: This a little bit of an extra unlock, but it'll do for now 
-      pthread_mutex_unlock(spec_ops->cumlock);
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets++;
-    }
-    i++;
+    // We don't have the next packet
+    pthread_cond_broadcast(spec_ops->signal);
+  }
+  // TODO: This a little bit of an extra unlock, but it'll do for now 
+  pthread_mutex_unlock(spec_ops->cumlock);
+  spec_ops->total_captured_bytes +=(unsigned int) err;
+  spec_ops->total_captured_packets++;
+}
+i++;
 
-    // Sending the packets deemed more crucial so only releasing io mutex and signaling after
-    / We've sent the package 
+// Sending the packets deemed more crucial so only releasing io mutex and signaling after
+/ We've sent the package 
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-    if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
+if(i%spec_ops->do_w_stuff_every == 0 && spec_ops->be->is_blocked(spec_ops->be) == 1)// || err == 0)
 #else
-      if(i%spec_ops->do_w_stuff_every == 0)
+if(i%spec_ops->do_w_stuff_every == 0)
 #endif
-	pthread_cond_signal(spec_ops->iosignal);
-    // Release io thread to check on head
-    pthread_mutex_unlock(spec_ops->headlock);
+  pthread_cond_signal(spec_ops->iosignal);
+  // Release io thread to check on head
+  pthread_mutex_unlock(spec_ops->headlock);
   }
 */
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
+fprintf(stdout, "UDP_STREAMER: Closing buffer thread\n");
 #endif
-  //return sender_exit(spec_ops);
-  pthread_exit(NULL);
+//return sender_exit(spec_ops);
+pthread_exit(NULL);
 }
 
+void* udp_rxring(void *streamo)
+{
+  int err = 0;
+  long i=0;
+  long j = 0;
+  int *inc;
+  //TODO: Get the timeout from main here.
+  int timeout = 1000;
+  struct streamer_entity *se =(struct streamer_entity*)streamo;
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct tpacket_hdr* hdr;
+  struct pollfd pfd;
+
+  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_captured_packets = 0;
+#ifdef CHECK_OUT_OF_ORDER
+  spec_ops->out_of_order = 0;
+#endif
+  spec_ops->incomplete = 0;
+  spec_ops->dropped = 0;
+
+  pfd.fd = spec_ops->fd;
+  pfd.revents = 0;
+  pfd.events = POLLIN|POLLRDNORM|POLLERR;
+  D("Starting mmap polling");
+
+  while(spec_ops->running){
+    err = poll(&pfd, 1, timeout);
+    if(err != 0 || pfd.revents != 0){
+      hdr = spec_ops->opt->buffer + i*(spec_ops->opt->buf_elem_size); 
+      fprintf(stdout, "STATUS: %lu, length: %i, mac: %i", hdr->tp_status, hdr->tp_len, hdr->tp_mac);
+      while(hdr->tp_status != TP_STATUS_KERNEL){
+	j++;
+	if(j==spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads))
+	  j=0;
+	hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
+	hdr->tp_status = TP_STATUS_KERNEL;
+      }
+    }
+    i=j;
+    fprintf(stdout, "i: %d, j: %d\n", i,j);
+  }
+
+  pthread_exit(NULL);
+}
 /*
  * Receiver for UDP-data
  */
@@ -461,34 +547,34 @@ void* udp_receiver(void *streamo)
 #endif
   while(spec_ops->running){
 
-      if(i == spec_ops->opt->buf_num_elems){
-	D("Buffer filled, Getting another");
-	
-	/* Update cumul so packages are written to different files */
-	spec_ops->opt->cumul += 1;
+    if(i == spec_ops->opt->buf_num_elems){
+      D("Buffer filled, Getting another");
 
-	/* Set old buffer ready and signal it to start writing */
-	se->be->set_ready(se->be);
-	pthread_mutex_lock(se->be->headlock);
-	pthread_cond_signal(se->be->iosignal);
-	pthread_mutex_unlock(se->be->headlock);
+      /* Update cumul so packages are written to different files */
+      spec_ops->opt->cumul += 1;
 
-	/* Get a new buffer */
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
-	CHECK_AND_EXIT(se->be);
-	buf = se->be->simple_get_writebuf(se->be, &inc);
-	i=0;
-      }
+      /* Set old buffer ready and signal it to start writing */
+      se->be->set_ready(se->be);
+      pthread_mutex_lock(se->be->headlock);
+      pthread_cond_signal(se->be->iosignal);
+      pthread_mutex_unlock(se->be->headlock);
+
+      /* Get a new buffer */
+      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
+      CHECK_AND_EXIT(se->be);
+      buf = se->be->simple_get_writebuf(se->be, &inc);
+      i=0;
+    }
 
     //buf = se->be->get_writebuf(se->be);
     /*
-    if(buf == NULL){
-      E("Received NULL buf from buffer");
-      E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
-      break;
-    }
-    */
-      
+       if(buf == NULL){
+       E("Received NULL buf from buffer");
+       E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
+       break;
+       }
+       */
+
 
     err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);
     /*
@@ -512,13 +598,13 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       /* Signal writer that we've processed some packets and 	*/
       /* it should wake up unless it's busy writing		*/
       /*
-      if(i%spec_ops->opt->do_w_stuff_every == 0){
-	D("Waking up writer");
-	pthread_mutex_lock(se->be->headlock);
-	pthread_cond_signal(se->be->iosignal);
-	pthread_mutex_unlock(se->be->headlock);
-      }
-      */
+	 if(i%spec_ops->opt->do_w_stuff_every == 0){
+	 D("Waking up writer");
+	 pthread_mutex_lock(se->be->headlock);
+	 pthread_cond_signal(se->be->iosignal);
+	 pthread_mutex_unlock(se->be->headlock);
+	 }
+	 */
       /* We've received a buffer full. Change the buffer! */
       i++;
       buf+=spec_ops->opt->buf_elem_size;
@@ -543,92 +629,95 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
       if(spec_ops->handle_packet != NULL)
 	spec_ops->handle_packet(se,buf);
     }
+    }
+    //#if(DEBUG_OUTPUT)
+    fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+    //#endif
+    //return sender_exit(spec_ops);
+    pthread_exit(NULL);
+
+    /*
+       spec_ops->be->stop(spec_ops->be); 
+       pthread_mutex_lock(spec_ops->headlock);
+       pthread_cond_signal(spec_ops->iosignal);
+       pthread_mutex_unlock(spec_ops->headlock);
+
+       pthread_join(rbuf_thread,NULL);
+       pthread_mutex_destroy(spec_ops->headlock);
+
+       fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+       pthread_exit(NULL);
+       */
   }
-//#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
-//#endif
-  //return sender_exit(spec_ops);
-  pthread_exit(NULL);
+  void get_udp_stats(void *sp, void *stats){
+    struct stats *stat = (struct stats * ) stats;
+    struct udpopts *spec_ops = (struct udpopts*)sp;
+    //stat->total_packets += spec_ops->total_captured_packets;
+    stat->total_bytes += spec_ops->total_captured_bytes;
+    stat->incomplete += spec_ops->incomplete;
+    stat->dropped += spec_ops->dropped;
+  }
+  int close_udp_streamer(void *opt_own, void *stats){
+    struct udpopts *spec_ops = (struct udpopts *)opt_own;
+    get_udp_stats(opt_own,  stats);
 
-  /*
-     spec_ops->be->stop(spec_ops->be); 
-     pthread_mutex_lock(spec_ops->headlock);
-     pthread_cond_signal(spec_ops->iosignal);
-     pthread_mutex_unlock(spec_ops->headlock);
-
-     pthread_join(rbuf_thread,NULL);
-     pthread_mutex_destroy(spec_ops->headlock);
-
-     fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
-     pthread_exit(NULL);
-     */
-}
-void get_udp_stats(void *sp, void *stats){
-  struct stats *stat = (struct stats * ) stats;
-  struct udpopts *spec_ops = (struct udpopts*)sp;
-  //stat->total_packets += spec_ops->total_captured_packets;
-  stat->total_bytes += spec_ops->total_captured_bytes;
-  stat->incomplete += spec_ops->incomplete;
-  stat->dropped += spec_ops->dropped;
-}
-int close_udp_streamer(void *opt_own, void *stats){
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  get_udp_stats(opt_own,  stats);
-
-  //close(spec_ops->fd);
-  //close(spec_ops->rp->fd);
+    //close(spec_ops->fd);
+    //close(spec_ops->rp->fd);
 
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closed\n");
+    fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-  //stats->packet_index = spec_ops->packet_index;
-  //spec_ops->be->close(spec_ops->be, stats);
-  //free(spec_ops->be);
-  /* So if we're reading, just let the recorder end free the packet_index */
-  //else
-  free(spec_ops->sin);
-  //free(spec_ops->headlock);
-  //free(spec_ops->iosignal);
-  free(spec_ops);
-  return 0;
-}
-void udps_stop(struct streamer_entity *se){
-  ((struct udpopts *)se->opt)->running = 0;
-}
+    //stats->packet_index = spec_ops->packet_index;
+    //spec_ops->be->close(spec_ops->be, stats);
+    //free(spec_ops->be);
+    /* So if we're reading, just let the recorder end free the packet_index */
+    //else
+    free(spec_ops->sin);
+    //free(spec_ops->headlock);
+    //free(spec_ops->iosignal);
+    free(spec_ops);
+    return 0;
+  }
+  void udps_stop(struct streamer_entity *se){
+    ((struct udpopts *)se->opt)->running = 0;
+  }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-int udps_is_blocked(struct streamer_entity *se){
-  return ((struct udpopts *)(se->opt))->is_blocked;
-}
+  int udps_is_blocked(struct streamer_entity *se){
+    return ((struct udpopts *)(se->opt))->is_blocked;
+  }
 #endif
-/*
-   unsigned long udps_get_max_packets(struct streamer_entity *se){
-   return ((struct opts*)(se->opt))->max_num_packets;
-   }
-   */
-void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
-{
-  se->init = setup_udp_socket;
-  se->close = close_udp_streamer;
-  se->get_stats = get_udp_stats;
-  se->close_socket = udps_close_socket;
-  //se->get_max_packets = udps_get_max_packets;
-}
+  /*
+     unsigned long udps_get_max_packets(struct streamer_entity *se){
+     return ((struct opts*)(se->opt))->max_num_packets;
+     }
+     */
+  void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
+  {
+    se->init = setup_udp_socket;
+    se->close = close_udp_streamer;
+    se->get_stats = get_udp_stats;
+    se->close_socket = udps_close_socket;
+    //se->get_max_packets = udps_get_max_packets;
+  }
 
-int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  se->start = udp_receiver;
-  se->stop = udps_stop;
+    udps_init_default(opt,se);
+    if(opt->optbits & USE_RX_RING)
+      se->start = udp_rxring;
+    else
+      se->start = udp_receiver;
+    se->stop = udps_stop;
 
-  return se->init(opt, se);
-}
+    return se->init(opt, se);
+  }
 
-int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  se->start = udp_sender;
-  return se->init(opt, se);
+    udps_init_default(opt,se);
+    se->start = udp_sender;
+    return se->init(opt, se);
 
-}
+  }

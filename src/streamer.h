@@ -55,6 +55,8 @@
 #define MOUNTPOINT_VERBOSE	B(18)
 #define SIMPLE_BUFFER		B(19)
 
+#define USE_RX_RING		B(20)
+
 #define MEG			B(20)
 #define GIG			B(30)
 
@@ -184,7 +186,9 @@ struct opt_s
   struct entity_list_branch *diskbranch;
   int n_threads;
   int n_drives;
+  int bufculum;
   int rate;
+  void* buffer;
   unsigned long  do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;

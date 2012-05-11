@@ -54,12 +54,14 @@ struct opts
 {
   int fd;
   int fanout_arg;
-  char* filename;
-  char* device_name;
-  int root_pid;
-  int time;
+  struct opt_s *opt;
+  int running;
+  //char* filename;
+  //char* device_name;
+  //int root_pid;
+  //int time;
   int fanout_type;
-  unsigned int optbits;
+  //unsigned int optbits;
   struct tpacket_req req;
   struct tpacket_hdr * ps_header_start;
   struct tpacket_hdr * header;
@@ -70,18 +72,22 @@ struct opts
   unsigned int total_captured_packets;
 };
 
-void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
+void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
 {
   struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
+  int err; 
+  se->opt = (void*)spec_ops;
+  spec_ops->opt = opt;
+  /*
   spec_ops->device_name = opt->device_name;
   spec_ops->filename = opt->filename;
   spec_ops->root_pid = opt->root_pid;
   spec_ops->time = opt->time;
+  */
   //spec_ops->fanout_type = opt->fanout_type;
-  spec_ops->optbits = opt->optbits;
+  //spec_ops->optbits = opt->optbits;
 
   //spec_ops->fanout_arg = opt->fanout_arg;
-  int err; 
   //Open socket for AF_PACKET raw packet capture
   //spec_ops->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
   spec_ops->fd = socket(AF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
@@ -98,7 +104,7 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
 
   //Get the interface index
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->device_name);
+  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
   err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
   if (err < 0) {
     perror("SIOCGIFINDEX");
@@ -114,7 +120,7 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
   hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->device_name);
+  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
   ifr.ifr_data = (void *)&hwconfig;
 
   if(ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr)<  0) {
@@ -138,25 +144,19 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
     return NULL;
   }
 
-#ifdef THREADED
-  //Set the fanout option
-  //TODO: Check if we can create the socket just once and then only set this
-  //per thread
-  spec_ops->fanout_arg = ((spec_ops->root_pid & 0xFFFF) | (PACKET_FANOUT_LB << 16));
+  spec_ops->fanout_arg = ((spec_ops->opt->root_pid & 0xFFFF) | (PACKET_FANOUT_LB << 16));
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_FANOUT,
       &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));
   if (err) {
     perror("setsockopt");
     return NULL;
   }
-#endif //THREADED
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //set hardware timestamping
   int req = 0;
   req |= SOF_TIMESTAMPING_SYS_HARDWARE;
   setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
 #endif
-#ifdef MMAP_TECH
     //struct tpacket_hdr * ps_header_start;
     /*
        req.tp_block_size= 4096;
@@ -169,10 +169,10 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
     //struct tpacket_req req;
 
     //Make the socket send packets to the ring
-    spec_ops->req.tp_block_size = RING_BLOCKSIZE;
-  spec_ops->req.tp_frame_size = RING_FRAME_SIZE;
-  spec_ops->req.tp_block_nr = RING_BLOCK_NR;
-  spec_ops->req.tp_frame_nr = RING_FRAME_NR;
+    spec_ops->req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems);
+  spec_ops->req.tp_frame_size =spec_ops->opt->buf_elem_size;
+  spec_ops->req.tp_block_nr =spec_ops->opt->n_threads; 
+  spec_ops->req.tp_frame_nr =spec_ops->opt->buf_num_elems;
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &(spec_ops->req), sizeof(spec_ops->req));
   if (err) {
     perror("PACKET_RX_RING failed");
@@ -197,7 +197,6 @@ void * setup_socket(struct opt_s* opt, struct buffer_entity* se)
 
   spec_ops->header = (void *) spec_ops->ps_header_start;
 
-#endif //MMAP_TECH
   return spec_ops;
 }
 void handle_captured_packets(unsigned long *i, struct opts * spec_ops, int full){
@@ -229,38 +228,32 @@ void handle_captured_packets(unsigned long *i, struct opts * spec_ops, int full)
   }
 }
 
-void *fanout_thread(void *se)
+void *fanout_thread(void *specco)
 {
-  struct streamer_entity *be = (struct streamer_entity*)se;
-  struct opts *spec_ops = (struct opts *)be->opt;
+  struct streamer_entity *se = (struct streamer_entity*)specco;
+  struct opts *spec_ops = (struct opts *)se->opt;
   time_t t_start;
   double time_left=0;
+  int err = 0;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
+  spec_ops->running = 1;
   unsigned long i=0;
-
-
-  if (spec_ops->fd < 0)
-    exit(spec_ops->fd);
 
   time(&t_start);
 
-  while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
-    int err = 0;
-#ifdef MMAP_TECH
+  while(spec_ops->running){
+  //while((time_left = ((double)spec_ops->time-difftime(time(NULL), t_start))) > 0){
     if(!(spec_ops->header->tp_status & TP_STATUS_USER)){
       //Change seconds to milliseconds in third param
-      err = poll(&(spec_ops->pfd), 1, time_left*1000);
+      //err = poll(&(spec_ops->pfd), 1, time_left*1000);
+      err = poll(&(spec_ops->pfd), 1, 1000);
       //usleep(25);
     }
 
     handle_captured_packets(&i, spec_ops, CHECK_UP_TO_NEXT_RESERVED);
-#else 
-    char buf[1600];
-    err = recv(spec_ops->fd, buf, BUFSIZE, 0);
-#endif
     if(err < 0){
       perror("poll or read");
       //TODO: Handle error
@@ -273,8 +266,6 @@ void *fanout_thread(void *se)
   //handle_captured_packets(&i, spec_ops, CHECK_UP_ALL);
   //handle_captured_packets(&i, spec_ops, CHECK_UP_TO_NEXT_RESERVED);
 
-#ifdef MMAP_TECH
-#endif
   fprintf(stderr, "Pid %d Completed without errors\n", getpid());
   //exit(0);
   pthread_exit(NULL);

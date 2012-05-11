@@ -334,7 +334,7 @@ static void usage(char *binary){
       "-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
       "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
       "-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
-      "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
+      "-x 		Use an mmap rxring for receiving\n"
       "-r RATE		Expected network rate in MB(default: 10000)\n"
 #ifdef HAVE_RATELIMITER
       "-a MYY		Wait MYY microseconds between packet sends\n"
@@ -421,6 +421,7 @@ static void parse_options(int argc, char **argv){
   memset(&opt, 0, sizeof(struct opt_s));
   opt.filename = NULL;
   opt.device_name = NULL;
+  
 
   /* Opts using optbits */
   //opt.capture_type = CAPTURE_W_FANOUT;
@@ -433,6 +434,8 @@ static void parse_options(int argc, char **argv){
   opt.n_threads = 1;
   opt.n_drives = 1;
   opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
+
+  //opt.optbits |=USE_RX_RING;
   //TODO: Add option for choosing backend
   //opt.buf_type = BUFFER_RINGBUF;
   opt.optbits |= BUFFER_SIMPLE;
@@ -452,7 +455,7 @@ static void parse_options(int argc, char **argv){
   int drives_set = 0;
   opt.optbits |= SIMPLE_BUFFER;
   opt.socket = 0;
-  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:"))!= -1){
+  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:x"))!= -1){
     switch (ret){
       case 'i':
 	opt.device_name = strdup(optarg);
@@ -466,6 +469,9 @@ static void parse_options(int argc, char **argv){
 	break;
       case 'I':
 	opt.minmem = atoi(optarg);
+	break;
+      case 'x':
+	opt.optbits |= USE_RX_RING;
 	break;
       case 'W':
 	opt.do_w_stuff_every = atoi(optarg)*MEG;
@@ -616,6 +622,10 @@ static void parse_options(int argc, char **argv){
   }
   argv +=optind;
   argc -=optind;
+
+  /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
+  if(opt.optbits & USE_RX_RING)
+    opt.buf_elem_size += TPACKET_HDRLEN;
   //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
   opt.filename = argv[0];
   if(drives_set == 0)
@@ -632,6 +642,8 @@ static void parse_options(int argc, char **argv){
   else
     opt.time = atoi(argv[1]);
   opt.cumul = 0;
+
+
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
   //if(!(opt.optbits & READMODE)){
@@ -799,6 +811,16 @@ int main(int argc, char **argv)
     }
     /* Add the recording entity to the diskbranch */
   }
+  /* If we're using the rx-ring, reserve space for it here */
+  /*
+  if(opt.optbits & USE_RX_RING){
+    int flags = MAP_ANONYMOUS|MAP_SHARED;
+    if(opt.optbits & USE_HUGEPAGE)
+      flags |= MAP_HUGETLB;
+    opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
+  }
+  */
+
 
 #ifdef PRIORITY_SETTINGS
   memset(&param, 0, sizeof(param));

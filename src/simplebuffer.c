@@ -32,6 +32,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   be->opt = sbuf;
   sbuf->opt = opt;
   be->recer =NULL;
+  sbuf->bufnum = sbuf->opt->bufculum++;
 
   //be->membranch = opt->membranch;
   //be->diskbranch = opt->diskbranch;
@@ -73,54 +74,59 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   /* TODO: Make choosable or just get rid of async totally 	*/
   //sbuf->async = opt->async;
 
-#ifdef HAVE_HUGEPAGES
-  if(sbuf->opt->optbits & USE_HUGEPAGE){
-    /* Init fd for hugetlbfs					*/
-    /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
-    /*
+  if(!(sbuf->opt->optbits & USE_RX_RING)){
 
-    char hugefs[FILENAME_MAX];
-    find_hugetlbfs(hugefs, FILENAME_MAX);
-    
-    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
+#ifdef HAVE_HUGEPAGES
+    if(sbuf->opt->optbits & USE_HUGEPAGE){
+      /* Init fd for hugetlbfs					*/
+      /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
+      /*
+
+	 char hugefs[FILENAME_MAX];
+	 find_hugetlbfs(hugefs, FILENAME_MAX);
+
+	 sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
+fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
 #endif
 
-    common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
-    //sbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
-    */
+common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
+      //sbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
+      */
 
-    /* TODO: Check other flags aswell				*/
-    /* TODO: Not sure if shared needed as threads share id 	*/
-    //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
-    sbuf->buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
-    if(sbuf->buffer ==MAP_FAILED){
-      perror("MMAP");
-      E("Couldn't allocate hugepages");
-      //remove(hugefs);
-      err = -1;
+      /* TODO: Check other flags aswell				*/
+      /* TODO: Not sure if shared needed as threads share id 	*/
+      //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
+      sbuf->buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+      if(sbuf->buffer ==MAP_FAILED){
+	perror("MMAP");
+	E("Couldn't allocate hugepages");
+	//remove(hugefs);
+	err = -1;
+      }
+      else{
+	err = 0;
+	D("mmapped to hugepages");
+      }
     }
-    else{
-      err = 0;
-      D("mmapped to hugepages");
+    else
+#endif /* HAVE_HUGEPAGES */
+    {
+      D("Memaligning buffer");
+      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
+      //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
+      //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
+      preheat_buffer(sbuf->buffer, opt);
+
     }
+    if (err < 0 || sbuf->buffer == 0) {
+      perror("make_write_buffer");
+      return -1;
+    }
+    D("Memory allocated");
   }
   else
-#endif /* HAVE_HUGEPAGES */
-  {
-    D("Memaligning buffer");
-    err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
-    //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
-    //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
-    preheat_buffer(sbuf->buffer, opt);
-
-  }
-  if (err < 0 || sbuf->buffer == 0) {
-    perror("make_write_buffer");
-    return -1;
-  }
-  D("Memory allocated");
+    D("Memmapped in main so not reserving here");
 
   return 0;
 }
@@ -134,27 +140,31 @@ int  sbuf_close(struct buffer_entity* be, void *stats){
 
   //int ret = 0;
   /*
-  if(be->recer->close != NULL)
-    be->recer->close(be->recer, stats);
-    */
+     if(be->recer->close != NULL)
+     be->recer->close(be->recer, stats);
+     */
+  if(!(sbuf->opt->optbits)){
 #ifdef HAVE_HUGEPAGES
-  if(sbuf->opt->optbits & USE_HUGEPAGE){
-    munmap(sbuf->buffer, sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
-    /*
-    close(sbuf->huge_fd);
-    char hugefs[FILENAME_MAX];
-    find_hugetlbfs(hugefs, FILENAME_MAX);
-    
-    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
+    if(sbuf->opt->optbits & USE_HUGEPAGE){
+      munmap(sbuf->buffer, sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+      /*
+	 close(sbuf->huge_fd);
+	 char hugefs[FILENAME_MAX];
+	 find_hugetlbfs(hugefs, FILENAME_MAX);
+
+	 sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
+fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
 #endif
-    remove(hugefs);
-    */
+remove(hugefs);
+*/
+    }
+    else
+#endif /* HAVE_HUGEPAGES */
+      free(sbuf->buffer);
   }
   else
-#endif /* HAVE_HUGEPAGES */
-    free(sbuf->buffer);
+    D("Not freeing mem. Done in main");
   free(sbuf);
   //free(be->recer);
   D("Simplebuf closed");
@@ -184,7 +194,7 @@ int simple_end_transaction(struct buffer_entity *be){
   }
   else{
     //if(sbuf->opt->optbits & ASYNC_WRITE)
-      //sbuf->async_writes_submitted++;
+    //sbuf->async_writes_submitted++;
     if((unsigned long)ret != count){
       fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
       /* TODO: Handle incrementing so we won't lose data */
@@ -273,7 +283,7 @@ int sbuf_async_loop(struct buffer_entity *be){
       if(ret!=0){
 	close_recer(be);
 	return -1;
-	}
+      }
     }
   }
   return 0;
@@ -343,9 +353,9 @@ void *sbuf_simple_write_loop(void *buffo){
       pthread_mutex_unlock(be->headlock);
     }
     /*
-    if(sbuf->running == 0)
-      break;
-      */
+       if(sbuf->running == 0)
+       break;
+       */
 
     if(sbuf->diff > 0){
       D("Blocking writes. Left to write %d",,sbuf->diff);
@@ -362,26 +372,26 @@ void *sbuf_simple_write_loop(void *buffo){
 	}
       }
     }
-  }
-  /*
-  D("Loop over. Finishing");
-  if(sbuf->diff > 0){
-    D("Blocking writes. Left to write %d",,sbuf->diff);
-    savedif = sbuf->diff;
-    ret = -1;
-
-    while(ret!= 0){
-      // Write failed so set the diff back to old value and rewrite
-      ret = write_buffer(be);
-      if(ret != 0){
-	D("Error in rec. Returning diff");
-	sbuf->diff = savedif;
-      }
     }
-  }
-  */
-  D("Finished");
-  pthread_exit(NULL);
+    /*
+       D("Loop over. Finishing");
+       if(sbuf->diff > 0){
+       D("Blocking writes. Left to write %d",,sbuf->diff);
+       savedif = sbuf->diff;
+       ret = -1;
+
+       while(ret!= 0){
+// Write failed so set the diff back to old value and rewrite
+ret = write_buffer(be);
+if(ret != 0){
+D("Error in rec. Returning diff");
+sbuf->diff = savedif;
+}
+}
+}
+*/
+D("Finished");
+pthread_exit(NULL);
 }
 void sbuf_stop_running(struct buffer_entity *be){
   D("Stopping sbuf thread");
