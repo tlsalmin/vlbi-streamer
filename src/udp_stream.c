@@ -38,6 +38,13 @@
 #include "udp_stream.h"
 #define INIT_ERROR return -1;
 #define BIND_WITH_PF_PACKET
+//#define CHECK_ERR(x) do{if(err!=0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+  //do {if(err != 0){perror(x);E(x);return -1;}else{D(x)}}while(0)
+
 
 //Gatherer specific options
 int phandler_sequence(struct streamer_entity * se, void * buffer){
@@ -48,79 +55,10 @@ void udps_close_socket(struct streamer_entity *se){
   if(ret <0)
     perror("Socket shutdown");
 }
-/*
- * TODO: These should take a streamer_entity and confrom to the initialization of 
- * buffer_entity and recording_entity
- */
-
-int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
+int udps_common_init_stuff(struct streamer_entity *se)
 {
-  /* TODO just use the opt-pointer for options */
-  int err, len, def;
-  //struct opt_s *opt = (struct opt_s *)options;
-  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
-  se->opt = (void*)spec_ops;
-  //spec_ops->device_name = opt->device_name;
-
-  //spec_ops->root_pid = opt->root_pid;
-
-  spec_ops->opt = opt;
-  //se->buffers = opt->membranch;
-  //spec_ops->time = opt->time;
-  //spec_ops->be = se;
-  //spec_ops->buf_elem_size = opt->buf_elem_size;
-  //spec_ops->id = opt->tid++;
-  //spec_ops->cumul = &(opt->cumul);
-  //spec_ops->cumlock = &(opt->cumlock);
-  //spec_ops->read = opt->read;
-  //spec_ops->optbits = opt->optbits;
-  //spec_ops->signal = &(opt->signal);
-  spec_ops->running = 1;
-  /* TODO: This could be changed to a quarter or similar, since the writer will fall behind 	*/
-  /* Since this only signals the writer 							*/
-  //spec_ops->do_w_stuff_every = opt->do_w_stuff_every;
-
-  /*
-   * If we're reading, recording entity should read the indicedata
-   */
-  if(spec_ops->opt->optbits & READMODE){
-#ifdef HAVE_RATELIMITER
-    /* Making this a pointer, so we can later adjust it accordingly */
-    //spec_ops->wait_nanoseconds = &(opt->wait_nanoseconds);
-    //spec_ops->wait_last_sent = &(opt->wait_last_sent);
-#endif
-    //TODO: Get packet index in main by checking all writers
-  }
-#ifdef CHECK_OUT_OF_ORDER
-  if(spec_ops->opt->optbits & CHECK_SEQUENCE)
-    spec_ops->handle_packet = phandler_sequence;
-#endif
-
-  /*
-#if(DEBUG_OUTPUT)
-fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
-#endif
-*/
-
-  //spec_ops->port = opt->port;
-
-  /* TODO Works with AF_INET but should use PF_PACKET? */
-#ifdef BIND_WITH_PF_PACKET
-  if(spec_ops->opt->optbits & USE_RX_RING)
-    spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
-  else
-#endif
-    spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
-  //if(!(spec_ops->optbits & READMODE))
-  opt->socket = spec_ops->fd;
-
-
-  if (spec_ops->fd < 0) {
-    perror("socket");
-    INIT_ERROR
-  }
-
-
+  int err,len,def;
+  struct udpopts * spec_ops = se->opt;
   if(spec_ops->opt->device_name != NULL){
     //struct sockaddr_ll ll;
     struct ifreq ifr;
@@ -128,10 +66,7 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
     memset(&ifr, 0, sizeof(ifr));
     strcpy(ifr.ifr_name, spec_ops->opt->device_name);
     err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
-    if (err < 0) {
-      perror("SIOCGIFINDEX");
-      INIT_ERROR
-    }
+    CHECK_ERR_LTZ("Interface index find");
   }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //Stolen from http://seclists.org/tcpdump/2010/q2/99
@@ -146,14 +81,8 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   strcpy(ifr.ifr_name, spec_ops->device_name);
   ifr.ifr_data = (void *)&hwconfig;
 
-  if(ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr)<  0) {
-    fprintf(stderr, "Cant set hardware timestamping");
-    /*
-       snprintf(handle->errbuf, PCAP_ERRBUF_SIZE,
-       "can't set SIOCSHWTSTAMP %d: %d-%s",
-       handle->fd, errno, pcap_strerror(errno));
-       */
-  }
+  err  = ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr);
+  CHECK_ERR_LTZ("HW timestamping");
 #endif
   //NOTE: Has no effect
   /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
@@ -165,44 +94,27 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   /*
    * Setting the default receive buffer size. Taken from libhj create_udp_socket
    */
-  if(spec_ops->opt->optbits & USE_RX_RING){
-    struct tpacket_req req;
-    req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems);
-    req.tp_frame_size = spec_ops->opt->buf_elem_size;
-    req.tp_frame_nr = spec_ops->opt->buf_num_elems;
-    req.tp_block_nr = spec_ops->opt->n_threads;
-    err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
-    if(err != 0){
-      perror("RX_RING");
-      E("RX_RING init: %s",, strerror(err));
-      return -1;
-    }
-    else
-      D("Socket set to RX_RING");
-
+  /*
+   * TODO: These should take a streamer_entity and confrom to the initialization of 
+   * buffer_entity and recording_entity
+   */
+  len = sizeof(def);
+  def=0;
+  if(spec_ops->opt->optbits & READMODE){
+    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
+    CHECK_ERR("SNDBUF size");
   }
   else{
-    len = sizeof(def);
-    def=0;
-    if(spec_ops->opt->optbits & READMODE){
-      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "UDP_STREAMER: Defaults: SENDBUF %d\n",def);
-#endif
-    }
-    else{
-      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "UDP_STREAMER: Defaults: RCVBUF %d\n",def);
-#endif
-    }
+    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+    CHECK_ERR("RCVBUF size");
   }
 
 #ifdef SO_NO_CHECK
   if(spec_ops->opt->optbits & READMODE){
     const int sflag = 1;
-    if (setsockopt(spec_ops->fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag)) != 0)
-      fprintf(stderr, "Failed to disable UDP checksumming\n");
+    err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
+    CHECK_ERR("UDPCHECKSUM");
+      
   }
 #endif
 
@@ -210,21 +122,98 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   //set hardware timestamping
   int req = 0;
   req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-  setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
+  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
+  CHECK_ERR("HWTIMESTAMP");
+#endif
+  return 0;
+}
+
+int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
+{
+  int err;
+  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
+  se->opt = (void*)spec_ops;
+
+  spec_ops->opt = opt;
+  spec_ops->running = 1;
+
+  if(spec_ops->opt->optbits & READMODE){
+#ifdef HAVE_RATELIMITER
+    /* Making this a pointer, so we can later adjust it accordingly */
+    //spec_ops->wait_nanoseconds = &(opt->wait_nanoseconds);
+    //spec_ops->wait_last_sent = &(opt->wait_last_sent);
+#endif
+    //TODO: Get packet index in main by checking all writers
+  }
+#ifdef CHECK_OUT_OF_ORDER
+  if(spec_ops->opt->optbits & CHECK_SEQUENCE)
+    spec_ops->handle_packet = phandler_sequence;
 #endif
 
+  /* TODO Works with AF_INET but should use PF_PACKET? */
+#ifdef BIND_WITH_PF_PACKET
+  if(spec_ops->opt->optbits & USE_RX_RING){
+    spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+    D("Socket initialized with PF_PACKET");
+  }
+  else
+#endif
+    spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
+  //if(!(spec_ops->optbits & READMODE))
+  opt->socket = spec_ops->fd;
 
-    //prep port
-    //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-    spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+
+  if (spec_ops->fd < 0) {
+    perror("socket");
+    INIT_ERROR
+  }
+  err = udps_common_init_stuff(se);
+  CHECK_ERR("Common init");
+
+
+  if(spec_ops->opt->optbits & USE_RX_RING){
+    struct tpacket_req req;
+
+    //unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size);
+    //TODO: Fix do_w_stuff_every so we can set it here accordingly to block_size. 
+    unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size);
+    //req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems)/4096;
+    req.tp_block_size = spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size;
+    req.tp_frame_size = spec_ops->opt->buf_elem_size;
+    req.tp_frame_nr = spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads);
+    //req.tp_block_nr = spec_ops->opt->n_threads;
+    req.tp_block_nr = total_mem_div_blocksize;
+    /*
+    req.tp_block_nr = 4096;
+    req.tp_block_size= 4096;
+    req.tp_frame_size= 2048;
+    req.tp_block_nr  = 4;
+    req.tp_frame_nr  = 8;
+    */
+    /*
+       req.tp_block_size = getpagesize()*20
+       req.tp_frame_size = getpagesize();
+       req.tp_frame_nr = 20;
+       req.tp_block_nr = 10;
+       */
+    D("Block size: %d Frame size: %d Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
+
+    err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
+    CHECK_ERR("RX_RING SETSOCKOPT");
+  }
+
+
+  //prep port
+  //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+  spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
   //socklen_t len = sizeof(struct sockaddr_in);
   memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
   /*
-  if(spec_ops->opt->optbits & USE_RX_RING)
-    spec_ops->sin->sin_family = PF_PACKET;           
-  else
-  */
-    spec_ops->sin->sin_family = AF_INET;           
+     if(spec_ops->opt->optbits & USE_RX_RING)
+     spec_ops->sin->sin_family = PF_PACKET;           
+     else
+     */
+  spec_ops->sin->sin_family = AF_INET;           
   spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
   //TODO: check if IF binding helps
   if(spec_ops->opt->optbits & READMODE){
@@ -248,7 +237,7 @@ fprintf(stdout, "UDP_STREAMER: Initializing ring buffers\n");
   else{
     spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
     //if(!(spec_ops->opt->optbits & USE_RX_RING))
-      err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
+    err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
     //free(addr);
   }
 

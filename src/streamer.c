@@ -243,6 +243,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
   //unsigned long bufsize;// = opt.buf_elem_size;
   int found = 0;
 
+  /* TODO: do_w_stuff gets warped  from MB to num of elems*/
   fprintf(stdout, "STREAMER: Calculating total buffer size between "
       "%lu GB to %luGB,"
       " size %lu packets, "
