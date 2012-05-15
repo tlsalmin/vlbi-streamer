@@ -13,11 +13,21 @@
 #include "simplebuffer.h"
 #include "streamer.h"
 
-int sbuf_acquire(void* buffo, unsigned long seq){
-  ((struct simplebuf*)((struct buffer_entity *)buffo)->opt)->file_seqnum = seq;
+int sbuf_acquire(void* buffo, unsigned long seq, unsigned long bufnum){
+  struct buffer_entity * be = (struct buffer_entity*)buffo;
+  struct simplebuf * sbuf = (struct simplebuf *)be->opt;
+  if(sbuf->opt->optbits & USE_RX_RING){
+    sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+  }
+  sbuf->file_seqnum = seq;
+  //fprintf(stdout, "\n\nDABUF:%lu\n\n", sbuf->buffer);
   return 0;
 }
 int sbuf_release(void* buffo){
+  struct buffer_entity * be = (struct buffer_entity*)buffo;
+  struct simplebuf * sbuf = (struct simplebuf *)be->opt;
+  if(sbuf->opt->optbits & USE_RX_RING)
+    sbuf->buffer = NULL;
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
@@ -210,6 +220,9 @@ void* sbuf_getbuf(struct buffer_entity *be, int ** diff){
   *diff = &(sbuf->diff);
   return sbuf->buffer;
 }
+int* sbuf_getinc(struct buffer_entity *be){
+  return &((struct simplebuf*)be->opt)->diff;
+}
 void close_recer(struct buffer_entity *be){
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
   E("Writer broken");
@@ -311,7 +324,7 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     D("Getting rec entity for buffer");
-    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum);
+    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum,0);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
@@ -357,6 +370,8 @@ void *sbuf_simple_write_loop(void *buffo){
        if(sbuf->running == 0)
        break;
        */
+    if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
+    }
 
     if(sbuf->diff > 0){
       D("Blocking writes. Left to write %d",,sbuf->diff);
@@ -437,6 +452,7 @@ int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   //be->write = sbuf_aio_write;
   //be->get_writebuf = sbuf_get_buf_to_write;
   be->simple_get_writebuf = sbuf_getbuf;
+  be->get_inc = sbuf_getinc;
   //be->wait = sbuf_wait;
   be->close = sbuf_close;
   if(!(opt->optbits & READMODE))

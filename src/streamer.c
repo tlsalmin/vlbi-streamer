@@ -127,7 +127,7 @@ void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en
     pthread_mutex_unlock(&(br->branchlock));
 }
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, unsigned long seq)
+void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long bufnum)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
@@ -144,7 +144,7 @@ void* get_free(struct entity_list_branch *br, unsigned long seq)
   pthread_mutex_unlock(&(br->branchlock));
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
-    int ret = temp->acquire(temp->entity, seq);
+    int ret = temp->acquire(temp->entity, seq, bufnum);
     if(ret != 0)
       E("Acquire return non-zero value(Not handled)");
   }
@@ -416,7 +416,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Time: %lus\n"
       //"Net send Speed: %fMb/s\n"
       //"HD read Speed: %fMb/s\n"
-      ,opts->filename, opts->cumul, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+      ,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
   fprintf(stdout, "Stats for %s \n"
@@ -428,7 +428,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       "Time: %lu\n"
       "Net receive Speed: %luMb/s\n"
       "HD write Speed: %luMb/s\n"
-      ,opts->filename, opts->cumul, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
+      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
   }
 }
 static void parse_options(int argc, char **argv){

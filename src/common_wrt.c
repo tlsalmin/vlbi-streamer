@@ -17,7 +17,7 @@
 
 /* These should be moved somewhere general, since they should be used by all anyway */
 /* writers anyway */
-int common_open_new_file(void * recco, unsigned long seq){
+int common_open_new_file(void * recco, unsigned long seq, unsigned long bufnum){
   int err;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;

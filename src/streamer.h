@@ -122,6 +122,7 @@
 #include <netdb.h> // struct hostent
 struct stats
 {
+  unsigned long total_packets;
   unsigned long total_bytes;
   unsigned long total_written;
   unsigned long incomplete;
@@ -137,7 +138,7 @@ struct listed_entity
 {
   struct listed_entity* child;
   struct listed_entity* father;
-  int (*acquire)(void*,unsigned long);
+  int (*acquire)(void*,unsigned long,unsigned long);
   int (*release)(void*);
   void* entity;
 };
@@ -158,7 +159,7 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, unsigned long seq);
+void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long bufnum);
 void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
@@ -228,6 +229,7 @@ struct buffer_entity
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
   void* (*simple_get_writebuf)(struct buffer_entity *, int **);
+  int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
