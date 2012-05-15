@@ -39,7 +39,7 @@
 #define INIT_ERROR return -1;
 #define BIND_WITH_PF_PACKET
 //#define CHECK_ERR(x) do{if(err!=0){perror(x);E(x);return -1;}else{D(x);}}while(0)
-#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
 #define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
@@ -122,6 +122,18 @@ int udps_bind_rx(struct udpopts * spec_ops){
 
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
   CHECK_ERR("RX_RING SETSOCKOPT");
+
+  //int flags = MAP_ANONYMOUS|MAP_SHARED;
+  int flags = MAP_SHARED;
+  if(spec_ops->opt->optbits & USE_HUGEPAGE)
+    flags |= MAP_HUGETLB;
+
+  spec_ops->opt->buffer = mmap(0, req.tp_block_size*req.tp_block_nr, PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
+  if((long)spec_ops->opt->buffer <= 0){
+    perror("Ring MMAP");
+    return -1;
+  }
+
   //spec_ops->sin->sin_family = PF_PACKET;           
   struct sockaddr_ll ll;
   struct ifreq ifr;
@@ -137,6 +149,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
   ll.sll_ifindex = ifr.ifr_ifindex;
   err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
   CHECK_ERR("Bind to IF");
+
   return 0;
 }
 int udps_common_init_stuff(struct streamer_entity *se)
@@ -185,10 +198,6 @@ int udps_common_init_stuff(struct streamer_entity *se)
   */
   /*
    * Setting the default receive buffer size. Taken from libhj create_udp_socket
-   */
-  /*
-   * TODO: These should take a streamer_entity and confrom to the initialization of 
-   * buffer_entity and recording_entity
    */
   len = sizeof(def);
   def=0;
@@ -276,21 +285,6 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   }
 
   /* MMap the ring for rx-ring */
-  if(spec_ops->opt->optbits & USE_RX_RING){
-    int flags = MAP_ANONYMOUS|MAP_SHARED;
-    if(spec_ops->opt->optbits & USE_HUGEPAGE)
-      flags |= MAP_HUGETLB;
-    spec_ops->opt->buffer = mmap(NULL, ((unsigned long)spec_ops->opt->buf_num_elems)*((unsigned long)spec_ops->opt->buf_elem_size)*spec_ops->opt->n_threads, PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
-    CHECK_ERR_NONNULL(spec_ops->opt->buffer, "Ring MMAP");
-    /*
-    if(spec_ops->opt->buffer != NULL)
-      D("RX ring mmapped");
-    else{
-      E("Failed to mmap RX-ring");
-      return -1;
-    }
-    */
-  }
 
 
   return 0;
@@ -518,227 +512,230 @@ void* udp_rxring(void *streamo)
   D("Starting mmap polling");
 
   while(spec_ops->running){
-    if(!(hdr->tp_status  == TP_STATUS_USER))
+    if(!(hdr->tp_status  & TP_STATUS_USER)){
       D("Polling pfd");
       err = poll(&pfd, 1, timeout);
-    fprintf(stdout, "Da err: %d, revents: %lu\n", err, pfd.revents);
-    if(err != 0 || pfd.revents != 0){
-      hdr = spec_ops->opt->buffer + i*(spec_ops->opt->buf_elem_size); 
-      fprintf(stdout, "STATUS: %lu, length: %i, mac: %i\n", hdr->tp_status, hdr->tp_len, hdr->tp_mac);
-      while(hdr->tp_status == TP_STATUS_USER){
-	j++;
-	if(j==spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads))
-	  j=0;
-	hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
-	hdr->tp_status = TP_STATUS_KERNEL;
-      }
-      D("Packets handled");
+      CHECK_ERR_LTZ("Polled");
     }
+    fprintf(stdout, "Da err: %d, revents: %lu\n", err, pfd.revents);
+    //if(err != 0 || pfd.revents != 0){
+    fprintf(stdout, "STATUS: %lu, length: %i, mac: %i\n", hdr->tp_status, hdr->tp_len, hdr->tp_mac);
+    while(hdr->tp_status & TP_STATUS_USER){
+      D("Uuh a packet!");
+      j++;
+      if(j==spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads))
+	j=0;
+      hdr->tp_status = TP_STATUS_KERNEL;
+      hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
+    }
+    D("Packets handled");
     i=j;
     fprintf(stdout, "i: %d, j: %d\n", i,j);
+    hdr = spec_ops->opt->buffer + i*(spec_ops->opt->buf_elem_size); 
   }
+  D("Exiting mmap polling");
 
   pthread_exit(NULL);
-}
-/*
- * Receiver for UDP-data
- */
-void* udp_receiver(void *streamo)
-{
-  int err = 0;
-  int i=0;
-  int *inc;
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  spec_ops->total_captured_bytes = 0;
-  spec_ops->total_captured_packets = 0;
+  }
+  /*
+   * Receiver for UDP-data
+   */
+  void* udp_receiver(void *streamo)
+  {
+    int err = 0;
+    int i=0;
+    int *inc;
+    struct streamer_entity *se =(struct streamer_entity*)streamo;
+    struct udpopts *spec_ops = (struct udpopts *)se->opt;
+    spec_ops->total_captured_bytes = 0;
+    spec_ops->total_captured_packets = 0;
 #ifdef CHECK_OUT_OF_ORDER
-  spec_ops->out_of_order = 0;
+    spec_ops->out_of_order = 0;
 #endif
-  spec_ops->incomplete = 0;
-  spec_ops->dropped = 0;
+    spec_ops->incomplete = 0;
+    spec_ops->dropped = 0;
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
-  CHECK_AND_EXIT(se->be);
-  void * buf = se->be->simple_get_writebuf(se->be, &inc);
+    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
+    CHECK_AND_EXIT(se->be);
+    void * buf = se->be->simple_get_writebuf(se->be, &inc);
 
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
+    fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
 #endif
-  while(spec_ops->running){
+    while(spec_ops->running){
 
-    if(i == spec_ops->opt->buf_num_elems){
-      D("Buffer filled, Getting another");
+      if(i == spec_ops->opt->buf_num_elems){
+	D("Buffer filled, Getting another");
 
-      /* Update cumul so packages are written to different files */
-      spec_ops->opt->cumul += 1;
+	/* Update cumul so packages are written to different files */
+	spec_ops->opt->cumul += 1;
 
-      /* Set old buffer ready and signal it to start writing */
-      se->be->set_ready(se->be);
-      pthread_mutex_lock(se->be->headlock);
-      pthread_cond_signal(se->be->iosignal);
-      pthread_mutex_unlock(se->be->headlock);
+	/* Set old buffer ready and signal it to start writing */
+	se->be->set_ready(se->be);
+	pthread_mutex_lock(se->be->headlock);
+	pthread_cond_signal(se->be->iosignal);
+	pthread_mutex_unlock(se->be->headlock);
 
-      /* Get a new buffer */
-      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
-      CHECK_AND_EXIT(se->be);
-      buf = se->be->simple_get_writebuf(se->be, &inc);
-      i=0;
-    }
+	/* Get a new buffer */
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul);
+	CHECK_AND_EXIT(se->be);
+	buf = se->be->simple_get_writebuf(se->be, &inc);
+	i=0;
+      }
 
-    //buf = se->be->get_writebuf(se->be);
-    /*
-       if(buf == NULL){
-       E("Received NULL buf from buffer");
-       E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
-       break;
-       }
-       */
+      //buf = se->be->get_writebuf(se->be);
+      /*
+	 if(buf == NULL){
+	 E("Received NULL buf from buffer");
+	 E("i was %d and numelems %d",, i,spec_ops->opt->buf_num_elems);
+	 break;
+	 }
+	 */
 
 
-    err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);
-    /*
+      err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);
+      /*
 #if(DEBUG_OUTPUT)
 fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
 #endif
 */
-    if(err < 0){
-      if(err == EINTR)
-	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
-      else{
-	perror("RECV error");
-	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)buf);
+      if(err < 0){
+	if(err == EINTR)
+	  fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
+	else{
+	  perror("RECV error");
+	  fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)buf);
+	}
+	spec_ops->running = 0;
+	break;
       }
-      spec_ops->running = 0;
-      break;
-    }
-    /* Success! */
-    else{
-      //TODO: Check how much we actually got!
-      /* Signal writer that we've processed some packets and 	*/
-      /* it should wake up unless it's busy writing		*/
-      /*
-	 if(i%spec_ops->opt->do_w_stuff_every == 0){
-	 D("Waking up writer");
-	 pthread_mutex_lock(se->be->headlock);
-	 pthread_cond_signal(se->be->iosignal);
-	 pthread_mutex_unlock(se->be->headlock);
-	 }
-	 */
-      /* We've received a buffer full. Change the buffer! */
-      i++;
-      buf+=spec_ops->opt->buf_elem_size;
-      (*inc)++;
+      /* Success! */
+      else{
+	//TODO: Check how much we actually got!
+	/* Signal writer that we've processed some packets and 	*/
+	/* it should wake up unless it's busy writing		*/
+	/*
+	   if(i%spec_ops->opt->do_w_stuff_every == 0){
+	   D("Waking up writer");
+	   pthread_mutex_lock(se->be->headlock);
+	   pthread_cond_signal(se->be->iosignal);
+	   pthread_mutex_unlock(se->be->headlock);
+	   }
+	   */
+	/* We've received a buffer full. Change the buffer! */
+	i++;
+	buf+=spec_ops->opt->buf_elem_size;
+	(*inc)++;
 
 #ifdef CHECK_OUT_OF_ORDER
-      //spec_ops->last_packet = *daspot;
+	//spec_ops->last_packet = *daspot;
 #endif
 
-      //if(spec_ops->running){
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets += 1;
-      /*
-      //TODO!
-      if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
-      daspot++;
-      else{
-      fprintf(stderr, "UDP_STREAMER: Out of space on index file\n");
-      break;
+	//if(spec_ops->running){
+	spec_ops->total_captured_bytes +=(unsigned int) err;
+	spec_ops->total_captured_packets += 1;
+	/*
+	//TODO!
+	if(spec_ops->total_captured_packets < spec_ops->max_num_packets)
+	daspot++;
+	else{
+	fprintf(stderr, "UDP_STREAMER: Out of space on index file\n");
+	break;
+	}
+	*/
+	if(spec_ops->handle_packet != NULL)
+	  spec_ops->handle_packet(se,buf);
       }
-      */
-      if(spec_ops->handle_packet != NULL)
-	spec_ops->handle_packet(se,buf);
+      }
+      //#if(DEBUG_OUTPUT)
+      fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+      //#endif
+      //return sender_exit(spec_ops);
+      pthread_exit(NULL);
+
+      /*
+	 spec_ops->be->stop(spec_ops->be); 
+	 pthread_mutex_lock(spec_ops->headlock);
+	 pthread_cond_signal(spec_ops->iosignal);
+	 pthread_mutex_unlock(spec_ops->headlock);
+
+	 pthread_join(rbuf_thread,NULL);
+	 pthread_mutex_destroy(spec_ops->headlock);
+
+	 fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+	 pthread_exit(NULL);
+	 */
     }
+    void get_udp_stats(void *sp, void *stats){
+      struct stats *stat = (struct stats * ) stats;
+      struct udpopts *spec_ops = (struct udpopts*)sp;
+      //stat->total_packets += spec_ops->total_captured_packets;
+      stat->total_bytes += spec_ops->total_captured_bytes;
+      stat->incomplete += spec_ops->incomplete;
+      stat->dropped += spec_ops->dropped;
     }
-    //#if(DEBUG_OUTPUT)
-    fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
-    //#endif
-    //return sender_exit(spec_ops);
-    pthread_exit(NULL);
+    int close_udp_streamer(void *opt_own, void *stats){
+      struct udpopts *spec_ops = (struct udpopts *)opt_own;
+      get_udp_stats(opt_own,  stats);
 
-    /*
-       spec_ops->be->stop(spec_ops->be); 
-       pthread_mutex_lock(spec_ops->headlock);
-       pthread_cond_signal(spec_ops->iosignal);
-       pthread_mutex_unlock(spec_ops->headlock);
-
-       pthread_join(rbuf_thread,NULL);
-       pthread_mutex_destroy(spec_ops->headlock);
-
-       fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
-       pthread_exit(NULL);
-       */
-  }
-  void get_udp_stats(void *sp, void *stats){
-    struct stats *stat = (struct stats * ) stats;
-    struct udpopts *spec_ops = (struct udpopts*)sp;
-    //stat->total_packets += spec_ops->total_captured_packets;
-    stat->total_bytes += spec_ops->total_captured_bytes;
-    stat->incomplete += spec_ops->incomplete;
-    stat->dropped += spec_ops->dropped;
-  }
-  int close_udp_streamer(void *opt_own, void *stats){
-    struct udpopts *spec_ops = (struct udpopts *)opt_own;
-    get_udp_stats(opt_own,  stats);
-
-    //close(spec_ops->fd);
-    //close(spec_ops->rp->fd);
+      //close(spec_ops->fd);
+      //close(spec_ops->rp->fd);
 
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "UDP_STREAMER: Closed\n");
+      fprintf(stdout, "UDP_STREAMER: Closed\n");
 #endif
-    //stats->packet_index = spec_ops->packet_index;
-    //spec_ops->be->close(spec_ops->be, stats);
-    //free(spec_ops->be);
-    /* So if we're reading, just let the recorder end free the packet_index */
-    //else
-    if(!(spec_ops->opt->optbits & USE_RX_RING))
-      free(spec_ops->sin);
-    //free(spec_ops->headlock);
-    //free(spec_ops->iosignal);
-    free(spec_ops);
-    return 0;
-  }
-  void udps_stop(struct streamer_entity *se){
-    ((struct udpopts *)se->opt)->running = 0;
-  }
+      //stats->packet_index = spec_ops->packet_index;
+      //spec_ops->be->close(spec_ops->be, stats);
+      //free(spec_ops->be);
+      /* So if we're reading, just let the recorder end free the packet_index */
+      //else
+      if(!(spec_ops->opt->optbits & USE_RX_RING))
+	free(spec_ops->sin);
+      //free(spec_ops->headlock);
+      //free(spec_ops->iosignal);
+      free(spec_ops);
+      return 0;
+    }
+    void udps_stop(struct streamer_entity *se){
+      ((struct udpopts *)se->opt)->running = 0;
+    }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-  int udps_is_blocked(struct streamer_entity *se){
-    return ((struct udpopts *)(se->opt))->is_blocked;
-  }
+    int udps_is_blocked(struct streamer_entity *se){
+      return ((struct udpopts *)(se->opt))->is_blocked;
+    }
 #endif
-  /*
-     unsigned long udps_get_max_packets(struct streamer_entity *se){
-     return ((struct opts*)(se->opt))->max_num_packets;
-     }
-     */
-  void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
-  {
-    se->init = setup_udp_socket;
-    se->close = close_udp_streamer;
-    se->get_stats = get_udp_stats;
-    se->close_socket = udps_close_socket;
-    //se->get_max_packets = udps_get_max_packets;
-  }
+    /*
+       unsigned long udps_get_max_packets(struct streamer_entity *se){
+       return ((struct opts*)(se->opt))->max_num_packets;
+       }
+       */
+    void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
+    {
+      se->init = setup_udp_socket;
+      se->close = close_udp_streamer;
+      se->get_stats = get_udp_stats;
+      se->close_socket = udps_close_socket;
+      //se->get_max_packets = udps_get_max_packets;
+    }
 
-  int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
-  {
+    int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
+    {
 
-    udps_init_default(opt,se);
-    if(opt->optbits & USE_RX_RING)
-      se->start = udp_rxring;
-    else
-      se->start = udp_receiver;
-    se->stop = udps_stop;
+      udps_init_default(opt,se);
+      if(opt->optbits & USE_RX_RING)
+	se->start = udp_rxring;
+      else
+	se->start = udp_receiver;
+      se->stop = udps_stop;
 
-    return se->init(opt, se);
-  }
+      return se->init(opt, se);
+    }
 
-  int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
-  {
+    int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
+    {
 
-    udps_init_default(opt,se);
-    se->start = udp_sender;
-    return se->init(opt, se);
+      udps_init_default(opt,se);
+      se->start = udp_sender;
+      return se->init(opt, se);
 
-  }
+    }
