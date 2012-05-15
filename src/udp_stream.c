@@ -55,6 +55,90 @@ void udps_close_socket(struct streamer_entity *se){
   if(ret <0)
     perror("Socket shutdown");
 }
+int udps_bind_port(struct udpopts * spec_ops){
+  int err;
+  //prep port
+  //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+  spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+  //socklen_t len = sizeof(struct sockaddr_in);
+  memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
+  spec_ops->sin->sin_family = AF_INET;           
+  spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
+  //TODO: check if IF binding helps
+  if(spec_ops->opt->optbits & READMODE){
+#if(DEBUG_OUTPUT)
+    fprintf(stdout, "Connecting to %s\n", spec_ops->opt->hostname);
+#endif
+    spec_ops->sin->sin_addr.s_addr = spec_ops->opt->serverip;
+    spec_ops->sinsize = sizeof(struct sockaddr_in);
+
+    /*
+       err = inet_aton(opt->hostname, &(spec_ops->sin->sin_addr));
+       if(err ==0){
+       perror("UDP_STREAMER: Inet aton");
+       return NULL;
+       }
+       */
+    //err = connect(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
+    //err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
+    //spec_ops->sin = addr;
+  }
+  else{
+    spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
+    //if(!(spec_ops->opt->optbits & USE_RX_RING))
+    err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
+    //free(addr);
+  }
+
+  //Bind to a socket
+  if (err < 0) {
+    perror("bind or connect");
+    fprintf(stderr, "Port: %d\n", spec_ops->opt->port);
+    INIT_ERROR
+  }
+#if(DEBUG_OUTPUT)
+  else
+    fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
+#endif
+  return 0;
+}
+int udps_bind_rx(struct udpopts * spec_ops){
+  struct tpacket_req req;
+  int err;
+
+  //TODO: Fix do_w_stuff_every so we can set it here accordingly to block_size. 
+  /* I guess I need to just calculate this .. */
+  /* FIX: Just set frame size as n-larger so its 16 divisable. */
+
+  unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every);
+  //req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems)/4096;
+  req.tp_block_size = spec_ops->opt->do_w_stuff_every;
+  req.tp_frame_size = spec_ops->opt->buf_elem_size;
+  req.tp_frame_nr = spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads);
+  //req.tp_block_nr = spec_ops->opt->n_threads;
+  req.tp_block_nr = total_mem_div_blocksize;
+
+  D("Block size: %d Frame size: %d Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
+
+  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
+  CHECK_ERR("RX_RING SETSOCKOPT");
+  //spec_ops->sin->sin_family = PF_PACKET;           
+  struct sockaddr_ll ll;
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
+  err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
+  CHECK_ERR("SIOCGIFINDEX");
+
+  //Bind to a socket
+  memset(&ll, 0, sizeof(ll));
+  ll.sll_family = AF_PACKET;
+  ll.sll_protocol = htons(ETH_P_ALL);
+  ll.sll_ifindex = ifr.ifr_ifindex;
+  err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
+  CHECK_ERR("Bind to IF");
+  return 0;
+}
 int udps_common_init_stuff(struct streamer_entity *se)
 {
   int err,len,def;
@@ -67,6 +151,12 @@ int udps_common_init_stuff(struct streamer_entity *se)
     strcpy(ifr.ifr_name, spec_ops->opt->device_name);
     err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
     CHECK_ERR_LTZ("Interface index find");
+
+    D("Binding to %s",, spec_ops->opt->device_name);
+    err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
+    CHECK_ERR("Bound to NIC");
+
+
   }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //Stolen from http://seclists.org/tcpdump/2010/q2/99
@@ -84,6 +174,8 @@ int udps_common_init_stuff(struct streamer_entity *se)
   err  = ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr);
   CHECK_ERR_LTZ("HW timestamping");
 #endif
+  /* TODO: Drop bad size packets as in */
+  /* ret = setsockopt(iface->fd, SOL_PACKET, PACKET_LOSS, &val, sizeof(val)); */
   //NOTE: Has no effect
   /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
   /*
@@ -114,7 +206,7 @@ int udps_common_init_stuff(struct streamer_entity *se)
     const int sflag = 1;
     err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
     CHECK_ERR("UDPCHECKSUM");
-      
+
   }
 #endif
 
@@ -153,12 +245,15 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   /* TODO Works with AF_INET but should use PF_PACKET? */
 #ifdef BIND_WITH_PF_PACKET
   if(spec_ops->opt->optbits & USE_RX_RING){
-    spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
+    spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
     D("Socket initialized with PF_PACKET");
   }
   else
 #endif
+  {
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
+    D("Socket initialized as AF_INET");
+  }
   //if(!(spec_ops->optbits & READMODE))
   opt->socket = spec_ops->fd;
 
@@ -172,99 +267,31 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 
 
   if(spec_ops->opt->optbits & USE_RX_RING){
-    struct tpacket_req req;
-
-    //unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size);
-    //TODO: Fix do_w_stuff_every so we can set it here accordingly to block_size. 
-    unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size);
-    //req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems)/4096;
-    req.tp_block_size = spec_ops->opt->do_w_stuff_every*spec_ops->opt->buf_elem_size;
-    req.tp_frame_size = spec_ops->opt->buf_elem_size;
-    req.tp_frame_nr = spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads);
-    //req.tp_block_nr = spec_ops->opt->n_threads;
-    req.tp_block_nr = total_mem_div_blocksize;
-    /*
-    req.tp_block_nr = 4096;
-    req.tp_block_size= 4096;
-    req.tp_frame_size= 2048;
-    req.tp_block_nr  = 4;
-    req.tp_frame_nr  = 8;
-    */
-    /*
-       req.tp_block_size = getpagesize()*20
-       req.tp_frame_size = getpagesize();
-       req.tp_frame_nr = 20;
-       req.tp_block_nr = 10;
-       */
-    D("Block size: %d Frame size: %d Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
-
-    err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
-    CHECK_ERR("RX_RING SETSOCKOPT");
-  }
-
-
-  //prep port
-  //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  //socklen_t len = sizeof(struct sockaddr_in);
-  memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
-  /*
-     if(spec_ops->opt->optbits & USE_RX_RING)
-     spec_ops->sin->sin_family = PF_PACKET;           
-     else
-     */
-  spec_ops->sin->sin_family = AF_INET;           
-  spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
-  //TODO: check if IF binding helps
-  if(spec_ops->opt->optbits & READMODE){
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "Connecting to %s\n", opt->hostname);
-#endif
-    spec_ops->sin->sin_addr.s_addr = opt->serverip;
-    spec_ops->sinsize = sizeof(struct sockaddr_in);
-
-    /*
-       err = inet_aton(opt->hostname, &(spec_ops->sin->sin_addr));
-       if(err ==0){
-       perror("UDP_STREAMER: Inet aton");
-       return NULL;
-       }
-       */
-    //err = connect(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //spec_ops->sin = addr;
+    err = udps_bind_rx(spec_ops);
+    CHECK_ERR("BIND RX");
   }
   else{
-    spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
-    //if(!(spec_ops->opt->optbits & USE_RX_RING))
-    err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //free(addr);
+    err = udps_bind_port(spec_ops);
+    CHECK_ERR("Bind port");
   }
 
-  //Bind to a socket
-  if (err < 0) {
-    perror("bind or connect");
-    fprintf(stderr, "Port: %d\n", spec_ops->opt->port);
-    INIT_ERROR
-  }
-#if(DEBUG_OUTPUT)
-  else
-    fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
-#endif
-
+  /* MMap the ring for rx-ring */
   if(spec_ops->opt->optbits & USE_RX_RING){
-    /* If we're using the rx-ring, reserve space for it here */
     int flags = MAP_ANONYMOUS|MAP_SHARED;
     if(spec_ops->opt->optbits & USE_HUGEPAGE)
       flags |= MAP_HUGETLB;
     spec_ops->opt->buffer = mmap(NULL, ((unsigned long)spec_ops->opt->buf_num_elems)*((unsigned long)spec_ops->opt->buf_elem_size)*spec_ops->opt->n_threads, PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
+    CHECK_ERR_NONNULL(spec_ops->opt->buffer, "Ring MMAP");
+    /*
     if(spec_ops->opt->buffer != NULL)
       D("RX ring mmapped");
     else{
       E("Failed to mmap RX-ring");
       return -1;
     }
+    */
   }
+
 
   return 0;
 }
@@ -474,7 +501,7 @@ void* udp_rxring(void *streamo)
   int timeout = 1000;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  struct tpacket_hdr* hdr;
+  struct tpacket_hdr* hdr = spec_ops->opt->buffer + i*(spec_ops->opt->buf_elem_size); 
   struct pollfd pfd;
 
   spec_ops->total_captured_bytes = 0;
@@ -491,17 +518,21 @@ void* udp_rxring(void *streamo)
   D("Starting mmap polling");
 
   while(spec_ops->running){
-    err = poll(&pfd, 1, timeout);
+    if(!(hdr->tp_status  == TP_STATUS_USER))
+      D("Polling pfd");
+      err = poll(&pfd, 1, timeout);
+    fprintf(stdout, "Da err: %d, revents: %lu\n", err, pfd.revents);
     if(err != 0 || pfd.revents != 0){
       hdr = spec_ops->opt->buffer + i*(spec_ops->opt->buf_elem_size); 
-      fprintf(stdout, "STATUS: %lu, length: %i, mac: %i", hdr->tp_status, hdr->tp_len, hdr->tp_mac);
-      while(hdr->tp_status != TP_STATUS_KERNEL){
+      fprintf(stdout, "STATUS: %lu, length: %i, mac: %i\n", hdr->tp_status, hdr->tp_len, hdr->tp_mac);
+      while(hdr->tp_status == TP_STATUS_USER){
 	j++;
 	if(j==spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads))
 	  j=0;
 	hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
 	hdr->tp_status = TP_STATUS_KERNEL;
       }
+      D("Packets handled");
     }
     i=j;
     fprintf(stdout, "i: %d, j: %d\n", i,j);
@@ -661,7 +692,8 @@ fprintf(stdout, "UDP_STREAMER: receive of size %d\n", err);
     //free(spec_ops->be);
     /* So if we're reading, just let the recorder end free the packet_index */
     //else
-    free(spec_ops->sin);
+    if(!(spec_ops->opt->optbits & USE_RX_RING))
+      free(spec_ops->sin);
     //free(spec_ops->headlock);
     //free(spec_ops->iosignal);
     free(spec_ops);

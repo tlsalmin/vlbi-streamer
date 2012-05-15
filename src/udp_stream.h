@@ -43,5 +43,6 @@ struct udpopts
   unsigned long int out_of_order;
 #endif
 };
+void udps_close_socket(struct streamer_entity *se);
 
 #endif //UDP_STREAMER

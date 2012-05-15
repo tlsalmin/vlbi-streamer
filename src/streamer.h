@@ -189,7 +189,7 @@ struct opt_s
   int bufculum;
   int rate;
   void* buffer;
-  unsigned long  do_w_stuff_every;
+  unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   struct timespec wait_last_sent;

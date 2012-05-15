@@ -47,10 +47,11 @@
 #include "config.h"
 #include "fanout.h"
 #include "streamer.h"
+#include "udp_stream.h"
 
 
 //Gatherer specific options
-struct opts
+struct fanout_opts
 {
   int fd;
   int fanout_arg;
@@ -72,9 +73,9 @@ struct opts
   unsigned int total_captured_packets;
 };
 
-void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
+int fanout_setup_socket(struct opt_s* opt, struct streamer_entity* se)
 {
-  struct opts *spec_ops =(struct opts *) malloc(sizeof(struct opts));
+  struct fanout_opts *spec_ops =(struct fanout_opts *) malloc(sizeof(struct fanout_opts));
   int err; 
   se->opt = (void*)spec_ops;
   spec_ops->opt = opt;
@@ -99,7 +100,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
 
   if (spec_ops->fd < 0) {
     perror("socket");
-    return NULL;;
+    return -1;
   }
 
   //Get the interface index
@@ -108,7 +109,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
   err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
   if (err < 0) {
     perror("SIOCGIFINDEX");
-    return NULL;
+    return -1;
   }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //Stolen from http://seclists.org/tcpdump/2010/q2/99
@@ -141,7 +142,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
   err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
   if (err < 0) {
     perror("bind");
-    return NULL;
+    return -1;
   }
 
   spec_ops->fanout_arg = ((spec_ops->opt->root_pid & 0xFFFF) | (PACKET_FANOUT_LB << 16));
@@ -149,7 +150,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
       &(spec_ops->fanout_arg), sizeof(spec_ops->fanout_arg));
   if (err) {
     perror("setsockopt");
-    return NULL;
+    return -1;
   }
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //set hardware timestamping
@@ -176,7 +177,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &(spec_ops->req), sizeof(spec_ops->req));
   if (err) {
     perror("PACKET_RX_RING failed");
-    return NULL;
+    return -1;
   }
 
   //MMap the packet ring
@@ -185,7 +186,7 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
   if (!spec_ops->ps_header_start)
   {
     perror("mmap");
-    return NULL;
+    return -1;
   }
 
   //struct pollfd pfd;
@@ -197,9 +198,9 @@ void * setup_socket(struct opt_s* opt, struct streamer_entity* se)
 
   spec_ops->header = (void *) spec_ops->ps_header_start;
 
-  return spec_ops;
+  return 0;
 }
-void handle_captured_packets(unsigned long *i, struct opts * spec_ops, int full){
+void handle_captured_packets(unsigned long *i, struct fanout_opts * spec_ops, int full){
   while((spec_ops->header->tp_status & TP_STATUS_USER) | (full && (*i)<RING_FRAME_NR)){
     if (spec_ops->header->tp_status & TP_STATUS_COPY){
       spec_ops->incomplete++;
@@ -231,7 +232,7 @@ void handle_captured_packets(unsigned long *i, struct opts * spec_ops, int full)
 void *fanout_thread(void *specco)
 {
   struct streamer_entity *se = (struct streamer_entity*)specco;
-  struct opts *spec_ops = (struct opts *)se->opt;
+  struct fanout_opts *spec_ops = (struct fanout_opts *)se->opt;
   time_t t_start;
   double time_left=0;
   int err = 0;
@@ -270,16 +271,16 @@ void *fanout_thread(void *specco)
   //exit(0);
   pthread_exit(NULL);
 }
-void get_stats(void *opt, void *stats){
-  struct opts *spec_ops = (struct opts *)opt;
+void fanout_get_stats(void *opt, void *stats){
+  struct fanout_opts *spec_ops = (struct fanout_opts *)opt;
   struct stats *stat = (struct stats * ) stats;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->dropped;
 }
 int close_fanout(void *opt, void *stats){
-  struct opts *spec_ops = (struct opts *)opt;
-  get_stats(opt,stats);
+  struct fanout_opts *spec_ops = (struct fanout_opts *)opt;
+  fanout_get_stats(opt,stats);
 
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
@@ -288,4 +289,13 @@ int close_fanout(void *opt, void *stats){
   //munmap(spec_ops->header, RING_BLOCKSIZE*RING_BLOCK_NR);
   free(spec_ops);
   return 0;
+}
+int fanout_init_fanout(void * opt, struct streamer_entity *se){
+  se->init = fanout_setup_socket;
+  se->close = close_fanout;
+  se->get_stats = fanout_get_stats;
+  se->close_socket = udps_close_socket;
+  se->start = fanout_thread;
+  se->stop = udps_stop;
+  return se->init(opt,se);
 }

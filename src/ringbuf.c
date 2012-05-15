@@ -511,6 +511,7 @@ void *rbuf_write_loop(void *buffo){
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
   int limited_head;
 #endif
+  int dow_div_packet = rbuf->opt->do_w_stuff_every/rbuf->opt->buf_elem_size;
   rbuf_init_head_n_tail(rbuf,&head,&tail);
   rbuf->running = 1;
   while(rbuf->running){
@@ -525,7 +526,7 @@ void *rbuf_write_loop(void *buffo){
       be->recer = NULL;
     }
     pthread_mutex_lock(be->headlock);
-    while(((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) < rbuf->opt->do_w_stuff_every) && rbuf->running)
+    while(((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) < dow_div_packet) && rbuf->running)
     {
 #if(DEBUG_OUTPUT)
       //fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
@@ -547,7 +548,7 @@ void *rbuf_write_loop(void *buffo){
     if(!rbuf->running)
       break;
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
-    diff = diff < rbuf->opt->do_w_stuff_every ? diff : rbuf->opt->do_w_stuff_every;
+    diff = diff < dow_div_packet ? diff : dow_div_packet;
     limited_head = (*tail+diff)%rbuf->opt->buf_num_elems;
 #else
     limited_head = *head;
@@ -613,12 +614,12 @@ void *rbuf_write_loop(void *buffo){
       /* NOTE: Due to arbitrary size packets, we need to write extra data 	*/
       /* on the disk. IO_DIRECT requires block bytes aligned writes(512) 	*/
       /* So we increment it to the next full bytecount				*/
-      if(diff < rbuf->opt->do_w_stuff_every){
+      if(diff < dow_div_packet){
 	ret = end_transaction(be, *head,tail,diff);
       }
       else{
-	if (diff > rbuf->opt->do_w_stuff_every)
-	  diff = rbuf->opt->do_w_stuff_every;
+	if (diff > dow_div_packet)
+	  diff = dow_div_packet;
 	limited_head = (*tail+diff)%rbuf->opt->buf_num_elems;
 	//}
 	//else
@@ -678,13 +679,13 @@ int rbuf_check(struct buffer_entity *be){
 
     /* ret tells us how many bytes were written */
     /* ret/buf_size = number of buffs we've written */
+    if(ret > rbuf->opt->do_w_stuff_every)
+      ret = rbuf->opt->do_w_stuff_every;
 
     num_written = ret/rbuf->opt->buf_elem_size;
 
     /* This might happen on last write, when we need to write some extra */
     /* stuff to keep the writes Block aligned				*/
-    if(num_written > rbuf->opt->do_w_stuff_every)
-      num_written = rbuf->opt->do_w_stuff_every;
 
     /* TODO: If we receive IO done out of order, we'll potentially release  */
     /* Buffer entries that haven't yet been released. Trusting that this 	*/

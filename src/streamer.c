@@ -14,7 +14,7 @@
 #include <time.h>
 #include "config.h"
 #include "streamer.h"
-//#include "fanout.h"
+#include "fanout.h"
 #include "udp_stream.h"
 #include "ringbuf.h"
 #ifdef HAVE_LIBAIO
@@ -243,6 +243,15 @@ int calculate_buffer_sizes(struct opt_s *opt){
   //unsigned long bufsize;// = opt.buf_elem_size;
   int found = 0;
 
+  int extra= 0;
+  if(opt->optbits & USE_RX_RING){
+    while((opt->buf_elem_size %16)!= 0){
+      opt->buf_elem_size++;
+      extra++;
+    }
+  }
+  D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+
   /* TODO: do_w_stuff gets warped  from MB to num of elems*/
   fprintf(stdout, "STREAMER: Calculating total buffer size between "
       "%lu GB to %luGB,"
@@ -250,13 +259,16 @@ int calculate_buffer_sizes(struct opt_s *opt){
       "Doing maximum %luMB size writes\n"
       ,opt->minmem, opt->maxmem, opt->buf_elem_size, opt->do_w_stuff_every/MEG);
   /* Set do_w_stuff to minimum wanted */
+  /* First set do_w_stuff to be packet aligned */
   unsigned long temp = opt->do_w_stuff_every/opt->buf_elem_size;
   fprintf(stdout, "%lu\n",temp);
   opt->do_w_stuff_every = temp*(opt->buf_elem_size);
+
   /* Increase block division to fill min amount of memory */
   while((opt->do_w_stuff_every)*magic*(opt->n_threads) < (opt->minmem)*GIG){
     magic++;
   }
+  /* Store for later use if proper size not found with current magic */
   temp = opt->do_w_stuff_every;
   while((found == 0) && (magic > 0)){
     /* Increase buffer size until its BLOCK_ALIGNed */
@@ -264,7 +276,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
       if(opt->do_w_stuff_every % BLOCK_ALIGN == 0){
 	found=1;
 	opt->buf_num_elems = (opt->do_w_stuff_every*magic)/opt->buf_elem_size;
-	opt->do_w_stuff_every = opt->do_w_stuff_every/opt->buf_elem_size;
+	//opt->do_w_stuff_every = opt->do_w_stuff_every/opt->buf_elem_size;
 	break;
       }
       opt->do_w_stuff_every+=opt->buf_elem_size;
@@ -275,7 +287,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
     }
   }
   if(found ==0){
-    fprintf(stderr, "STREAMER: Didnt find lAlignment"
+    fprintf(stderr, "STREAMER: Didnt find Alignment"
 	"%lu GB to %luGB"
 	", Each buffer having %lu bytes"
 	", Writing in %lu size blocks"
@@ -286,6 +298,9 @@ int calculate_buffer_sizes(struct opt_s *opt){
     return -1;
   }
   else{
+  if(opt->optbits & USE_RX_RING){
+    D("The 16 aligned restriction of RX-ring resulted in %d MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
+  }
 
     /*
     long filesztemp =0;
@@ -625,8 +640,10 @@ static void parse_options(int argc, char **argv){
   argc -=optind;
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
+  /*
   if(opt.optbits & USE_RX_RING)
     opt.buf_elem_size += TPACKET_HDRLEN;
+    */
   //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
   opt.filename = argv[0];
   if(drives_set == 0)
@@ -913,6 +930,9 @@ int main(int argc, char **argv)
 	err = udps_init_udp_sender(&opt, &(streamer_ent));
       else
 	err = udps_init_udp_receiver(&opt, &(streamer_ent));
+      break;
+    case CAPTURE_W_FANOUT:
+      err = fanout_init_fanout(&opt, &(streamer_ent));
       break;
     case CAPTURE_W_SPLICER:
       //err = sendfile_init_writer(&opt, &(streamer_ent));

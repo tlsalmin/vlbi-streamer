@@ -220,7 +220,8 @@ void close_recer(struct buffer_entity *be){
 int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
-  unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->buf_elem_size);
+  //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->buf_elem_size);
+  unsigned long limit = sbuf->opt->do_w_stuff_every;
 
   unsigned long count = sbuf->diff * sbuf->opt->buf_elem_size;
   void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
@@ -250,7 +251,7 @@ int simple_write_bytes(struct buffer_entity *be){
       fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
     }
     else{
-      sbuf->diff-=sbuf->opt->do_w_stuff_every;
+      sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->buf_elem_size;
     }
   }
   return 0;
