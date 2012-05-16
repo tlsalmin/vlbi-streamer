@@ -62,7 +62,7 @@ void udps_close_socket(struct streamer_entity *se){
     perror("Socket shutdown");
 }
 int udps_bind_port(struct udpopts * spec_ops){
-  int err;
+  int err=0;
   //prep port
   //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
   spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
@@ -94,18 +94,10 @@ int udps_bind_port(struct udpopts * spec_ops){
     //if(!(spec_ops->opt->optbits & USE_RX_RING))
     err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
     //free(addr);
+    CHECK_ERR("Bind or connect");
   }
 
   //Bind to a socket
-  if (err < 0) {
-    perror("bind or connect");
-    fprintf(stderr, "Port: %d\n", spec_ops->opt->port);
-    INIT_ERROR
-  }
-#if(DEBUG_OUTPUT)
-  else
-    fprintf(stdout, "Socket connected as %d ok\n", spec_ops->fd);
-#endif
   return 0;
 }
 int udps_bind_rx(struct udpopts * spec_ops){

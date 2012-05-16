@@ -24,9 +24,9 @@ int common_open_new_file(void * recco, unsigned long seq, unsigned long bufnum){
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  sprintf(ioi->curfilename, "%s%08d", ioi->filename,seq); 
+  sprintf(ioi->curfilename, "%s%08ld", ioi->filename,seq); 
 
-  D("Opening new file %s",,ioi->curfilename);
+  D("Opening new file %s, which will write bufnum %lu",,ioi->curfilename,bufnum);
   err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->curfilename, 0);
   if(err!=0){
     fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
@@ -273,7 +273,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   re->get_stats = get_io_stats;
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
-  loff_t prealloc_bytes;
+  //loff_t prealloc_bytes;
   //struct stat statinfo;
   int err =0;
   ioi->optbits = opt->optbits;
@@ -300,7 +300,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     fprintf(stdout, "COMMON_WRT: Getting read flags\n");
 #endif
     ioi->f_flags = re->get_r_flags();
-    prealloc_bytes = 0;
+    //prealloc_bytes = 0;
   }
   else{
 #if(DEBUG_OUTPUT)
@@ -319,7 +319,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
 
     //prealloc_bytes = opt->max_num_packets* opt->buf_elem_size;
-    prealloc_bytes=0;
+    //prealloc_bytes=0;
 
   }
   //fprintf(stdout, "wut\n");
@@ -382,7 +382,7 @@ void get_io_stats(void * opt, void * st){
 }
 int common_close(struct recording_entity * re, void * stats){
   D("Closing writer");
-  int err=0;
+  //int err=0;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
 
   //struct stats* stat = (struct stats*)stats;

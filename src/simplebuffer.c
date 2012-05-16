@@ -13,10 +13,38 @@
 #include "simplebuffer.h"
 #include "streamer.h"
 
+int sbuf_check(struct buffer_entity *be, int tout){
+  int ret = 0, returnable = 0;
+  struct simplebuf * sbuf = (struct simplebuf * )be->opt;
+  //while ((ret = be->recer->check(be->recer))>0){
+  D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
+  /* Still doesn't really wait DURR */
+  usleep(10000);
+  ret = be->recer->check(be->recer, 0);
+  if(ret > 0){
+    /* Write done so decrement async_writes_submitted */
+    //sbuf->async_writes_submitted--;
+    D("%lu Writes complete.\n",, ret/sbuf->opt->buf_elem_size);
+    unsigned long num_written;
+
+    num_written = ret/sbuf->opt->buf_elem_size;
+
+    sbuf->asyncdiff-=num_written;
+  }
+  else if (ret == 0){
+    //NADA
+  }
+  else{
+    E("Error in write check");
+    return -1;
+  }
+  return 0;
+}
 int sbuf_acquire(void* buffo, unsigned long seq, unsigned long bufnum){
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   if(sbuf->opt->optbits & USE_RX_RING){
+    /* This threads responsible area */
     sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
   }
   sbuf->file_seqnum = seq;
@@ -246,7 +274,7 @@ int simple_write_bytes(struct buffer_entity *be){
     return simple_end_transaction(be);
   }
 
-  D("Starting write from %lu with count %lu",,offset,count);
+  D("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld\n",, ret);
@@ -317,6 +345,7 @@ int sbuf_sync_loop(struct buffer_entity *be){
   return 0;
 }
 void *sbuf_simple_read_loop(void *buffo){
+  return NULL;
 }
 int write_buffer(struct buffer_entity *be){
   struct simplebuf* sbuf = (struct simplebuf*)be->opt;
@@ -419,33 +448,6 @@ void sbuf_stop_running(struct buffer_entity *be){
 }
 void sbuf_set_ready(struct buffer_entity *be){
   ((struct simplebuf*)be->opt)->ready_to_act = 1;
-}
-int sbuf_check(struct buffer_entity *be, int tout){
-  int ret = 0, returnable = 0;
-  struct simplebuf * sbuf = (struct simplebuf * )be->opt;
-  //while ((ret = be->recer->check(be->recer))>0){
-  D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
-  /* Still doesn't really wait DURR */
-  usleep(10000);
-  ret = be->recer->check(be->recer, 0);
-  if(ret > 0){
-    /* Write done so decrement async_writes_submitted */
-    //sbuf->async_writes_submitted--;
-    D("%lu Writes complete.\n",, ret/sbuf->opt->buf_elem_size);
-    unsigned long num_written;
-
-    num_written = ret/sbuf->opt->buf_elem_size;
-
-    sbuf->asyncdiff-=num_written;
-  }
-  else if (ret == 0){
-    //NADA
-  }
-  else{
-    E("Error in write check");
-    return -1;
-  }
-  return 0;
 }
 int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->init = sbuf_init;

@@ -42,7 +42,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
 	perror("DEFWRITER: Error on write/read");
-	fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %ld\n", ioi->filename,  count, ret);
+	fprintf(stderr, "DEFWRITER: Error happened on %s with count %lu, error: %ld\n", ioi->curfilename,  count, ret);
 	return -1;
       }
     }

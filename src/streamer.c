@@ -89,18 +89,18 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en)
   //Only special case if the entity is at the start of the list
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
   pthread_cond_signal(&(br->busysignal));
-  pthread_mutex_unlock(&(br->branchlock));
   if(en->release != NULL){
     int ret = en->release(en->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
+  pthread_mutex_unlock(&(br->branchlock));
 }
 void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
 {
   mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
 }
-void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
+void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
   if(!mutex_free)
     pthread_mutex_lock(&(br->branchlock));
   if(en == br->freelist){
@@ -108,7 +108,7 @@ void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en
       en->child->father = NULL;
     br->freelist = en->child;
   }
-  else	if(en == br->busylist){
+  else if(en == br->busylist){
     if(en->child != NULL)
       en->child->father = NULL;
     br->busylist = en->child;
@@ -325,10 +325,12 @@ int calculate_buffer_sizes(struct opt_s *opt){
 /*
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
  */
+/*
 int resolve_host(char *host, struct in_addr * ia){
   int err=0;
   return err;
 }
+*/
 
 /*
  * Stuff stolen from lindis sendfileudp

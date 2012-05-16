@@ -160,7 +160,7 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long bufnum);
-void* remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
+void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
