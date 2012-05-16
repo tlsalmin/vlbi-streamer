@@ -353,7 +353,7 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     D("Getting rec entity for buffer");
-    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum,0);
+    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum,sbuf->running);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
@@ -399,8 +399,10 @@ void *sbuf_simple_write_loop(void *buffo){
        if(sbuf->running == 0)
        break;
        */
+    /*
     if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
     }
+    */
 
     if(sbuf->diff > 0){
       D("Blocking writes. Left to write %d",,sbuf->diff);
@@ -417,27 +419,11 @@ void *sbuf_simple_write_loop(void *buffo){
 	}
       }
     }
-    }
-    /*
-       D("Loop over. Finishing");
-       if(sbuf->diff > 0){
-       D("Blocking writes. Left to write %d",,sbuf->diff);
-       savedif = sbuf->diff;
-       ret = -1;
+  }
+  D("Finished");
+  pthread_exit(NULL);
+}
 
-       while(ret!= 0){
-// Write failed so set the diff back to old value and rewrite
-ret = write_buffer(be);
-if(ret != 0){
-D("Error in rec. Returning diff");
-sbuf->diff = savedif;
-}
-}
-}
-*/
-D("Finished");
-pthread_exit(NULL);
-}
 void sbuf_stop_running(struct buffer_entity *be){
   D("Stopping sbuf thread");
   ((struct simplebuf*)be->opt)->running = 0;

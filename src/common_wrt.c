@@ -13,21 +13,35 @@
 
 #include "streamer.h"
 #include "common_wrt.h"
+/* There is a persistant bug where the writes fail with */
+/* error EINVAL when the streamer has stopped IF the	*/
+/* file was opened with IO_DIRECT. I've checked all the */
+/* functions before it, disabled them etc. but can't 	*/
+/* find the reason for this bug. This will disable the	*/
+/* IO_DIRECT flag for the last write			*/
+#define UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
 
 
 /* These should be moved somewhere general, since they should be used by all anyway */
 /* writers anyway */
-int common_open_new_file(void * recco, unsigned long seq, unsigned long bufnum){
+int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_still_running){
   int err;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  int tempflags = ioi->f_flags;
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   sprintf(ioi->curfilename, "%s%08ld", ioi->filename,seq); 
 
-  D("Opening new file %s, which will write bufnum %lu",,ioi->curfilename,bufnum);
-  err = common_open_file(&(ioi->fd),ioi->f_flags, ioi->curfilename, 0);
+#ifdef UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
+  if(sbuf_still_running == 0){
+    D("Doing the ugly fix");
+    tempflags = ioi->f_flags ^ O_DIRECT;
+  }
+#endif
+  D("Opening new file %s,",,ioi->curfilename);
+  err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
   if(err!=0){
     fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
     return err;

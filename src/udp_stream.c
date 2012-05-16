@@ -644,6 +644,15 @@ void* udp_receiver(void *streamo)
 	spec_ops->handle_packet(se,buf);
     }
   }
+  /*
+  if(se->be != NULL){
+    D("Signalling last buffer thread to write");
+    se->be->set_ready(se->be);
+    pthread_mutex_lock(se->be->headlock);
+    pthread_cond_signal(se->be->iosignal);
+    pthread_mutex_unlock(se->be->headlock);
+  }
+  */
   //#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
   //#endif
