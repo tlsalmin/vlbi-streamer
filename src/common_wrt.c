@@ -46,6 +46,10 @@ int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_sti
     fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
     return err;
   }
+  struct fileblocks *fb = ioi->opt->fbs + sizeof(struct fileblocks)*(ioi->id);
+  err = fb_add_value(fb,seq);
+  if(err != 0)
+    E("Failed to add fb value");
   //free(filename);
   return 0;
 }

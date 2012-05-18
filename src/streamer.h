@@ -9,7 +9,7 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
-#define ROOTDIRS "/mnt/disk"
+
 
 #define INIT_ERROR return -1;
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
@@ -72,6 +72,9 @@
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
 //#define WRITE_WHOLE_BUFFER
+//
+#define ROOTDIRS "/mnt/disk"
+#define INITIAL_N_FILES B(7)
 
 #define MIN_MEM_GIG 4l
 #define MAX_MEM_GIG 12l
@@ -166,6 +169,12 @@ struct entity_list_branch
   /* On non-free branch					*/
   pthread_cond_t busysignal;
 };
+struct fileblocks
+{
+  int max_elements;
+  int elements;
+  INDEX_FILE_TYPE *files;
+};
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
@@ -176,6 +185,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
+int fb_add_value(struct fileblocks* fb, unsigned long seq);
 
 /* All the options for the main thread			*/
 struct opt_s
@@ -188,7 +198,7 @@ struct opt_s
   //pthread_mutex_t cumlock;
   char *device_name;
   int diskids;
-
+  struct fileblocks *fbs;
   unsigned int optbits;
   int root_pid;
   unsigned long time;

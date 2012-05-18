@@ -159,6 +159,18 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   mutex_free_set_busy(br,en);
   pthread_mutex_unlock(&(br->branchlock));
 }
+int fb_add_value(struct fileblocks* fb, unsigned long seq){
+  if(fb->elements == fb->max_elements){
+    fb->max_elements = fb->max_elements << 1;
+    fb->files = (struct INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
+    if(fb->files == NULL){
+      E("Realloc failed");
+      return -1;
+	  }
+  }
+  fb->files[fb->elements++] = seq;
+  return 0;
+}
 void print_br_stats(struct entity_list_branch *br){
   int free=0,busy=0;
   pthread_mutex_lock(&(br->branchlock));
@@ -176,12 +188,25 @@ void print_br_stats(struct entity_list_branch *br){
   fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
 }
 #ifdef HAVE_LIBCONFIG_H
+/* TODO: Move this to the disk init */
 int init_cfg(struct opt_s *opt){
-  config_setting_t *root, *setting, *group;
-  D("Initializing CFG");
-  config_init(&(opt->cfg));
+  config_setting_t *root, *setting;
   int err=0;
   int i;
+  D("Initializing CFG");
+  config_init(&(opt->cfg));
+
+  /* Init the fileblock indices */
+  opt->fbs = (struct fileblocks*)malloc(sizeof(struct fileblocks)*opt->n_drives);
+  struct fileblocks *fb = opt->fbs;
+  
+  for(i=0;i<opt->n_drives;i++){
+    fb->files = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*INITIAL_N_FILES);
+    fb->elements = 0; 
+    fb->max_elements = INITIAL_N_FILES;
+    fb++;
+  }
+
   if(opt->optbits & READMODE){
     int found = 0;
     long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;
@@ -218,22 +243,20 @@ int init_cfg(struct opt_s *opt){
     else{
     }
     free(path);
-    config_destroy(&opt->cfg);
+    //config_destroy(&opt->cfg);
   }
   else{
     /* Set the root and other settings we need */
     root = config_root_setting(&(opt->cfg));
-    if(!root)
-      D("DERPPAH");
-    group = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
+    //group = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
     /*
     if(!group)
       D("DERPPAH");
       */
-    setting = config_setting_add(group, "buf_elem_size", CONFIG_TYPE_INT64);
+    setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
     config_setting_set_int64(setting, opt->buf_elem_size);
-    setting = config_setting_add(group, "cumul", CONFIG_TYPE_INT64);
-    setting = config_setting_add(group, "files", CONFIG_TYPE_LIST);
+    setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
+    setting = config_setting_add(root, "files", CONFIG_TYPE_ARRAY);
   }
   return 0;
 }
@@ -729,6 +752,7 @@ static void parse_options(int argc, char **argv){
 
 #ifdef HAVE_LIBCONFIG_H
   int err = init_cfg(&opt);
+  //TODO: cfg destruction
   if(err != 0)
     E("Error in cfg init");
   //return -1;
@@ -1190,6 +1214,11 @@ int main(int argc, char **argv)
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
   oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
   oper_to_all(opt.diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
+
+#ifdef HAVE_LIBCONFIG_H
+  //TODO: This will be destroyed outside the mem and diskbranches
+  config_destroy(&opt.cfg);
+#endif
   //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
 
   print_stats(&stats, &opt);
