@@ -30,6 +30,13 @@ if test "$OK" = "0"; then
   AC_MSG_ERROR([Cannot continue])
 fi
 
+OK=1
+AC_CHECK_LIB([config],[config_init], ADD_LIBS="$ADD_LIBS -lconfig", [OK=0])
+if test "$OK" = "0"; then
+  AC_MSG_WARN([Could not find library libconfig])
+  AC_MSG_ERROR([Cannot continue])
+fi
+
 dnl Check for libaio and enable if found
 AC_MSG_CHECKING(--enable-libaio argument)
 AC_ARG_ENABLE(libaio,
@@ -99,7 +106,7 @@ AC_CHECK_LIB([rt],[clock_gettime],[
 dnl Push the libs
 AC_SUBST(ADD_LIBS)
 # Checks for header files.
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h libconfig.h])
 
 
 # Checks for typedefs, structures, and compiler characteristics.

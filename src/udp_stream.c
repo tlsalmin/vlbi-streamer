@@ -20,6 +20,8 @@
 
 #include <pthread.h>
 
+#include <assert.h>
+
 #ifdef HAVE_RATELIMITER
 #include <time.h> 
 #endif
@@ -41,15 +43,8 @@
 /// Offset of data from start of frame
 #define PKT_OFFSET      (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + \
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
-#define INIT_ERROR return -1;
-//#define SHOW_PACKET_METADATA;
 #define BIND_WITH_PF_PACKET
-//#define CHECK_ERR(x) do{if(err!=0){perror(x);E(x);return -1;}else{D(x);}}while(0)
-#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
-#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
-#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
-#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
-//do {if(err != 0){perror(x);E(x);return -1;}else{D(x)}}while(0)
+//#define SHOW_PACKET_METADATA;
 
 
 //Gatherer specific options
@@ -116,7 +111,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
   //req.tp_block_nr = spec_ops->opt->n_threads;
   req.tp_block_nr = total_mem_div_blocksize;
 
-  D("Block size: %d Frame size: %d Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
+  D("Block size: %d B Frame size: %d B Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
 
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
   CHECK_ERR("RX_RING SETSOCKOPT");
@@ -125,13 +120,15 @@ int udps_bind_rx(struct udpopts * spec_ops){
   int flags = MAP_SHARED;
   if(spec_ops->opt->optbits & USE_HUGEPAGE)
     flags |= MAP_HUGETLB;
+  assert((req.tp_block_size*req.tp_block_nr) % getpagesize() == 0);
 
-  spec_ops->opt->buffer = mmap(0, req.tp_block_size*req.tp_block_nr, PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
+  spec_ops->opt->buffer = mmap(0, (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr), PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
   if((long)spec_ops->opt->buffer <= 0){
     perror("Ring MMAP");
     return -1;
   }
 
+  if(spec_ops->opt->device_name  !=NULL){
   //spec_ops->sin->sin_family = PF_PACKET;           
   struct sockaddr_ll ll;
   struct ifreq ifr;
@@ -147,6 +144,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
   ll.sll_ifindex = ifr.ifr_ifindex;
   err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
   CHECK_ERR("Bind to IF");
+  }
 
   return 0;
 }
@@ -201,10 +199,12 @@ int udps_common_init_stuff(struct streamer_entity *se)
   def=0;
   if(spec_ops->opt->optbits & READMODE){
     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
+    D("SNDBUF size is %d",,def);
     CHECK_ERR("SNDBUF size");
   }
   else{
     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+    D("RCVBUF size is %d",,def);
     CHECK_ERR("RCVBUF size");
   }
 

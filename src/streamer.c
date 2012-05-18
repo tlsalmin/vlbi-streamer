@@ -175,6 +175,69 @@ void print_br_stats(struct entity_list_branch *br){
   pthread_mutex_unlock(&(br->branchlock));
   fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
 }
+#ifdef HAVE_LIBCONFIG_H
+int init_cfg(struct opt_s *opt){
+  config_setting_t *root, *setting, *group;
+  D("Initializing CFG");
+  config_init(&(opt->cfg));
+  int err=0;
+  int i;
+  if(opt->optbits & READMODE){
+    int found = 0;
+    long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;
+    char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
+    for(i=0;i<opt->n_drives;i++){
+      sprintf(path, "%s%s", opt->filenames[i], ".cfg");
+      if(! config_read_file(&(opt->cfg),path)){
+	E("%s:%d - %s\n",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
+      }
+      else{
+	found = 1;
+	fprintf(stdout, "Config found on %s\n",path); 
+
+	err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
+	CHECK_CFG("buf_elem_size");
+	if(old_buf_elem_size == 0)
+	  old_buf_elem_size = buf_elem_size;
+	else if (old_buf_elem_size != buf_elem_size)
+	  E("ERROR disparity in config files buf_elem_size!");
+
+	err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
+	CHECK_CFG("Cumul");
+	if(old_cumul == 0)
+	  old_cumul = cumul;
+	else if (old_cumul != cumul)
+	  E("ERROR disparity in config files cumul!");
+	//TODO: Check what parts of files we have
+      }
+    }
+    if(found == 0){
+      E("No config file found! This means no recording with said name found");
+      return -1;
+    }
+    else{
+    }
+    free(path);
+    config_destroy(&opt->cfg);
+  }
+  else{
+    /* Set the root and other settings we need */
+    root = config_root_setting(&(opt->cfg));
+    if(!root)
+      D("DERPPAH");
+    group = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
+    /*
+    if(!group)
+      D("DERPPAH");
+      */
+    setting = config_setting_add(group, "buf_elem_size", CONFIG_TYPE_INT64);
+    config_setting_set_int64(setting, opt->buf_elem_size);
+    setting = config_setting_add(group, "cumul", CONFIG_TYPE_INT64);
+    setting = config_setting_add(group, "files", CONFIG_TYPE_LIST);
+  }
+  return 0;
+}
+#endif
 /* Loop through all entities and do specified OP */
 /* Don't want to write this same thing 4 times , so I'll just add an operation switch */
 /* for it */
@@ -298,26 +361,25 @@ int calculate_buffer_sizes(struct opt_s *opt){
     return -1;
   }
   else{
-  if(opt->optbits & USE_RX_RING){
-    D("The 16 aligned restriction of RX-ring resulted in %d MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
-  }
+    if(opt->optbits & USE_RX_RING){
+      D("The 16 aligned restriction of RX-ring resulted in %d MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
+    }
 
     /*
-    long filesztemp =0;
-    while(filesztemp < opt.filesize)
-      filesztemp+=opt.do_w_stuff_every;
-    opt.filesize= filesztemp;
-    */
+       long filesztemp =0;
+       while(filesztemp < opt.filesize)
+       filesztemp+=opt.do_w_stuff_every;
+       opt.filesize= filesztemp;
+       */
     //opt.filesize = opt->buf_num_elems*(opt->buf_elem_size);
 
-  fprintf(stdout, "STREAMER: Alignment found between "
-      "%lu GB to %luGB"
-      ", Each buffer having %lu bytes"
-      ", Writing in %lu size blocks"
-      ", Elements in buffer %d"
-      ", Filesize as %lu"
-      ", Total used memory: %luB\n"
-      ,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every, opt->buf_num_elems, (unsigned long)opt->buf_num_elems*(opt->buf_num_elems),opt->buf_num_elems*opt->buf_elem_size*opt->n_threads);
+    fprintf(stdout, "STREAMER: Alignment found between "
+	"%lu GB to %luGB"
+	", Each buffer having %lu MB"
+	", Writing in %lu size blocks"
+	", Elements in buffer %d"
+	", Total used memory: %luMB\n"
+	,opt->minmem, opt->maxmem, (opt->buf_elem_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->buf_elem_size*opt->n_threads)/MEG);
     //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),magic, (opt->buf_num_elems*opt->buf_elem_size)/magic);
     return 0;
   }
@@ -326,11 +388,11 @@ int calculate_buffer_sizes(struct opt_s *opt){
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
  */
 /*
-int resolve_host(char *host, struct in_addr * ia){
-  int err=0;
-  return err;
-}
-*/
+   int resolve_host(char *host, struct in_addr * ia){
+   int err=0;
+   return err;
+   }
+   */
 
 /*
  * Stuff stolen from lindis sendfileudp
@@ -387,14 +449,14 @@ void neg_stats(struct stats* st1, struct stats* st2){
     st1->total_bytes =0 ;
   else
 #endif
-  st1->total_bytes -= st2->total_bytes;
+    st1->total_bytes -= st2->total_bytes;
   st1->incomplete -= st2->incomplete;
 #ifdef UGLY_HACKS_ON_STATS
   if(st1->total_written < st2->total_written)
     st1->total_written =0 ;
   else
 #endif
-  st1->total_written -= st2->total_written;
+    st1->total_written -= st2->total_written;
   st1->dropped -= st2->dropped;
 }
 void add_stats(struct stats* st1, struct stats* st2){
@@ -411,26 +473,26 @@ void print_intermediate_stats(struct stats *stats){
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
   if(opts->optbits & READMODE){
-  fprintf(stdout, "Stats for %s \n"
-      "Packets: %lu\n"
-      "Bytes: %lu\n"
-      "Read: %lu\n"
-      "Time: %lus\n"
-      //"Net send Speed: %fMb/s\n"
-      //"HD read Speed: %fMb/s\n"
-      ,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+    fprintf(stdout, "Stats for %s \n"
+	"Packets: %lu\n"
+	"Bytes: %lu\n"
+	"Read: %lu\n"
+	"Time: %lus\n"
+	//"Net send Speed: %fMb/s\n"
+	//"HD read Speed: %fMb/s\n"
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
-  fprintf(stdout, "Stats for %s \n"
-      "Packets: %lu\n"
-      "Bytes: %lu\n"
-      "Dropped: %lu\n"
-      "Incomplete: %lu\n"
-      "Written: %lu\n"
-      "Time: %lu\n"
-      "Net receive Speed: %luMb/s\n"
-      "HD write Speed: %luMb/s\n"
-      ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
+    fprintf(stdout, "Stats for %s \n"
+	"Packets: %lu\n"
+	"Bytes: %lu\n"
+	"Dropped: %lu\n"
+	"Incomplete: %lu\n"
+	"Written: %lu\n"
+	"Time: %lu\n"
+	"Net receive Speed: %luMb/s\n"
+	"HD write Speed: %luMb/s\n"
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
   }
 }
 static void parse_options(int argc, char **argv){
@@ -439,7 +501,8 @@ static void parse_options(int argc, char **argv){
   memset(&opt, 0, sizeof(struct opt_s));
   opt.filename = NULL;
   opt.device_name = NULL;
-  
+
+  opt.diskids = 0;
 
   /* Opts using optbits */
   //opt.capture_type = CAPTURE_W_FANOUT;
@@ -522,20 +585,20 @@ static void parse_options(int argc, char **argv){
 	break;
 	/* Fanout choosing removed and set to default LB since
 	 * Implementation not that feasible anyway
-      case 'a':
-	opt.optbits &= ~LOCKER_FANOUT;
-	if (!strcmp(optarg, "hash")){
-	  //opt.fanout_type = PACKET_FANOUT_HASH;
-	  opt.optbits |= PACKET_FANOUT_HASH;
-	  }
+	 case 'a':
+	 opt.optbits &= ~LOCKER_FANOUT;
+	 if (!strcmp(optarg, "hash")){
+	//opt.fanout_type = PACKET_FANOUT_HASH;
+	opt.optbits |= PACKET_FANOUT_HASH;
+	}
 	else if (!strcmp(optarg, "lb")){
-	  //opt.fanout_type = PACKET_FANOUT_LB;
-	  opt.optbits |= PACKET_FANOUT_LB;
+	//opt.fanout_type = PACKET_FANOUT_LB;
+	opt.optbits |= PACKET_FANOUT_LB;
 	}
 	else {
-	  fprintf(stderr, "Unknown fanout type [%s]\n", optarg);
-	  usage(argv[0]);
-	  exit(1);
+	fprintf(stderr, "Unknown fanout type [%s]\n", optarg);
+	usage(argv[0]);
+	exit(1);
 	}
 	break;
 	*/
@@ -591,34 +654,34 @@ static void parse_options(int argc, char **argv){
 	opt.optbits &= ~LOCKER_REC;
 	if (!strcmp(optarg, "def")){
 	  /*
-	  opt.rec_type = REC_DEF;
-	  opt.async = 0;
-	  */
+	     opt.rec_type = REC_DEF;
+	     opt.async = 0;
+	     */
 	  opt.optbits |= REC_DEF;
 	  opt.optbits &= ~ASYNC_WRITE;
 	}
 #ifdef HAVE_LIBAIO
 	else if (!strcmp(optarg, "aio")){
 	  /*
-	  opt.rec_type = REC_AIO;
-	  opt.async = 1;
-	  */
+	     opt.rec_type = REC_AIO;
+	     opt.async = 1;
+	     */
 	  opt.optbits |= REC_AIO|ASYNC_WRITE;
 	}
 #endif
 	else if (!strcmp(optarg, "splice")){
 	  /*
-	  opt.rec_type = REC_SPLICER;
-	  opt.async = 0;
-	  */
+	     opt.rec_type = REC_SPLICER;
+	     opt.async = 0;
+	     */
 	  opt.optbits |= REC_SPLICER;
 	  opt.optbits &= ~ASYNC_WRITE;
 	}
 	else if (!strcmp(optarg, "dummy")){
 	  /*
-	  opt.rec_type = REC_DUMMY;
-	  opt.buf_type = WRITER_DUMMY;
-	  */
+	     opt.rec_type = REC_DUMMY;
+	     opt.buf_type = WRITER_DUMMY;
+	     */
 	  opt.optbits &= ~LOCKER_WRITER;
 	  opt.optbits |= REC_DUMMY|WRITER_DUMMY;
 	  opt.optbits &= ~ASYNC_WRITE;
@@ -643,9 +706,9 @@ static void parse_options(int argc, char **argv){
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
   /*
-  if(opt.optbits & USE_RX_RING)
-    opt.buf_elem_size += TPACKET_HDRLEN;
-    */
+     if(opt.optbits & USE_RX_RING)
+     opt.buf_elem_size += TPACKET_HDRLEN;
+     */
   //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
   opt.filename = argv[0];
   if(drives_set == 0)
@@ -664,31 +727,37 @@ static void parse_options(int argc, char **argv){
   opt.cumul = 0;
 
 
+#ifdef HAVE_LIBCONFIG_H
+  int err = init_cfg(&opt);
+  if(err != 0)
+    E("Error in cfg init");
+  //return -1;
+#endif
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
   //if(!(opt.optbits & READMODE)){
-    /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
-    /* bytes_per_sec * bytes = total_bytes */
-    /* total_bytes / threads = bytes per thread */
-    /* bytes_per_thread/opt.buf_elem_size = packets_per_thread */
+  /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
+  /* bytes_per_sec * bytes = total_bytes */
+  /* total_bytes / threads = bytes per thread */
+  /* bytes_per_thread/opt.buf_elem_size = packets_per_thread */
 
-    /* Making this very verbose, since its only done once */
+  /* Making this very verbose, since its only done once */
   /*
-    loff_t bytes_per_sec = (((unsigned long)opt.rate)*1024l*1024l)/8;
-    loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt.n_threads);
-    loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt.time);
-    loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt.buf_elem_size);
-    //loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
-    */
-    //Split kb/gb stuff to avoid overflow warning
-    //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
-    /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
-    //opt.max_num_packets = packets_per_thread;
+     loff_t bytes_per_sec = (((unsigned long)opt.rate)*1024l*1024l)/8;
+     loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt.n_threads);
+     loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt.time);
+     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt.buf_elem_size);
+  //loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
+  */
+  //Split kb/gb stuff to avoid overflow warning
+  //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
+  /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
+  //opt.max_num_packets = packets_per_thread;
 #if(DEBUG_OUTPUT)
-    //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
+  //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
   //}
-  
+
   struct rlimit rl;
   /* Query max size */
   /* TODO: Doesn't work properly althought mem seems to be unlimited */
@@ -712,6 +781,7 @@ static void parse_options(int argc, char **argv){
     if (calculate_buffer_sizes(&opt) != 0)
       exit(-1);
   }
+
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %lu\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
 #endif
@@ -728,6 +798,10 @@ int main(int argc, char **argv)
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
+
+#ifdef HAVE_LIBCONFIG_H
+#endif
+
 
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Reading parameters\n");
@@ -798,10 +872,10 @@ int main(int argc, char **argv)
     //int err = 0;
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
     /*
-    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-    le->entity = (void*)re;
-    add_to_entlist(opt.diskbranch, le);
-    */
+       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+       le->entity = (void*)re;
+       add_to_entlist(opt.diskbranch, le);
+       */
 
     /*
      * NOTE: AIOW-stuff and udp-streamer are bidirectional and
@@ -833,13 +907,13 @@ int main(int argc, char **argv)
   }
   /* If we're using the rx-ring, reserve space for it here */
   /*
-  if(opt.optbits & USE_RX_RING){
-    int flags = MAP_ANONYMOUS|MAP_SHARED;
-    if(opt.optbits & USE_HUGEPAGE)
-      flags |= MAP_HUGETLB;
-    opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
-  }
-  */
+     if(opt.optbits & USE_RX_RING){
+     int flags = MAP_ANONYMOUS|MAP_SHARED;
+     if(opt.optbits & USE_HUGEPAGE)
+     flags |= MAP_HUGETLB;
+     opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
+     }
+     */
 
 
 #ifdef PRIORITY_SETTINGS

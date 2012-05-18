@@ -3,7 +3,8 @@
 #include "streamer.h"
 /* TODO: Remove duplicates */
 struct common_io_info{
-  char * filename;
+  int id;
+  //char * filename;
   char * curfilename;
   int fd;
   long long offset;

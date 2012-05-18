@@ -175,9 +175,9 @@ long aiow_check(struct recording_entity * re,int tout){
   struct extra_parameters *ep = (struct extra_parameters *)ioi->extra_param;
   //io_context_t * ctx = ep->ctx;
   if(tout == 1){
-    D("Timeout set on check for %s",, ioi->filename);
+    D("Timeout set on check for %s",, ioi->curfilename);
     ret = io_getevents(ep->ctx, 0, 1, &event, &rtout);
-    D("Released on %s",, ioi->filename);
+    D("Released on %s",, ioi->curfilename);
   }
   else
     ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
@@ -235,7 +235,7 @@ int aiow_wait_for_write(struct recording_entity* re){
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
-  D("AIOW: Buffer full %s. Going to sleep\n",, ioi->filename);
+  D("AIOW: Buffer full %s. Going to sleep\n",, ioi->curfilename);
   //Doesn't really sleep :/
   //return io_queue_wait(ep->ctx, &timeout);
   return usleep(5000);

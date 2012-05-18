@@ -9,6 +9,15 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
+#define ROOTDIRS "/mnt/disk"
+
+#define INIT_ERROR return -1;
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+
+#define CHECK_CFG(x) do{if(err == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
 //Rate as in GB/s
 //Made an argument and changed to MB/s
 //#define RATE 10
@@ -119,6 +128,9 @@
 //etc for packet handling
 #include "config.h"
 #include <pthread.h>
+#ifdef HAVE_LIBCONFIG_H
+#include <libconfig.h>
+#endif
 #include <netdb.h> // struct hostent
 struct stats
 {
@@ -175,6 +187,7 @@ struct opt_s
   long unsigned int  cumul;
   //pthread_mutex_t cumlock;
   char *device_name;
+  int diskids;
 
   unsigned int optbits;
   int root_pid;
@@ -189,7 +202,12 @@ struct opt_s
   int n_drives;
   int bufculum;
   int rate;
+  /* Used if RX-ring for receive */
   void* buffer;
+#ifdef HAVE_LIBCONFIG_H
+  config_t cfg;
+#endif
+
   unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;

@@ -233,7 +233,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   }
   else{
     perror("splice sync");
-    fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->filename, strerror(ret));
+    fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->curfilename, strerror(ret));
     return ret;
   }
   ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);

@@ -32,7 +32,7 @@ int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_sti
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  sprintf(ioi->curfilename, "%s%08ld", ioi->filename,seq); 
+  sprintf(ioi->curfilename, "%s%i%s%s%s%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",seq); 
 
 #ifdef UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
   if(sbuf_still_running == 0){
@@ -43,7 +43,7 @@ int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_sti
   D("Opening new file %s,",,ioi->curfilename);
   err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
   if(err!=0){
-    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->filename);
+    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
     return err;
   }
   //free(filename);
@@ -189,73 +189,6 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
 
   return err;
 }
-int common_handle_indices(struct common_io_info *ioi){
-  char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  int f_flags = O_RDONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
-  int fd,err = 0;
-  //unsigned long num_elems;
-  //Duplicate stat here, since first done in aiow_read, but meh.
-  struct stat statinfo;
-
-
-  sprintf(filename, "%s%s", ioi->filename, ".index");
-
-  err = common_open_file(&fd, f_flags, filename, 0);
-  if(err != 0){
-    fprintf(stderr, "COMMON_WRT: Failed to read index data on %s", filename);
-    return err;
-  }
-
-  /*
-   * elem_size = Size of the packets we received when receiving the stream
-   * INDEX_FILE_TYPE = The size of our index-counter.(Eg 32bit integer or 64bit).
-   */
-  //Read the elem size from the first index
-  err = read(fd, &(ioi->elem_size), sizeof(INDEX_FILE_TYPE));
-  if(err<0){
-    perror("COMMON_WRT: Index file size read");
-    return err;
-  }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Elem size here %lu\n", ioi->elem_size);
-#endif 
-
-  //ioi->elem_size = err;
-
-  err = fstat(fd, &statinfo);
-  if(err<0){
-    perror("FD stat from index");
-    return err;
-  }
-  //NOTE: Reducing first element, which simply tells size of elements
-  ioi->indexfile_count = (statinfo.st_size-sizeof(INDEX_FILE_TYPE))/sizeof(INDEX_FILE_TYPE);
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Total number of elements in index file: %lu\n", ioi->indexfile_count);
-#endif
-  ioi->indices = (INDEX_FILE_TYPE*) malloc(sizeof(INDEX_FILE_TYPE)*(ioi->indexfile_count));
-  if(ioi->indices == NULL){
-    fprintf(stderr, "COMMON_WRT: Indice malloc failed!\n");
-    return -1;
-  }
-
-
-  //*count = 0;
-  INDEX_FILE_TYPE* pointer = ioi->indices;
-  while((err = read(fd, pointer, sizeof(INDEX_FILE_TYPE)))>0){
-    pointer++;
-    //count += 1;
-  }
-  if(err <0){
-    fprintf(stderr, "COMMON_WRT: Error when reading indices %s\n", strerror(errno));
-    return err;
-  }
-  err = 0;
-  
-  close(fd);
-  free(filename);
-
-  return err;
-}
 long common_fake_recer_write(struct recording_entity * re, void* s, size_t count){
   return count;
 }
@@ -337,27 +270,40 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
   }
   //fprintf(stdout, "wut\n");
-  ioi->filename = opt->filenames[opt->taken_rpoints++];
+  //ioi->filename = opt->filenames[opt->taken_rpoints++];
+  ioi->id = opt->diskids++;
 
   D("Creating directory");
-  mode_t process_mask = umask(0);
-  err = mkdir(ioi->filename, 0777);
-  umask(process_mask);
-  if(err!=0){
-    if(errno == EEXIST){
-      D("Directory exist. OK!");
+  char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  if(ioi->opt->optbits & READMODE){
+    //TODO: check if dir exists
+  }
+  /* Create directory */
+  else{
+
+    sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",opt->filename);
+    mode_t process_mask = umask(0);
+    err = mkdir(dirname, 0777);
+    umask(process_mask);
+    if(err!=0){
+      if(errno == EEXIST){
+	D("Directory exist. OK!");
       }
-    else{
-      E("COMMON_WRT: Init: Error in file open: %s",, ioi->filename);
-      return err;
+      else{
+	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
+	return err;
+      }
     }
   }
+  free(dirname);
 
   //TODO: Set offset accordingly if file already exists. Not sure if
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
   if(ioi->optbits & READMODE){
+    // no more indice reading from indice-file
+    /*
     err = common_handle_indices(ioi);
     if(err != 0){
       fprintf(stderr, "COMMON_WRT: Reading indices returned %d", err);
@@ -365,13 +311,13 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     }
     else{
       opt->buf_elem_size = ioi->elem_size;
-      /* If we haven't calculated optsize yet */
       if(opt->buf_num_elems == 0)
 	calculate_buffer_sizes(opt);
 #if(DEBUG_OUTPUT)
       fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
 #endif
     }
+    */
   }
   else{
     ioi->elem_size = opt->buf_elem_size;
@@ -416,12 +362,12 @@ int common_close(struct recording_entity * re, void * stats){
     D("Truncating file");
     /* Enable when we're fallocating again */
     /*
-    err = ftruncate(ioi->fd, ioi->bytes_exchanged);
-    if(err!=0){
-      perror("COMMON_WRT: ftruncate");
-      return err;
-    }
-    */
+       err = ftruncate(ioi->fd, ioi->bytes_exchanged);
+       if(err!=0){
+       perror("COMMON_WRT: ftruncate");
+       return err;
+       }
+       */
   }
   else{
     //free(ioi->indices);
@@ -429,17 +375,17 @@ int common_close(struct recording_entity * re, void * stats){
   }
   //Done in release
   /*
-  close(ioi->fd);
-  D("File closed");
-  */
+     close(ioi->fd);
+     D("File closed");
+     */
 
   /*
-  remove_from_branch(ioi->opt->diskbranch, re->self);
-  D("Removed from branch");
-  */
+     remove_from_branch(ioi->opt->diskbranch, re->self);
+     D("Removed from branch");
+     */
 
   //ioi->ctx = NULL;
-  free(ioi->filename);
+  //free(ioi->filename);
 
   free(ioi);
 #if(DEBUG_OUTPUT)
@@ -448,7 +394,7 @@ int common_close(struct recording_entity * re, void * stats){
   return 0;
 }
 const char * common_wrt_get_filename(struct recording_entity *re){
-  return ((struct common_io_info *)re->opt)->filename;
+  return ((struct common_io_info *)re->opt)->curfilename;
 }
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
