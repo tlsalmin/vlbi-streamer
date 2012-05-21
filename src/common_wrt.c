@@ -46,8 +46,10 @@ int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_sti
     fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
     return err;
   }
+  /*
   struct fileblocks *fb = ioi->opt->fbs + sizeof(struct fileblocks)*(ioi->id);
   err = fb_add_value(fb,seq);
+  */
   if(err != 0)
     E("Failed to add fb value");
   //free(filename);
@@ -128,6 +130,30 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   else
     fprintf(stdout, "COMMON_WRT: Not fallocating\n");
 #endif
+  return err;
+}
+int common_writecfg(struct recording_entity *re, void *opti){
+  int err;
+  struct common_io_info *ioi  = re->opt;
+  struct opt_s * opt = opti;
+  char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  
+  sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
+  err = write_cfg(&(opt->cfg), cfgname);
+  free(cfgname);
+  
+  return err;
+}
+int common_readcfg(struct recording_entity *re, void *opti){
+  int err;
+  struct common_io_info *ioi  = re->opt;
+  struct opt_s * opt = opti;
+  char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  
+  sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
+  err = read_cfg(&(opt->cfg), cfgname);
+  free(cfgname);
+  
   return err;
 }
 int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count){
@@ -410,6 +436,9 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->get_n_packets = common_nofpacks;
   re->get_packet_index = common_pindex;
   re->get_stats = get_io_stats;
+
+  re->writecfg = common_writecfg;
+  re->readcfg = common_readcfg;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

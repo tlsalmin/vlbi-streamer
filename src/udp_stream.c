@@ -546,6 +546,8 @@ void* udp_rxring(void *streamo)
 	pthread_mutex_lock(se->be->headlock);
 	pthread_cond_signal(se->be->iosignal);
 	pthread_mutex_unlock(se->be->headlock);
+	/* Increment file counter! */
+	spec_ops->opt->n_files++;
 
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul, bufnum);
 	CHECK_AND_EXIT(se->be);
@@ -572,6 +574,12 @@ void* udp_rxring(void *streamo)
     //fprintf(stdout, "i: %d, j: %d\n", i,j);
     hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
   }
+  if(j > 0){
+    spec_ops->opt->n_files++;
+  /* Since n_files starts from 0, we need to increment it here */
+    spec_ops->opt->n_files++;
+  }
+  D("Saved %lu files",, spec_ops->opt->n_files);
   D("Exiting mmap polling");
 
   pthread_exit(NULL);
@@ -615,6 +623,8 @@ void* udp_receiver(void *streamo)
       pthread_cond_signal(se->be->iosignal);
       pthread_mutex_unlock(se->be->headlock);
 
+      spec_ops->opt->n_files++;
+
       /* Get a new buffer */
       se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt->cumul,0);
       CHECK_AND_EXIT(se->be);
@@ -644,6 +654,12 @@ void* udp_receiver(void *streamo)
 	spec_ops->handle_packet(se,buf);
     }
   }
+  if (i > 0){
+    spec_ops->opt->n_files++;
+  /* Since n_files starts from 0, we need to increment it here */
+    spec_ops->opt->n_files++;
+  }
+  D("Saved %lu files",, spec_ops->opt->n_files);
   /*
   if(se->be != NULL){
     D("Signalling last buffer thread to write");
@@ -663,15 +679,20 @@ void* udp_receiver(void *streamo)
 void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)sp;
-  if(spec_ops->opt->optbits & USE_RX_RING)
-    stat->total_packets += spec_ops->total_captured_packets;
+  //if(spec_ops->opt->optbits & USE_RX_RING)
+  stat->total_packets += spec_ops->total_captured_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->dropped;
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct udpopts *spec_ops = (struct udpopts *)opt_own;
+  int err;
   get_udp_stats(opt_own,  stats);
+  if(!(spec_ops->opt->optbits & READMODE)){
+    err = update_cfg(spec_ops->opt, NULL);
+    err = write_cfgs_to_disks(spec_ops->opt);
+  }
 
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);

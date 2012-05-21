@@ -38,6 +38,10 @@
 #define BRANCHOP_GETSTATS 2
 #define BRANCHOP_CLOSERBUF 3
 #define BRANCHOP_CLOSEWRITER 4
+#define BRANCHOP_WRITE_CFGS 5
+#define BRANCHOP_READ_CFGS 6
+
+/* This should be more configurable */
 #define CORES 6
 extern char *optarg;
 extern int optind, optopt;
@@ -159,10 +163,11 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   mutex_free_set_busy(br,en);
   pthread_mutex_unlock(&(br->branchlock));
 }
+/*
 int fb_add_value(struct fileblocks* fb, unsigned long seq){
   if(fb->elements == fb->max_elements){
     fb->max_elements = fb->max_elements << 1;
-    fb->files = (struct INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
+    fb->files = (INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
     if(fb->files == NULL){
       E("Realloc failed");
       return -1;
@@ -171,6 +176,7 @@ int fb_add_value(struct fileblocks* fb, unsigned long seq){
   fb->files[fb->elements++] = seq;
   return 0;
 }
+*/
 void print_br_stats(struct entity_list_branch *br){
   int free=0,busy=0;
   pthread_mutex_lock(&(br->branchlock));
@@ -187,6 +193,13 @@ void print_br_stats(struct entity_list_branch *br){
   pthread_mutex_unlock(&(br->branchlock));
   fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
 }
+int write_cfgs_to_disks(struct opt_s *opt){
+  if(opt->optbits & READMODE)
+    oper_to_all(opt->diskbranch, BRANCHOP_READ_CFGS, opt);
+  else
+    oper_to_all(opt->diskbranch, BRANCHOP_WRITE_CFGS, opt);
+  return 0;
+}
 #ifdef HAVE_LIBCONFIG_H
 /* TODO: Move this to the disk init */
 int init_cfg(struct opt_s *opt){
@@ -197,19 +210,23 @@ int init_cfg(struct opt_s *opt){
   config_init(&(opt->cfg));
 
   /* Init the fileblock indices */
+  /*
   opt->fbs = (struct fileblocks*)malloc(sizeof(struct fileblocks)*opt->n_drives);
   struct fileblocks *fb = opt->fbs;
+  */
   
+  /*
   for(i=0;i<opt->n_drives;i++){
     fb->files = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*INITIAL_N_FILES);
     fb->elements = 0; 
     fb->max_elements = INITIAL_N_FILES;
     fb++;
   }
+  */
 
   if(opt->optbits & READMODE){
     int found = 0;
-    long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;
+    long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s", opt->filenames[i], ".cfg");
@@ -217,7 +234,14 @@ int init_cfg(struct opt_s *opt){
 	E("%s:%d - %s\n",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
-	found = 1;
+	if(found ==0){
+	  D("Found first config. Updating opts");
+	  update_cfg(opt,NULL);
+	  found = 1;
+	}
+	/* Check other confs for consistency */
+	else{
+	//found = 1;
 	fprintf(stdout, "Config found on %s\n",path); 
 
 	err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
@@ -233,6 +257,8 @@ int init_cfg(struct opt_s *opt){
 	  old_cumul = cumul;
 	else if (old_cumul != cumul)
 	  E("ERROR disparity in config files cumul!");
+	}
+
 	//TODO: Check what parts of files we have
       }
     }
@@ -254,9 +280,9 @@ int init_cfg(struct opt_s *opt){
       D("DERPPAH");
       */
     setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
-    config_setting_set_int64(setting, opt->buf_elem_size);
+    //config_setting_set_int64(setting, opt->buf_elem_size);
     setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
-    setting = config_setting_add(root, "files", CONFIG_TYPE_ARRAY);
+    setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
   }
   return 0;
 }
@@ -264,10 +290,7 @@ int init_cfg(struct opt_s *opt){
 /* Loop through all entities and do specified OP */
 /* Don't want to write this same thing 4 times , so I'll just add an operation switch */
 /* for it */
-void oper_to_all(struct entity_list_branch *br, int operation,void* param)
-{
-  pthread_mutex_lock(&(br->branchlock));
-  struct listed_entity * le = br->freelist; 
+void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int operation, void*param){
   struct listed_entity * removable = NULL;
   //struct buffer_entity *be;
   while(le != NULL){
@@ -288,36 +311,24 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
 	removable = le;
 	D("Writer closed");
 	break;
-    }
-    le = le->child;
-    if(removable != NULL)
-      remove_from_branch(br,removable,1);
-  }
-  le = br->busylist;
-  while(le != NULL){
-    switch(operation){
-      case BRANCHOP_STOPANDSIGNAL:
-	((struct buffer_entity*)le->entity)->stop((struct buffer_entity*)le->entity);
+      case BRANCHOP_WRITE_CFGS:
+	D("Writing cfg");
+	((struct recording_entity*)le->entity)->writecfg(((struct recording_entity*)le->entity), param);
 	break;
-      case BRANCHOP_GETSTATS:
-	get_io_stats(((struct recording_entity*)(le->entity))->opt, (struct stats*)param);
-	break;
-      case BRANCHOP_CLOSERBUF:
-	((struct buffer_entity*)le->entity)->close(((struct buffer_entity*)le->entity), param);
-	removable = le;
-	break;
-      case BRANCHOP_CLOSEWRITER:
-	D("Closing writer");
-	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
-	removable = le;
-	D("Writer closed");
+      case BRANCHOP_READ_CFGS:
+	((struct recording_entity*)le->entity)->readcfg(((struct recording_entity*)le->entity), param);
 	break;
     }
     le = le->child;
     if(removable != NULL)
       remove_from_branch(br,removable,1);
   }
-
+}
+void oper_to_all(struct entity_list_branch *br, int operation,void* param)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  oper_to_list(br,br->freelist,operation,param);
+  oper_to_list(br,br->busylist, operation, param);
   pthread_mutex_unlock(&(br->branchlock));
 }
 int calculate_buffer_sizes(struct opt_s *opt){
@@ -459,7 +470,7 @@ void init_stat(struct stats *stats){
   stats->total_bytes = 0;
   stats->incomplete = 0;
   stats->total_written = 0;
-  //stats->total_packets = 0;
+  stats->total_packets = 0;
   stats->dropped = 0;
 }
 void neg_stats(struct stats* st1, struct stats* st2){
@@ -480,6 +491,12 @@ void neg_stats(struct stats* st1, struct stats* st2){
   else
 #endif
     st1->total_written -= st2->total_written;
+#ifdef UGLY_HACKS_ON_STATS
+  if(st1->total_packets < st2->total_packets)
+    st1->total_packets =0 ;
+  else
+#endif
+    st1->total_packets -= st2->total_packets;
   st1->dropped -= st2->dropped;
 }
 void add_stats(struct stats* st1, struct stats* st2){
@@ -1211,6 +1228,7 @@ int main(int argc, char **argv)
   }
   D("Getting stats and closing");
   /* Get final stats */
+  //print_stats(&stats, &opt);
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
   oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
   oper_to_all(opt.diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
@@ -1263,5 +1281,53 @@ int main(int argc, char **argv)
 
   //return 0;
   //pthread_exit(NULL);
+  return 0;
+}
+/* These two separated here */
+int write_cfg(config_t *cfg, char* filename){
+  int err = config_write_file(cfg,filename);
+  if(err == CONFIG_FALSE){
+    E("Failed to write CFG to %s",,filename);
+    return -1;
+  }
+  else
+    return 0;
+}
+int read_cfg(config_t *cfg, char * filename){
+  int err = config_read_file(cfg,filename);
+  if(err == CONFIG_FALSE){
+    E("Failed to read CFG from %s",,filename);
+    return -1;
+  }
+  else
+    return 0;
+}
+int update_cfg(struct opt_s* opt, struct config_t * cfg){
+  if (cfg == NULL)
+    cfg = &(opt->cfg);
+  int err;
+  D("Updating CFG");
+  config_setting_t *root, *setting;
+  root = config_root_setting(cfg);
+  /*
+  setting = config_lookup(&(opt->cfg),"cumul");
+  err = config_setting_get_int64(setting, opt->cumul);
+  setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
+  */
+  if(opt->optbits & READMODE){
+    unsigned long filesize=0;
+    GET_I64("cumul",opt->cumul);
+    GET_I64("buf_elem_size", opt->buf_elem_size);
+    GET_I64("filesize", filesize);
+    opt->buf_num_elems = filesize/opt->buf_elem_size;
+  }
+  else{
+    SET_I64("cumul",opt->cumul);
+    SET_I64("buf_elem_size", opt->buf_elem_size);
+    SET_I64("filesize", (opt->buf_elem_size)*(opt->buf_num_elems));
+  }
+  //err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
+  //CHECK_CFG("get cumul");
+  D("CFG updated");
   return 0;
 }

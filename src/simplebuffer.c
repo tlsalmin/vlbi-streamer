@@ -12,14 +12,18 @@
 #endif
 #include "simplebuffer.h"
 #include "streamer.h"
+#define UGLY_TIMEOUT_FIX
 
 int sbuf_check(struct buffer_entity *be, int tout){
-  int ret = 0, returnable = 0;
+  int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
   D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
-  usleep(10000);
+#ifdef UGLY_TIMEOUT_FIX
+  tout=10000;
+  usleep(tout);
+#endif
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
@@ -168,7 +172,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 
   return 0;
 }
-int  sbuf_close(struct buffer_entity* be, void *stats){
+int sbuf_close(struct buffer_entity* be, void *stats){
 
   D("Closing simplebuf");
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
@@ -181,7 +185,7 @@ int  sbuf_close(struct buffer_entity* be, void *stats){
      if(be->recer->close != NULL)
      be->recer->close(be->recer, stats);
      */
-  if(!(sbuf->opt->optbits)){
+  if(!(sbuf->opt->optbits & USE_RX_RING)){
 #ifdef HAVE_HUGEPAGES
     if(sbuf->opt->optbits & USE_HUGEPAGE){
       munmap(sbuf->buffer, sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
@@ -344,9 +348,11 @@ int sbuf_sync_loop(struct buffer_entity *be){
   }
   return 0;
 }
+/*
 void *sbuf_simple_read_loop(void *buffo){
   return NULL;
 }
+*/
 int write_buffer(struct buffer_entity *be){
   struct simplebuf* sbuf = (struct simplebuf*)be->opt;
   int ret;
@@ -443,11 +449,7 @@ int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->get_inc = sbuf_getinc;
   //be->wait = sbuf_wait;
   be->close = sbuf_close;
-  if(!(opt->optbits & READMODE))
-    be->write_loop = sbuf_simple_write_loop;
-  else
-    be->write_loop = sbuf_simple_read_loop;
-  //be->simple_get_writebuf = simple_get_buf;
+  be->write_loop = sbuf_simple_write_loop;
   be->stop = sbuf_stop_running;
   be->set_ready = sbuf_set_ready;
   //be->cancel_writebuf = sbuf_cancel_writebuf;

@@ -11,13 +11,6 @@
 
 
 
-#define INIT_ERROR return -1;
-#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
-#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
-#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
-#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
-
-#define CHECK_CFG(x) do{if(err == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
 //Rate as in GB/s
 //Made an argument and changed to MB/s
 //#define RATE 10
@@ -85,12 +78,21 @@
 #define DEF_BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
-#define MAX_OPEN_FILES 32
+#define MAX_OPEN_FILES 48
 #define D(str, ...)\
   do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
   do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 #define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
+#define INIT_ERROR return -1;
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+
+#define CHECK_CFG(x) do{if(err == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
+#define SET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); err = config_setting_set_int64(setting,y); CHECK_CFG(x);}while(0) 	
+#define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);}while(0) 	
 
 //Moved to configure
 //#define DEBUG_OUTPUT
@@ -169,12 +171,14 @@ struct entity_list_branch
   /* On non-free branch					*/
   pthread_cond_t busysignal;
 };
+/*
 struct fileblocks
 {
   int max_elements;
   int elements;
   INDEX_FILE_TYPE *files;
 };
+*/
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
@@ -185,7 +189,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
-int fb_add_value(struct fileblocks* fb, unsigned long seq);
+//int fb_add_value(struct fileblocks* fb, unsigned long seq);
 
 /* All the options for the main thread			*/
 struct opt_s
@@ -198,7 +202,8 @@ struct opt_s
   //pthread_mutex_t cumlock;
   char *device_name;
   int diskids;
-  struct fileblocks *fbs;
+  unsigned long n_files;
+  //struct fileblocks *fbs;
   unsigned int optbits;
   int root_pid;
   unsigned long time;
@@ -248,6 +253,7 @@ struct opt_s
   //struct hostent he;
   //int f_flags;
 };
+int write_cfgs_to_disks(struct opt_s *opt);
 struct buffer_entity
 {
   void * opt;
@@ -291,6 +297,10 @@ struct recording_entity
   long (*check)(struct recording_entity*, int );
   int (*getfd)(struct recording_entity*);
   void (*get_stats)(void*, void*);
+
+  int (*writecfg)(struct recording_entity *, void*);
+  int (*readcfg)(struct recording_entity *, void*);
+
   int (*get_w_flags)();
   int (*get_r_flags)();
   int (*write_index_data)(const char*, long unsigned, void*, long unsigned);
@@ -326,5 +336,8 @@ struct streamer_entity
   //struct entity_list_branch *membranch;
 };
 
+int write_cfg(config_t *cfg, char* filename);
+int read_cfg(config_t *cfg, char * filename);
+int update_cfg(struct opt_s *opt, struct config_t * cfg);
 int calculate_buffer_sizes(struct opt_s *opt);
 #endif

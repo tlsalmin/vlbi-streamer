@@ -229,9 +229,9 @@ long aiow_check(struct recording_entity * re,int tout){
 int aiow_wait_for_write(struct recording_entity* re){
   //struct rec_point * rp = (struct rec_point *) recpoint;
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
-  struct extra_parameters *ep = (struct extra_parameters*)ioi->extra_param;
+  //struct extra_parameters *ep = (struct extra_parameters*)ioi->extra_param;
   //Needs to be static so ..durr
-  static struct timespec timeout = { 1, TIMEOUT_T };
+  //static struct timespec timeout = { 1, TIMEOUT_T };
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
