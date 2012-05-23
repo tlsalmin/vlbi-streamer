@@ -234,7 +234,7 @@ void *fanout_thread(void *specco)
   struct streamer_entity *se = (struct streamer_entity*)specco;
   struct fanout_opts *spec_ops = (struct fanout_opts *)se->opt;
   time_t t_start;
-  double time_left=0;
+  //double time_left=0;
   int err = 0;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;

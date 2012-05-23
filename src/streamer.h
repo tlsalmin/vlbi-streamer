@@ -87,10 +87,15 @@
 #define INIT_ERROR return -1;
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERRP_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);pthread_exit(NULL);}else{D(x);}}while(0)
+#define CHECK_ERRP(x) CHECK_ERRP_CUST(x,err)
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define SILENT_CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}}while(0)
+#define SILENT_CHECK_ERRP_LTZ(x) do{if(err<0){perror(x);E(x);pthread_exit(NULL);}}while(0)
 #define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
 
-#define CHECK_CFG(x) do{if(err == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_CFG_CUSTOM(x,y) do{if(y == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_CFG(x) CHECK_CFG_CUSTOM(x,err)
 #define SET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); err = config_setting_set_int64(setting,y); CHECK_CFG(x);}while(0) 	
 #define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);}while(0) 	
 
@@ -128,6 +133,7 @@
 /* to 16 blocks gives a good byte aling and only doesn't work	*/
 /* on crazy sized packets like 50kB+ */
 //#define MAGIC_BUFFERDIVISION 16
+#define MIN(x,y) (x < y ? x : y)
 
 //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
 //etc for packet handling
@@ -155,7 +161,8 @@ struct listed_entity
 {
   struct listed_entity* child;
   struct listed_entity* father;
-  int (*acquire)(void*,unsigned long,unsigned long);
+  int (*acquire)(void*,void*,unsigned long,unsigned long);
+  int (*check)(void*, int);
   int (*release)(void*);
   void* entity;
 };
@@ -166,6 +173,7 @@ struct entity_list_branch
 {
   struct listed_entity *freelist;
   struct listed_entity *busylist;
+  struct listed_entity *loadedlist;
   pthread_mutex_t branchlock;
   /* Added here so the get_free caller can sleep	*/
   /* On non-free branch					*/
@@ -184,7 +192,8 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long bufnum);
+void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum);
+void* get_loaded(struct entity_list_branch *br, unsigned long seq);
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
@@ -196,13 +205,15 @@ struct opt_s
 {
   char *filename;
 
-  /* Lock that spans over all threads. Used for tracking packets 	*/
+  /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
   long unsigned int  cumul;
+  /* Used in read to determine how many we actually found 		*/
+  long unsigned int cumul_found;
   //pthread_mutex_t cumlock;
   char *device_name;
   int diskids;
-  unsigned long n_files;
+  //unsigned long n_files;
   //struct fileblocks *fbs;
   unsigned int optbits;
   int root_pid;
@@ -217,6 +228,7 @@ struct opt_s
   int n_drives;
   int bufculum;
   int rate;
+  void* fileholders;
   /* Used if RX-ring for receive */
   void* buffer;
 #ifdef HAVE_LIBCONFIG_H
@@ -230,7 +242,7 @@ struct opt_s
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
-  unsigned long filesize;
+  //unsigned long filesize;
 
   /* Moved to optbits */
   //int capture_type;
@@ -252,6 +264,7 @@ struct opt_s
   //pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
+  unsigned long total_packets;
 };
 int write_cfgs_to_disks(struct opt_s *opt);
 struct buffer_entity
@@ -262,6 +275,8 @@ struct buffer_entity
   int (*init)(struct opt_s* , struct buffer_entity*);
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
+  /* Used to acquire element past the queue line */
+  int (*acquire)(void * , void* , unsigned long, unsigned long);
   void* (*simple_get_writebuf)(struct buffer_entity *, int **);
   int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
@@ -296,6 +311,7 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   long (*check)(struct recording_entity*, int );
   int (*getfd)(struct recording_entity*);
+  int (*check_files)(struct recording_entity*, void*);
   void (*get_stats)(void*, void*);
 
   int (*writecfg)(struct recording_entity *, void*);

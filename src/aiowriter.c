@@ -116,7 +116,7 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
   if(ep->used_events < MAX_EVENTS){
   //struct iocb *ib[1];
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
-    if(ioi->optbits & READMODE)
+    if(ioi->opt->optbits & READMODE)
       io_prep_pread(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);
     else
       io_prep_pwrite(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);

@@ -541,7 +541,7 @@ void *rbuf_write_loop(void *buffo){
     /* We're not yet attached to a backend write-end. Go get one */
     if(be->recer == NULL){
       /* Not fixed */
-      be->recer = (struct recording_entity*)get_free(rbuf->opt->diskbranch,0,0);
+      be->recer = (struct recording_entity*)get_free(rbuf->opt->diskbranch,rbuf->opt,0,0);
     }
 
     /* We might be stopped inbetween by the streamer entity */

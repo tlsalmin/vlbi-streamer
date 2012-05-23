@@ -27,12 +27,12 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #if(DEBUG_OUTPUT) 
     fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu to %s\n", count,(long unsigned)start, ioi->curfilename);
 #endif
-    if(ioi->optbits & READMODE)
+    if(ioi->opt->optbits & READMODE)
       ret = read(ioi->fd, start, count);
     else
       ret = write(ioi->fd, start, count);
     if(ret <=0){
-      if(ret == 0 && (ioi->optbits & READMODE)){
+      if(ret == 0 && (ioi->opt->optbits & READMODE)){
 #if(DEBUG_OUTPUT)
 	fprintf(stdout, "DEFWRITER: End of file!\n");
 #endif
@@ -42,7 +42,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
 	perror("DEFWRITER: Error on write/read");
-	fprintf(stderr, "DEFWRITER: Error happened on %s with count: %lu start: %lu, fd: %d error: %ld\n", ioi->curfilename,  count,start,ioi->fd, ret);
+	fprintf(stderr, "DEFWRITER: Error happened on %s with count: %lu fd: %d error: %ld\n", ioi->curfilename,  count,ioi->fd, ret);
 	return -1;
       }
     }
@@ -87,6 +87,8 @@ int def_init_def(struct opt_s *opt, struct recording_entity *re){
   return re->init(opt,re);
 }
 int rec_init_dummy(struct opt_s *op , struct recording_entity *re){
+  (void)op;
+  (void)re;
   /*
   re->init = null;
   re-write = dummy_write_wrapped;

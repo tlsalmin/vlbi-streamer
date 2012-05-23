@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <dirent.h> /* check dir */
+#include <regex.h> /* For regexp file matching */
 #include "config.h"
 
 
@@ -24,10 +26,12 @@
 
 /* These should be moved somewhere general, since they should be used by all anyway */
 /* writers anyway */
-int common_open_new_file(void * recco, unsigned long seq, unsigned long sbuf_still_running){
+int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
   int err;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  D("Acquiring new recorder and changing opt");
+  ioi->opt = (struct opt_s*)opti;
   int tempflags = ioi->f_flags;
   ioi->file_seqnum = seq;
 
@@ -220,9 +224,12 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   return err;
 }
 long common_fake_recer_write(struct recording_entity * re, void* s, size_t count){
+  (void)re;
+  (void)s;
   return count;
 }
 int common_close_dummy(struct recording_entity *re, void *st){
+  (void)st;
   free((struct common_io_info*)re->opt);
   return 0;
 }
@@ -253,7 +260,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //loff_t prealloc_bytes;
   //struct stat statinfo;
   int err =0;
-  ioi->optbits = opt->optbits;
+  //ioi->opt->optbits = opt->optbits;
   ioi->opt = opt;
 
 
@@ -271,7 +278,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
 
   //ioi->latest_write_num = 0;
-  if(ioi->optbits & READMODE){
+  if(ioi->opt->optbits & READMODE){
 #if(DEBUG_OUTPUT)
     fprintf(stdout, "COMMON_WRT: Initializing read point\n");
     fprintf(stdout, "COMMON_WRT: Getting read flags\n");
@@ -317,6 +324,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     umask(process_mask);
     if(err!=0){
       if(errno == EEXIST){
+	/* Directory exists shouldn't be ok in final release, since 	*/
+	/* it will overwrite existing recordings			*/
 	D("Directory exist. OK!");
       }
       else{
@@ -331,7 +340,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
   ioi->bytes_exchanged = 0;
-  if(ioi->optbits & READMODE){
+  if(ioi->opt->optbits & READMODE){
     // no more indice reading from indice-file
     /*
     err = common_handle_indices(ioi);
@@ -350,7 +359,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     */
   }
   else{
-    ioi->elem_size = opt->buf_elem_size;
+    //ioi->elem_size = opt->buf_elem_size;
   }
   err = 0;
   return err;
@@ -388,7 +397,7 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
-  if(!(ioi->optbits & READMODE)){
+  if(!(ioi->opt->optbits & READMODE)){
     D("Truncating file");
     /* Enable when we're fallocating again */
     /*
@@ -429,7 +438,66 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
+int common_check_files(struct recording_entity *re, void* opti){
+  int err;
+  int temp;
+  struct recording_entity **temprecer;
+  struct opt_s* opt = (struct opt_s*)opti;
+  struct common_io_info * ioi = re->opt;
+  char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  regex_t regex;
+  D("Checking for files and updating fileholders");
+
+  sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
+  err = regcomp(&regex, "[[:digit:]{8}]", 0);
+  CHECK_ERR("Regcomp");
+
+
+  DIR *dir;
+  struct dirent *ent;
+  dir = opendir(dirname);
+  if (dir != NULL) {
+
+    /* print all the files and directories within directory */
+    while ((ent = readdir (dir)) != NULL) {
+      err = regexec(&regex, ent->d_name, 0,NULL,0);
+      /* If we match a data file */
+      if( !err ){
+	D("Regexp matched %s",, ent->d_name);
+	temp = atoi(ent->d_name);
+	if((unsigned long)temp > ioi->opt->cumul)
+	  E("Extra files found in dir!");
+	else
+	{
+	  /* Update pointer at correct spot */
+	  temprecer = opt->fileholders + temp*sizeof(struct recording_entity*);
+	  *temprecer = re;
+	  ioi->opt->cumul_found++;
+	}
+      }
+      else if( err == REG_NOMATCH ){
+	D("Regexp didn't match %s",, ent->d_name);
+      }
+      else{
+	char msgbuf[100];
+	regerror(err, &regex, msgbuf, sizeof(msgbuf));
+	E("Regex match failed: %s",, msgbuf);
+	//exit(1);
+      }
+    }
+    closedir (dir);
+  } else {
+    /* could not open directory */
+    perror ("Check files");
+    return EXIT_FAILURE;
+  }
+
+  regfree(&regex);
+  free(dirname);
+  return 0;
+}
 void common_init_common_functions(struct opt_s * opt, struct recording_entity *re){
+  (void)opt;
   re->init = common_w_init;
   re->close = common_close;
   re->write_index_data = common_write_index_data;
@@ -439,6 +507,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
 
   re->writecfg = common_writecfg;
   re->readcfg = common_readcfg;
+  re->check_files = common_check_files;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

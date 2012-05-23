@@ -16,7 +16,7 @@
 #include "streamer.h"
 #include "fanout.h"
 #include "udp_stream.h"
-#include "ringbuf.h"
+//#include "ringbuf.h"
 #ifdef HAVE_LIBAIO
 #include "aiowriter.h"
 #endif
@@ -40,12 +40,12 @@
 #define BRANCHOP_CLOSEWRITER 4
 #define BRANCHOP_WRITE_CFGS 5
 #define BRANCHOP_READ_CFGS 6
+#define BRANCHOP_CHECK_FILES 7
 
 /* This should be more configurable */
 #define CORES 6
 extern char *optarg;
 extern int optind, optopt;
-
 
 static struct opt_s opt;
 
@@ -92,12 +92,19 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en)
   pthread_mutex_lock(&(br->branchlock));
   //Only special case if the entity is at the start of the list
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
-  pthread_cond_signal(&(br->busysignal));
+  pthread_cond_broadcast(&(br->busysignal));
   if(en->release != NULL){
     int ret = en->release(en->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
+  pthread_mutex_unlock(&(br->branchlock));
+}
+void set_loaded(struct entity_list_branch *br, struct listed_entity* en){
+  D("Setting entity to loaded");
+  pthread_mutex_lock(&(br->branchlock));
+  mutex_free_change_branch(&(br->busylist), &(br->loadedlist), en);
+  pthread_cond_broadcast(&(br->busysignal));
   pthread_mutex_unlock(&(br->branchlock));
 }
 void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
@@ -130,12 +137,35 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   if(!mutex_free)
     pthread_mutex_unlock(&(br->branchlock));
 }
+/* Get a loaded buffer with the specific seq */
+void* get_loaded(struct entity_list_branch *br, unsigned long seq){
+  D("Querying for loaded entity");
+  struct listed_entity * temp = br->loadedlist;
+  pthread_mutex_lock(&(br->branchlock));
+  while(temp == NULL || temp->check(temp->entity, seq) == 0){
+    if(br->busylist == NULL && br->loadedlist == NULL){
+      D("No entities in list. Returning NULL");
+      pthread_mutex_unlock(&(br->branchlock));
+      return NULL;
+    }
+    if(temp != NULL)
+      temp = temp->child;
+    else{
+      D("Failed to get free buffer. Sleeping");
+      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+    }
+  }
+  mutex_free_change_branch(&(br->loadedlist), &(br->busylist), temp);
+  pthread_mutex_unlock(&(br->branchlock));
+  D("Returning loaded entity");
+  return temp;
+}
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long bufnum)
+void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
-    if(br->busylist == NULL){
+    if(br->busylist == NULL && br->loadedlist == NULL){
       D("No entities in list. Returning NULL");
       pthread_mutex_unlock(&(br->branchlock));
       return NULL;
@@ -148,7 +178,7 @@ void* get_free(struct entity_list_branch *br, unsigned long seq, unsigned long b
   pthread_mutex_unlock(&(br->branchlock));
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
-    int ret = temp->acquire(temp->entity, seq, bufnum);
+    int ret = temp->acquire(temp->entity, opt,seq, bufnum);
     if(ret != 0)
       E("Acquire return non-zero value(Not handled)");
   }
@@ -164,19 +194,19 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   pthread_mutex_unlock(&(br->branchlock));
 }
 /*
-int fb_add_value(struct fileblocks* fb, unsigned long seq){
-  if(fb->elements == fb->max_elements){
-    fb->max_elements = fb->max_elements << 1;
-    fb->files = (INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
-    if(fb->files == NULL){
-      E("Realloc failed");
-      return -1;
-	  }
-  }
-  fb->files[fb->elements++] = seq;
-  return 0;
-}
-*/
+   int fb_add_value(struct fileblocks* fb, unsigned long seq){
+   if(fb->elements == fb->max_elements){
+   fb->max_elements = fb->max_elements << 1;
+   fb->files = (INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
+   if(fb->files == NULL){
+   E("Realloc failed");
+   return -1;
+   }
+   }
+   fb->files[fb->elements++] = seq;
+   return 0;
+   }
+   */
 void print_br_stats(struct entity_list_branch *br){
   int free=0,busy=0;
   pthread_mutex_lock(&(br->branchlock));
@@ -211,52 +241,55 @@ int init_cfg(struct opt_s *opt){
 
   /* Init the fileblock indices */
   /*
-  opt->fbs = (struct fileblocks*)malloc(sizeof(struct fileblocks)*opt->n_drives);
-  struct fileblocks *fb = opt->fbs;
-  */
-  
+     opt->fbs = (struct fileblocks*)malloc(sizeof(struct fileblocks)*opt->n_drives);
+     struct fileblocks *fb = opt->fbs;
+     */
+
   /*
-  for(i=0;i<opt->n_drives;i++){
-    fb->files = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*INITIAL_N_FILES);
-    fb->elements = 0; 
-    fb->max_elements = INITIAL_N_FILES;
-    fb++;
-  }
-  */
+     for(i=0;i<opt->n_drives;i++){
+     fb->files = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*INITIAL_N_FILES);
+     fb->elements = 0; 
+     fb->max_elements = INITIAL_N_FILES;
+     fb++;
+     }
+     */
 
   if(opt->optbits & READMODE){
     int found = 0;
+    /* For checking on cfg-file consistency */
     long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
     for(i=0;i<opt->n_drives;i++){
-      sprintf(path, "%s%s", opt->filenames[i], ".cfg");
+      sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
 	E("%s:%d - %s\n",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
 	if(found ==0){
-	  D("Found first config. Updating opts");
+	  D("Found first config at %s. Updating opts",,path);
 	  update_cfg(opt,NULL);
 	  found = 1;
+	  opt->fileholders = malloc(sizeof(struct recording_entity *)*(opt->cumul));
+	  memset(opt->fileholders, 0,sizeof(struct recording_entity*)*(opt->cumul));
 	}
 	/* Check other confs for consistency */
 	else{
-	//found = 1;
-	fprintf(stdout, "Config found on %s\n",path); 
+	  //found = 1;
+	  fprintf(stdout, "Config found on %s\n",path); 
 
-	err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
-	CHECK_CFG("buf_elem_size");
-	if(old_buf_elem_size == 0)
-	  old_buf_elem_size = buf_elem_size;
-	else if (old_buf_elem_size != buf_elem_size)
-	  E("ERROR disparity in config files buf_elem_size!");
+	  err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
+	  CHECK_CFG("buf_elem_size");
+	  if(old_buf_elem_size == 0)
+	    old_buf_elem_size = buf_elem_size;
+	  else if (old_buf_elem_size != buf_elem_size)
+	    E("ERROR disparity in config files buf_elem_size!");
 
-	err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
-	CHECK_CFG("Cumul");
-	if(old_cumul == 0)
-	  old_cumul = cumul;
-	else if (old_cumul != cumul)
-	  E("ERROR disparity in config files cumul!");
+	  err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
+	  CHECK_CFG("Cumul");
+	  if(old_cumul == 0)
+	    old_cumul = cumul;
+	  else if (old_cumul != cumul)
+	    E("ERROR disparity in config files cumul!");
 	}
 
 	//TODO: Check what parts of files we have
@@ -276,13 +309,18 @@ int init_cfg(struct opt_s *opt){
     root = config_root_setting(&(opt->cfg));
     //group = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
     /*
-    if(!group)
-      D("DERPPAH");
-      */
+       if(!group)
+       D("DERPPAH");
+       */
     setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
+    CHECK_ERR_NONNULL(setting, "add buf_elem_size");
     //config_setting_set_int64(setting, opt->buf_elem_size);
     setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
+    CHECK_ERR_NONNULL(setting, "add cumul");
     setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
+    CHECK_ERR_NONNULL(setting, "add filesize");
+    setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
+    CHECK_ERR_NONNULL(setting, "add total_packets");
   }
   return 0;
 }
@@ -318,6 +356,9 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
       case BRANCHOP_READ_CFGS:
 	((struct recording_entity*)le->entity)->readcfg(((struct recording_entity*)le->entity), param);
 	break;
+      case BRANCHOP_CHECK_FILES:
+	((struct recording_entity*)le->entity)->check_files(((struct recording_entity*)le->entity), param);
+	break;
     }
     le = le->child;
     if(removable != NULL)
@@ -328,7 +369,7 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
 {
   pthread_mutex_lock(&(br->branchlock));
   oper_to_list(br,br->freelist,operation,param);
-  oper_to_list(br,br->busylist, operation, param);
+  oper_to_list(br,br->busylist,operation, param);
   pthread_mutex_unlock(&(br->branchlock));
 }
 int calculate_buffer_sizes(struct opt_s *opt){
@@ -555,6 +596,7 @@ static void parse_options(int argc, char **argv){
   opt.n_threads = 1;
   opt.n_drives = 1;
   opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
+  opt.cumul_found = 0;
 
   //opt.optbits |=USE_RX_RING;
   //TODO: Add option for choosing backend
@@ -767,13 +809,6 @@ static void parse_options(int argc, char **argv){
   opt.cumul = 0;
 
 
-#ifdef HAVE_LIBCONFIG_H
-  int err = init_cfg(&opt);
-  //TODO: cfg destruction
-  if(err != 0)
-    E("Error in cfg init");
-  //return -1;
-#endif
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
   //if(!(opt.optbits & READMODE)){
@@ -822,10 +857,6 @@ static void parse_options(int argc, char **argv){
     if (calculate_buffer_sizes(&opt) != 0)
       exit(-1);
   }
-
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Elem num in single buffer: %d. single buffer size : %ld bytes do_w_stuff: %lu\n", opt.buf_num_elems, ((long)opt.buf_num_elems*(long)opt.buf_elem_size), opt.do_w_stuff_every);
-#endif
 }
 int main(int argc, char **argv)
 {
@@ -946,6 +977,19 @@ int main(int argc, char **argv)
     }
     /* Add the recording entity to the diskbranch */
   }
+  /* Check and set cfgs at this point */
+#ifdef HAVE_LIBCONFIG_H
+  err = init_cfg(&opt);
+  //TODO: cfg destruction
+  if(err != 0)
+    E("Error in cfg init");
+  //return -1;
+
+  if(opt.optbits &READMODE){
+    oper_to_all(opt.diskbranch,BRANCHOP_CHECK_FILES,(void*)&opt);
+    fprintf(stdout, "For recording %s: %lu files were found out of %lu total.\n", opt.filename, opt.cumul_found, opt.cumul);
+  }
+#endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
      if(opt.optbits & USE_RX_RING){
@@ -996,13 +1040,12 @@ int main(int argc, char **argv)
     //Initialize recorder entity
     switch(opt.optbits & LOCKER_WRITER)
     {
+      /*
       case BUFFER_RINGBUF:
 	//Helper function
 	err = rbuf_init_buf_entity(&opt, be);
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "Initialized buffer for thread %d\n", i);
-#endif
 	break;
+	*/
       case BUFFER_SIMPLE:
 	err = sbuf_init_buf_entity(&opt,be);
 	D("Initialized simple buffer for thread %d",,i);
@@ -1275,6 +1318,11 @@ int main(int argc, char **argv)
 #endif
   if(opt.device_name != NULL)
     free(opt.device_name);
+  if(opt.optbits & READMODE){
+    if(opt.fileholders != NULL)
+      free(opt.fileholders);
+  }
+  config_destroy(&(opt.cfg));
   free(opt.membranch);
   free(opt.diskbranch);
   pthread_attr_destroy(&pta);
@@ -1309,22 +1357,25 @@ int update_cfg(struct opt_s* opt, struct config_t * cfg){
   D("Updating CFG");
   config_setting_t *root, *setting;
   root = config_root_setting(cfg);
+  CHECK_ERR_NONNULL(root, "getroot");
   /*
-  setting = config_lookup(&(opt->cfg),"cumul");
-  err = config_setting_get_int64(setting, opt->cumul);
-  setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
-  */
+     setting = config_lookup(&(opt->cfg),"cumul");
+     err = config_setting_get_int64(setting, opt->cumul);
+     setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
+     */
   if(opt->optbits & READMODE){
     unsigned long filesize=0;
     GET_I64("cumul",opt->cumul);
     GET_I64("buf_elem_size", opt->buf_elem_size);
     GET_I64("filesize", filesize);
+    GET_I64("total_packets", opt->total_packets);
     opt->buf_num_elems = filesize/opt->buf_elem_size;
   }
   else{
     SET_I64("cumul",opt->cumul);
     SET_I64("buf_elem_size", opt->buf_elem_size);
     SET_I64("filesize", (opt->buf_elem_size)*(opt->buf_num_elems));
+    SET_I64("total_packets", opt->total_packets);
   }
   //err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
   //CHECK_CFG("get cumul");

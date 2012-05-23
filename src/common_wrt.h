@@ -9,13 +9,13 @@ struct common_io_info{
   int fd;
   long long offset;
   long long bytes_exchanged;
-  INDEX_FILE_TYPE elem_size;
+  //INDEX_FILE_TYPE elem_size;
   int f_flags;
   INDEX_FILE_TYPE * indices;
   //int read;
   struct opt_s *opt;
   unsigned long file_seqnum;
-  unsigned int optbits;
+  //unsigned int optbits;
   INDEX_FILE_TYPE indexfile_count;
   void * extra_param;
 };

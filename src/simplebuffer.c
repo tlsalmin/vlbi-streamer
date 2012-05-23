@@ -44,12 +44,17 @@ int sbuf_check(struct buffer_entity *be, int tout){
   }
   return 0;
 }
-int sbuf_acquire(void* buffo, unsigned long seq, unsigned long bufnum){
+int sbuf_acquire(void* buffo, void *opti,unsigned long seq, unsigned long bufnum){
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
+  sbuf->opt = (struct opt_s *)opti;
   if(sbuf->opt->optbits & USE_RX_RING){
     /* This threads responsible area */
     sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+  }
+  /* If we're reading and we've been acquired: we need to load the buffer */
+  if(sbuf->opt->optbits & READMODE){
+    sbuf->ready_to_act = 1;
   }
   sbuf->file_seqnum = seq;
   //fprintf(stdout, "\n\nDABUF:%lu\n\n", sbuf->buffer);
@@ -64,6 +69,12 @@ int sbuf_release(void* buffo){
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
   memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
+}
+int sbuf_seqnumcheck(void* buffo, int seq){
+  if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == (unsigned long)seq)
+    return 1;
+  else
+    return 0;
 }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -84,6 +95,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   le->child = NULL;
   le->father = NULL;
   le->acquire = sbuf_acquire;
+  le->check = sbuf_seqnumcheck;
   le->release = sbuf_release;
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
@@ -173,6 +185,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
   return 0;
 }
 int sbuf_close(struct buffer_entity* be, void *stats){
+  (void)stats;
 
   D("Closing simplebuf");
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
@@ -359,7 +372,7 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     D("Getting rec entity for buffer");
-    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->file_seqnum,sbuf->running);
+    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
@@ -409,6 +422,9 @@ void *sbuf_simple_write_loop(void *buffo){
     if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
     }
     */
+    if(sbuf->ready_to_act == 1 && (sbuf->opt->optbits & READMODE))
+    {
+    }
 
     if(sbuf->diff > 0){
       D("Blocking writes. Left to write %d",,sbuf->diff);
@@ -452,6 +468,7 @@ int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
   be->write_loop = sbuf_simple_write_loop;
   be->stop = sbuf_stop_running;
   be->set_ready = sbuf_set_ready;
+  be->acquire = sbuf_acquire;
   //be->cancel_writebuf = sbuf_cancel_writebuf;
 
   return be->init(opt,be); 
