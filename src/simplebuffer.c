@@ -291,7 +291,7 @@ int simple_write_bytes(struct buffer_entity *be){
     return simple_end_transaction(be);
   }
 
-  D("Starting write with count %lu",,count);
+  DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld\n",, ret);
@@ -325,7 +325,7 @@ int sbuf_async_loop(struct buffer_entity *be){
 	close_recer(be);
 	return -1;
       }
-      D("Checking async");
+      DD("Checking async");
       ret = sbuf_check(be,0);
       if(ret!=0){
 	close_recer(be);
@@ -350,14 +350,14 @@ int sbuf_async_loop(struct buffer_entity *be){
 int sbuf_sync_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int ret;
-  D("Starting write loop for %d elements",, sbuf->diff);
+  DD("Starting write loop for %d elements",, sbuf->diff);
   while(sbuf->diff > 0){
     ret = simple_write_bytes(be);
     if(ret!=0){
       close_recer(be);
       return -1;
     }
-    D("Writeloop done. diff:  %d",,sbuf->diff);
+    DD("Writeloop done. diff:  %d",,sbuf->diff);
   }
   return 0;
 }

@@ -83,6 +83,10 @@
   do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
   do { fprintf(stderr,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+
+#define DEBUG_OUTPUT_2 0
+#define DD(str, ...) if(DEBUG_OUTPUT_2)D(str, __VA_ARGS__)
+
 #define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
 #define INIT_ERROR return -1;
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
@@ -97,7 +101,9 @@
 #define CHECK_CFG_CUSTOM(x,y) do{if(y == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
 #define CHECK_CFG(x) CHECK_CFG_CUSTOM(x,err)
 #define SET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); err = config_setting_set_int64(setting,y); CHECK_CFG(x);}while(0) 	
-#define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);}while(0) 	
+#define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);D("Got "x" is: %lu",,y);}while(0) 	
+#define SET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); err = config_setting_set_int(setting,y); CHECK_CFG(x);}while(0) 	
+#define GET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int(setting);D("Got "x" is: %d",,y);}while(0) 	
 
 //Moved to configure
 //#define DEBUG_OUTPUT
@@ -258,6 +264,7 @@ struct opt_s
   /* Bloat TODO Find alternative place for this */
   INDEX_FILE_TYPE buf_elem_size;
   int buf_num_elems;
+  int buf_division;
   //These two are a bit silly. Should be moved to use as a parameter
   int taken_rpoints;
   int tid;
@@ -347,6 +354,7 @@ struct streamer_entity
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct streamer_entity *se);
 #endif
+  int (*is_running)(struct streamer_entity *se);
   unsigned long (*get_max_packets)(struct streamer_entity *se);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;

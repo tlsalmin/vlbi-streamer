@@ -2,7 +2,7 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#define ONLY_INCREMENT_TIMER
+//#define ONLY_INCREMENT_TIMER
 #include "config.h"
 #include <stddef.h>
 #include <stdlib.h>
@@ -39,7 +39,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
-#define SEND_DEBUG 1
+#define SEND_DEBUG 0
 #define SENDER_LOOKAHEAD 4
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
@@ -237,10 +237,10 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
+  spec_ops->running = 1;
   se->opt = (void*)spec_ops;
 
   spec_ops->opt = opt;
-  spec_ops->running = 1;
 
   if(spec_ops->opt->optbits & READMODE){
 #ifdef HAVE_RATELIMITER
@@ -255,7 +255,6 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     spec_ops->handle_packet = phandler_sequence;
 #endif
 
-  /* TODO Works with AF_INET but should use PF_PACKET? */
 #ifdef BIND_WITH_PF_PACKET
   if(spec_ops->opt->optbits & USE_RX_RING){
     spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
@@ -356,61 +355,58 @@ void * udp_sender(void *streamo){
   CHECK_AND_EXIT(se->be);
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Starting stream send\n");
-#endif
+  D("Starting stream send");
   i=0;
   while(packets_left_to_send > 0){
     if(i == spec_ops->opt->buf_num_elems){
-      D("Buffer empty, Getting another");
+      D("Buffer empty, Getting another: %lu",, files_sent);
       /* Check for missing file here so we can keep simplebuffer simple */
-      while((spec_ops->opt->fileholders + sizeof(struct recording_entity*)*files_loaded) == NULL && files_loaded < spec_ops->opt->cumul){
-	  files_loaded++;
-	  files_skipped++;
-	  files_sent++;
-	  packets_left_to_send -= spec_ops->opt->buf_num_elems;
-	  }
+      while(spec_ops->opt->fileholders[files_loaded]  == -1 && files_loaded < spec_ops->opt->cumul){
+	D("Gotta skip a file, since spot in fileholders is set to -1 for file %lu",, files_loaded);
+	files_loaded++;
+	files_skipped++;
+	files_sent++;
+	packets_left_to_send -= spec_ops->opt->buf_num_elems;
+      }
       if((spec_ops->opt->cumul - files_loaded) > 0){
+	D("Still files to be loaded. Loading %lu",, files_loaded);
 	err = start_loading(spec_ops->opt, &packets_left_to_load, &files_loaded, se->be);
       }
       else{
+	D("Loaded enough files. Setting memorybuf to free");
 	set_free(spec_ops->opt->membranch, se->be->self);
       }
-      
-      //se->be->set_ready(se->be);
-      /*
-      pthread_mutex_lock(se->be->headlock);
-      pthread_cond_signal(se->be->iosignal);
-      pthread_mutex_unlock(se->be->headlock);
-      */
 
-      //spec_ops->opt->cumul++;
-
-      /* Get a new buffer */
-      //se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul,0);
       if(files_sent < spec_ops->opt->cumul){
+	D("Getting new loaded for file %lu",, files_sent);
 	se->be = get_loaded(spec_ops->opt->membranch, files_sent++);
 	CHECK_AND_EXIT(se->be);
 	buf = se->be->simple_get_writebuf(se->be, &inc);
+	D("Got loaded file %lu to send.",, files_sent-1);
       }
-      else
+      else{
 	E("Shouldn't be here since all packets have been sent!");
+      }
       i=0;
     }
 #ifdef HAVE_RATELIMITER
     if(spec_ops->opt->optbits & WAIT_BETWEEN){
       long wait= 0;
+      clock_gettime(CLOCK_REALTIME, &now);
       if(spec_ops->opt->wait_last_sent.tv_sec == 0 && spec_ops->opt->wait_last_sent.tv_nsec == 0){
 #if(SEND_DEBUG)
 	fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
 #endif
-	clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
+	/*
+	   D("secs %lu nanosecs %lu",, spec_ops->opt->wait_last_sent.tv_sec,spec_ops->opt->wait_last_sent.tv_nsec);
+	   clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
+	   D("secs %lu nanosecs %lu",, spec_ops->opt->wait_last_sent.tv_sec,spec_ops->opt->wait_last_sent.tv_nsec);
+	   */
       }
       else{
 	// waittime - (time_now - time_last) needs to be positive if we need to wait
 	// 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
 	// accuracy	
-	clock_gettime(CLOCK_REALTIME, &now);
 	wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->opt->wait_last_sent.tv_sec*BILLION + spec_ops->opt->wait_last_sent.tv_nsec);
 #if(SEND_DEBUG)
 	fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
@@ -420,9 +416,15 @@ void * udp_sender(void *streamo){
 #if(SEND_DEBUG)
 	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (spec_ops->opt->wait_nanoseconds - wait)/1000);
 #endif	
-	}
 	usleep((spec_ops->opt->wait_nanoseconds - wait)/1000);
+	}
       }
+    }
+#endif //HAVE_RATELIMITER
+    err = sendto(spec_ops->fd, buf, spec_ops->opt->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
+
+#ifdef HAVE_RATELIMITER
+    if(spec_ops->opt->optbits & WAIT_BETWEEN){
 #ifdef ONLY_INCREMENT_TIMER
       if(wait > spec_ops->opt->wait_nanoseconds){
 	D("UDP_STREAMER: Runaway wait. Resetting to now");
@@ -437,12 +439,13 @@ void * udp_sender(void *streamo){
 	else
 	  spec_ops->opt->wait_last_sent.tv_nsec += spec_ops->opt->wait_nanoseconds;
       }
-#else
+#else //ONLY_INCREMENT_TIMER
+      //clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
       spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
       spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-#endif
+#endif //ONLY_INCREMENT_TIMER
     }
-    err = sendto(spec_ops->fd, buf, spec_ops->opt->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
+#endif // HAVE_RATELIMITER
 
 
     // Increment to the next sendable packet
@@ -463,12 +466,10 @@ void * udp_sender(void *streamo){
     }
 
   }
-#endif // HAVE_RATELIMITER
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closing sender thread\n");
-#endif
+  D("UDP_STREAMER: Closing sender thread");
   if(se->be != NULL)
     set_free(spec_ops->opt->membranch, se->be->self);
+  spec_ops->running = 0;
   //return sender_exit(spec_ops);
   pthread_exit(NULL);
 }
@@ -571,6 +572,7 @@ void* udp_rxring(void *streamo)
   }
   D("Saved %lu files",, spec_ops->opt->cumul);
   D("Exiting mmap polling");
+  spec_ops->running = 0;
 
   pthread_exit(NULL);
 }
@@ -664,6 +666,7 @@ void* udp_receiver(void *streamo)
      */
   //#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+  spec_ops->running = 0;
   //#endif
   //return sender_exit(spec_ops);
   pthread_exit(NULL);
@@ -720,6 +723,9 @@ int udps_is_blocked(struct streamer_entity *se){
    return ((struct opts*)(se->opt))->max_num_packets;
    }
    */
+int udps_is_running(struct streamer_entity *se){
+  return ((struct udpopts*)se->opt)->running;
+}
 void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
   (void)opt;
@@ -727,6 +733,7 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
   se->close = close_udp_streamer;
   se->get_stats = get_udp_stats;
   se->close_socket = udps_close_socket;
+  se->is_running = udps_is_running;
   //se->get_max_packets = udps_get_max_packets;
 }
 

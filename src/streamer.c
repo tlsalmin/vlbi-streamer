@@ -157,8 +157,9 @@ struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct li
 	E("No entities in list. Returning NULL");
 	return NULL;
       }
-      D("Failed to get free buffer. Sleeping");
+      D("Failed to get free buffer. Sleeping waiting for %d",,seq);
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+      D("Woke up! Checking for %d again",, seq);
       temp = *lep;
     }
   }
@@ -315,7 +316,7 @@ int init_cfg(struct opt_s *opt){
 	  update_cfg(opt,NULL);
 	  found = 1;
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
-	  memset(opt->fileholders, 0,sizeof(int)*(opt->cumul));
+	  memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	}
 	/* Check other confs for consistency */
 	else{
@@ -366,6 +367,8 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(setting, "add filesize");
     setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
     CHECK_ERR_NONNULL(setting, "add total_packets");
+    setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT64);
+    CHECK_ERR_NONNULL(setting, "add buf_division");
   }
   return 0;
 }
@@ -422,13 +425,15 @@ int calculate_buffer_sizes(struct opt_s *opt){
   /* amount of memory we want to use					*/
 
   /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
-  unsigned long magic = 8;
+  opt->buf_division = 8;
   //unsigned long bufsize;// = opt.buf_elem_size;
   int found = 0;
 
   int extra= 0;
   if(opt->optbits & USE_RX_RING){
     while((opt->buf_elem_size %16)!= 0){
+      if(opt->optbits  &READMODE)
+	E("Shouldn't need this in sending with RX-ring!");
       opt->buf_elem_size++;
       extra++;
     }
@@ -448,17 +453,17 @@ int calculate_buffer_sizes(struct opt_s *opt){
   opt->do_w_stuff_every = temp*(opt->buf_elem_size);
 
   /* Increase block division to fill min amount of memory */
-  while((opt->do_w_stuff_every)*magic*(opt->n_threads) < (opt->minmem)*GIG){
-    magic++;
+  while((opt->do_w_stuff_every)*opt->buf_division*(opt->n_threads) < (opt->minmem)*GIG){
+    opt->buf_division++;
   }
-  /* Store for later use if proper size not found with current magic */
+  /* Store for later use if proper size not found with current opt->buf_division */
   temp = opt->do_w_stuff_every;
-  while((found == 0) && (magic > 0)){
+  while((found == 0) && (opt->buf_division > 0)){
     /* Increase buffer size until its BLOCK_ALIGNed */
-    while((opt->do_w_stuff_every)*magic*(opt->n_threads) < (opt->maxmem)*GIG){
+    while((opt->do_w_stuff_every)*opt->buf_division*(opt->n_threads) < (opt->maxmem)*GIG){
       if(opt->do_w_stuff_every % BLOCK_ALIGN == 0){
 	found=1;
-	opt->buf_num_elems = (opt->do_w_stuff_every*magic)/opt->buf_elem_size;
+	opt->buf_num_elems = (opt->do_w_stuff_every*opt->buf_division)/opt->buf_elem_size;
 	//opt->do_w_stuff_every = opt->do_w_stuff_every/opt->buf_elem_size;
 	break;
       }
@@ -466,7 +471,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
     }
     if(found == 0){
       opt->do_w_stuff_every = temp;
-      magic--;
+      opt->buf_division--;
     }
   }
   if(found ==0){
@@ -474,10 +479,10 @@ int calculate_buffer_sizes(struct opt_s *opt){
 	"%lu GB to %luGB"
 	", Each buffer having %lu bytes"
 	", Writing in %lu size blocks"
-	", %lu Blocks per buffer"
+	", %d Blocks per buffer"
 	", Elements in buffer %d\n"
-	,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every,magic ,opt->buf_num_elems);
-    //fprintf(stdout, "STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/magic);
+	,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every,opt->buf_division ,opt->buf_num_elems);
+    //fprintf(stdout, "STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/opt->buf_division);
     return -1;
   }
   else{
@@ -500,7 +505,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
 	", Elements in buffer %d"
 	", Total used memory: %luMB\n"
 	,opt->minmem, opt->maxmem, (opt->buf_elem_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->buf_elem_size*opt->n_threads)/MEG);
-    //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),magic, (opt->buf_num_elems*opt->buf_elem_size)/magic);
+    //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),opt->buf_division, (opt->buf_num_elems*opt->buf_elem_size)/opt->buf_division);
     return 0;
   }
 }
@@ -1231,7 +1236,7 @@ int main(int argc, char **argv)
       sleeptodo= 1;
     else
       sleeptodo = opt.time;
-    while(sleeptodo >0){
+    while(sleeptodo >0 && streamer_ent.is_running(&streamer_ent)){
       sleep(1);
       memset(&stats_now, 0,sizeof(struct stats));
 
@@ -1414,12 +1419,15 @@ int update_cfg(struct opt_s* opt, struct config_t * cfg){
     GET_I64("buf_elem_size", opt->buf_elem_size);
     GET_I64("filesize", filesize);
     GET_I64("total_packets", opt->total_packets);
+    GET_I("buf_division", opt->buf_division);
     opt->buf_num_elems = filesize/opt->buf_elem_size;
+    opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
   else{
     SET_I64("cumul",opt->cumul);
     SET_I64("buf_elem_size", opt->buf_elem_size);
     SET_I64("filesize", (opt->buf_elem_size)*(opt->buf_num_elems));
+    SET_I("buf_division", opt->buf_division);
     SET_I64("total_packets", opt->total_packets);
   }
   //err = config_lookup_int64(&opt->cfg, "cumul", &cumul);

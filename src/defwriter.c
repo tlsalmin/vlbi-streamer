@@ -24,9 +24,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 
   /* Loop until we've gotten everything written */
   while(count >0){
-#if(DEBUG_OUTPUT) 
-    fprintf(stdout, "DEFWRITER: Issuing write of %lu with start %lu to %s\n", count,(long unsigned)start, ioi->curfilename);
-#endif
+    DD("Issuing write of %lu with start %lu to %s",, count,(long unsigned)start, ioi->curfilename);
     if(ioi->opt->optbits & READMODE)
       ret = read(ioi->fd, start, count);
     else
@@ -47,9 +45,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
     }
     else{
-#if(DEBUG_OUTPUT) 
-      fprintf(stdout, "DEFWRITER: Write done for %ld\n", ret);
-#endif
+      DD("Write done for %ld\n",, ret);
       if((unsigned long)ret < count)
 	fprintf(stderr, "DEFWRITER: Write wrote only %ld out of %lu\n", ret, count);
       total_w += ret;
@@ -64,7 +60,7 @@ int def_get_w_fflags(){
   //return O_WRONLY|O_NOATIME;
 }
 int def_get_r_fflags(){
-  return O_RDONLY|O_NOATIME;
+  return O_RDONLY|O_DIRECT|O_NOATIME;
 }
 
 int def_init_def(struct opt_s *opt, struct recording_entity *re){
