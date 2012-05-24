@@ -193,6 +193,7 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum);
+void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id);
 void* get_loaded(struct entity_list_branch *br, unsigned long seq);
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
@@ -228,7 +229,7 @@ struct opt_s
   int n_drives;
   int bufculum;
   int rate;
-  void* fileholders;
+  int* fileholders;
   /* Used if RX-ring for receive */
   void* buffer;
 #ifdef HAVE_LIBCONFIG_H

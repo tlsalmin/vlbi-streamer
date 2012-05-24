@@ -605,7 +605,7 @@ void* udp_receiver(void *streamo)
       D("Buffer filled, Getting another");
 
       /* Update cumul so packages are written to different files */
-      spec_ops->opt->cumul += 1;
+      //spec_ops->opt->cumul += 1;
 
       /* Set old buffer ready and signal it to start writing */
       se->be->set_ready(se->be);

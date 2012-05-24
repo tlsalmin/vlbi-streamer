@@ -44,7 +44,7 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
     tempflags = ioi->f_flags ^ O_DIRECT;
   }
 #endif
-  D("Opening new file %s,",,ioi->curfilename);
+  D("Opening file %s",,ioi->curfilename);
   err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
   if(err!=0){
     fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
@@ -84,7 +84,8 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       //We're reading the file
       /* Goddang what's the big idea setting O_RDONLY to 00 */
       if(!(flags & (O_WRONLY|O_RDWR))){
-	perror("COMMON_WRT: File not found, eventhought we wan't to read");
+	perror("File open");
+	D("File %s not found, eventhought we wan't to read",,filename);
 	return EACCES;
       }
       else{
@@ -252,6 +253,8 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   //return rbuf_init_buf_entity(opt,be);
   return 0;
 }
+int common_check_id(void *recco, int id){
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
@@ -272,6 +275,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->father = NULL;
   le->acquire = common_open_new_file;
   le->release = common_finish_file;
+  le->check = common_check_id;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);
   D("Writer added to diskbranch");
@@ -441,7 +445,7 @@ int common_getfd(struct recording_entity *re){
 int common_check_files(struct recording_entity *re, void* opti){
   int err;
   int temp;
-  struct recording_entity **temprecer;
+  //struct recording_entity **temprecer;
   struct opt_s* opt = (struct opt_s*)opti;
   struct common_io_info * ioi = re->opt;
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -449,7 +453,8 @@ int common_check_files(struct recording_entity *re, void* opti){
   D("Checking for files and updating fileholders");
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
-  err = regcomp(&regex, "[[:digit:]{8}]", 0);
+  /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
+  err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   CHECK_ERR("Regcomp");
 
 
@@ -470,8 +475,9 @@ int common_check_files(struct recording_entity *re, void* opti){
 	else
 	{
 	  /* Update pointer at correct spot */
-	  temprecer = opt->fileholders + temp*sizeof(struct recording_entity*);
-	  *temprecer = re;
+	  //temprecer = opt->fileholders + temp*sizeof(*);
+	  //*temprecer = re;
+	  opt->fileholders[temp] = ioi->id;
 	  ioi->opt->cumul_found++;
 	}
       }

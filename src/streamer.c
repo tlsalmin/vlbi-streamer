@@ -160,6 +160,26 @@ void* get_loaded(struct entity_list_branch *br, unsigned long seq){
   D("Returning loaded entity");
   return temp;
 }
+/* Get a specific free entity from branch 		*/
+void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id)
+{
+  struct listed_entity* le = NULL;
+  struct listed_entity* temp;
+  pthread_mutex_lock(&(br->branchlock));
+
+  while(le == NULL){
+    while(br->freelist == NULL){
+      if(br->busylist == NULL && br->loadedlist == NULL){
+	D("No entities in list. Returning NULL");
+	pthread_mutex_unlock(&(br->branchlock));
+	return NULL;
+      }
+      D("Failed to get free buffer. Sleeping");
+      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+    }
+    temp = br->freelist;
+  }
+}
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum)
 {
@@ -269,8 +289,8 @@ int init_cfg(struct opt_s *opt){
 	  D("Found first config at %s. Updating opts",,path);
 	  update_cfg(opt,NULL);
 	  found = 1;
-	  opt->fileholders = malloc(sizeof(struct recording_entity *)*(opt->cumul));
-	  memset(opt->fileholders, 0,sizeof(struct recording_entity*)*(opt->cumul));
+	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
+	  memset(opt->fileholders, 0,sizeof(int)*(opt->cumul));
 	}
 	/* Check other confs for consistency */
 	else{
@@ -1041,11 +1061,11 @@ int main(int argc, char **argv)
     switch(opt.optbits & LOCKER_WRITER)
     {
       /*
-      case BUFFER_RINGBUF:
-	//Helper function
-	err = rbuf_init_buf_entity(&opt, be);
-	break;
-	*/
+	 case BUFFER_RINGBUF:
+      //Helper function
+      err = rbuf_init_buf_entity(&opt, be);
+      break;
+      */
       case BUFFER_SIMPLE:
 	err = sbuf_init_buf_entity(&opt,be);
 	D("Initialized simple buffer for thread %d",,i);

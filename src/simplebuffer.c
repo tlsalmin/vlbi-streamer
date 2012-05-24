@@ -372,7 +372,12 @@ int write_buffer(struct buffer_entity *be){
 
   if(be->recer == NULL){
     D("Getting rec entity for buffer");
-    be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running);
+    /* If we're reading, we need a specific recorder_entity */
+    if(sbuf->opt->optbits & READMODE){
+      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->file_seqnum, sbuf->running, sbuf->opt->fileholders[sbuf->file_seqnum]);
+    }
+    else
+      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running);
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
