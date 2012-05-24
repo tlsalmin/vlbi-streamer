@@ -191,6 +191,7 @@ struct fileblocks
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
+void set_loaded(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum);
 void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id);

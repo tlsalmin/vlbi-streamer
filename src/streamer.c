@@ -137,48 +137,73 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   if(!mutex_free)
     pthread_mutex_unlock(&(br->branchlock));
 }
-/* Get a loaded buffer with the specific seq */
-void* get_loaded(struct entity_list_branch *br, unsigned long seq){
-  D("Querying for loaded entity");
-  struct listed_entity * temp = br->loadedlist;
-  pthread_mutex_lock(&(br->branchlock));
-  while(temp == NULL || temp->check(temp->entity, seq) == 0){
-    if(br->busylist == NULL && br->loadedlist == NULL){
-      D("No entities in list. Returning NULL");
-      pthread_mutex_unlock(&(br->branchlock));
-      return NULL;
+struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
+  struct listed_entity *temp = *lep;
+  struct listed_entity *le = NULL;
+  while(le== NULL){
+    while(temp != NULL){
+      if(temp->check(temp->entity, seq) == 1){
+	le = temp;
+	break;
+      }
+      else{
+	temp = temp->child;
+      }
     }
-    if(temp != NULL)
-      temp = temp->child;
-    else{
-      D("Failed to get free buffer. Sleeping");
-      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
-    }
-  }
-  mutex_free_change_branch(&(br->loadedlist), &(br->busylist), temp);
-  pthread_mutex_unlock(&(br->branchlock));
-  D("Returning loaded entity");
-  return temp;
-}
-/* Get a specific free entity from branch 		*/
-void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id)
-{
-  struct listed_entity* le = NULL;
-  struct listed_entity* temp;
-  pthread_mutex_lock(&(br->branchlock));
-
-  while(le == NULL){
-    while(br->freelist == NULL){
-      if(br->busylist == NULL && br->loadedlist == NULL){
-	D("No entities in list. Returning NULL");
-	pthread_mutex_unlock(&(br->branchlock));
+    /* If le wasn't found in the list */
+    if(le == NULL){
+      /* Check if branch is dead */
+      if(*lep == NULL && *other == NULL && *other2 == NULL){
+	E("No entities in list. Returning NULL");
 	return NULL;
       }
       D("Failed to get free buffer. Sleeping");
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+      temp = *lep;
     }
-    temp = br->freelist;
   }
+  D("Found specific elem id %d!",, seq);
+  return le;
+}
+/* Get a loaded buffer with the specific seq */
+void* get_loaded(struct entity_list_branch *br, unsigned long seq){
+  D("Querying for loaded entity");
+  pthread_mutex_lock(&(br->branchlock));
+  struct listed_entity * temp = get_w_check(&br->loadedlist, seq, &br->freelist, &br->busylist, br);
+
+  if (temp == NULL){
+    pthread_mutex_unlock(&(br->branchlock));
+    return NULL;
+  }
+
+  mutex_free_change_branch(&(br->loadedlist), &(br->busylist), temp);
+  pthread_mutex_unlock(&(br->branchlock));
+  D("Returning loaded entity");
+  return temp->entity;
+}
+/* Get a specific free entity from branch 		*/
+void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id)
+{
+  pthread_mutex_lock(&(br->branchlock));
+  struct listed_entity* temp = get_w_check(&br->freelist, id, &br->busylist, &br->loadedlist, br);
+  
+  if(temp ==NULL){
+    pthread_mutex_unlock(&(br->branchlock));
+    return NULL;
+  }
+
+  mutex_free_change_branch(&(br->freelist), &(br->busylist), temp);
+  pthread_mutex_unlock(&(br->branchlock));
+  if(temp->acquire !=NULL){
+    D("Running acquire on entity");
+    int ret = temp->acquire(temp->entity, opt,seq, bufnum);
+    if(ret != 0)
+      E("Acquire return non-zero value(Not handled)");
+  }
+  else
+    D("Entity doesn't have an acquire-function");
+  D("Returning specific free entity");
+  return temp->entity;
 }
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum)

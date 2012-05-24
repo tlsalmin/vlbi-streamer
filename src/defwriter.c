@@ -20,7 +20,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   if(ioi->fd == 0){
     E("FD not set! Not writing to stdout!");
     return -1;
-    }
+  }
 
   /* Loop until we've gotten everything written */
   while(count >0){
@@ -64,7 +64,7 @@ int def_get_w_fflags(){
   //return O_WRONLY|O_NOATIME;
 }
 int def_get_r_fflags(){
-  return O_RDONLY|O_DIRECT|O_NOATIME;
+  return O_RDONLY|O_NOATIME;
 }
 
 int def_init_def(struct opt_s *opt, struct recording_entity *re){

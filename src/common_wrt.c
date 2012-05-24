@@ -254,6 +254,14 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   return 0;
 }
 int common_check_id(void *recco, int id){
+  struct recording_entity *re = (struct recording_entity *)recco;
+  struct common_io_info* ioi = re->opt;
+  //D("Asked for %d, we are %d",, ioi->id,id);
+  if(ioi->id == id)
+    return 1;
+  else
+    return 0;
+  //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;

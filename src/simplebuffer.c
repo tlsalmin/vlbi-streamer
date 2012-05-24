@@ -71,7 +71,7 @@ void preheat_buffer(void* buf, struct opt_s* opt){
   memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
 }
 int sbuf_seqnumcheck(void* buffo, int seq){
-  if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == (unsigned long)seq)
+  if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == seq)
     return 1;
   else
     return 0;
@@ -374,8 +374,9 @@ int write_buffer(struct buffer_entity *be){
     D("Getting rec entity for buffer");
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
+      D("Getting rec entity id %d for file %d",, sbuf->opt->fileholders[sbuf->file_seqnum], sbuf->file_seqnum);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->file_seqnum, sbuf->running, sbuf->opt->fileholders[sbuf->file_seqnum]);
-    }
+      }
     else
       be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running);
     CHECK_AND_EXIT(be->recer);
@@ -392,8 +393,14 @@ int write_buffer(struct buffer_entity *be){
   /* If we've succesfully written everything: set everything free etc */
   //if((sbuf->diff == 0 && be->recer != NULL )){
   if(sbuf->diff == 0){
-    D("Write cycle complete. Setting self to free");
-    set_free(sbuf->opt->membranch, be->self);
+    if(sbuf->opt->optbits & READMODE){
+      D("Read cycle complete. Setting self to loaded");
+      set_loaded(sbuf->opt->membranch, be->self);
+    }
+    else{
+      D("Write cycle complete. Setting self to free");
+      set_free(sbuf->opt->membranch, be->self);
+    }
     /* Might have closed recer already */
     if(be->recer != NULL)
       set_free(sbuf->opt->diskbranch, be->recer->self);
@@ -424,9 +431,9 @@ void *sbuf_simple_write_loop(void *buffo){
        break;
        */
     /*
-    if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
-    }
-    */
+       if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
+       }
+       */
     if(sbuf->ready_to_act == 1 && (sbuf->opt->optbits & READMODE))
     {
     }
@@ -445,36 +452,38 @@ void *sbuf_simple_write_loop(void *buffo){
 	  sbuf->diff = savedif;
 	}
       }
+      /* If write is ready and we're in readmode we set this elements	*/
+      /* as loaded							*/
     }
+    }
+    D("Finished");
+    pthread_exit(NULL);
   }
-  D("Finished");
-  pthread_exit(NULL);
-}
 
-void sbuf_stop_running(struct buffer_entity *be){
-  D("Stopping sbuf thread");
-  ((struct simplebuf*)be->opt)->running = 0;
-  pthread_mutex_lock(be->headlock);
-  pthread_cond_signal(be->iosignal);
-  pthread_mutex_unlock(be->headlock);
-  D("Stopped and signalled");
-}
-void sbuf_set_ready(struct buffer_entity *be){
-  ((struct simplebuf*)be->opt)->ready_to_act = 1;
-}
-int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
-  be->init = sbuf_init;
-  //be->write = sbuf_aio_write;
-  //be->get_writebuf = sbuf_get_buf_to_write;
-  be->simple_get_writebuf = sbuf_getbuf;
-  be->get_inc = sbuf_getinc;
-  //be->wait = sbuf_wait;
-  be->close = sbuf_close;
-  be->write_loop = sbuf_simple_write_loop;
-  be->stop = sbuf_stop_running;
-  be->set_ready = sbuf_set_ready;
-  be->acquire = sbuf_acquire;
-  //be->cancel_writebuf = sbuf_cancel_writebuf;
+  void sbuf_stop_running(struct buffer_entity *be){
+    D("Stopping sbuf thread");
+    ((struct simplebuf*)be->opt)->running = 0;
+    pthread_mutex_lock(be->headlock);
+    pthread_cond_signal(be->iosignal);
+    pthread_mutex_unlock(be->headlock);
+    D("Stopped and signalled");
+  }
+  void sbuf_set_ready(struct buffer_entity *be){
+    ((struct simplebuf*)be->opt)->ready_to_act = 1;
+  }
+  int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
+    be->init = sbuf_init;
+    //be->write = sbuf_aio_write;
+    //be->get_writebuf = sbuf_get_buf_to_write;
+    be->simple_get_writebuf = sbuf_getbuf;
+    be->get_inc = sbuf_getinc;
+    //be->wait = sbuf_wait;
+    be->close = sbuf_close;
+    be->write_loop = sbuf_simple_write_loop;
+    be->stop = sbuf_stop_running;
+    be->set_ready = sbuf_set_ready;
+    be->acquire = sbuf_acquire;
+    //be->cancel_writebuf = sbuf_cancel_writebuf;
 
-  return be->init(opt,be); 
-}
+    return be->init(opt,be); 
+  }
