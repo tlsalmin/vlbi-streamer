@@ -22,6 +22,7 @@
 /* find the reason for this bug. This will disable the	*/
 /* IO_DIRECT flag for the last write			*/
 #define UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
+#define ERR_IN_INIT free(ioi);return -1
 
 
 /* These should be moved somewhere general, since they should be used by all anyway */
@@ -275,18 +276,6 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->opt = opt;
 
 
-  //re->diskbranch = &(opt->diskbranch);
-  D("Adding writer to diskbranch");
-  struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-  le->entity = (void*)re;
-  le->child = NULL;
-  le->father = NULL;
-  le->acquire = common_open_new_file;
-  le->release = common_finish_file;
-  le->check = common_check_id;
-  re->self= le;
-  add_to_entlist(opt->diskbranch, le);
-  D("Writer added to diskbranch");
 
 
   //ioi->latest_write_num = 0;
@@ -324,57 +313,58 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
   D("Creating directory");
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  if(ioi->opt->optbits & READMODE){
-    //TODO: check if dir exists
-  }
   /* Create directory */
-  else{
 
     sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",opt->filename);
-    mode_t process_mask = umask(0);
-    err = mkdir(dirname, 0777);
-    umask(process_mask);
-    if(err!=0){
-      if(errno == EEXIST){
-	/* Directory exists shouldn't be ok in final release, since 	*/
-	/* it will overwrite existing recordings			*/
-	D("Directory exist. OK!");
-      }
-      else{
-	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
-	return err;
-      }
-    }
-  }
-  free(dirname);
+    if(ioi->opt->optbits & READMODE){
+      struct stat sb;
 
-  //TODO: Set offset accordingly if file already exists. Not sure if
-  //needed, since data consistency would take a hit anyway
-  ioi->offset = 0;
-  ioi->bytes_exchanged = 0;
-  if(ioi->opt->optbits & READMODE){
-    // no more indice reading from indice-file
-    /*
-    err = common_handle_indices(ioi);
-    if(err != 0){
-      fprintf(stderr, "COMMON_WRT: Reading indices returned %d", err);
-      return -1;
+      if(stat(dirname,&sb) != 0){
+	perror("Error Opening dir");
+	ERR_IN_INIT;
+      }
+      else if (!S_ISDIR(sb.st_mode)){
+	E("%s Not a directory. Not initializing this reader",,dirname);
+	ERR_IN_INIT;
+      }
     }
     else{
-      opt->buf_elem_size = ioi->elem_size;
-      if(opt->buf_num_elems == 0)
-	calculate_buffer_sizes(opt);
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "Element size is %lu\n", opt->buf_elem_size);
-#endif
+      mode_t process_mask = umask(0);
+      err = mkdir(dirname, 0777);
+      umask(process_mask);
+      if(err!=0){
+	if(errno == EEXIST){
+	  /* Directory exists shouldn't be ok in final release, since 	*/
+	  /* it will overwrite existing recordings			*/
+	  D("Directory exist. OK!");
+	}
+	else{
+	  E("COMMON_WRT: Init: Error in file open: %s",, dirname);
+	  free(dirname);
+	  ERR_IN_INIT;
+	}
+      }
     }
-    */
-  }
-  else{
-    //ioi->elem_size = opt->buf_elem_size;
-  }
-  err = 0;
-  return err;
+    free(dirname);
+
+    //TODO: Set offset accordingly if file already exists. Not sure if
+    //needed, since data consistency would take a hit anyway
+    ioi->offset = 0;
+    ioi->bytes_exchanged = 0;
+
+    /* Only after everything ok add to the diskbranches */
+    D("Adding writer to diskbranch");
+    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+    le->entity = (void*)re;
+    le->child = NULL;
+    le->father = NULL;
+    le->acquire = common_open_new_file;
+    le->release = common_finish_file;
+    le->check = common_check_id;
+    re->self= le;
+    add_to_entlist(opt->diskbranch, le);
+    D("Writer added to diskbranch");
+    return 0;
 }
 INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
   struct common_io_info * ioi = re->opt;

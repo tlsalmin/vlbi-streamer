@@ -42,6 +42,8 @@
 #define BRANCHOP_READ_CFGS 6
 #define BRANCHOP_CHECK_FILES 7
 
+#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
+
 /* This should be more configurable */
 #define CORES 6
 extern char *optarg;
@@ -308,7 +310,7 @@ int init_cfg(struct opt_s *opt){
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
-	E("%s:%d - %s\n",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
+	E("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
 	if(found ==0){
@@ -910,11 +912,17 @@ static void parse_options(int argc, char **argv){
 }
 int main(int argc, char **argv)
 {
-  int i;
+  int i,rc;
   int err;
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
   struct sched_param    param;
+  memset(&param, 0, sizeof(param));
+  rc = pthread_attr_init(&pta);
+  if(rc != 0){
+    E("Pthread attr initialization: %s",,strerror(rc));
+    return -1;
+  }
 #endif
 
 #ifdef HAVE_LRT
@@ -959,7 +967,6 @@ int main(int argc, char **argv)
   pthread_cond_init(&(opt.diskbranch->busysignal), NULL);
 
   //pthread_attr_t attr;
-  int rc;
 #ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
   D("Polled %ld processors",,processors);
@@ -1023,7 +1030,8 @@ int main(int argc, char **argv)
     }
     if(err != 0){
       fprintf(stderr, "Error in writer init\n");
-      exit(-1);
+      free(re);
+      //exit(-1);
     }
     /* Add the recording entity to the diskbranch */
   }
@@ -1031,8 +1039,10 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCONFIG_H
   err = init_cfg(&opt);
   //TODO: cfg destruction
-  if(err != 0)
+  if(err != 0){
     E("Error in cfg init");
+    FREE_AND_ERROREXIT
+  }
   //return -1;
 
   if(opt.optbits &READMODE){
@@ -1052,10 +1062,6 @@ int main(int argc, char **argv)
 
 
 #ifdef PRIORITY_SETTINGS
-  memset(&param, 0, sizeof(param));
-  rc = pthread_attr_init(&pta);
-  if(rc != 0)
-    E("Pthread attr initialization: %s",,strerror(rc));
 
   rc = pthread_attr_getschedparam(&pta, &param);
   if(rc != 0)

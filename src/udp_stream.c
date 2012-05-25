@@ -2,7 +2,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-//#define ONLY_INCREMENT_TIMER
 #include "config.h"
 #include <stddef.h>
 #include <stdlib.h>
@@ -39,8 +38,9 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
+#define SLEEP_ON_BUFFERS_TO_LOAD
 #define SEND_DEBUG 0
-#define SENDER_LOOKAHEAD 4
+#define SENDER_LOOKAHEAD 8
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame
@@ -317,6 +317,36 @@ int start_loading(struct opt_s * opt, unsigned long *packets_left, unsigned long
   pthread_mutex_unlock(be->headlock);
   return 0;
 }
+void specadd(struct timespec * to, struct timespec *from){
+  if(to->tv_nsec + from->tv_nsec >  BILLION){
+    to->tv_sec++;
+    to->tv_nsec += (BILLION-to->tv_nsec)+from->tv_nsec;
+  }
+  else{
+    to->tv_nsec+=from->tv_nsec;
+    to->tv_sec+=from->tv_sec;
+  }
+}
+/* Return the diff of the two timespecs in nanoseconds */
+long nanodiff(struct timespec * start, struct timespec *end){
+  unsigned long temp=0;
+  temp += (end->tv_sec-start->tv_sec)*BILLION;
+  temp += end->tv_nsec-start->tv_nsec;
+  return temp;
+}
+void nanoadd(struct timespec * datime, unsigned long nanos_to_add){
+  if(datime->tv_nsec + nanos_to_add >  BILLION){
+    datime->tv_sec++;
+    datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
+  }
+  else
+    datime->tv_nsec += nanos_to_add;
+}
+void zeroandadd(struct timespec *datime, unsigned long nanos_to_add){
+  datime->tv_sec = 0;
+  datime->tv_nsec = 0;
+  nanoadd(datime,nanos_to_add);
+}
 void * udp_sender(void *streamo){
   int err = 0;
   void* buf;
@@ -326,6 +356,10 @@ void * udp_sender(void *streamo){
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   struct timespec now;
+  struct timespec req,rem;
+  req.tv_sec = 0;
+  req.tv_nsec = 0;
+  long wait= 0;
   long unsigned int files_loaded =  0;
   long unsigned int files_sent = 0;
   long unsigned int files_skipped = 0;
@@ -338,7 +372,7 @@ void * udp_sender(void *streamo){
 #endif
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
-  
+
   int loadup = MIN(SENDER_LOOKAHEAD, spec_ops->opt->cumul);
 
   for(i=0;i<loadup;i++){
@@ -349,6 +383,9 @@ void * udp_sender(void *streamo){
     err = start_loading(spec_ops->opt, &packets_left_to_load, &files_loaded, NULL);
     CHECK_ERRP("Start loading");
   }
+#ifdef SLEEP_ON_BUFFERS_TO_LOAD
+  sleep(10);
+#endif
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
   se->be = get_loaded(spec_ops->opt->membranch, files_sent++);
@@ -362,7 +399,7 @@ void * udp_sender(void *streamo){
       D("Buffer empty, Getting another: %lu",, files_sent);
       /* Check for missing file here so we can keep simplebuffer simple */
       while(spec_ops->opt->fileholders[files_loaded]  == -1 && files_loaded < spec_ops->opt->cumul){
-	D("Gotta skip a file, since spot in fileholders is set to -1 for file %lu",, files_loaded);
+	D("Skipping a file, fileholder set to -1 for file %lu",, files_loaded);
 	files_loaded++;
 	files_skipped++;
 	files_sent++;
@@ -391,15 +428,15 @@ void * udp_sender(void *streamo){
     }
 #ifdef HAVE_RATELIMITER
     if(spec_ops->opt->optbits & WAIT_BETWEEN){
-      long wait= 0;
       clock_gettime(CLOCK_REALTIME, &now);
+      /* If clock isn't yet set, just skip this */
       if(spec_ops->opt->wait_last_sent.tv_sec == 0 && spec_ops->opt->wait_last_sent.tv_nsec == 0){
 #if(SEND_DEBUG)
 	fprintf(stdout, "UDP_STREAMER: Initializing wait clock\n");
 #endif
+	   clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
 	/*
 	   D("secs %lu nanosecs %lu",, spec_ops->opt->wait_last_sent.tv_sec,spec_ops->opt->wait_last_sent.tv_nsec);
-	   clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
 	   D("secs %lu nanosecs %lu",, spec_ops->opt->wait_last_sent.tv_sec,spec_ops->opt->wait_last_sent.tv_nsec);
 	   */
       }
@@ -407,16 +444,26 @@ void * udp_sender(void *streamo){
 	// waittime - (time_now - time_last) needs to be positive if we need to wait
 	// 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
 	// accuracy	
-	wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->opt->wait_last_sent.tv_sec*BILLION + spec_ops->opt->wait_last_sent.tv_nsec);
+	//wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->opt->wait_last_sent.tv_sec*BILLION + spec_ops->opt->wait_last_sent.tv_nsec);
+	wait = nanodiff(&(spec_ops->opt->wait_last_sent), &now);
 #if(SEND_DEBUG)
 	fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
 #endif
-	if(wait < spec_ops->opt->wait_nanoseconds){
+	//wait = spec_ops->opt->wait_nanoseconds - wait;
+	req.tv_nsec = spec_ops->opt->wait_nanoseconds - wait;
+	if(req.tv_nsec > 0){
 	  //int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
 #if(SEND_DEBUG)
-	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ys before sending packet\n", (spec_ops->opt->wait_nanoseconds - wait)/1000);
+	  fprintf(stdout, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", req.tv_nsec);
 #endif	
-	usleep((spec_ops->opt->wait_nanoseconds - wait)/1000);
+	  //nanoadd(&now, wait);
+	  //req.tv_nsec = wait;
+	  specadd(&(spec_ops->opt->wait_last_sent), &req);
+	  nanosleep(&req,&rem);
+	}
+	else{
+	  spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
+	  spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
 	}
       }
     }
@@ -425,25 +472,10 @@ void * udp_sender(void *streamo){
 
 #ifdef HAVE_RATELIMITER
     if(spec_ops->opt->optbits & WAIT_BETWEEN){
-#ifdef ONLY_INCREMENT_TIMER
-      if(wait > spec_ops->opt->wait_nanoseconds){
-	D("UDP_STREAMER: Runaway wait. Resetting to now");
-	spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
-	spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-      }
-      else{
-	if(spec_ops->opt->wait_last_sent.tv_nsec + spec_ops->opt->wait_nanoseconds > BILLION){
-	  spec_ops->opt->wait_last_sent.tv_sec++;
-	  spec_ops->opt->wait_last_sent.tv_nsec = spec_ops->opt->wait_nanoseconds-(BILLION - spec_ops->opt->wait_last_sent.tv_nsec);
-	}
-	else
-	  spec_ops->opt->wait_last_sent.tv_nsec += spec_ops->opt->wait_nanoseconds;
-      }
-#else //ONLY_INCREMENT_TIMER
+      //nanoadd(&(spec_ops->opt->wait_last_sent), wait);
       //clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
-      spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
-      spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-#endif //ONLY_INCREMENT_TIMER
+      //spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
+      //spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
     }
 #endif // HAVE_RATELIMITER
 
