@@ -369,7 +369,7 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(setting, "add filesize");
     setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
     CHECK_ERR_NONNULL(setting, "add total_packets");
-    setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT64);
+    setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT);
     CHECK_ERR_NONNULL(setting, "add buf_division");
   }
   return 0;
