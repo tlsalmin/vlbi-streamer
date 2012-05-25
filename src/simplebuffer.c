@@ -20,26 +20,31 @@ int sbuf_check(struct buffer_entity *be, int tout){
   //while ((ret = be->recer->check(be->recer))>0){
   D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
-#ifdef UGLY_TIMEOUT_FIX
-  tout=10000;
-  usleep(tout);
-#endif
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%lu Writes complete.\n",, ret/sbuf->opt->buf_elem_size);
+    D("%lu Writes complete on seqnum %d",, ret/sbuf->opt->buf_elem_size, sbuf->file_seqnum);
     unsigned long num_written;
 
     num_written = ret/sbuf->opt->buf_elem_size;
 
     sbuf->asyncdiff-=num_written;
   }
+  else if (ret == AIO_END_OF_FILE){
+    D("End of file on id %d",, sbuf->file_seqnum);
+    sbuf->asyncdiff = 0;
+  }
   else if (ret == 0){
+    D("No writes to report on %d",, sbuf->file_seqnum);
+#ifdef UGLY_TIMEOUT_FIX
+    tout=1;
+    sleep(tout);
+#endif
     //NADA
   }
   else{
-    E("Error in write check");
+    E("Error in write check on seqdum %d",, sbuf->file_seqnum);
     return -1;
   }
   return 0;
@@ -77,8 +82,10 @@ int sbuf_seqnumcheck(void* buffo, int seq){
     return 0;
 }
 int sbuf_free(void* buffo){
-  struct simplebuf * sbuf = (struct simplebuf*)buffo;
-  free(sbuf);
+  if(buffo != NULL){
+    struct simplebuf * sbuf = (struct simplebuf*)buffo;
+    free(sbuf);
+  }
   return 0;
 }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){

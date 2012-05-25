@@ -20,7 +20,7 @@
 
 
 //#define PIPE_STUFF_IN_WRITELOOP
-//#define IOVEC_SPLIT_TO_IOV_MAX
+#define IOVEC_SPLIT_TO_IOV_MAX
 /* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
 #define MAX_PIPE_SIZE 1048576
 /* Read a claim that proper scatter gather requires fopen not open */
@@ -115,7 +115,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   long ret = 0;
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
   void * point_to_start=start;
-  size_t trycount;
+  long trycount;
 #endif
   //int err = 0;
   int i=0;
@@ -198,7 +198,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 #endif
 
       if(ret<0){
-	fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes\n", ret);
+	fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
 	break;
       }
       start += ret;

@@ -265,8 +265,10 @@ int common_check_id(void *recco, int id){
   //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
 }
 int common_close_and_free(void* recco){
-  struct recording_entity * re = (struct recording_entity *)recco;
-  free(re);
+  if(recco != NULL){
+    struct recording_entity * re = (struct recording_entity *)recco;
+    free(re);
+  }
   return 0;
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
@@ -420,19 +422,6 @@ int common_close(struct recording_entity * re, void * stats){
     //free(ioi->indices);
     /* No need to close indice-file since it was read into memory */
   }
-  //Done in release
-  /*
-     close(ioi->fd);
-     D("File closed");
-     */
-
-  /*
-     remove_from_branch(ioi->opt->diskbranch, re->self);
-     D("Removed from branch");
-     */
-
-  //ioi->ctx = NULL;
-  //free(ioi->filename);
 
   free(ioi);
 #if(DEBUG_OUTPUT)

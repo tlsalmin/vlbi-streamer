@@ -196,7 +196,8 @@ long aiow_check(struct recording_entity * re,int tout){
 #if(DEBUG_OUTPUT)
 	fprintf(stdout, "AIOWRITER: end of file! event.red: %ld  %d\n", event.res, errno);
 #endif
-	return -1;//event.res;
+	//return -1;//event.res;
+	return AIO_END_OF_FILE;
       }
       else{
 	fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);

@@ -15,6 +15,7 @@
 //Made an argument and changed to MB/s
 //#define RATE 10
 #define B(x) (1 << x)
+#define AIO_END_OF_FILE -323
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define BILLION 1E9l
