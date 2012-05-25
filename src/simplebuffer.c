@@ -38,8 +38,8 @@ int sbuf_check(struct buffer_entity *be, int tout){
   else if (ret == 0){
     D("No writes to report on %d",, sbuf->file_seqnum);
 #ifdef UGLY_TIMEOUT_FIX
-    tout=1;
-    sleep(tout);
+    tout=1000;
+    usleep(tout);
 #endif
     //NADA
   }

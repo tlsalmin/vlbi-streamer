@@ -257,7 +257,7 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
    }
    */
 void print_br_stats(struct entity_list_branch *br){
-  int free=0,busy=0;
+  int free=0,busy=0,loaded=0;
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity *le = br->freelist;
   while(le != NULL){
@@ -269,8 +269,13 @@ void print_br_stats(struct entity_list_branch *br){
     busy++;
     le = le->child;
   }
+  le = br->loadedlist;
+  while(le != NULL){
+    loaded++;
+    le = le->child;
+  }
   pthread_mutex_unlock(&(br->branchlock));
-  fprintf(stdout, "Free: %d, Busy: %d\n", free, busy);
+  fprintf(stdout, "Free: %d, Busy: %d, Loaded: %d\n", free, busy, loaded);
 }
 int write_cfgs_to_disks(struct opt_s *opt){
   if(opt->optbits & READMODE)
@@ -422,6 +427,7 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
   pthread_mutex_lock(&(br->branchlock));
   oper_to_list(br,br->freelist,operation,param);
   oper_to_list(br,br->busylist,operation, param);
+  oper_to_list(br,br->loadedlist,operation, param);
   pthread_mutex_unlock(&(br->branchlock));
 }
 int calculate_buffer_sizes(struct opt_s *opt){
