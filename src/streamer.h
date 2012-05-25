@@ -169,6 +169,7 @@ struct listed_entity
   struct listed_entity* father;
   int (*acquire)(void*,void*,unsigned long,unsigned long);
   int (*check)(void*, int);
+  int (*close)(void*);
   int (*release)(void*);
   void* entity;
 };

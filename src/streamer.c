@@ -94,12 +94,12 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en)
   pthread_mutex_lock(&(br->branchlock));
   //Only special case if the entity is at the start of the list
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
-  pthread_cond_broadcast(&(br->busysignal));
   if(en->release != NULL){
     int ret = en->release(en->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
+  pthread_cond_broadcast(&(br->busysignal));
   pthread_mutex_unlock(&(br->branchlock));
 }
 void set_loaded(struct entity_list_branch *br, struct listed_entity* en){
@@ -134,6 +134,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   en->child = NULL;
   en->father = NULL;
 
+  en->close(en->entity);
   free(en);
 
   if(!mutex_free)
@@ -411,8 +412,9 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
 	break;
     }
     le = le->child;
-    if(removable != NULL)
+    if(removable != NULL){
       remove_from_branch(br,removable,1);
+    }
   }
 }
 void oper_to_all(struct entity_list_branch *br, int operation,void* param)
@@ -960,6 +962,8 @@ int main(int argc, char **argv)
 
   opt.membranch->freelist = NULL;
   opt.membranch->busylist = NULL;
+  opt.diskbranch->freelist = NULL;
+  opt.diskbranch->busylist = NULL;
 
   pthread_mutex_init(&(opt.membranch->branchlock), NULL);
   pthread_mutex_init(&(opt.diskbranch->branchlock), NULL);
@@ -1326,8 +1330,7 @@ int main(int argc, char **argv)
     k++;
   }
   D("Getting stats and closing");
-  /* Get final stats */
-  //print_stats(&stats, &opt);
+
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
   oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
   oper_to_all(opt.diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
@@ -1369,6 +1372,11 @@ int main(int argc, char **argv)
   //}
   //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
+  for(i=0;i<opt.n_drives;i++){
+    //opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+    free(opt.filenames[i]);
+    //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
+  }
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Threads closed\n");
 #endif

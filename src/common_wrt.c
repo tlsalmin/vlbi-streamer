@@ -264,6 +264,11 @@ int common_check_id(void *recco, int id){
     return 0;
   //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
 }
+int common_close_and_free(void* recco){
+  struct recording_entity * re = (struct recording_entity *)recco;
+  free(re);
+  return 0;
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
@@ -361,6 +366,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     le->acquire = common_open_new_file;
     le->release = common_finish_file;
     le->check = common_check_id;
+    le->close = common_close_and_free;
     re->self= le;
     add_to_entlist(opt->diskbranch, le);
     D("Writer added to diskbranch");

@@ -252,7 +252,9 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 #ifdef CHECK_OUT_OF_ORDER
   if(spec_ops->opt->optbits & CHECK_SEQUENCE)
     spec_ops->handle_packet = phandler_sequence;
+  else
 #endif
+    spec_ops->handle_packet = NULL;
 
 #ifdef BIND_WITH_PF_PACKET
   if(spec_ops->opt->optbits & USE_RX_RING){
@@ -682,20 +684,8 @@ void* udp_receiver(void *streamo)
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets",, spec_ops->opt->cumul, spec_ops->opt->total_packets);
-  /*
-     if(se->be != NULL){
-     D("Signalling last buffer thread to write");
-     se->be->set_ready(se->be);
-     pthread_mutex_lock(se->be->headlock);
-     pthread_cond_signal(se->be->iosignal);
-     pthread_mutex_unlock(se->be->headlock);
-     }
-     */
-  //#if(DEBUG_OUTPUT)
   fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
   spec_ops->running = 0;
-  //#endif
-  //return sender_exit(spec_ops);
   pthread_exit(NULL);
 
 }

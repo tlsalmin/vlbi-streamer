@@ -76,6 +76,11 @@ int sbuf_seqnumcheck(void* buffo, int seq){
   else
     return 0;
 }
+int sbuf_free(void* buffo){
+  struct simplebuf * sbuf = (struct simplebuf*)buffo;
+  free(sbuf);
+  return 0;
+}
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
@@ -97,6 +102,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   le->acquire = sbuf_acquire;
   le->check = sbuf_seqnumcheck;
   le->release = sbuf_release;
+  le->close = sbuf_free;
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
   D("Ringbuf added to membranch");
