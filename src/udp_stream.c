@@ -40,7 +40,6 @@
 
 #define SLEEP_ON_BUFFERS_TO_LOAD
 #define SEND_DEBUG 0
-#define SENDER_LOOKAHEAD 8
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame
@@ -373,7 +372,7 @@ void * udp_sender(void *streamo){
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
-  int loadup = MIN(SENDER_LOOKAHEAD, spec_ops->opt->cumul);
+  int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
 
   for(i=0;i<loadup;i++){
     /* When running in sendmode, the buffers are first getted 	*/
@@ -383,9 +382,6 @@ void * udp_sender(void *streamo){
     err = start_loading(spec_ops->opt, &packets_left_to_load, &files_loaded, NULL);
     CHECK_ERRP("Start loading");
   }
-#ifdef SLEEP_ON_BUFFERS_TO_LOAD
-  sleep(10);
-#endif
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
   se->be = get_loaded(spec_ops->opt->membranch, files_sent++);
