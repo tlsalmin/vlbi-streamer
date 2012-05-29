@@ -155,7 +155,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
 }
 int udps_common_init_stuff(struct streamer_entity *se)
 {
-  int err,len,def;
+  int err,len,def,defcheck;
   struct udpopts * spec_ops = se->opt;
   if(spec_ops->opt->device_name != NULL){
     //struct sockaddr_ll ll;
@@ -203,14 +203,44 @@ int udps_common_init_stuff(struct streamer_entity *se)
   len = sizeof(def);
   def=0;
   if(spec_ops->opt->optbits & READMODE){
-    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t *) &len);
-    D("SNDBUF size is %d",,def);
-    CHECK_ERR("SNDBUF size");
+    err = 0;
+    D("Doing the double rcvbuf-loop");
+    def = spec_ops->opt->buf_elem_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying RCVBUF size %d",, def);
+      }
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+      if(defcheck != (def << 1)){
+	D("Limit reached. Final size is %d Bytes",,defcheck);
+	break;
+      }
+    }
   }
   else{
+    err=0;
+    /*
     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
-    D("RCVBUF size is %d",,def);
     CHECK_ERR("RCVBUF size");
+    */
+    D("Doing the double rcvbuf-loop");
+    def = spec_ops->opt->buf_elem_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying RCVBUF size %d",, def);
+      }
+      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+      if(defcheck != (def << 1)){
+	D("Limit reached. Final size is %d Bytes",,defcheck);
+	break;
+      }
+    }
   }
 
 #ifdef SO_NO_CHECK
