@@ -39,7 +39,9 @@
 #include "udp_stream.h"
 
 #define SLEEP_ON_BUFFERS_TO_LOAD
-#define SEND_DEBUG 1
+/* Using this until solved properly */
+#define UGLY_BUSYLOOP_ON_TIMER
+#define SEND_DEBUG 0
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame
@@ -479,21 +481,27 @@ void * udp_sender(void *streamo){
 #endif	
 	//nanoadd(&now, wait);
 	//req.tv_nsec = wait;
+#ifdef UGLY_BUSYLOOP_ON_TIMER
+	while(nanodiff(&(spec_ops->opt->wait_last_sent),&now) < spec_ops->opt->wait_nanoseconds){
+	  clock_gettime(CLOCK_REALTIME, &now);
+	}
+#else
 	err = nanosleep(&req,&rem);
+#endif
 	//specadd(&(spec_ops->opt->wait_last_sent), &req);
 	//err = usleep(req.tv_nsec/1000);
-	nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);
-#if(SEND_DEBUG)
+	//nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);
 	clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
+#if(SEND_DEBUG)
 	fprintf(stdout, "Really slept %lu\n", nanodiff(&now, &(spec_ops->opt->wait_last_sent)));
 #endif
       }
       else{
 #if(SEND_DEBUG)
 	fprintf(stdout, "Runaway timer! Resetting\n");
+#endif
 	spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
 	spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-#endif
 
       }
 
