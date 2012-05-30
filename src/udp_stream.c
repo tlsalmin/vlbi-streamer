@@ -14,7 +14,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <sys/mman.h> //FOR MMAP and poll
+#include <sys/mman.h> //for MMAP and poll
 #include <sys/poll.h>
 
 #include <pthread.h>
@@ -335,7 +335,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 int start_loading(struct opt_s * opt, unsigned long *packets_left, unsigned long *fileat, struct buffer_entity * be){
   unsigned long nuf = MIN(*packets_left, ((unsigned long)opt->buf_num_elems));
   if (be == NULL)
-    be = get_free(opt->membranch, opt, *fileat,0);
+    be = get_free(opt->membranch, opt, *fileat,0, NULL);
   /* Reacquiring just updates the file number we want */
   else
     be->acquire((void*)be, opt, *fileat,0);
@@ -425,7 +425,7 @@ void * udp_sender(void *streamo){
   D("Starting stream send");
   i=0;
   clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
-  while(packets_left_to_send > 0){
+  while(files_sent < spec_ops->opt->cumul){
     if(i == spec_ops->opt->buf_num_elems){
       D("Buffer empty, Getting another: %lu",, files_sent);
       /* Check for missing file here so we can keep simplebuffer simple */
@@ -562,7 +562,7 @@ void* udp_rxring(void *streamo)
   pfd.events = POLLIN|POLLRDNORM|POLLERR;
   D("Starting mmap polling");
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, bufnum);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, bufnum, NULL);
   inc = se->be->get_inc(se->be);
   CHECK_AND_EXIT(se->be);
 
@@ -600,7 +600,7 @@ void* udp_rxring(void *streamo)
 	/* Increment file counter! */
 	//spec_ops->opt->n_files++;
 
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, bufnum);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, bufnum, NULL);
 	CHECK_AND_EXIT(se->be);
 	inc = se->be->get_inc(se->be);
 
@@ -654,7 +654,7 @@ void* udp_receiver(void *streamo)
   spec_ops->incomplete = 0;
   spec_ops->dropped = 0;
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul,0);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul,0, NULL);
   CHECK_AND_EXIT(se->be);
   void * buf = se->be->simple_get_writebuf(se->be, &inc);
 
@@ -678,7 +678,7 @@ void* udp_receiver(void *streamo)
       spec_ops->opt->cumul++;
 
       /* Get a new buffer */
-      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul,0);
+      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul,0, NULL);
       CHECK_AND_EXIT(se->be);
       buf = se->be->simple_get_writebuf(se->be, &inc);
       i=0;

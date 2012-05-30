@@ -12,7 +12,9 @@
 #endif
 #include "simplebuffer.h"
 #include "streamer.h"
+#define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
+#define DO_W_STUFF_IN_FIXED_BLOCKS
 
 int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0;
@@ -284,8 +286,11 @@ int* sbuf_getinc(struct buffer_entity *be){
 void close_recer(struct buffer_entity *be){
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
   E("Writer broken");
+  /* Done in close */
+  sbuf->opt->hd_failures++;
   remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
-  be->recer->close(be->recer,NULL);
+  //be->recer->close(be->recer,NULL);
+  D("Closed recer");
   be->recer = NULL;
 }
 int simple_write_bytes(struct buffer_entity *be){
@@ -297,9 +302,11 @@ int simple_write_bytes(struct buffer_entity *be){
   unsigned long count = sbuf->diff * sbuf->opt->buf_elem_size;
   void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
 
+#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   if(count > limit)
     count = limit;
-  else if (limit > count){
+#endif
+  if (limit > count){
     D("Only need to finish transaction");
     return simple_end_transaction(be);
   }
@@ -308,12 +315,13 @@ int simple_write_bytes(struct buffer_entity *be){
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld\n",, ret);
-    return -ret;
+    close_recer(be);
+    return -1;
   }
   else if (ret == 0){
     if(!(sbuf->opt->optbits & READMODE)){
       E("Failed write with 0");
-      close_recer(be);
+      //close_recer(be);
     }
     //Don't increment
   }
@@ -322,28 +330,26 @@ int simple_write_bytes(struct buffer_entity *be){
       fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
     }
     else{
+#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
       sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->buf_elem_size;
+#else
+      sbuf->diff = 0;
+#endif
     }
   }
   return 0;
 }
 int sbuf_async_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
-  int ret;
+  int err;
   sbuf->asyncdiff = sbuf->diff;
   while(sbuf->asyncdiff > 0){
     if(sbuf->diff > 0){
-      ret = simple_write_bytes(be);
-      if(ret!=0){
-	close_recer(be);
-	return -1;
-      }
+      err = simple_write_bytes(be);
+      CHECK_ERR_QUIET("Bytes written");
       DD("Checking async");
-      ret = sbuf_check(be,0);
-      if(ret!=0){
-	close_recer(be);
-	return -1;
-      }
+      err = sbuf_check(be,0);
+      CHECK_ERR_QUIET("Async bytes written");
     }
     else if (be->recer == NULL){
       E("Lost recer. restart!");
@@ -351,25 +357,19 @@ int sbuf_async_loop(struct buffer_entity *be){
     }
     else{
       D("Only checking. Not writing. asyncdiff still %d",,sbuf->asyncdiff);
-      ret = sbuf_check(be,1);
-      if(ret!=0){
-	close_recer(be);
-	return -1;
-      }
+      err = sbuf_check(be,1);
+      CHECK_ERR_QUIET("Async check");
     }
   }
   return 0;
 }
 int sbuf_sync_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
-  int ret;
+  int err;
   DD("Starting write loop for %d elements",, sbuf->diff);
   while(sbuf->diff > 0){
-    ret = simple_write_bytes(be);
-    if(ret!=0){
-      close_recer(be);
-      return -1;
-    }
+    err = simple_write_bytes(be);
+    CHECK_ERR_QUIET("sync bytes written");
     DD("Writeloop done. diff:  %d",,sbuf->diff);
   }
   return 0;
@@ -384,14 +384,34 @@ int write_buffer(struct buffer_entity *be){
   int ret;
 
   if(be->recer == NULL){
+    ret = 0;
     D("Getting rec entity for buffer");
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
       D("Getting rec entity id %d for file %d",, sbuf->opt->fileholders[sbuf->file_seqnum], sbuf->file_seqnum);
-      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->file_seqnum, sbuf->running, sbuf->opt->fileholders[sbuf->file_seqnum]);
+      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->file_seqnum, sbuf->running, sbuf->opt->fileholders[sbuf->file_seqnum], &ret);
+      /* TODO: This is a real bummer. Handle! 	*/
+      if(ret !=0){
+	E("Specific writer fails on acquired.");
+	E("Shutting it down and removing from list");
+	/* Not thread safe atm 			*/
+	remove_specific_from_fileholders(sbuf->opt, sbuf->opt->fileholders[sbuf->file_seqnum]);
+	close_recer(be);
+	set_free(sbuf->opt->membranch, be->self);
+	sbuf->ready_to_act = 0;
+	return 0;
       }
-    else
-      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running);
+    }
+    else{
+      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running, &ret);
+      if(ret !=0){
+	E("Error in acquired for random entity");
+	E("Shutting faulty writer down");
+	close_recer(be);
+	/* The next round will get a new recer */
+	return -1;
+      }
+    }
     CHECK_AND_EXIT(be->recer);
     D("Got rec entity");
   }
@@ -402,6 +422,8 @@ int write_buffer(struct buffer_entity *be){
   else{
     ret =sbuf_sync_loop(be);
   }
+  if(ret != 0)
+    return -1;
 
   /* If we've succesfully written everything: set everything free etc */
   //if((sbuf->diff == 0 && be->recer != NULL )){

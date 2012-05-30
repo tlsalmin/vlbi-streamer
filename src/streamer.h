@@ -91,7 +91,9 @@
 #define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
 #define INIT_ERROR return -1;
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR_CUST_QUIET(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERR_QUIET(x) CHECK_ERR_CUST_QUIET(x,err)
 #define CHECK_ERRP_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);pthread_exit(NULL);}else{D(x);}}while(0)
 #define CHECK_ERRP(x) CHECK_ERRP_CUST(x,err)
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
@@ -201,8 +203,8 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 void set_free(struct entity_list_branch *br, struct listed_entity* en);
 void set_loaded(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum);
-void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id);
+void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result);
+void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result);
 void* get_loaded(struct entity_list_branch *br, unsigned long seq);
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
@@ -227,6 +229,7 @@ struct opt_s
   //struct fileblocks *fbs;
   unsigned int optbits;
   int root_pid;
+  int hd_failures;
   unsigned long time;
   int port;
   unsigned long minmem;
@@ -278,6 +281,7 @@ struct opt_s
   unsigned long total_packets;
 };
 int write_cfgs_to_disks(struct opt_s *opt);
+int remove_specific_from_fileholders(struct opt_s *opt, int id);
 struct buffer_entity
 {
   void * opt;

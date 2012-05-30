@@ -49,7 +49,7 @@
 extern char *optarg;
 extern int optind, optopt;
 
-static struct opt_s opt;
+//static struct opt_s opt;
 
 void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
 {
@@ -114,6 +114,7 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
   mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
 }
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
+  D("Removing entity from branch");
   if(!mutex_free)
     pthread_mutex_lock(&(br->branchlock));
   if(en == br->freelist){
@@ -134,11 +135,13 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   en->child = NULL;
   en->father = NULL;
 
+  /* This close only frees the entity structure, not the underlying opts etc. */
   en->close(en->entity);
   free(en);
 
   if(!mutex_free)
     pthread_mutex_unlock(&(br->branchlock));
+  D("Entity removed from branch");
 }
 struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
   struct listed_entity *temp = *lep;
@@ -186,7 +189,7 @@ void* get_loaded(struct entity_list_branch *br, unsigned long seq){
   return temp->entity;
 }
 /* Get a specific free entity from branch 		*/
-void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id)
+void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity* temp = get_w_check(&br->freelist, id, &br->busylist, &br->loadedlist, br);
@@ -201,8 +204,12 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
     int ret = temp->acquire(temp->entity, opt,seq, bufnum);
-    if(ret != 0)
-      E("Acquire return non-zero value(Not handled)");
+    if(acquire_result != NULL)
+      *acquire_result = ret;
+    else{
+      if(ret != 0)
+	E("Acquire return non-zero value(Not handled)");
+    }
   }
   else
     D("Entity doesn't have an acquire-function");
@@ -210,7 +217,7 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
   return temp->entity;
 }
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum)
+void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
@@ -228,8 +235,12 @@ void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsig
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
     int ret = temp->acquire(temp->entity, opt,seq, bufnum);
-    if(ret != 0)
-      E("Acquire return non-zero value(Not handled)");
+    if(acquire_result != NULL)
+      *acquire_result = ret;
+    else{
+      if(ret != 0)
+	E("Acquire return non-zero value(Not handled)");
+    }
   }
   else
     D("Entity doesn't have an acquire-function");
@@ -242,20 +253,6 @@ void set_busy(struct entity_list_branch *br, struct listed_entity* en)
   mutex_free_set_busy(br,en);
   pthread_mutex_unlock(&(br->branchlock));
 }
-/*
-   int fb_add_value(struct fileblocks* fb, unsigned long seq){
-   if(fb->elements == fb->max_elements){
-   fb->max_elements = fb->max_elements << 1;
-   fb->files = (INDEX_FILE_TYPE*)realloc(fb->files,sizeof(INDEX_FILE_TYPE)*(fb->max_elements));
-   if(fb->files == NULL){
-   E("Realloc failed");
-   return -1;
-   }
-   }
-   fb->files[fb->elements++] = seq;
-   return 0;
-   }
-   */
 void print_br_stats(struct entity_list_branch *br){
   int free=0,busy=0,loaded=0;
   pthread_mutex_lock(&(br->branchlock));
@@ -403,7 +400,7 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
 	D("Closing writer");
 	((struct recording_entity*)le->entity)->close(((struct recording_entity*)le->entity),param);
 	removable = le;
-	D("Writer closed");
+	//D("Writer closed");
 	break;
       case BRANCHOP_WRITE_CFGS:
 	D("Writing cfg");
@@ -419,6 +416,7 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
     le = le->child;
     if(removable != NULL){
       remove_from_branch(br,removable,1);
+      //free(removable);
     }
   }
 }
@@ -429,6 +427,14 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
   oper_to_list(br,br->busylist,operation, param);
   oper_to_list(br,br->loadedlist,operation, param);
   pthread_mutex_unlock(&(br->branchlock));
+}
+int remove_specific_from_fileholders(struct opt_s *opt, int id){
+  int i;
+  for(i=0; i < opt->cumul ;i++){
+    if(opt->fileholders[i] == id)
+      opt->fileholders[i] = -1;
+  }
+  return 0;
 }
 int calculate_buffer_sizes(struct opt_s *opt){
   /* Calc how many elementes we get into the buffer to fill the minimun */
@@ -511,7 +517,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
     fprintf(stdout, "STREAMER: Alignment found between "
 	"%lu GB to %luGB"
 	", Each buffer having %lu MB"
-	", Writing in %lu size blocks"
+	", Writing in %lu MB size blocks"
 	", Elements in buffer %d"
 	", Total used memory: %luMB\n"
 	,opt->minmem, opt->maxmem, (opt->buf_elem_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->buf_elem_size*opt->n_threads)/MEG);
@@ -619,9 +625,10 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"Bytes: %lu\n"
 	"Read: %lu\n"
 	"Time: %lus\n"
+	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
     fprintf(stdout, "Stats for %s \n"
@@ -631,93 +638,95 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"Incomplete: %lu\n"
 	"Written: %lu\n"
 	"Time: %lu\n"
+	"HD-failures: %d\n"
 	"Net receive Speed: %luMb/s\n"
 	"HD write Speed: %luMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time) );
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
-static void parse_options(int argc, char **argv){
+static void parse_options(int argc, char **argv, struct opt_s* opt){
   int ret,i;
 
-  memset(&opt, 0, sizeof(struct opt_s));
-  opt.filename = NULL;
-  opt.device_name = NULL;
+  memset(opt, 0, sizeof(struct opt_s));
+  opt->filename = NULL;
+  opt->device_name = NULL;
 
-  opt.diskids = 0;
+  opt->diskids = 0;
+  opt->hd_failures = 0;
 
   /* Opts using optbits */
-  //opt.capture_type = CAPTURE_W_FANOUT;
-  opt.optbits |= CAPTURE_W_UDPSTREAM;
-  opt.do_w_stuff_every = HD_MIN_WRITE_SIZE;
-  //opt.fanout_type = PACKET_FANOUT_LB;
-  //opt.optbits |= PACKET_FANOUT_LB;
-  opt.root_pid = getpid();
-  opt.port = 2222;
-  opt.n_threads = 1;
-  opt.n_drives = 1;
-  opt.buf_elem_size = DEF_BUF_ELEM_SIZE;
-  opt.cumul_found = 0;
+  //opt->capture_type = CAPTURE_W_FANOUT;
+  opt->optbits |= CAPTURE_W_UDPSTREAM;
+  opt->do_w_stuff_every = HD_MIN_WRITE_SIZE;
+  //opt->fanout_type = PACKET_FANOUT_LB;
+  //opt->optbits |= PACKET_FANOUT_LB;
+  opt->root_pid = getpid();
+  opt->port = 2222;
+  opt->n_threads = 1;
+  opt->n_drives = 1;
+  opt->buf_elem_size = DEF_BUF_ELEM_SIZE;
+  opt->cumul_found = 0;
 
-  //opt.optbits |=USE_RX_RING;
+  //opt->optbits |=USE_RX_RING;
   //TODO: Add option for choosing backend
-  //opt.buf_type = BUFFER_RINGBUF;
-  opt.optbits |= BUFFER_SIMPLE;
+  //opt->buf_type = BUFFER_RINGBUF;
+  opt->optbits |= BUFFER_SIMPLE;
   /* Calculated automatically when aligment is calculated */
-  //opt.filesize = FILE_SPLIT_TO_BLOCKS;
-  //opt.rec_type= REC_DEF;
-  opt.optbits |= REC_DEF;
-  opt.taken_rpoints = 0;
-  opt.rate = 10000;
-  opt.minmem = MIN_MEM_GIG;
-  opt.maxmem = MAX_MEM_GIG;
-  //opt.handle = 0;
-  //opt.read = 0;
-  opt.tid = 0;
-  //opt.async = 0;
-  //opt.optbits = 0xff000000;
+  //opt->filesize = FILE_SPLIT_TO_BLOCKS;
+  //opt->rec_type= REC_DEF;
+  opt->optbits |= REC_DEF;
+  opt->taken_rpoints = 0;
+  opt->rate = 10000;
+  opt->minmem = MIN_MEM_GIG;
+  opt->maxmem = MAX_MEM_GIG;
+  //opt->handle = 0;
+  //opt->read = 0;
+  opt->tid = 0;
+  //opt->async = 0;
+  //opt->optbits = 0xff000000;
   int drives_set = 0;
-  opt.optbits |= SIMPLE_BUFFER;
-  opt.socket = 0;
+  opt->optbits |= SIMPLE_BUFFER;
+  opt->socket = 0;
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:x"))!= -1){
     switch (ret){
       case 'i':
-	opt.device_name = strdup(optarg);
+	opt->device_name = strdup(optarg);
 	break;
       case 'v':
-	opt.optbits |= VERBOSE;
+	opt->optbits |= VERBOSE;
 	break;
       case 'd':
-	opt.n_drives = atoi(optarg);
+	opt->n_drives = atoi(optarg);
 	drives_set = 1;
 	break;
       case 'I':
-	opt.minmem = atoi(optarg);
+	opt->minmem = atoi(optarg);
 	break;
       case 'x':
-	opt.optbits |= USE_RX_RING;
+	opt->optbits |= USE_RX_RING;
 	break;
       case 'W':
-	opt.do_w_stuff_every = atoi(optarg)*MEG;
+	opt->do_w_stuff_every = atoi(optarg)*MEG;
 	break;
       case 'A':
-	opt.maxmem = atoi(optarg);
+	opt->maxmem = atoi(optarg);
 	break;
       case 'V':
-	opt.optbits |= MOUNTPOINT_VERBOSE;
+	opt->optbits |= MOUNTPOINT_VERBOSE;
 	break;
       case 't':
-	opt.optbits &= ~LOCKER_CAPTURE;
+	opt->optbits &= ~LOCKER_CAPTURE;
 	if (!strcmp(optarg, "fanout")){
-	  //opt.capture_type = CAPTURE_W_FANOUT;
-	  opt.optbits |= CAPTURE_W_FANOUT;
+	  //opt->capture_type = CAPTURE_W_FANOUT;
+	  opt->optbits |= CAPTURE_W_FANOUT;
 	}
 	else if (!strcmp(optarg, "udpstream")){
-	  //opt.capture_type = CAPTURE_W_UDPSTREAM;
-	  opt.optbits |= CAPTURE_W_UDPSTREAM;
+	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
+	  opt->optbits |= CAPTURE_W_UDPSTREAM;
 	}
 	else if (!strcmp(optarg, "sendfile")){
-	  //opt.capture_type = CAPTURE_W_SPLICER;
-	  opt.optbits |= CAPTURE_W_SPLICER;
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
 	else {
 	  fprintf(stderr, "Unknown packet capture type [%s]\n", optarg);
@@ -728,14 +737,14 @@ static void parse_options(int argc, char **argv){
 	/* Fanout choosing removed and set to default LB since
 	 * Implementation not that feasible anyway
 	 case 'a':
-	 opt.optbits &= ~LOCKER_FANOUT;
+	 opt->optbits &= ~LOCKER_FANOUT;
 	 if (!strcmp(optarg, "hash")){
-	//opt.fanout_type = PACKET_FANOUT_HASH;
-	opt.optbits |= PACKET_FANOUT_HASH;
+	//opt->fanout_type = PACKET_FANOUT_HASH;
+	opt->optbits |= PACKET_FANOUT_HASH;
 	}
 	else if (!strcmp(optarg, "lb")){
-	//opt.fanout_type = PACKET_FANOUT_LB;
-	opt.optbits |= PACKET_FANOUT_LB;
+	//opt->fanout_type = PACKET_FANOUT_LB;
+	opt->optbits |= PACKET_FANOUT_LB;
 	}
 	else {
 	fprintf(stderr, "Unknown fanout type [%s]\n", optarg);
@@ -746,45 +755,45 @@ static void parse_options(int argc, char **argv){
 	*/
       case 'a':
 #ifdef HAVE_RATELIMITER
-	opt.optbits |= WAIT_BETWEEN;
-	opt.wait_nanoseconds = atoi(optarg)*1000;
-	opt.wait_last_sent.tv_sec = 0;
-	opt.wait_last_sent.tv_nsec = 0;
+	opt->optbits |= WAIT_BETWEEN;
+	opt->wait_nanoseconds = atoi(optarg)*1000;
+	opt->wait_last_sent.tv_sec = 0;
+	opt->wait_last_sent.tv_nsec = 0;
 #else
 	fprintf(stderr, "STREAMER: Rate limiter not compiled\n");
 #endif
 	break;
       case 'r':
-	opt.rate = atoi(optarg);
+	opt->rate = atoi(optarg);
 	break;
       case 's':
-	opt.port = atoi(optarg);
+	opt->port = atoi(optarg);
 	break;
       case 'p':
-	opt.buf_elem_size = atoi(optarg);
+	opt->buf_elem_size = atoi(optarg);
 	break;
       case 'u':
 #ifdef HAVE_HUGEPAGES
-	opt.optbits |= USE_HUGEPAGE;
+	opt->optbits |= USE_HUGEPAGE;
 #endif
 	break;
       case 'n':
-	opt.n_threads = atoi(optarg);
+	opt->n_threads = atoi(optarg);
 	break;
       case 'q':
 #ifdef CHECK_OUT_OF_ORDER
-	//opt.handle |= CHECK_SEQUENCE;
-	opt.optbits |= CHECK_SEQUENCE;
+	//opt->handle |= CHECK_SEQUENCE;
+	opt->optbits |= CHECK_SEQUENCE;
 	break;
 #endif
       case 'm':
 	if (!strcmp(optarg, "r")){
-	  opt.optbits &= ~READMODE;
-	  //opt.read = 0;
+	  opt->optbits &= ~READMODE;
+	  //opt->read = 0;
 	}
 	else if (!strcmp(optarg, "s")){
-	  //opt.read = 1;
-	  opt.optbits |= READMODE;
+	  //opt->read = 1;
+	  opt->optbits |= READMODE;
 	}
 	else {
 	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
@@ -793,40 +802,40 @@ static void parse_options(int argc, char **argv){
 	}
 	break;
       case 'w':
-	opt.optbits &= ~LOCKER_REC;
+	opt->optbits &= ~LOCKER_REC;
 	if (!strcmp(optarg, "def")){
 	  /*
-	     opt.rec_type = REC_DEF;
-	     opt.async = 0;
+	     opt->rec_type = REC_DEF;
+	     opt->async = 0;
 	     */
-	  opt.optbits |= REC_DEF;
-	  opt.optbits &= ~ASYNC_WRITE;
+	  opt->optbits |= REC_DEF;
+	  opt->optbits &= ~ASYNC_WRITE;
 	}
 #ifdef HAVE_LIBAIO
 	else if (!strcmp(optarg, "aio")){
 	  /*
-	     opt.rec_type = REC_AIO;
-	     opt.async = 1;
+	     opt->rec_type = REC_AIO;
+	     opt->async = 1;
 	     */
-	  opt.optbits |= REC_AIO|ASYNC_WRITE;
+	  opt->optbits |= REC_AIO|ASYNC_WRITE;
 	}
 #endif
 	else if (!strcmp(optarg, "splice")){
 	  /*
-	     opt.rec_type = REC_SPLICER;
-	     opt.async = 0;
+	     opt->rec_type = REC_SPLICER;
+	     opt->async = 0;
 	     */
-	  opt.optbits |= REC_SPLICER;
-	  opt.optbits &= ~ASYNC_WRITE;
+	  opt->optbits |= REC_SPLICER;
+	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else if (!strcmp(optarg, "dummy")){
 	  /*
-	     opt.rec_type = REC_DUMMY;
-	     opt.buf_type = WRITER_DUMMY;
+	     opt->rec_type = REC_DUMMY;
+	     opt->buf_type = WRITER_DUMMY;
 	     */
-	  opt.optbits &= ~LOCKER_WRITER;
-	  opt.optbits |= REC_DUMMY|WRITER_DUMMY;
-	  opt.optbits &= ~ASYNC_WRITE;
+	  opt->optbits &= ~LOCKER_WRITER;
+	  opt->optbits |= REC_DUMMY|WRITER_DUMMY;
+	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else {
 	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
@@ -848,49 +857,49 @@ static void parse_options(int argc, char **argv){
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
   /*
-     if(opt.optbits & USE_RX_RING)
-     opt.buf_elem_size += TPACKET_HDRLEN;
+     if(opt->optbits & USE_RX_RING)
+     opt->buf_elem_size += TPACKET_HDRLEN;
      */
   //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
-  opt.filename = argv[0];
+  opt->filename = argv[0];
   if(drives_set == 0)
-    opt.n_drives = opt.n_threads;
-  //opt.points = (struct rec_point *)calloc(opt.n_drives, sizeof(struct rec_point));
+    opt->n_drives = opt->n_threads;
+  //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
   //TODO: read diskspots from config file. Hardcoded for testing
-  for(i=0;i<opt.n_drives;i++){
-    opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-    //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
-    sprintf(opt.filenames[i], "%s%d%s%s%s", "/mnt/disk", i, "/", opt.filename,"/");
+  for(i=0;i<opt->n_drives;i++){
+    opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+    //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
+    sprintf(opt->filenames[i], "%s%d%s%s%s", "/mnt/disk", i, "/", opt->filename,"/");
   }
-  if(opt.optbits & READMODE)
-    opt.hostname = argv[1];
+  if(opt->optbits & READMODE)
+    opt->hostname = argv[1];
   else
-    opt.time = atoi(argv[1]);
-  opt.cumul = 0;
+    opt->time = atoi(argv[1]);
+  opt->cumul = 0;
 
 
   /* Calc the max per thread amount of packets we can receive */
   /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
-  //if(!(opt.optbits & READMODE)){
+  //if(!(opt->optbits & READMODE)){
   /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
   /* bytes_per_sec * bytes = total_bytes */
   /* total_bytes / threads = bytes per thread */
-  /* bytes_per_thread/opt.buf_elem_size = packets_per_thread */
+  /* bytes_per_thread/opt->buf_elem_size = packets_per_thread */
 
   /* Making this very verbose, since its only done once */
   /*
-     loff_t bytes_per_sec = (((unsigned long)opt.rate)*1024l*1024l)/8;
-     loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt.n_threads);
-     loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt.time);
-     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt.buf_elem_size);
-  //loff_t prealloc_bytes = (((unsigned long)opt.rate)*opt.time*1024)/(opt.buf_elem_size);
+     loff_t bytes_per_sec = (((unsigned long)opt->rate)*1024l*1024l)/8;
+     loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt->n_threads);
+     loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt->time);
+     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt->buf_elem_size);
+  //loff_t prealloc_bytes = (((unsigned long)opt->rate)*opt->time*1024)/(opt->buf_elem_size);
   */
   //Split kb/gb stuff to avoid overflow warning
-  //prealloc_bytes = (prealloc_bytes*1024*8)/opt.n_threads;
+  //prealloc_bytes = (prealloc_bytes*1024*8)/opt->n_threads;
   /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
-  //opt.max_num_packets = packets_per_thread;
+  //opt->max_num_packets = packets_per_thread;
 #if(DEBUG_OUTPUT)
-  //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt.rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
+  //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt->rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
   //}
 
@@ -907,14 +916,14 @@ static void parse_options(int argc, char **argv){
 #endif
   /* Check for memory limit						*/
   //unsigned long minmem = MIN_MEM_GIG*GIG;
-  if (opt.minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
+  if (opt->minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
 #if(DEBUG_OUTPUT)
     fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
 #endif
-    opt.minmem = rl.rlim_cur;
+    opt->minmem = rl.rlim_cur;
   }
-  if(!(opt.optbits & READMODE)){
-    if (calculate_buffer_sizes(&opt) != 0)
+  if(!(opt->optbits & READMODE)){
+    if (calculate_buffer_sizes(opt) != 0)
       exit(-1);
   }
 }
@@ -922,6 +931,7 @@ int main(int argc, char **argv)
 {
   int i,rc;
   int err;
+  struct opt_s opt;
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
   struct sched_param    param;
@@ -944,7 +954,7 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "STREAMER: Reading parameters\n");
 #endif
-  parse_options(argc,argv);
+  parse_options(argc,argv,&opt);
 
   /*
      switch(opt.capture_type){
@@ -1347,6 +1357,9 @@ int main(int argc, char **argv)
 #endif
   //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
 
+#if(DEBUG_OUTPUT)
+  fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
+#endif
   print_stats(&stats, &opt);
 
   /*Close everything */
@@ -1366,9 +1379,6 @@ int main(int argc, char **argv)
     //opt.time = (clock() - start_t);
 #endif
   }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
-#endif
   //Close all threads. Buffers and writers are closed in the threads close
   //for(i=0;i<opt.n_threads;i++){
   //threads[i].close(threads[i].opt, &stats);

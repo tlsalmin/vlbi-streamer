@@ -48,16 +48,22 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
   D("Opening file %s",,ioi->curfilename);
   err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
   if(err!=0){
-    fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
-    return err;
+    /* Situation where the directory doesn't yet exist but we're 	*/
+    /* writing so this shouldn't be a failure 				*/
+    if((err & (ENOTDIR|ENOENT)) && !(ioi->opt->optbits & READMODE)){
+      D("Directory doesn't exist. Creating it");
+      init_directory(re);
+      err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
+      if(err!=0){
+	fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
+	return err;
+      }
+    }
+    else{
+      fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
+      return err;
+    }
   }
-  /*
-  struct fileblocks *fb = ioi->opt->fbs + sizeof(struct fileblocks)*(ioi->id);
-  err = fb_add_value(fb,seq);
-  */
-  if(err != 0)
-    E("Failed to add fb value");
-  //free(filename);
   return 0;
 }
 int common_finish_file(void *recco){
@@ -86,7 +92,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       /* Goddang what's the big idea setting O_RDONLY to 00 */
       if(!(flags & (O_WRONLY|O_RDWR))){
 	perror("File open");
-	D("File %s not found, eventhought we wan't to read",,filename);
+	E("File %s not found, eventhought we wan't to read",,filename);
 	return EACCES;
       }
       else{
@@ -97,6 +103,11 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 	err = 0;
       }
     }
+    /* Directory doesn't exist */
+    else if(errno = ENOTDIR){
+      E("The directory doesn't exist");
+      return ENOTDIR;
+    }
     else{
       fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
       return err;
@@ -104,13 +115,11 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   }
 
   //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Opening file %s\n", filename);
-#endif
+  D("COMMON_WRT: Opening file %s",, filename);
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
   if(*fd < 0){
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
-    return errno;
+    return *fd;
   }
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: File opened\n");
@@ -122,7 +131,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       if(errno == EOPNOTSUPP){
 	fprintf(stdout, "COMMON_WRT: Not fallocating, since not supported\n");
 	err = 0;
-	}
+      }
       else{
 	fprintf(stderr, "COMMON_WRT: Fallocate failed on %s\n", filename);
 	return err;
@@ -143,11 +152,11 @@ int common_writecfg(struct recording_entity *re, void *opti){
   struct common_io_info *ioi  = re->opt;
   struct opt_s * opt = opti;
   char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
-  
+
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
   err = write_cfg(&(opt->cfg), cfgname);
   free(cfgname);
-  
+
   return err;
 }
 int common_readcfg(struct recording_entity *re, void *opti){
@@ -155,11 +164,11 @@ int common_readcfg(struct recording_entity *re, void *opti){
   struct common_io_info *ioi  = re->opt;
   struct opt_s * opt = opti;
   char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
-  
+
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
   err = read_cfg(&(opt->cfg), cfgname);
   free(cfgname);
-  
+
   return err;
 }
 int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count){
@@ -193,9 +202,9 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   }
   else{
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
-  INDEX_FILE_TYPE *debughelp = data;
-  fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
+    fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
+    INDEX_FILE_TYPE *debughelp = data;
+    fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
 #endif
     err =0;
   }
@@ -211,9 +220,9 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
   }
   else{
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
-  INDEX_FILE_TYPE *debughelp = data;
-  fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
+    fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
+    INDEX_FILE_TYPE *debughelp = data;
+    fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
 #endif
     err =0;
   }
@@ -267,8 +276,49 @@ int common_check_id(void *recco, int id){
 int common_close_and_free(void* recco){
   if(recco != NULL){
     struct recording_entity * re = (struct recording_entity *)recco;
+    //re->close(re,NULL);
     free(re);
   }
+  return 0;
+}
+int init_directory(struct recording_entity *re){
+  int err;
+  struct common_io_info *ioi = (struct common_io_info*)re->opt;
+  char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  /* Create directory */
+
+  sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",ioi->opt->filename);
+  D("Creating directory %s",, dirname);
+  if(ioi->opt->optbits & READMODE){
+    struct stat sb;
+
+    if(stat(dirname,&sb) != 0){
+      perror("Error Opening dir");
+      ERR_IN_INIT;
+    }
+    else if (!S_ISDIR(sb.st_mode)){
+      E("%s Not a directory. Not initializing this reader",,dirname);
+      ERR_IN_INIT;
+    }
+  }
+  else{
+    mode_t process_mask = umask(0);
+    err = mkdir(dirname, 0777);
+    umask(process_mask);
+    if(err!=0){
+      if(errno == EEXIST){
+	/* Directory exists shouldn't be ok in final release, since 	*/
+	/* it will overwrite existing recordings			*/
+	D("Directory exist. OK!");
+      }
+      else{
+	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
+	free(dirname);
+	ERR_IN_INIT;
+      }
+    }
+  }
+  free(dirname);
   return 0;
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
@@ -282,8 +332,9 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //ioi->opt->optbits = opt->optbits;
   ioi->opt = opt;
 
-
-
+  ioi->id = ioi->opt->diskids++;
+  err = init_directory(re);
+  CHECK_ERR("Init directory");
 
   //ioi->latest_write_num = 0;
   if(ioi->opt->optbits & READMODE){
@@ -316,63 +367,27 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   }
   //fprintf(stdout, "wut\n");
   //ioi->filename = opt->filenames[opt->taken_rpoints++];
-  ioi->id = opt->diskids++;
 
-  D("Creating directory");
-  char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  /* Create directory */
 
-    sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",opt->filename);
-    if(ioi->opt->optbits & READMODE){
-      struct stat sb;
+  //TODO: Set offset accordingly if file already exists. Not sure if
+  //needed, since data consistency would take a hit anyway
+  ioi->offset = 0;
+  ioi->bytes_exchanged = 0;
 
-      if(stat(dirname,&sb) != 0){
-	perror("Error Opening dir");
-	ERR_IN_INIT;
-      }
-      else if (!S_ISDIR(sb.st_mode)){
-	E("%s Not a directory. Not initializing this reader",,dirname);
-	ERR_IN_INIT;
-      }
-    }
-    else{
-      mode_t process_mask = umask(0);
-      err = mkdir(dirname, 0777);
-      umask(process_mask);
-      if(err!=0){
-	if(errno == EEXIST){
-	  /* Directory exists shouldn't be ok in final release, since 	*/
-	  /* it will overwrite existing recordings			*/
-	  D("Directory exist. OK!");
-	}
-	else{
-	  E("COMMON_WRT: Init: Error in file open: %s",, dirname);
-	  free(dirname);
-	  ERR_IN_INIT;
-	}
-      }
-    }
-    free(dirname);
-
-    //TODO: Set offset accordingly if file already exists. Not sure if
-    //needed, since data consistency would take a hit anyway
-    ioi->offset = 0;
-    ioi->bytes_exchanged = 0;
-
-    /* Only after everything ok add to the diskbranches */
-    D("Adding writer to diskbranch");
-    struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-    le->entity = (void*)re;
-    le->child = NULL;
-    le->father = NULL;
-    le->acquire = common_open_new_file;
-    le->release = common_finish_file;
-    le->check = common_check_id;
-    le->close = common_close_and_free;
-    re->self= le;
-    add_to_entlist(opt->diskbranch, le);
-    D("Writer added to diskbranch");
-    return 0;
+  /* Only after everything ok add to the diskbranches */
+  D("Adding writer to diskbranch");
+  struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+  le->entity = (void*)re;
+  le->child = NULL;
+  le->father = NULL;
+  le->acquire = common_open_new_file;
+  le->release = common_finish_file;
+  le->check = common_check_id;
+  le->close = common_close_and_free;
+  re->self= le;
+  add_to_entlist(opt->diskbranch, le);
+  D("Writer added to diskbranch");
+  return 0;
 }
 INDEX_FILE_TYPE * common_pindex(struct recording_entity *re){
   struct common_io_info * ioi = re->opt;
@@ -422,7 +437,8 @@ int common_close(struct recording_entity * re, void * stats){
     //free(ioi->indices);
     /* No need to close indice-file since it was read into memory */
   }
-
+  //remove_from_branch(ioi->opt->diskbranch, re->self, 0);
+  //free(re->self);
   free(ioi);
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Writer closed\n");
