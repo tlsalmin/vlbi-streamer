@@ -11,7 +11,7 @@ AC_PROG_CC
 
 #Options
 
-AC_MSG_CHECKING(--enable-hugegpages argument)
+AC_MSG_CHECKING(--enable-hugepages argument)
 AC_ARG_ENABLE(hugepages,
     [  --enable-hugepages         Enable support for hugepages.],
     [enable_hugepages=$enableval],
@@ -69,6 +69,16 @@ AS_IF([test "x$enable_debug" != "xno"], [
 		     AC_DEFINE(DEBUG_OUTPUT, 1, [Print debug_output to stdout])
 		     ], AC_DEFINE(DEBUG_OUTPUT, 0, [Print debug_output to stdout]))
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
+AC_MSG_CHECKING([--enable-senddebug argument])
+AC_ARG_ENABLE(senddebug,
+    [  --enable-senddebug         Enable senddebug output.],
+    [enable_senddebug=$enableval],
+    [enable_senddebug="no"])
+AC_MSG_RESULT($enable_senddebug)
+AS_IF([test "x$enable_senddebug" != "xno"], [
+		     AC_DEFINE(SEND_DEBUG, 1, [Print senddebug_output to stdout])
+		     ], AC_DEFINE(SEND_DEBUG, 0, [Print senddebug_output to stdout]))
+AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_senddebug}" = "yes"])
 
 AC_MSG_CHECKING([--enable-multisenddebug argument])
 AC_ARG_ENABLE(multisenddebug,

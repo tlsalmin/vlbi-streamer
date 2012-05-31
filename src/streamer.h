@@ -76,6 +76,7 @@
 #define BLOCK_ALIGN 4096
 //#define MAX_MEM_GIG 8
 //The default size
+#define INDEXING_LENGTH 8
 #define DEF_BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time

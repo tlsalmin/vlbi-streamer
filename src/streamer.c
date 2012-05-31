@@ -544,8 +544,8 @@ static void usage(char *binary){
       "-i INTERFACE	Which interface to bind to(Not required)\n"
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
-      "-n NUM	        Number of threads(Required)\n"
-      "-d DRIVES	Number of drives(Required)\n"
+      "-d DRIVES	Number of drives(Default: 1)\n"
+      "-n NUM	        Number of threads(Default: DRIVES+2)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"
@@ -556,7 +556,7 @@ static void usage(char *binary){
       "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
       "-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
       "-x 		Use an mmap rxring for receiving\n"
-      "-r RATE		Expected network rate in MB(default: 10000)\n"
+      "-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
 #ifdef HAVE_RATELIMITER
       "-a MYY		Wait MYY microseconds between packet sends\n"
 #endif
@@ -564,7 +564,7 @@ static void usage(char *binary){
 #ifdef HAVE_LIBAIO
       "aio|"
 #endif
-      "def|splice|dummy}	Choose writer to use(Default: defwriter)\n"
+      "def|splice|dummy}	Choose writer to use(Default: def)\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
 #endif
@@ -662,7 +662,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   //opt->optbits |= PACKET_FANOUT_LB;
   opt->root_pid = getpid();
   opt->port = 2222;
-  opt->n_threads = 1;
+  opt->n_threads = 0;
   opt->n_drives = 1;
   opt->buf_elem_size = DEF_BUF_ELEM_SIZE;
   opt->cumul_found = 0;
@@ -684,7 +684,6 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   opt->tid = 0;
   //opt->async = 0;
   //opt->optbits = 0xff000000;
-  int drives_set = 0;
   opt->optbits |= SIMPLE_BUFFER;
   opt->socket = 0;
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:x"))!= -1){
@@ -697,7 +696,6 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	break;
       case 'd':
 	opt->n_drives = atoi(optarg);
-	drives_set = 1;
 	break;
       case 'I':
 	opt->minmem = atoi(optarg);
@@ -860,16 +858,17 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
      if(opt->optbits & USE_RX_RING)
      opt->buf_elem_size += TPACKET_HDRLEN;
      */
-  //fprintf(stdout, "sizzle: %lu\n", sizeof(char));
+  
+  /* If n_threads isn't set, set it to n_drives +2 */
+  if(opt->n_threads == 0)
+    opt->n_threads = opt->n_drives +2;
+
   opt->filename = argv[0];
-  if(drives_set == 0)
-    opt->n_drives = opt->n_threads;
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
-  //TODO: read diskspots from config file. Hardcoded for testing
   for(i=0;i<opt->n_drives;i++){
     opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
     //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
-    sprintf(opt->filenames[i], "%s%d%s%s%s", "/mnt/disk", i, "/", opt->filename,"/");
+    sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
   }
   if(opt->optbits & READMODE)
     opt->hostname = argv[1];

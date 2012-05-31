@@ -37,7 +37,7 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  sprintf(ioi->curfilename, "%s%i%s%s%s%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",seq); 
+  sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,seq); 
 
 #ifdef UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
   if(sbuf_still_running == 0){
@@ -463,7 +463,11 @@ int common_check_files(struct recording_entity *re, void* opti){
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
   /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
-  err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
+  char* regstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", opt->filename);
+  //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
+  err = regcomp(&regex, regstring, 0);
+  free(regstring);
   CHECK_ERR("Regcomp");
 
 
@@ -478,7 +482,13 @@ int common_check_files(struct recording_entity *re, void* opti){
       /* If we match a data file */
       if( !err ){
 	D("Regexp matched %s",, ent->d_name);
-	temp = atoi(ent->d_name);
+	char the_index[INDEXING_LENGTH];
+	/* Grab the INDEXING_LENGTH last chars from ent->d_name, which is the	*/
+	/* The files index							*/
+	char * start_of_index= ent->d_name+(strlen(ent->d_name))-INDEXING_LENGTH;
+	memcpy(the_index,start_of_index,INDEXING_LENGTH);
+	//temp = atoi(ent->d_name);
+	temp = atoi(the_index);
 	if((unsigned long)temp > ioi->opt->cumul)
 	  E("Extra files found in dir!");
 	else

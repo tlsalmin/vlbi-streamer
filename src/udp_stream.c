@@ -41,13 +41,13 @@
 #define SLEEP_ON_BUFFERS_TO_LOAD
 /* Using this until solved properly */
 #define UGLY_BUSYLOOP_ON_TIMER
-#define SEND_DEBUG 0
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame
 #define PKT_OFFSET      (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + \
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define BIND_WITH_PF_PACKET
+#define PLOTTABLE_SEND_DEBUG 1
 //#define SHOW_PACKET_METADATA;
 
 
@@ -389,6 +389,9 @@ void * udp_sender(void *streamo){
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   struct timespec now;
+#if(SEND_DEBUG)
+  struct timespec reference;
+#endif
   struct timespec req,rem;
   req.tv_sec = 0;
   req.tv_nsec = 0;
@@ -462,13 +465,21 @@ void * udp_sender(void *streamo){
 #ifdef HAVE_RATELIMITER
     if(spec_ops->opt->optbits & WAIT_BETWEEN){
       clock_gettime(CLOCK_REALTIME, &now);
+#if(SEND_DEBUG)
+      reference.tv_sec = now.tv_sec;
+      reference.tv_nsec = now.tv_nsec;
+#endif
       // waittime - (time_now - time_last) needs to be positive if we need to wait
       // 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
       // accuracy	
       //wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->opt->wait_last_sent.tv_sec*BILLION + spec_ops->opt->wait_last_sent.tv_nsec);
       wait = nanodiff(&(spec_ops->opt->wait_last_sent), &now);
 #if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(stdout, "%ld ", wait);
+#else
       fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
+#endif
 #endif
       //wait = spec_ops->opt->wait_nanoseconds - wait;
       req.tv_nsec = 0;
@@ -477,7 +488,11 @@ void * udp_sender(void *streamo){
       if(req.tv_nsec > 0){
 	//int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
 #if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+	fprintf(stdout, "%ld ", req.tv_nsec);
+#else
 	fprintf(stdout, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", req.tv_nsec);
+#endif
 #endif	
 	//nanoadd(&now, wait);
 	//req.tv_nsec = wait;
@@ -491,26 +506,28 @@ void * udp_sender(void *streamo){
 	//specadd(&(spec_ops->opt->wait_last_sent), &req);
 	//err = usleep(req.tv_nsec/1000);
 	//nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);
-	clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
+//#ifndef UGLY_BUSYLOOP_ON_TIMER
+//#endif
+	clock_gettime(CLOCK_REALTIME, &(now));
 #if(SEND_DEBUG)
-	fprintf(stdout, "Really slept %lu\n", nanodiff(&now, &(spec_ops->opt->wait_last_sent)));
+#if(PLOTTABLE_SEND_DEBUG)
+	fprintf(stdout, "%ld\n", nanodiff(&reference, &now));
+#else
+	fprintf(stdout, "UDP_STREAMER: Really slept %lu\n", nanodiff(&reference, &now));
+#endif
 #endif
       }
       else{
 #if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+	fprintf(stdout, "0 0\n");
+#else
 	fprintf(stdout, "Runaway timer! Resetting\n");
 #endif
-	spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
-	spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-
+#endif
       }
-
-      /*
-	 else{
-	 spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
-	 spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
-	 }
-	 */
+      spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
+      spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
     }
 
 #endif //HAVE_RATELIMITER
