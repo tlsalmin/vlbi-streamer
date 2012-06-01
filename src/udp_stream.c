@@ -781,7 +781,7 @@ void* udp_receiver(void *streamo)
       break;
     }
     /* Success! */
-    else{
+    else if(spec_ops->running==1){
       i++;
       buf+=spec_ops->opt->buf_elem_size;
       (*inc)++;
