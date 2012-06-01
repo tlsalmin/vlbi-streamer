@@ -489,7 +489,7 @@ int common_check_files(struct recording_entity *re, void* opti){
 	memcpy(the_index,start_of_index,INDEXING_LENGTH);
 	//temp = atoi(ent->d_name);
 	temp = atoi(the_index);
-	if((unsigned long)temp > ioi->opt->cumul)
+	if((unsigned long)temp >= ioi->opt->cumul)
 	  E("Extra files found in dir!");
 	else
 	{

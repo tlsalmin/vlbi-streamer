@@ -19,6 +19,7 @@
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define BILLION 1E9l
+#define MILLION 1E6l
 
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
@@ -108,6 +109,25 @@
 #define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);D("Got "x" is: %lu",,y);}while(0) 	
 #define SET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Set "x); err = config_setting_set_int(setting,y); CHECK_CFG(x);}while(0) 	
 #define GET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int(setting);D("Got "x" is: %d",,y);}while(0) 	
+
+//#define TIMERTYPE_GETTIMEOFDAY
+#ifdef TIMERTYPE_GETTIMEOFDAY
+#define TIMERTYPE struct timeval 
+#define GETTIME(x) gettimeofday(&x,NULL)
+#define ZEROTIME(x) x.tv_sec =0;x.tv_usec=0;
+#define SLEEP_NANOS(x) usleep((x.tv_usec)*1000)
+#define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_usec=from.tv_usec
+#define SETNANOS(x,y) x.tv_usec = (y)/1000
+#define GETNANOS(x) (x).tv_usec*1000
+#else
+#define TIMERTYPE struct timespec
+#define GETTIME(x) clock_gettime(CLOCK_REALTIME, &x)
+#define ZEROTIME(x) x.tv_sec =0;x.tv_nsec=0;
+#define SLEEP_NANOS(x) nanosleep(x,NULL)
+#define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_nsec=from.tv_nsec
+#define SETNANOS(x,y) x.tv_nsec = (y)
+#define GETNANOS(x) (x).tv_nsec
+#endif
 
 //Moved to configure
 //#define DEBUG_OUTPUT
@@ -252,7 +272,7 @@ struct opt_s
   unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
-  struct timespec wait_last_sent;
+  TIMERTYPE wait_last_sent;
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
