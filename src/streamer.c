@@ -45,7 +45,6 @@
 #define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
 
 /* This should be more configurable */
-#define CORES 6
 extern char *optarg;
 extern int optind, optopt;
 
@@ -755,8 +754,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 #ifdef HAVE_RATELIMITER
 	opt->optbits |= WAIT_BETWEEN;
 	opt->wait_nanoseconds = atoi(optarg)*1000;
-	opt->wait_last_sent.tv_sec = 0;
-	opt->wait_last_sent.tv_nsec = 0;
+	ZEROTIME(opt->wait_last_sent);
 #else
 	fprintf(stderr, "STREAMER: Rate limiter not compiled\n");
 #endif

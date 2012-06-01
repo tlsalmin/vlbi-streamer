@@ -36,6 +36,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
+#define SLEEPCHECK_LOOPTIMES 100
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
 /* Using this until solved properly */
@@ -406,6 +407,21 @@ void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
 #endif
   }
 }
+unsigned long get_min_sleeptime(){
+  unsigned long cumul = 0;
+  int i;
+  TIMERTYPE start,end;
+  ZEROTIME(start);
+  for(i=0;i<SLEEPCHECK_LOOPTIMES;i++){ 
+    ZEROTIME(end);
+    nanoadd(&end,1);
+    GETTIME(start);
+    SLEEP_NANOS(end);
+    GETTIME(end);
+    cumul+= nanodiff(&start,&end);
+  }
+  return cumul/SLEEPCHECK_LOOPTIMES;
+}
 void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add){
   /*
   datime->tv_sec = 0;
@@ -426,15 +442,20 @@ void * udp_sender(void *streamo){
 #if(SEND_DEBUG)
   TIMERTYPE reference;
 #endif
-  TIMERTYPE req,rem;
+#ifdef UGLY_BUSYLOOP_ON_TIMER
+  TIMERTYPE onenano;
+  ZEROTIME(onenano);
+  SETONE(onenano);
+#endif
+  TIMERTYPE req;
   ZEROTIME(req);
-  ZEROTIME(rem);
-  /*
-  req.tv_sec = 0;
-  req.tv_nsec = 0;
-  rem.tv_sec = 0;
-  rem.tv_nsec = 0;
-  */
+
+  /* Init minimun sleeptime. On the test machine the minimum time 	*/
+  /* Slept with nanosleep or usleep seems to be 55microseconds		*/
+  /* This means we can sleep only sleep multiples of it and then	*/
+  /* do the rest in a busyloop						*/
+  unsigned long minsleep = get_min_sleeptime();
+  D("Can sleep max %lu microseconds on average",, minsleep);
   long wait= 0;
   long unsigned int files_loaded =  0;
   long unsigned int files_sent = 0;
@@ -555,21 +576,20 @@ void * udp_sender(void *streamo){
 	//nanoadd(&now, wait);
 	//req.tv_nsec = wait;
 #ifdef UGLY_BUSYLOOP_ON_TIMER
+	while(GETNANOS(req) > minsleep){
+	  SLEEP_NANOS(onenano);
+	  SETNANOS(req,GETNANOS(req)-minsleep);
+	}
+	GETTIME(now);
 	while(nanodiff(&(spec_ops->opt->wait_last_sent),&now) < spec_ops->opt->wait_nanoseconds){
-	  //clock_gettime(CLOCK_REALTIME, &now);
 	  GETTIME(now);
 	}
 #else
 	//err = nanosleep(&req,&rem);
 	err = SLEEP_NANOS(req);
-#endif
-	//specadd(&(spec_ops->opt->wait_last_sent), &req);
-	//err = usleep(req.tv_nsec/1000);
-	//nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);
-//#ifndef UGLY_BUSYLOOP_ON_TIMER
-//#endif
-	//clock_gettime(CLOCK_REALTIME, &(now));
 	GETTIME(now);
+	//err = usleep(1);
+#endif
 #if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
 	fprintf(stdout, "%ld\n", nanodiff(&reference, &now));
@@ -588,8 +608,6 @@ void * udp_sender(void *streamo){
 #endif
       }
       COPYTIME(now,spec_ops->opt->wait_last_sent);
-      //spec_ops->opt->wait_last_sent.tv_sec = now.tv_sec;
-      //spec_ops->opt->wait_last_sent.tv_nsec = now.tv_nsec;
     }
 
 #endif //HAVE_RATELIMITER
