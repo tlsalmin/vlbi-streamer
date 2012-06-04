@@ -576,12 +576,17 @@ void * udp_sender(void *streamo){
 	//nanoadd(&now, wait);
 	//req.tv_nsec = wait;
 #ifdef UGLY_BUSYLOOP_ON_TIMER
+	/* First sleep in minsleep sleeps to get rid of the bulk		*/
 	while(GETNANOS(req) > minsleep){
 	  SLEEP_NANOS(onenano);
 	  SETNANOS(req,GETNANOS(req)-minsleep);
 	}
 	GETTIME(now);
+
+	/* Then sleep in busyloop for finetuning				*/
 	while(nanodiff(&(spec_ops->opt->wait_last_sent),&now) < spec_ops->opt->wait_nanoseconds){
+	/* This could be done in asm or by getting clock cycles but we don't  	*/
+	/* Control the NIC:s buffers anyway, so it doesn't really matter	*/
 	  GETTIME(now);
 	}
 #else

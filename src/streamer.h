@@ -131,7 +131,6 @@
 #define SETONE(x) x.tv_nsec=1
 #endif
 #define ZEROTIME(x) memset((void*)(&x),0,sizeof(TIMERTYPE))
-//#define ZEROTIMEP(x) memset(((void*)x),0,sizeof(struct TIMERTYPE))
 
 //Moved to configure
 //#define DEBUG_OUTPUT
@@ -249,6 +248,7 @@ struct opt_s
   long unsigned int cumul_found;
   //pthread_mutex_t cumlock;
   char *device_name;
+  char *cfgfile;
   int diskids;
   //unsigned long n_files;
   //struct fileblocks *fbs;

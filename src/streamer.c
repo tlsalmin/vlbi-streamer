@@ -539,36 +539,37 @@ int calculate_buffer_sizes(struct opt_s *opt){
  */
 static void usage(char *binary){
   fprintf(stderr, 
-      "usage: %s [OPTION]... name (time to receive / host to send to)\n"
-      "-i INTERFACE	Which interface to bind to(Not required)\n"
+      "usage: %s [OPTIONS]... name (time to receive / host to send to)\n"
+      "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
+#ifdef HAVE_RATELIMITER
+      "-a MYY		Wait MYY microseconds between packet sends\n"
+#endif
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
+      "-c CFGFILE	Load config from cfg-file CFGFILE\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-d DRIVES	Number of drives(Default: 1)\n"
+      "-i INTERFACE	Which interface to bind to(Not required)\n"
+      "-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
+      "-m {s|r}		Send or Receive the data(Default: receive)\n"
       "-n NUM	        Number of threads(Default: DRIVES+2)\n"
+      "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
+#ifdef CHECK_OUT_OF_ORDER
+      "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
+#endif
+      "-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"
 #endif
-      "-m {s|r}		Send or Receive the data(Default: receive)\n"
-      "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
-      "-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
-      "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
+      "-v 		Verbose. Print stats on all transfers\n"
+      "-V 		Verbose. Print stats on individual mountpoint transfers\n"
       "-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
-      "-x 		Use an mmap rxring for receiving\n"
-      "-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
-#ifdef HAVE_RATELIMITER
-      "-a MYY		Wait MYY microseconds between packet sends\n"
-#endif
       "-w {"
 #ifdef HAVE_LIBAIO
       "aio|"
 #endif
       "def|splice|dummy}	Choose writer to use(Default: def)\n"
-#ifdef CHECK_OUT_OF_ORDER
-      "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
-#endif
-      "-v 		Verbose. Print stats on all transfers\n"
-      "-V 		Verbose. Print stats on individual mountpoint transfers\n"
+      "-x 		Use an mmap rxring for receiving\n"
       ,binary);
 }
 /* Why don't I just memset? */
@@ -649,6 +650,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
+  opt->cfgfile = NULL//(char*)malloc(sizeof(char)*FILENAME_MAX);
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -685,10 +687,13 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   //opt->optbits = 0xff000000;
   opt->optbits |= SIMPLE_BUFFER;
   opt->socket = 0;
-  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:x"))!= -1){
+  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:xc:"))!= -1){
     switch (ret){
       case 'i':
 	opt->device_name = strdup(optarg);
+	break;
+      case 'c':
+	opt->cfgfile = strdup(optarg);
 	break;
       case 'v':
 	opt->optbits |= VERBOSE;
