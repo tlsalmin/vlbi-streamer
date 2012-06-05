@@ -271,7 +271,7 @@ void print_br_stats(struct entity_list_branch *br){
     le = le->child;
   }
   pthread_mutex_unlock(&(br->branchlock));
-  fprintf(stdout, "Free: %d, Busy: %d, Loaded: %d\n", free, busy, loaded);
+  LOG("Free: %d, Busy: %d, Loaded: %d\n", free, busy, loaded);
 }
 int write_cfgs_to_disks(struct opt_s *opt){
   if(opt->optbits & READMODE)
@@ -281,6 +281,130 @@ int write_cfgs_to_disks(struct opt_s *opt){
   return 0;
 }
 #ifdef HAVE_LIBCONFIG_H
+/* The full_cfg format is a bit different than the init_cfg format	*/
+/* Full cfgs have a root element for a session name to distinguish them	*/
+/* from one another.							*/
+int write_full_cfg(struct opt_s *opt){
+  config_setting_t *root, *setting;
+  int err=0;
+  int i;
+  D("Initializing CFG");
+  config_init(&(opt->cfg));
+  err = config_read_file(&(opt->cfg), opt->cfgfile);
+  CHECK_CFG("Load config");
+  root = config_root_setting(&(opt->cfg));
+  CHECK_ERR_NONNULL(setting, "Get root");
+  /* Since were writing, we should check if a cfg  group with the same 	*/
+  /* name already exists						*/
+  root = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
+  return 0;
+}
+int read_full_cfg(struct opt_s *opt){
+  config_setting_t *root, *setting;
+  int err=0;
+  int i;
+  D("Initializing CFG");
+  config_init(&(opt->cfg));
+  err = config_read_file(&(opt->cfg), opt->cfgfile);
+  CHECK_CFG("Load config");
+  root = config_root_setting(&(opt->cfg));
+  CHECK_ERR_NONNULL(setting, "Get root");
+  root = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
+  CHECK_ERR_NONNULL(setting, "Add global conf rootgroup");
+  return 0;
+}
+/* Set all the variables to opt from root. If check is set, then just	*/
+/* check the variables against options in opt and return -1 if there	*/
+/* is a discrepancy. If write is 1, the option is written to the cfg	*/
+/* instead for being read from the cfg					*/
+int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int write){
+  D("Option root parse, check: %d, write %d",,check,write);
+  config_setting_t * setting;
+  int err=0,index=0,filesize_found=0,filesize;
+  setting = config_setting_get_elem(root,index);
+
+  while(setting != NULL){
+    /* Have to make this a huge if else */
+    if(strcmp(config_setting_name(setting), "filesize") == 0){
+      if(config_setting_type(setting) != CONFIG_TYPE_INT64)
+	return -1;
+      /* Check for same filesize. Now this loops has to have been performed	*/
+      /* once before we try to check the option due to needing buf_elem_size	*/
+      else if(check == 1){
+	if(config_setting_get_int64(setting) != opt->buf_elem_size*opt->buf_num_elems)
+	  return -1;
+      }
+      else if(write == 1){
+	err = config_setting_set_int64(setting,opt->buf_elem_size*opt->buf_num_elems);
+	if(err != 0){
+	  E("Writing filesize");
+	  return -1;
+	}
+      }
+      else{
+	filesize_found=1;
+	filesize = config_setting_get_int64(setting);
+      }
+      //CFG_CHK_STR(opt->filesize)
+      //CFG_WRT_STR(opt->filename, "filesize")
+      //CFG_GET_STR(opt->filename)
+    }
+    CFG_FULL_STR(opt->filename, "filename")
+    CFG_FULL_UINT64(opt->cumul,"cumul")
+    CFG_FULL_STR(opt->device_name, "device_name")
+    CFG_FULL_UINT64(opt->optbits, "optbits")
+    CFG_FULL_UINT64(opt->time, "time")
+    CFG_FULL_INT(opt->port, "port")
+    CFG_FULL_UINT64(opt->minmem, "minmem")
+    CFG_FULL_UINT64(opt->maxmem, "maxmem")
+    CFG_FULL_INT(opt->n_threads, "n_threads")
+    CFG_FULL_INT(opt->n_drives, "n_drives")
+    CFG_FULL_INT(opt->rate, "rate")
+    CFG_FULL_UINT64(opt->do_w_stuff_every, "do_w_stuff_every")
+    CFG_FULL_INT(opt->wait_nanoseconds, "wait_nanoseconds")
+    CFG_FULL_UINT64(opt->buf_elem_size, "buf_elem_size")
+    CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
+    CFG_FULL_INT(opt->buf_division, "buf_division")
+    CFG_FULL_STR(opt->hostname, "hostname")
+    CFG_FULL_UINT64(opt->serverip, "serverip")
+    CFG_FULL_UINT64(opt->total_packets, "total_packets")
+
+    setting = config_setting_get_elem(root,++index);
+  }
+  /* Only use filesize here, since it needs buf_elem_size */
+  if(filesize_found==1){
+    opt->buf_num_elems = filesize/opt->buf_elem_size;
+    opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
+  }
+  
+  /*
+  if(check ==0){
+    D("Found first config at %s. Updating opts",,path);
+    update_cfg(opt,NULL);
+  }
+  */
+  /* Check other confs for consistency */
+  /*
+  else{
+    //found = 1;
+
+    err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
+    CHECK_CFG("buf_elem_size");
+    if(old_buf_elem_size == 0)
+      old_buf_elem_size = buf_elem_size;
+    else if (old_buf_elem_size != buf_elem_size)
+      E("ERROR disparity in config files buf_elem_size!");
+
+    err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
+    CHECK_CFG("Cumul");
+    if(old_cumul == 0)
+      old_cumul = cumul;
+    else if (old_cumul != cumul)
+      E("ERROR disparity in config files cumul!");
+  }
+  */
+  return 0;
+}
 /* TODO: Move this to the disk init */
 int init_cfg(struct opt_s *opt){
   config_setting_t *root, *setting;
@@ -289,25 +413,10 @@ int init_cfg(struct opt_s *opt){
   D("Initializing CFG");
   config_init(&(opt->cfg));
 
-  /* Init the fileblock indices */
-  /*
-     opt->fbs = (struct fileblocks*)malloc(sizeof(struct fileblocks)*opt->n_drives);
-     struct fileblocks *fb = opt->fbs;
-     */
-
-  /*
-     for(i=0;i<opt->n_drives;i++){
-     fb->files = (INDEX_FILE_TYPE*)malloc(sizeof(INDEX_FILE_TYPE)*INITIAL_N_FILES);
-     fb->elements = 0; 
-     fb->max_elements = INITIAL_N_FILES;
-     fb++;
-     }
-     */
-
   if(opt->optbits & READMODE){
     int found = 0;
     /* For checking on cfg-file consistency */
-    long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
+    //long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
@@ -315,34 +424,23 @@ int init_cfg(struct opt_s *opt){
 	E("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
-	if(found ==0){
-	  D("Found first config at %s. Updating opts",,path);
-	  update_cfg(opt,NULL);
+	LOG("Config found on %s\n",path); 
+	root = config_root_setting(&(opt->cfg));
+	if(found == 0){
+	  D("Getting opts from first config");
+	  set_from_root(opt,root,0,0);
 	  found = 1;
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
 	  memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
+	  D("opts read from first config");
 	}
-	/* Check other confs for consistency */
 	else{
-	  //found = 1;
-	  fprintf(stdout, "Config found on %s\n",path); 
-
-	  err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
-	  CHECK_CFG("buf_elem_size");
-	  if(old_buf_elem_size == 0)
-	    old_buf_elem_size = buf_elem_size;
-	  else if (old_buf_elem_size != buf_elem_size)
-	    E("ERROR disparity in config files buf_elem_size!");
-
-	  err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
-	  CHECK_CFG("Cumul");
-	  if(old_cumul == 0)
-	    old_cumul = cumul;
-	  else if (old_cumul != cumul)
-	    E("ERROR disparity in config files cumul!");
+	  err = set_from_root(opt,root,1,0);
+	  if( err != 0)
+	    E("Discrepancy in config at %s",, path);
+	  else
+	    D("Config at %s conforms to previous",, path);
 	}
-
-	//TODO: Check what parts of files we have
       }
     }
     if(found == 0){
@@ -350,6 +448,7 @@ int init_cfg(struct opt_s *opt){
       return -1;
     }
     else{
+      LOG("Config file reading finished\n");
     }
     free(path);
     //config_destroy(&opt->cfg);
@@ -456,7 +555,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
   D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
 
   /* TODO: do_w_stuff gets warped  from MB to num of elems*/
-  fprintf(stdout, "STREAMER: Calculating total buffer size between "
+  LOG("STREAMER: Calculating total buffer size between "
       "%lu GB to %luGB,"
       " size %lu packets, "
       "Doing maximum %luMB size writes\n"
@@ -464,7 +563,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
   /* Set do_w_stuff to minimum wanted */
   /* First set do_w_stuff to be packet aligned */
   unsigned long temp = opt->do_w_stuff_every/opt->buf_elem_size;
-  fprintf(stdout, "%lu\n",temp);
+  LOG("%lu\n",temp);
   opt->do_w_stuff_every = temp*(opt->buf_elem_size);
 
   /* Increase block division to fill min amount of memory */
@@ -490,14 +589,14 @@ int calculate_buffer_sizes(struct opt_s *opt){
     }
   }
   if(found ==0){
-    fprintf(stderr, "STREAMER: Didnt find Alignment"
+    LOGERR("STREAMER: Didnt find Alignment"
 	"%lu GB to %luGB"
 	", Each buffer having %lu bytes"
 	", Writing in %lu size blocks"
 	", %d Blocks per buffer"
 	", Elements in buffer %d\n"
 	,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every,opt->buf_division ,opt->buf_num_elems);
-    //fprintf(stdout, "STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/opt->buf_division);
+    //LOG("STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/opt->buf_division);
     return -1;
   }
   else{
@@ -513,14 +612,14 @@ int calculate_buffer_sizes(struct opt_s *opt){
        */
     //opt.filesize = opt->buf_num_elems*(opt->buf_elem_size);
 
-    fprintf(stdout, "STREAMER: Alignment found between "
+    LOG("STREAMER: Alignment found between "
 	"%lu GB to %luGB"
 	", Each buffer having %lu MB"
 	", Writing in %lu MB size blocks"
 	", Elements in buffer %d"
 	", Total used memory: %luMB\n"
 	,opt->minmem, opt->maxmem, (opt->buf_elem_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->buf_elem_size*opt->n_threads)/MEG);
-    //fprintf(stdout, "STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),opt->buf_division, (opt->buf_num_elems*opt->buf_elem_size)/opt->buf_division);
+    //LOG("STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),opt->buf_division, (opt->buf_num_elems*opt->buf_elem_size)/opt->buf_division);
     return 0;
   }
 }
@@ -538,7 +637,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
  * Stuff stolen from lindis sendfileudp
  */
 static void usage(char *binary){
-  fprintf(stderr, 
+  LOGERR(
       "usage: %s [OPTIONS]... name (time to receive / host to send to)\n"
       "-A MAXMEM	Use maximum MAXMEM amount of memory for ringbuffers(default 12GB)\n"
 #ifdef HAVE_RATELIMITER
@@ -613,14 +712,14 @@ void add_stats(struct stats* st1, struct stats* st2){
   st1->dropped += st2->dropped;
 }
 void print_intermediate_stats(struct stats *stats){
-  fprintf(stdout, "Net Send/Receive completed: \t%luMb/s\n"
+  LOG("Net Send/Receive completed: \t%luMb/s\n"
       "HD Read/write completed \t%luMb/s\n"
       "Dropped %lu\tIncomplete %lu\n"
       ,BYTES_TO_MBITSPS(stats->total_bytes), BYTES_TO_MBITSPS(stats->total_written), stats->dropped, stats->incomplete);
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
   if(opts->optbits & READMODE){
-    fprintf(stdout, "Stats for %s \n"
+    LOG("Stats for %s \n"
 	"Packets: %lu\n"
 	"Bytes: %lu\n"
 	"Read: %lu\n"
@@ -631,7 +730,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
-    fprintf(stdout, "Stats for %s \n"
+    LOG("Stats for %s \n"
 	"Packets: %lu\n"
 	"Bytes: %lu\n"
 	"Dropped: %lu\n"
@@ -650,7 +749,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
-  opt->cfgfile = NULL//(char*)malloc(sizeof(char)*FILENAME_MAX);
+  opt->cfgfile = NULL;//(char*)malloc(sizeof(char)*FILENAME_MAX);
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -731,7 +830,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
 	else {
-	  fprintf(stderr, "Unknown packet capture type [%s]\n", optarg);
+	  LOGERR("Unknown packet capture type [%s]\n", optarg);
 	  usage(argv[0]);
 	  exit(1);
 	}
@@ -749,7 +848,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->optbits |= PACKET_FANOUT_LB;
 	}
 	else {
-	fprintf(stderr, "Unknown fanout type [%s]\n", optarg);
+	LOGERR("Unknown fanout type [%s]\n", optarg);
 	usage(argv[0]);
 	exit(1);
 	}
@@ -761,7 +860,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->wait_nanoseconds = atoi(optarg)*1000;
 	ZEROTIME(opt->wait_last_sent);
 #else
-	fprintf(stderr, "STREAMER: Rate limiter not compiled\n");
+	LOGERR("STREAMER: Rate limiter not compiled\n");
 #endif
 	break;
       case 'r':
@@ -797,7 +896,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits |= READMODE;
 	}
 	else {
-	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
+	  LOGERR("Unknown mode type [%s]\n", optarg);
 	  usage(argv[0]);
 	  exit(1);
 	}
@@ -839,7 +938,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else {
-	  fprintf(stderr, "Unknown mode type [%s]\n", optarg);
+	  LOGERR("Unknown mode type [%s]\n", optarg);
 	  usage(argv[0]);
 	  exit(1);
 	}
@@ -861,7 +960,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
      if(opt->optbits & USE_RX_RING)
      opt->buf_elem_size += TPACKET_HDRLEN;
      */
-  
+
   /* If n_threads isn't set, set it to n_drives +2 */
   if(opt->n_threads == 0)
     opt->n_threads = opt->n_drives +2;
@@ -901,7 +1000,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
   //opt->max_num_packets = packets_per_thread;
 #if(DEBUG_OUTPUT)
-  //fprintf(stdout, "Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt->rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
+  //LOG("Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt->rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
 #endif
   //}
 
@@ -910,17 +1009,17 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   /* TODO: Doesn't work properly althought mem seems to be unlimited */
   ret = getrlimit(RLIMIT_DATA, &rl);
   if(ret < 0){
-    fprintf(stderr, "Failed to get rlimit of memory\n");
+    LOGERR("Failed to get rlimit of memory\n");
     exit(1);
   }
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
+  LOG("STREAMER: Queried max mem size %ld \n", rl.rlim_cur);
 #endif
   /* Check for memory limit						*/
   //unsigned long minmem = MIN_MEM_GIG*GIG;
   if (opt->minmem > rl.rlim_cur && rl.rlim_cur != RLIM_INFINITY){
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
+    LOG("STREAMER: Limiting memory to %lu\n", rl.rlim_cur);
 #endif
     opt->minmem = rl.rlim_cur;
   }
@@ -954,7 +1053,7 @@ int main(int argc, char **argv)
 
 
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Reading parameters\n");
+  LOG("STREAMER: Reading parameters\n");
 #endif
   parse_options(argc,argv,&opt);
 
@@ -1012,7 +1111,7 @@ int main(int argc, char **argv)
     memcpy(&(opt.serverip), (char *)hostptr->h_addr, sizeof(opt.serverip));
 
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "STREAMER: Resolved hostname\n");
+    LOG("STREAMER: Resolved hostname\n");
 #endif
   }
 
@@ -1051,7 +1150,7 @@ int main(int argc, char **argv)
 	break;
     }
     if(err != 0){
-      fprintf(stderr, "Error in writer init\n");
+      LOGERR("Error in writer init\n");
       free(re);
       //exit(-1);
     }
@@ -1069,7 +1168,7 @@ int main(int argc, char **argv)
 
   if(opt.optbits &READMODE){
     oper_to_all(opt.diskbranch,BRANCHOP_CHECK_FILES,(void*)&opt);
-    fprintf(stdout, "For recording %s: %lu files were found out of %lu total.\n", opt.filename, opt.cumul_found, opt.cumul);
+    LOG("For recording %s: %lu files were found out of %lu total.\n", opt.filename, opt.cumul_found, opt.cumul);
   }
 #endif
   /* If we're using the rx-ring, reserve space for it here */
@@ -1101,7 +1200,7 @@ int main(int argc, char **argv)
     E("Error setting schedparam for pthread attr: %s",,strerror(rc));
 #endif
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Initializing threads\n");
+  LOG("STREAMER: Initializing threads\n");
 #endif
   for(i=0;i<opt.n_threads;i++){
     //int err = 0;
@@ -1134,7 +1233,7 @@ int main(int argc, char **argv)
 	break;
     }
     if(err != 0){
-      fprintf(stderr, "Error in buffer init\n");
+      LOGERR("Error in buffer init\n");
       exit(-1);
     }
     //TODO: Change write loop to just loop. Now means both read and write
@@ -1176,12 +1275,12 @@ int main(int argc, char **argv)
       //err = sendfile_init_writer(&opt, &(streamer_ent));
       break;
     default:
-      fprintf(stdout, "DUR %X\n", opt.optbits);
+      LOG("DUR %X\n", opt.optbits);
       break;
 
   }
   if(err != 0){
-    fprintf(stderr, "Error in thread init\n");
+    LOGERR("Error in thread init\n");
     exit(-1);
   }
 
@@ -1257,8 +1356,8 @@ int main(int argc, char **argv)
     int sleeptodo;
     memset(&stats_prev, 0,sizeof(struct stats));
     //memset(&stats_now, 0,sizeof(struct stats));
-    fprintf(stdout, "STREAMER: Printing stats per second\n");
-    fprintf(stdout, "----------------------------------------\n");
+    LOG("STREAMER: Printing stats per second\n");
+    LOG("----------------------------------------\n");
 
     if(opt.optbits & READMODE)
       sleeptodo= 1;
@@ -1284,18 +1383,18 @@ int main(int argc, char **argv)
       neg_stats(&stats_now, &stats_prev);
 
       print_intermediate_stats(&stats_now);
-      //fprintf(stdout, "Time %ds \t------------------------\n", opt.time-sleeptodo+1);
+      //LOG("Time %ds \t------------------------\n", opt.time-sleeptodo+1);
       if(!(opt.optbits & READMODE))
-	fprintf(stdout, "Time %lds\n", opt.time-sleeptodo+1);
+	LOG("Time %lds\n", opt.time-sleeptodo+1);
       else
-	fprintf(stdout, "Time %ds\n", sleeptodo);
+	LOG("Time %ds\n", sleeptodo);
 
-      fprintf(stdout, "Ringbuffers: ");
+      LOG("Ringbuffers: ");
       print_br_stats(opt.membranch);
-      fprintf(stdout, "Recpoints: ");
+      LOG("Recpoints: ");
       print_br_stats(opt.diskbranch);
 
-      fprintf(stdout, "----------------------------------------\n");
+      LOG("----------------------------------------\n");
 
       if(!(opt.optbits & READMODE))
 	sleeptodo--;
@@ -1360,7 +1459,7 @@ int main(int argc, char **argv)
   //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
 
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Threads finished. Getting stats\n");
+  LOG("STREAMER: Threads finished. Getting stats\n");
 #endif
   print_stats(&stats, &opt);
 
@@ -1374,9 +1473,9 @@ int main(int argc, char **argv)
     struct timespec end_t;
     clock_gettime(CLOCK_REALTIME, &end_t);
     opt.time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
-    //fprintf(stdout, "END: %lus %luns, START: %lus, %luns\n", end_t.tv_sec, end_t.tv_nsec, start_t.tv_sec, start_t.tv_nsec);
+    //LOG("END: %lus %luns, START: %lus, %luns\n", end_t.tv_sec, end_t.tv_nsec, start_t.tv_sec, start_t.tv_nsec);
 #else
-    fprintf(stderr, "STREAMER: lrt not present. Setting time to 1\n");
+    LOGERR("STREAMER: lrt not present. Setting time to 1\n");
     opt.time = 1;
     //opt.time = (clock() - start_t);
 #endif
@@ -1396,7 +1495,7 @@ int main(int argc, char **argv)
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
   }
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "STREAMER: Threads closed\n");
+  LOG("STREAMER: Threads closed\n");
 #endif
   if(opt.device_name != NULL)
     free(opt.device_name);

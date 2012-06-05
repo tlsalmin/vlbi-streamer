@@ -474,6 +474,7 @@ int common_check_files(struct recording_entity *re, void* opti){
   DIR *dir;
   struct dirent *ent;
   dir = opendir(dirname);
+  free(dirname);
   if (dir != NULL) {
 
     /* print all the files and directories within directory */
@@ -510,6 +511,7 @@ int common_check_files(struct recording_entity *re, void* opti){
 	//exit(1);
       }
     }
+    D("Finished reading files in dir");
     closedir (dir);
   } else {
     /* could not open directory */
@@ -518,7 +520,6 @@ int common_check_files(struct recording_entity *re, void* opti){
   }
 
   regfree(&regex);
-  free(dirname);
   return 0;
 }
 void common_init_common_functions(struct opt_s * opt, struct recording_entity *re){
