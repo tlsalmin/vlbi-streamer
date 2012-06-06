@@ -181,7 +181,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
     else
 #endif /* HAVE_HUGEPAGES */
     {
-      D("Memaligning buffer");
+      D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->buf_elem_size);
       err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
       //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
       //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
@@ -240,6 +240,16 @@ remove(hugefs);
   D("Simplebuf closed");
   return 0;
 }
+void close_recer(struct buffer_entity *be){
+  struct simplebuf *sbuf = (struct simplebuf *)be->opt;
+  E("Writer broken");
+  /* Done in close */
+  sbuf->opt->hd_failures++;
+  remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
+  //be->recer->close(be->recer,NULL);
+  D("Closed recer");
+  be->recer = NULL;
+}
 int simple_end_transaction(struct buffer_entity *be){
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->buf_elem_size;
@@ -256,7 +266,8 @@ int simple_end_transaction(struct buffer_entity *be){
 
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
-    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld\n", ret);
+    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%d\n", ret,sbuf->diff);
+    close_recer(be);
     return -1;
   }
   else if (ret == 0){
@@ -283,16 +294,6 @@ void* sbuf_getbuf(struct buffer_entity *be, int ** diff){
 int* sbuf_getinc(struct buffer_entity *be){
   return &((struct simplebuf*)be->opt)->diff;
 }
-void close_recer(struct buffer_entity *be){
-  struct simplebuf *sbuf = (struct simplebuf *)be->opt;
-  E("Writer broken");
-  /* Done in close */
-  sbuf->opt->hd_failures++;
-  remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
-  //be->recer->close(be->recer,NULL);
-  D("Closed recer");
-  be->recer = NULL;
-}
 int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
@@ -306,7 +307,7 @@ int simple_write_bytes(struct buffer_entity *be){
   if(count > limit)
     count = limit;
 #endif
-  if (limit > count){
+  if (limit != count){
     D("Only need to finish transaction");
     return simple_end_transaction(be);
   }
@@ -314,7 +315,7 @@ int simple_write_bytes(struct buffer_entity *be){
   DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, offset, count);
   if(ret<0){
-    E("RINGBUF: Error in Rec entity write: %ld\n",, ret);
+    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)offset, count);
     close_recer(be);
     return -1;
   }

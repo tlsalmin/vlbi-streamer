@@ -502,7 +502,7 @@ void * udp_sender(void *streamo){
 	files_skipped++;
 	//files_sent++;
 	/* If last file is missing, we might hit negative on left_to_send 	*/
-	if(packets_left_to_send < spec_ops->opt->buf_num_elems)
+	if(packets_left_to_send < (unsigned long)spec_ops->opt->buf_num_elems)
 	  packets_left_to_send = 0;
 	else
 	  packets_left_to_send -= spec_ops->opt->buf_num_elems;
@@ -577,7 +577,7 @@ void * udp_sender(void *streamo){
 	//req.tv_nsec = wait;
 #ifdef UGLY_BUSYLOOP_ON_TIMER
 	/* First sleep in minsleep sleeps to get rid of the bulk		*/
-	while(GETNANOS(req) > minsleep){
+	while((unsigned long)GETNANOS(req) > minsleep){
 	  SLEEP_NANOS(onenano);
 	  SETNANOS(req,GETNANOS(req)-minsleep);
 	}
@@ -636,8 +636,9 @@ void * udp_sender(void *streamo){
     }
   }
   D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, packets_left_to_send, spec_ops->total_captured_packets);
-  if(se->be != NULL)
+  if(se->be != NULL){
     set_free(spec_ops->opt->membranch, se->be->self);
+    }
   spec_ops->running = 0;
   //return sender_exit(spec_ops);
   pthread_exit(NULL);
@@ -842,7 +843,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   int err;
   get_udp_stats(opt_own,  stats);
   if(!(spec_ops->opt->optbits & READMODE)){
-    err = update_cfg(spec_ops->opt, NULL);
+    err = set_from_root(spec_ops->opt, NULL, 0,1);
     CHECK_ERR("update_cfg");
     err = write_cfgs_to_disks(spec_ops->opt);
     CHECK_ERR("write_cfg");

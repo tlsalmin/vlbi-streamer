@@ -25,6 +25,7 @@
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
 #include "simplebuffer.h"
+#define IF_DUPLICATE_CFG_ONLY_UPDATE
 #define TUNE_AFFINITY
 #define PRIORITY_SETTINGS
 #define KB 1024
@@ -91,13 +92,18 @@ void mutex_free_change_branch(struct listed_entity **from, struct listed_entity 
 void set_free(struct entity_list_branch *br, struct listed_entity* en)
 {
   pthread_mutex_lock(&(br->branchlock));
+  if(en == NULL)
+    D("WHATTFAU");
   //Only special case if the entity is at the start of the list
+  D("Changing entity from busy to free");
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
   if(en->release != NULL){
+    D("Running release on entity");
     int ret = en->release(en->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
+  D("Entity free'd. Signaling");
   pthread_cond_broadcast(&(br->busysignal));
   pthread_mutex_unlock(&(br->branchlock));
 }
@@ -114,8 +120,9 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
 }
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
   D("Removing entity from branch");
-  if(!mutex_free)
+  if(!mutex_free){
     pthread_mutex_lock(&(br->branchlock));
+  }
   if(en == br->freelist){
     if(en->child != NULL)
       en->child->father = NULL;
@@ -134,12 +141,15 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   en->child = NULL;
   en->father = NULL;
 
-  /* This close only frees the entity structure, not the underlying opts etc. */
+  /* This close only frees the entity structure, not the underlying opts etc. 	*/
   en->close(en->entity);
   free(en);
 
-  if(!mutex_free)
+  if(!mutex_free){
+    /* Signal so waiting threads can exit if the situation is bad(lost writers	*/
+    pthread_cond_broadcast(&(br->busysignal));
     pthread_mutex_unlock(&(br->branchlock));
+  }
   D("Entity removed from branch");
 }
 struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
@@ -281,38 +291,6 @@ int write_cfgs_to_disks(struct opt_s *opt){
   return 0;
 }
 #ifdef HAVE_LIBCONFIG_H
-/* The full_cfg format is a bit different than the init_cfg format	*/
-/* Full cfgs have a root element for a session name to distinguish them	*/
-/* from one another.							*/
-int write_full_cfg(struct opt_s *opt){
-  config_setting_t *root, *setting;
-  int err=0;
-  int i;
-  D("Initializing CFG");
-  config_init(&(opt->cfg));
-  err = config_read_file(&(opt->cfg), opt->cfgfile);
-  CHECK_CFG("Load config");
-  root = config_root_setting(&(opt->cfg));
-  CHECK_ERR_NONNULL(setting, "Get root");
-  /* Since were writing, we should check if a cfg  group with the same 	*/
-  /* name already exists						*/
-  root = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
-  return 0;
-}
-int read_full_cfg(struct opt_s *opt){
-  config_setting_t *root, *setting;
-  int err=0;
-  int i;
-  D("Initializing CFG");
-  config_init(&(opt->cfg));
-  err = config_read_file(&(opt->cfg), opt->cfgfile);
-  CHECK_CFG("Load config");
-  root = config_root_setting(&(opt->cfg));
-  CHECK_ERR_NONNULL(setting, "Get root");
-  root = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
-  CHECK_ERR_NONNULL(setting, "Add global conf rootgroup");
-  return 0;
-}
 /* Set all the variables to opt from root. If check is set, then just	*/
 /* check the variables against options in opt and return -1 if there	*/
 /* is a discrepancy. If write is 1, the option is written to the cfg	*/
@@ -320,38 +298,43 @@ int read_full_cfg(struct opt_s *opt){
 int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int write){
   D("Option root parse, check: %d, write %d",,check,write);
   config_setting_t * setting;
-  int err=0,index=0,filesize_found=0,filesize;
+  int err=0,index=0,filesize_found=0;
+  unsigned long filesize;
+  /* If no root specified, use opt->cfg root */
+  if(root == NULL)
+    root = config_root_setting(&(opt->cfg));
+
   setting = config_setting_get_elem(root,index);
 
   while(setting != NULL){
     /* Have to make this a huge if else */
     if(strcmp(config_setting_name(setting), "filesize") == 0){
-      if(config_setting_type(setting) != CONFIG_TYPE_INT64)
+      if(config_setting_type(setting) != CONFIG_TYPE_INT64){
+	E("Filesize not int64");
 	return -1;
+      }
       /* Check for same filesize. Now this loops has to have been performed	*/
       /* once before we try to check the option due to needing buf_elem_size	*/
       else if(check == 1){
-	if(config_setting_get_int64(setting) != opt->buf_elem_size*opt->buf_num_elems)
+	if((unsigned long)config_setting_get_int64(setting) != opt->buf_elem_size*opt->buf_num_elems)
 	  return -1;
       }
       else if(write == 1){
-	err = config_setting_set_int64(setting,opt->buf_elem_size*opt->buf_num_elems);
-	if(err != 0){
-	  E("Writing filesize");
+	filesize = opt->buf_elem_size*opt->buf_num_elems;
+	err = config_setting_set_int64(setting,filesize);
+	if(err != CONFIG_TRUE){
+	  E("Writing filesize: %d",, err);
 	  return -1;
 	}
       }
       else{
 	filesize_found=1;
-	filesize = config_setting_get_int64(setting);
+	filesize = (unsigned long)config_setting_get_int64(setting);
       }
-      //CFG_CHK_STR(opt->filesize)
-      //CFG_WRT_STR(opt->filename, "filesize")
-      //CFG_GET_STR(opt->filename)
     }
-    CFG_FULL_STR(opt->filename, "filename")
+    CFG_FULL_STR(filename)
     CFG_FULL_UINT64(opt->cumul,"cumul")
-    CFG_FULL_STR(opt->device_name, "device_name")
+    CFG_FULL_STR(device_name)
     CFG_FULL_UINT64(opt->optbits, "optbits")
     CFG_FULL_UINT64(opt->time, "time")
     CFG_FULL_INT(opt->port, "port")
@@ -365,7 +348,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_UINT64(opt->buf_elem_size, "buf_elem_size")
     CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
     CFG_FULL_INT(opt->buf_division, "buf_division")
-    CFG_FULL_STR(opt->hostname, "hostname")
+    CFG_FULL_STR(hostname)
     CFG_FULL_UINT64(opt->serverip, "serverip")
     CFG_FULL_UINT64(opt->total_packets, "total_packets")
 
@@ -377,41 +360,83 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
   
-  /*
-  if(check ==0){
-    D("Found first config at %s. Updating opts",,path);
-    update_cfg(opt,NULL);
-  }
-  */
-  /* Check other confs for consistency */
-  /*
-  else{
-    //found = 1;
+  return 0;
+}
+int stub_rec_cfg(config_setting_t *root){
+  config_setting_t *setting;
+  setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
+  CHECK_ERR_NONNULL(setting, "add buf_elem_size");
+  //config_setting_set_int64(setting, opt->buf_elem_size);
+  setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
+  CHECK_ERR_NONNULL(setting, "add cumul");
+  setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
+  CHECK_ERR_NONNULL(setting, "add filesize");
+  setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
+  CHECK_ERR_NONNULL(setting, "add total_packets");
+  setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT);
+  CHECK_ERR_NONNULL(setting, "add buf_division");
+  return 0;
+}
+int stub_full_cfg(config_setting_t *root){
+  config_setting_t *setting;
+  stub_rec_cfg(root);
+  CFG_ADD_INT64(optbits);
+  CFG_ADD_STR(device_name);
+  CFG_ADD_INT64(time);
+  CFG_ADD_INT(port);
+  CFG_ADD_INT64(minmem);
+  CFG_ADD_INT64(maxmem);
+  CFG_ADD_INT(n_threads);
+  CFG_ADD_INT(n_drives);
+  CFG_ADD_INT(rate);
+  CFG_ADD_INT64(do_w_stuff_every);
+  CFG_ADD_INT64(wait_nanoseconds);
+  CFG_ADD_STR(hostname);
+  CFG_ADD_INT64(serverip);
+  return 0;
+}
+int read_full_cfg(struct opt_s *opt){
+  if(opt->cfgfile == NULL)
+    return -1;
+  return 0;
+}
+/* The full_cfg format is a bit different than the init_cfg format	*/
+/* Full cfgs have a root element for a session name to distinguish them	*/
+/* from one another.							*/
+int write_full_cfg(struct opt_s *opt){
+  config_setting_t *root, *setting;
+  int err=0;
+  D("Initializing CFG");
+  config_init(&(opt->cfg));
+  //err = config_read_file(&(opt->cfg), opt->cfgfile);
+  //CHECK_CFG("Load config");
+  root = config_root_setting(&(opt->cfg));
+  CHECK_ERR_NONNULL(root, "Get root");
 
-    err = config_lookup_int64(&opt->cfg, "buf_elem_size", &buf_elem_size);
-    CHECK_CFG("buf_elem_size");
-    if(old_buf_elem_size == 0)
-      old_buf_elem_size = buf_elem_size;
-    else if (old_buf_elem_size != buf_elem_size)
-      E("ERROR disparity in config files buf_elem_size!");
-
-    err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
-    CHECK_CFG("Cumul");
-    if(old_cumul == 0)
-      old_cumul = cumul;
-    else if (old_cumul != cumul)
-      E("ERROR disparity in config files cumul!");
+  /* Check if cfg already exists					*/
+  setting = config_lookup(&(opt->cfg), opt->filename);
+  if(setting != NULL){
+    LOG("Configlog for %s already present!", opt->filename);
+#ifdef IF_DUPLICATE_CFG_ONLY_UPDATE
+    LOG("Only updating configlog");
+    err = config_setting_remove(root, opt->filename);
+#else
+#endif
   }
-  */
+  
+  /* Since were writing, we should check if a cfg  group with the same 	*/
+  /* name already exists						*/
+  setting = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
+  CALL_AND_CHECK(stub_full_cfg, setting);
+  CALL_AND_CHECK(set_from_root, opt,setting,0,1);
   return 0;
 }
 /* TODO: Move this to the disk init */
 int init_cfg(struct opt_s *opt){
-  config_setting_t *root, *setting;
+  config_setting_t *root;
   int err=0;
   int i;
   D("Initializing CFG");
-  config_init(&(opt->cfg));
 
   if(opt->optbits & READMODE){
     int found = 0;
@@ -456,22 +481,7 @@ int init_cfg(struct opt_s *opt){
   else{
     /* Set the root and other settings we need */
     root = config_root_setting(&(opt->cfg));
-    //group = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
-    /*
-       if(!group)
-       D("DERPPAH");
-       */
-    setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
-    CHECK_ERR_NONNULL(setting, "add buf_elem_size");
-    //config_setting_set_int64(setting, opt->buf_elem_size);
-    setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
-    CHECK_ERR_NONNULL(setting, "add cumul");
-    setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
-    CHECK_ERR_NONNULL(setting, "add filesize");
-    setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
-    CHECK_ERR_NONNULL(setting, "add total_packets");
-    setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT);
-    CHECK_ERR_NONNULL(setting, "add buf_division");
+    stub_rec_cfg(root);
   }
   return 0;
 }
@@ -527,7 +537,7 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
   pthread_mutex_unlock(&(br->branchlock));
 }
 int remove_specific_from_fileholders(struct opt_s *opt, int id){
-  int i;
+  unsigned int i;
   for(i=0; i < opt->cumul ;i++){
     if(opt->fileholders[i] == id)
       opt->fileholders[i] = -1;
@@ -754,6 +764,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   opt->diskids = 0;
   opt->hd_failures = 0;
 
+  config_init(&(opt->cfg));
   /* Opts using optbits */
   //opt->capture_type = CAPTURE_W_FANOUT;
   opt->optbits |= CAPTURE_W_UDPSTREAM;
@@ -1531,6 +1542,7 @@ int read_cfg(config_t *cfg, char * filename){
   else
     return 0;
 }
+/*
 int update_cfg(struct opt_s* opt, struct config_t * cfg){
   if (cfg == NULL)
     cfg = &(opt->cfg);
@@ -1539,11 +1551,6 @@ int update_cfg(struct opt_s* opt, struct config_t * cfg){
   config_setting_t *root, *setting;
   root = config_root_setting(cfg);
   CHECK_ERR_NONNULL(root, "getroot");
-  /*
-     setting = config_lookup(&(opt->cfg),"cumul");
-     err = config_setting_get_int64(setting, opt->cumul);
-     setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
-     */
   if(opt->optbits & READMODE){
     unsigned long filesize=0;
     GET_I64("cumul",opt->cumul);
@@ -1566,3 +1573,4 @@ int update_cfg(struct opt_s* opt, struct config_t * cfg){
   D("CFG updated");
   return 0;
 }
+*/

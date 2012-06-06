@@ -105,6 +105,9 @@
 #define SILENT_CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}}while(0)
 #define SILENT_CHECK_ERRP_LTZ(x) do{if(err<0){perror(x);E(x);pthread_exit(NULL);}}while(0)
 #define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CALL_AND_CHECK(x,...)\
+  err = x(__VA_ARGS__);\
+  CHECK_ERR(#x);
 
 #define CHECK_CFG_CUSTOM(x,y) do{if(y == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
 #define CHECK_CFG(x) CHECK_CFG_CUSTOM(x,err)
@@ -113,24 +116,25 @@
 #define SET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Set "x); err = config_setting_set_int(setting,y); CHECK_CFG(x);}while(0) 	
 #define GET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int(setting);D("Got "x" is: %d",,y);}while(0) 	
 
+#define OPT(x) opt->x
 #define CFG_ELIF(x) else if(strcmp(config_setting_name(setting), x)==0)
 //#define CFG_GET_STR config_setting_get_string(setting)
 //#define CFG_GET_INT64 config_setting_get_int64(setting)
 #define CFG_CHK_STR(x) \
 if(check==1){	\
-  if(strcmp(config_setting_get_string(setting),x) != 0)\
+  if(strcmp(config_setting_get_string(setting),OPT(x)) != 0)\
     return -1;\
 }
-#define CFG_WRT_STR(x,y) \
+#define CFG_WRT_STR(x) \
 else if(write==1){\
-  err = config_setting_set_string(setting,x);\
-  CHECK_CFG(y);\
+  err = config_setting_set_string(setting,OPT(x));\
+  CHECK_CFG(#x);\
 }
 #define CFG_GET_STR(x) \
 else{\
   const char * temp = config_setting_get_string(setting);\
   if(temp != NULL)\
-    x = strdup(temp);\
+    OPT(x) = strdup(temp);\
   else\
     return -1;\
 }
@@ -170,12 +174,12 @@ CFG_ELIF(y){\
   CFG_WRT_UINT64(x,y)\
   CFG_GET_UINT64(x)\
 }
-#define CFG_FULL_STR(x,y) \
-CFG_ELIF(y){\
+#define CFG_FULL_STR(x) \
+CFG_ELIF(#x){\
   if(config_setting_type(setting) != CONFIG_TYPE_STRING)	\
     return -1;\
   CFG_CHK_STR(x)\
-  CFG_WRT_STR(x,y)\
+  CFG_WRT_STR(x)\
   CFG_GET_STR(x)\
 }
 #define CFG_FULL_INT(x,y)\
@@ -186,6 +190,21 @@ CFG_ELIF(y){\
   CFG_WRT_INT(x,y)\
   CFG_GET_INT(x)\
 }
+#define CFG_ADD_INT64(x)\
+  do{\
+setting = config_setting_add(root, #x, CONFIG_TYPE_INT64);\
+CHECK_ERR_NONNULL(setting, "add "#x);\
+  }while(0)
+#define CFG_ADD_STR(x)\
+  do{\
+setting = config_setting_add(root, #x, CONFIG_TYPE_STRING);\
+CHECK_ERR_NONNULL(setting, "add "#x);\
+  }while(0)
+#define CFG_ADD_INT(x)\
+  do{\
+setting = config_setting_add(root, #x, CONFIG_TYPE_INT);\
+CHECK_ERR_NONNULL(setting, "add "#x);\
+  }while(0)
 
 //#define TIMERTYPE_GETTIMEOFDAY
 #ifdef TIMERTYPE_GETTIMEOFDAY
@@ -311,6 +330,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
+
 //int fb_add_value(struct fileblocks* fb, unsigned long seq);
 
 /* All the options for the main thread			*/
@@ -383,6 +403,7 @@ struct opt_s
   unsigned long total_packets;
 };
 int write_cfgs_to_disks(struct opt_s *opt);
+int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int write);
 int remove_specific_from_fileholders(struct opt_s *opt, int id);
 struct buffer_entity
 {

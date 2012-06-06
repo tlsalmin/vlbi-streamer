@@ -104,7 +104,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       }
     }
     /* Directory doesn't exist */
-    else if(errno = ENOTDIR){
+    else if(errno == ENOTDIR){
       E("The directory doesn't exist");
       return ENOTDIR;
     }
