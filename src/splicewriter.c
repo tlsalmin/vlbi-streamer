@@ -159,58 +159,60 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
       iov->iov_base = point_to_start; 
       /* TODO: Might need to set this only in init 	*/
       iov->iov_len = sp->pagesize;
-      point_to_start += sp->pagesize;
       iov += 1;
       trycount-=sp->pagesize;
+      point_to_start += sp->pagesize;
       /*  Check that we don't go negative on the count */
       /* TODO: This will break if buffer entities aren't pagesize aligned */
       if(trycount>=0)
 	i++;
     }
-    /*
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "SPLICEWRITER: Prepared iovec of %i elements for %i bytes\n", i, i*(sp->pagesize));
-#endif
-    */
 #else
     i=1;
 #endif  /* IOVEC_SPLIT_TO_IOV_MAX */
 
     /* NOTE: SPLICE_F_MORE not *yet* used on vmsplice */
+    if(ioi->opt->optbits & READMODE)
+    {
+#ifdef USE_FOPEN
+      ret = splice(fileno(sp->fd), NULL, sp->pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
+#else
+      ret = splice(ioi->fd, NULL, sp->pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
+#endif
+    }
+    else
       ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
 
-      if(ret <0){
-	fprintf(stderr, "SPLICEWRITER: vmsplice failed for %i elements and %d bytes\n", i, i*(sp->pagesize));
-	break;
-      }
-      /*
-#if(DEBUG_OUTPUT) 
-#ifdef IOVEC_SPLIT_TO_IOV_MAX
-      else
-	fprintf(stdout, "Vmsplice accepted %i bytes when given %i bytes\n", ret, i*(sp->pagesize));
-#endif
-#endif
-*/
+    if(ret <0){
+      fprintf(stderr, "SPLICEWRITER: vmsplice failed for %i elements and %d bytes\n", i, i*(sp->pagesize));
+      break;
+    }
 
+    if(ioi->opt->optbits & READMODE){
+      ret = vmsplice(sp->pipes[0], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
+    }
+    else
+    {
 #ifdef USE_FOPEN
       ret = splice(sp->pipes[0], NULL, fileno(sp->fd), NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
 #else
       ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
 #endif
+    }
 
-      if(ret<0){
-	fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
-	break;
-      }
-      start += ret;
-      count -= ret;
+    if(ret<0){
+      fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
+      break;
+    }
+    start += ret;
+    count -= ret;
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
-      sp->iov->iov_base += ret;
-      sp->iov->iov_len = count;
+    sp->iov->iov_base += ret;
+    sp->iov->iov_len = count;
 #endif
 
-      // Update statistics 
-      total_w += ret;
+    // Update statistics 
+    total_w += ret;
   }
   if(ret <0){
     perror("SPLICEWRITER: Error on write/read");
@@ -229,7 +231,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
   if(ret>=0){
 #if(DEBUG_OUTPUT) 
-  fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
+    fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
 #endif
   }
   else{
@@ -246,10 +248,10 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 int splice_get_w_fflags(){
   return O_WRONLY|O_DIRECT|O_NOATIME;
   //return O_WRONLY|O_NOATIME;
-  }
+}
 int splice_get_r_fflags(){
   return O_RDONLY|O_DIRECT|O_NOATIME;
-  }
+}
 int splice_close(struct recording_entity *re, void *stats){
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct splice_ops * sp = (struct splice_ops*)ioi->extra_param;
@@ -264,11 +266,11 @@ int splice_init_splice(struct opt_s *opt, struct recording_entity *re){
 
   common_init_common_functions(opt,re);
   /*
-  re->write_index_data = common_write_index_data;
-  re->get_n_packets = common_nofpacks;
-  re->get_packet_index = common_pindex;
-  re->get_filename = common_wrt_get_filename;
-  */
+     re->write_index_data = common_write_index_data;
+     re->get_n_packets = common_nofpacks;
+     re->get_packet_index = common_pindex;
+     re->get_filename = common_wrt_get_filename;
+     */
 
   re->init = init_splice;
   re->close = splice_close;
