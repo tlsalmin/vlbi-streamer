@@ -82,6 +82,7 @@
 //#define BUF_ELEM_SIZE 32768
 //Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 48
+//#define MADVISE_INSTEAD_OF_O_DIRECT
 /* To be changed pointing to log file */
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)

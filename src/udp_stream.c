@@ -125,8 +125,10 @@ int udps_bind_rx(struct udpopts * spec_ops){
 
   //int flags = MAP_ANONYMOUS|MAP_SHARED;
   int flags = MAP_SHARED;
+#if(HAVE_HUGEPAGES)
   if(spec_ops->opt->optbits & USE_HUGEPAGE)
     flags |= MAP_HUGETLB;
+#endif
   assert((req.tp_block_size*req.tp_block_nr) % getpagesize() == 0);
 
   spec_ops->opt->buffer = mmap(0, (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr), PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);

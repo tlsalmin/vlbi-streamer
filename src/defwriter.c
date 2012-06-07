@@ -12,11 +12,17 @@
 #include "streamer.h"
 #include "defwriter.h"
 #include "common_wrt.h"
+#ifdef MADVISE_INSTEAD_OF_O_DIRECT
+#include <sys/mman.h>
+#endif
 
 long def_write(struct recording_entity * re, void * start, size_t count){
   long ret = 0;
   long total_w = 0;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
+#ifdef MADVISE_INSTEAD_OF_O_DIRECT
+  off_t oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
+#endif
   if(ioi->fd == 0){
     E("FD not set! Not writing to stdout!");
     return -1;
@@ -53,14 +59,31 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       ioi->bytes_exchanged += ret;
     }
   }
+#ifdef MADVISE_INSTEAD_OF_O_DIRECT
+	if(ioi->opt->optbits & READMODE){
+	  ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
+	}
+	else{
+	  ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
+	  ret = posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED);
+	}
+#endif
   return total_w;
 }
 int def_get_w_fflags(){
+#ifdef MADVISE_INSTEAD_OF_O_DIRECT
+  return O_WRONLY|O_NOATIME;
+#else
   return O_WRONLY|O_DIRECT|O_NOATIME;
+#endif
   //return O_WRONLY|O_NOATIME;
 }
 int def_get_r_fflags(){
+#ifdef MADVISE_INSTEAD_OF_O_DIRECT
+  return O_WRONLY|O_NOATIME;
+#else
   return O_RDONLY|O_DIRECT|O_NOATIME;
+#endif
 }
 
 int def_init_def(struct opt_s *opt, struct recording_entity *re){
@@ -70,7 +93,7 @@ int def_init_def(struct opt_s *opt, struct recording_entity *re){
   //re->write_index_data = common_write_index_data;
 
   re->write = def_write;
-  
+
   //re->get_n_packets = common_nofpacks;
   //re->get_packet_index = common_pindex;
 
@@ -86,9 +109,9 @@ int rec_init_dummy(struct opt_s *op , struct recording_entity *re){
   (void)op;
   (void)re;
   /*
-  re->init = null;
-  re-write = dummy_write_wrapped;
-  */
+     re->init = null;
+     re-write = dummy_write_wrapped;
+     */
   return 0;
 }
 

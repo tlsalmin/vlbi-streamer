@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -229,21 +228,21 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   /* that the receive buffers don't go to full. Speed is low at about 3Gb/s 	*/
   /* When both are called, speed goes to 5Gb/s and buffer fulls are logged	*/
 
-  ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
-  if(ret>=0){
-#if(DEBUG_OUTPUT) 
-    fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
-#endif
-  }
-  else{
-    perror("splice sync");
-    fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->curfilename, strerror(ret));
-    return ret;
-  }
   if(ioi->opt->optbits & READMODE){
     ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
   }
   else{
+    ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
+    if(ret>=0){
+#if(DEBUG_OUTPUT) 
+      fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
+#endif
+    }
+    else{
+      perror("splice sync");
+      fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->curfilename, strerror(ret));
+      return ret;
+    }
     ret = posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED);
   }
 #endif /* DISABLE_WRITE */

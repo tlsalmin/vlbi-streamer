@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 : ${CXXFLAGS= -Werror }  
-AC_PREREQ([2.67])
+AC_PREREQ([2.63])
 AC_INIT([vlbi-streamer], [0.2.1], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 

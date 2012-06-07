@@ -1,13 +1,16 @@
 #!/bin/bash
-PACKETSIZE=8888
+PACKETSIZE=3223
 PORT=2222
 TARGET=127.0.0.1
 TESTTIME=5
 THREADS=6
-DRIVES=6
-METHODS=(def aio)
+DRIVES=1
+MAXMEM=2
+MINMEM=1
+METHODS=(def aio splice)
 #VERBOSE=" > /dev/null"
 EXTRA_PARAMS=$*
+DEFAULT_PARAMS="-I $MINMEM -A $MAXMEM -s $PORT -d $DRIVES"
 WAIT=40
 
 echo "Cleaning up leftovers from previous test"
@@ -23,7 +26,7 @@ done
 echo "Testing sending with nonexisting files"
 for i in "${METHODS[@]}"
 do
-  src/vlbistreamer $EXTRA_PARAMS -s $PORT -m s -n $THREADS -w $i this_should_not_exist 127.0.0.1 &> /dev/null
+  src/vlbistreamer $EXTRA_PARAMS $DEFAULT_PARAMS -m s -n $THREADS -w $i this_should_not_exist 127.0.0.1 &> /dev/null
   #Identical lines, but the other gives an error WTF?
   #if [ ! $? -eq 0 ]
   if [ $? -eq 0 ]
@@ -39,7 +42,7 @@ for i in "${METHODS[@]}"
 do
   echo -e "Testing writing $i"
   udpmon_send -u $PORT -p $PACKETSIZE -t $((TESTTIME*2)) -d $TARGET -w $WAIT > /dev/null &
-  src/vlbistreamer -n 1 -d $DRIVES $EXTRA_PARAMS -m r -s $PORT -w def -p $PACKETSIZE one_$i $TESTTIME  
+  src/vlbistreamer -n 6 $DEFAULT_PARAMS $EXTRA_PARAMS -m r -w $i -p $PACKETSIZE one_$i $TESTTIME  
   if [ ! $? -eq 0 ]
   then
     echo "Error on one thread $i writer"  
@@ -49,7 +52,7 @@ do
   killall udpmon_send
   echo -e "$i writer one thread ... \tOK"
   echo -e "Testing sending $i"
-  src/vlbistreamer -n 1 -d $DRIVES -m s $EXTRA_PARAMS -s $PORT -w def -p $PACKETSIZE one_$i $TARGET 
+  src/vlbistreamer -n 6 $DEFAULT_PARAMS -m s $EXTRA_PARAMS -w $i -p $PACKETSIZE one_$i $TARGET 
   if [ ! $? -eq 0 ]
   then
     echo "Error on one thread $i writer"  
@@ -59,9 +62,9 @@ do
 done
 for i in "${METHODS[@]}"
 do
-  echo -e "Testing writing $THREAD threads $i"
+  echo -e "Testing writing $THREADS threads with $i"
   udpmon_send -u $PORT -p $PACKETSIZE -t $((TESTTIME*2)) -d $TARGET -w $WAIT > /dev/null &
-  src/vlbistreamer -n $THREADS -n $DRIVES $EXTRA_PARAMS -m r -s $PORT -w def -p $PACKETSIZE multi_$i $TESTTIME  
+  src/vlbistreamer -n $THREADS $DEFAULT_PARAMS $EXTRA_PARAMS -m r -w $i -p $PACKETSIZE multi_$i $TESTTIME  
   if [ ! $? -eq 0 ]
   then
     echo "Error on $THREADS threads $i writer"  
@@ -71,7 +74,7 @@ do
   killall udpmon_send
   echo -e "$i writer $THREADS threads ... \tOK"
   echo -e "Testing sending $i"
-  src/vlbistreamer -n $THREADS -d $DRIVES -m s  $EXTRA_PARAMS -s $PORT -w def -p $PACKETSIZE multi_$i $TARGET  
+  src/vlbistreamer -n $THREADS $DEFAULT_PARAMS -m s  $EXTRA_PARAMS -w $i -p $PACKETSIZE multi_$i $TARGET  
   if [ ! $? -eq 0 ]
   then
     echo "Error on $THREADS threads $i writer"  

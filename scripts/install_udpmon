@@ -1,5 +1,5 @@
 #!/bin/bash
-DAPREFIX=/usr
+DAPREFIX=/home/kharn/bin
 
 if [ ! -e "./udpmon_extra-1.2.6.tar.gz" ]
 then
@@ -29,9 +29,9 @@ echo "cleaning up"
 echo $PATH|grep /usr/sbin
 if [ ! $? -eq 0 ]
 then
-  export PATH=$PATH:/usr/sbin
+  export PATH=$PATH:DAPREFIX
   echo "Exported path only to local shell. For longer use, change your"
-  echo "PATH-variable to hold also /usr/sbin(not default on some distros"
+  echo "PATH-variable to hold also $DAPREFIXnot default on some distros"
 fi
 cd ..
 rm libhj-4.2.6.tar.gz

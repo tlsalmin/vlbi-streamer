@@ -379,7 +379,8 @@ int stub_rec_cfg(config_setting_t *root){
 }
 int stub_full_cfg(config_setting_t *root){
   config_setting_t *setting;
-  stub_rec_cfg(root);
+  //stub_rec_cfg(root);
+  CFG_ADD_INT64(buf_elem_size);
   CFG_ADD_INT64(optbits);
   CFG_ADD_STR(device_name);
   CFG_ADD_INT64(time);
@@ -395,10 +396,19 @@ int stub_full_cfg(config_setting_t *root){
   CFG_ADD_INT64(serverip);
   return 0;
 }
+/* Combination of full and session specific conf */
+int stub_full_log_cfg(config_setting_t *root){
+  stub_rec_cfg(root);
+  stub_full_cfg(root);
+  return 0;
+}
 int read_full_cfg(struct opt_s *opt){
+  int err;
   if(opt->cfgfile == NULL)
     return -1;
-  return 0;
+  err = read_cfg(&(opt->cfg),opt->cfgfile);
+  CHECK_ERR("Read cfg");
+  return set_from_root(opt,NULL,0,0);
 }
 /* The full_cfg format is a bit different than the init_cfg format	*/
 /* Full cfgs have a root element for a session name to distinguish them	*/
@@ -561,8 +571,8 @@ int calculate_buffer_sizes(struct opt_s *opt){
       opt->buf_elem_size++;
       extra++;
     }
+    D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
   }
-  D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
 
   /* TODO: do_w_stuff gets warped  from MB to num of elems*/
   LOG("STREAMER: Calculating total buffer size between "
@@ -803,6 +813,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->device_name = strdup(optarg);
 	break;
       case 'c':
+	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
 	opt->cfgfile = strdup(optarg);
 	break;
       case 'v':
@@ -965,6 +976,11 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   }
   argv +=optind;
   argc -=optind;
+
+  if(opt->cfgfile!=NULL){
+    LOG("Path for cfgfile specified. All command line options specced in this file will be ignored\n");
+    ret = read_full_cfg(opt);
+  }
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
   /*
@@ -1513,6 +1529,8 @@ int main(int argc, char **argv)
     if(opt.fileholders != NULL)
       free(opt.fileholders);
   }
+  if(opt.cfgfile != NULL)
+    free(opt.cfgfile);
   config_destroy(&(opt.cfg));
   free(opt.membranch);
   free(opt.diskbranch);
