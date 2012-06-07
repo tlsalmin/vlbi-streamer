@@ -12,6 +12,10 @@
 #endif
 #include "simplebuffer.h"
 #include "streamer.h"
+#include "assert.h"
+
+#define HAVE_ASSERT 1
+#define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
 #define DO_W_STUFF_IN_FIXED_BLOCKS
@@ -59,6 +63,7 @@ int sbuf_acquire(void* buffo, void *opti,unsigned long seq, unsigned long bufnum
     /* This threads responsible area */
     sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
   }
+  sbuf->bufoffset = sbuf->buffer;
   /* If we're reading and we've been acquired: we need to load the buffer */
   if(sbuf->opt->optbits & READMODE){
     sbuf->ready_to_act = 1;
@@ -196,6 +201,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
   }
   else
     D("Memmapped in main so not reserving here");
+  
 
   return 0;
 }
@@ -252,7 +258,7 @@ void close_recer(struct buffer_entity *be){
 }
 int simple_end_transaction(struct buffer_entity *be){
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
-  void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->buf_elem_size;
+  //void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->buf_elem_size;
   unsigned long wrote_extra = 0;
   long ret = 0;
 
@@ -264,7 +270,7 @@ int simple_end_transaction(struct buffer_entity *be){
   }
   D("Have to write %lu extra bytes",, wrote_extra);
 
-  ret = be->recer->write(be->recer, offset, count);
+  ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
     fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%d\n", ret,sbuf->diff);
     close_recer(be);
@@ -282,6 +288,7 @@ int simple_end_transaction(struct buffer_entity *be){
     }
     //increment_amount(sbuf, &(sbuf->hdwriter_head), endi);
     sbuf->diff = 0;
+    sbuf->bufoffset = sbuf->buffer;
   }
   return 0;
 
@@ -301,7 +308,9 @@ int simple_write_bytes(struct buffer_entity *be){
   unsigned long limit = sbuf->opt->do_w_stuff_every;
 
   unsigned long count = sbuf->diff * sbuf->opt->buf_elem_size;
-  void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
+  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
+  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
+  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
 
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   if(count > limit)
@@ -311,11 +320,12 @@ int simple_write_bytes(struct buffer_entity *be){
     D("Only need to finish transaction");
     return simple_end_transaction(be);
   }
+  ASSERT(count % 4096 == 0);
 
   DD("Starting write with count %lu",,count);
-  ret = be->recer->write(be->recer, offset, count);
+  ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
-    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)offset, count);
+    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
     close_recer(be);
     return -1;
   }
@@ -333,8 +343,13 @@ int simple_write_bytes(struct buffer_entity *be){
     else{
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
       sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->buf_elem_size;
+
+      sbuf->bufoffset += count;
+      if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->buf_elem_size))
+	sbuf->bufoffset = sbuf->buffer;
 #else
       sbuf->diff = 0;
+      sbuf->bufoffset =sbuf->buffer;
 #endif
     }
   }

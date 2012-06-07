@@ -21,13 +21,13 @@
 /* functions before it, disabled them etc. but can't 	*/
 /* find the reason for this bug. This will disable the	*/
 /* IO_DIRECT flag for the last write			*/
-#define UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
 #define ERR_IN_INIT free(ioi);return -1
 
 
 /* These should be moved somewhere general, since they should be used by all anyway */
 /* writers anyway */
 int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
+  (void)sbuf_still_running;
   int err;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
@@ -39,12 +39,6 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,seq); 
 
-#ifdef UGLY_FIX_FOR_WRITE_AFTER_NOT_RUNNING
-  if(sbuf_still_running == 0){
-    D("Doing the ugly fix");
-    tempflags = ioi->f_flags ^ O_DIRECT;
-  }
-#endif
   D("Opening file %s",,ioi->curfilename);
   err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
   if(err!=0){

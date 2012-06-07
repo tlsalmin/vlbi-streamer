@@ -307,7 +307,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   setting = config_setting_get_elem(root,index);
 
   while(setting != NULL){
-    /* Have to make this a huge if else */
+    /* Have to make this a huge if else since its string matching */
     if(strcmp(config_setting_name(setting), "filesize") == 0){
       if(config_setting_type(setting) != CONFIG_TYPE_INT64){
 	E("Filesize not int64");
@@ -1042,7 +1042,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
 int main(int argc, char **argv)
 {
   int i,rc;
-  int err;
+  int err = 0;
   struct opt_s opt;
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
@@ -1130,7 +1130,6 @@ int main(int argc, char **argv)
   //pthread_mutex_init(&(optm.cumlock), NULL);
   //pthread_cond_init (&opt.signal, NULL);
   for(i=0;i<opt.n_drives;i++){
-    //int err = 0;
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
     /*
        struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
