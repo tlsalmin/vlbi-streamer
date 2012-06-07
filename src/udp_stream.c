@@ -355,9 +355,11 @@ int start_loading(struct opt_s * opt, unsigned long *packets_left, unsigned long
   else
     be->acquire((void*)be, opt, *fileat,0);
   CHECK_AND_EXIT(be);
+  D("Setting seqnum %lu to load %lu packets",,*fileat, nuf);
   (*fileat)++;
   int * inc = be->get_inc(be);
   *inc = nuf;
+  *packets_left-=nuf;
   pthread_mutex_lock(be->headlock);
   pthread_cond_signal(be->iosignal);
   pthread_mutex_unlock(be->headlock);

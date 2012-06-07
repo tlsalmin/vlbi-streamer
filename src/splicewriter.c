@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/mman.h> /* For madvise */
 
 #include "config.h"
 
@@ -239,7 +240,12 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
     fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->curfilename, strerror(ret));
     return ret;
   }
-  ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
+  if(ioi->opt->optbits & READMODE){
+    ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
+  }
+  else{
+    ret = posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED);
+  }
 #endif /* DISABLE_WRITE */
 
   ioi->bytes_exchanged += total_w;
