@@ -347,6 +347,7 @@ struct opt_s
   //pthread_mutex_t cumlock;
   char *device_name;
   char *cfgfile;
+  char *logfile;
   int diskids;
   //unsigned long n_files;
   //struct fileblocks *fbs;

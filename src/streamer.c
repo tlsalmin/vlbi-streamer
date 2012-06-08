@@ -92,8 +92,6 @@ void mutex_free_change_branch(struct listed_entity **from, struct listed_entity 
 void set_free(struct entity_list_branch *br, struct listed_entity* en)
 {
   pthread_mutex_lock(&(br->branchlock));
-  if(en == NULL)
-    D("WHATTFAU");
   //Only special case if the entity is at the start of the list
   D("Changing entity from busy to free");
   mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
@@ -763,7 +761,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
-static void parse_options(int argc, char **argv, struct opt_s* opt){
+int parse_options(int argc, char **argv, struct opt_s* opt){
   int ret,i;
 
   memset(opt, 0, sizeof(struct opt_s));
@@ -980,6 +978,10 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
   if(opt->cfgfile!=NULL){
     LOG("Path for cfgfile specified. All command line options specced in this file will be ignored\n");
     ret = read_full_cfg(opt);
+    if(ret != 0){
+      E("Error parsing cfg file. Exiting");
+      return -1;
+    }
   }
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
@@ -1054,6 +1056,7 @@ static void parse_options(int argc, char **argv, struct opt_s* opt){
     if (calculate_buffer_sizes(opt) != 0)
       exit(-1);
   }
+  return 0;
 }
 int main(int argc, char **argv)
 {
@@ -1082,7 +1085,9 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
-  parse_options(argc,argv,&opt);
+  err = parse_options(argc,argv,&opt);
+  if(err != 0)
+    exit(-1);
 
   /*
      switch(opt.capture_type){
@@ -1553,6 +1558,7 @@ int write_cfg(config_t *cfg, char* filename){
 int read_cfg(config_t *cfg, char * filename){
   int err = config_read_file(cfg,filename);
   if(err == CONFIG_FALSE){
+    E("%s:%d - %s",, filename, config_error_line(cfg), config_error_text(cfg));
     E("Failed to read CFG from %s",,filename);
     return -1;
   }
