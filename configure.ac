@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.2.1], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.2.2], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
@@ -54,8 +54,6 @@ AS_IF([test "x$enable_libaio" != "xno"], [
 			 enable_libaio="no"
 			 ])
 ])
-#AC_DEFINE([HAVE_LIBAIO], 0,[hur])
-#AC_MSG_WARN([hur dis $HAVE_LIBAIO ur])
 dnl Its a bit silly to define em twice..
 AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
 
@@ -69,6 +67,19 @@ AS_IF([test "x$enable_debug" != "xno"], [
 		     AC_DEFINE(DEBUG_OUTPUT, 1, [Print debug_output to stdout])
 		     ], AC_DEFINE(DEBUG_OUTPUT, 0, [Print debug_output to stdout]))
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
+
+
+AC_MSG_CHECKING([--enable-daemon argument])
+AC_ARG_ENABLE(daemon,
+    [  --enable-daemon         Compile software as daemon(Default: yes).],
+    [enable_daemon=$enableval],
+    [enable_daemon="yes"])
+AC_MSG_RESULT($enable_daemon)
+AS_IF([test "x$enable_daemon" != "xno"], [
+		     AC_DEFINE(DAEMON, 1, [Compile as daemon])
+		     ], AC_DEFINE(DAEMON, 0, [Compile as daemon]))
+AM_CONDITIONAL([DAEMON], [test "${enable_daemon}" = "yes"])
+
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,
     [  --enable-senddebug         Enable senddebug output.],
@@ -78,7 +89,7 @@ AC_MSG_RESULT($enable_senddebug)
 AS_IF([test "x$enable_senddebug" != "xno"], [
 		     AC_DEFINE(SEND_DEBUG, 1, [Print senddebug_output to stdout])
 		     ], AC_DEFINE(SEND_DEBUG, 0, [Print senddebug_output to stdout]))
-AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_senddebug}" = "yes"])
+AM_CONDITIONAL([SEND_DEBUG], [test "${enable_senddebug}" = "yes"])
 
 AC_MSG_CHECKING([--enable-multisenddebug argument])
 AC_ARG_ENABLE(multisenddebug,
@@ -117,7 +128,6 @@ dnl Push the libs
 AC_SUBST(ADD_LIBS)
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h libconfig.h])
-
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE

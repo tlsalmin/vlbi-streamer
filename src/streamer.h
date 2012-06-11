@@ -105,7 +105,8 @@
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
 #define SILENT_CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}}while(0)
 #define SILENT_CHECK_ERRP_LTZ(x) do{if(err<0){perror(x);E(x);pthread_exit(NULL);}}while(0)
-#define CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_LTZ(x,y) do{if(y<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR_LTZ(x) CHECK_LTZ(x,err)
 #define CALL_AND_CHECK(x,...)\
   err = x(__VA_ARGS__);\
   CHECK_ERR(#x);

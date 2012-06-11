@@ -43,7 +43,7 @@
 #define BRANCHOP_READ_CFGS 6
 #define BRANCHOP_CHECK_FILES 7
 
-#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
 
 /* This should be more configurable */
 extern char *optarg;
@@ -1058,11 +1058,17 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   }
   return 0;
 }
+#ifdef DAEMON
+int vlbistreamer(struct opt_s *opt)
+#else
 int main(int argc, char **argv)
+#endif
 {
   int i,rc;
   int err = 0;
-  struct opt_s opt;
+#ifndef DAEMON
+  struct opt_s *opt = malloc(sizeof(struct opt_s));
+#endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
   struct sched_param    param;
@@ -1085,7 +1091,9 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
-  err = parse_options(argc,argv,&opt);
+#ifndef DAEMON
+  err = parse_options(argc,argv,opt);
+#endif
   if(err != 0)
     exit(-1);
 
@@ -1102,22 +1110,22 @@ int main(int argc, char **argv)
   //struct streamer_entity threads[opt.n_threads];
   struct streamer_entity streamer_ent;
 
-  pthread_t rbuf_pthreads[opt.n_threads];
+  pthread_t rbuf_pthreads[opt->n_threads];
   pthread_t streamer_pthread;
   struct stats stats;
 
-  opt.membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
-  opt.diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  opt->membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
 
-  opt.membranch->freelist = NULL;
-  opt.membranch->busylist = NULL;
-  opt.diskbranch->freelist = NULL;
-  opt.diskbranch->busylist = NULL;
+  opt->membranch->freelist = NULL;
+  opt->membranch->busylist = NULL;
+  opt->diskbranch->freelist = NULL;
+  opt->diskbranch->busylist = NULL;
 
-  pthread_mutex_init(&(opt.membranch->branchlock), NULL);
-  pthread_mutex_init(&(opt.diskbranch->branchlock), NULL);
-  pthread_cond_init(&(opt.membranch->busysignal), NULL);
-  pthread_cond_init(&(opt.diskbranch->busysignal), NULL);
+  pthread_mutex_init(&(opt->membranch->branchlock), NULL);
+  pthread_mutex_init(&(opt->diskbranch->branchlock), NULL);
+  pthread_cond_init(&(opt->membranch->busysignal), NULL);
+  pthread_cond_init(&(opt->diskbranch->busysignal), NULL);
 
   //pthread_attr_t attr;
 #ifdef TUNE_AFFINITY
@@ -1132,15 +1140,15 @@ int main(int argc, char **argv)
 #endif
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
-  if(opt.optbits & READMODE){
+  if(opt->optbits & READMODE){
     struct hostent *hostptr;
 
-    hostptr = gethostbyname(opt.hostname);
+    hostptr = gethostbyname(opt->hostname);
     if(hostptr == NULL){
       perror("Hostname");
       exit(-1);
     }
-    memcpy(&(opt.serverip), (char *)hostptr->h_addr, sizeof(opt.serverip));
+    memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
 
 #if(DEBUG_OUTPUT)
     LOG("STREAMER: Resolved hostname\n");
@@ -1150,7 +1158,7 @@ int main(int argc, char **argv)
   //Create message queue
   //pthread_mutex_init(&(optm.cumlock), NULL);
   //pthread_cond_init (&opt.signal, NULL);
-  for(i=0;i<opt.n_drives;i++){
+  for(i=0;i<opt->n_drives;i++){
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
     /*
        struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
@@ -1163,21 +1171,21 @@ int main(int argc, char **argv)
      * only require the setting of opt->read to one for 
      * sending stuff
      */
-    switch(opt.optbits & LOCKER_REC){
+    switch(opt->optbits & LOCKER_REC){
 #if HAVE_LIBAIO
       case REC_AIO:
-	err = aiow_init_rec_entity(&opt, re);
+	err = aiow_init_rec_entity(opt, re);
 	//NOTE: elem_size is read inside if we're reading
 	break;
 #endif
       case REC_DUMMY:
-	err = common_init_dummy(&opt, re);
+	err = common_init_dummy(opt, re);
 	break;
       case REC_DEF:
-	err = def_init_def(&opt, re);
+	err = def_init_def(opt, re);
 	break;
       case REC_SPLICER:
-	err = splice_init_splice(&opt, re);
+	err = splice_init_splice(opt, re);
 	break;
     }
     if(err != 0){
@@ -1189,7 +1197,7 @@ int main(int argc, char **argv)
   }
   /* Check and set cfgs at this point */
 #ifdef HAVE_LIBCONFIG_H
-  err = init_cfg(&opt);
+  err = init_cfg(opt);
   //TODO: cfg destruction
   if(err != 0){
     E("Error in cfg init");
@@ -1197,9 +1205,9 @@ int main(int argc, char **argv)
   }
   //return -1;
 
-  if(opt.optbits &READMODE){
-    oper_to_all(opt.diskbranch,BRANCHOP_CHECK_FILES,(void*)&opt);
-    LOG("For recording %s: %lu files were found out of %lu total.\n", opt.filename, opt.cumul_found, opt.cumul);
+  if(opt->optbits &READMODE){
+    oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
+    LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
   }
 #endif
   /* If we're using the rx-ring, reserve space for it here */
@@ -1233,7 +1241,7 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Initializing threads\n");
 #endif
-  for(i=0;i<opt.n_threads;i++){
+  for(i=0;i<opt->n_threads;i++){
     //int err = 0;
     struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
     /*
@@ -1246,7 +1254,7 @@ int main(int argc, char **argv)
     //re->be = be;
 
     //Initialize recorder entity
-    switch(opt.optbits & LOCKER_WRITER)
+    switch(opt->optbits & LOCKER_WRITER)
     {
       /*
 	 case BUFFER_RINGBUF:
@@ -1255,11 +1263,11 @@ int main(int argc, char **argv)
       break;
       */
       case BUFFER_SIMPLE:
-	err = sbuf_init_buf_entity(&opt,be);
+	err = sbuf_init_buf_entity(opt,be);
 	D("Initialized simple buffer for thread %d",,i);
 	break;
       case WRITER_DUMMY:
-	err = sbuf_init_buf_entity(&opt, be);
+	err = sbuf_init_buf_entity(opt, be);
 	D("Initialized simple buffer for thread %d",,i);
 	break;
     }
@@ -1291,22 +1299,22 @@ int main(int argc, char **argv)
   }
 
   /* Format the capturing thread */
-  switch(opt.optbits & LOCKER_CAPTURE)
+  switch(opt->optbits & LOCKER_CAPTURE)
   {
     case CAPTURE_W_UDPSTREAM:
-      if(opt.optbits & READMODE)
-	err = udps_init_udp_sender(&opt, &(streamer_ent));
+      if(opt->optbits & READMODE)
+	err = udps_init_udp_sender(opt, &(streamer_ent));
       else
-	err = udps_init_udp_receiver(&opt, &(streamer_ent));
+	err = udps_init_udp_receiver(opt, &(streamer_ent));
       break;
     case CAPTURE_W_FANOUT:
-      err = fanout_init_fanout(&opt, &(streamer_ent));
+      err = fanout_init_fanout(opt, &(streamer_ent));
       break;
     case CAPTURE_W_SPLICER:
       //err = sendfile_init_writer(&opt, &(streamer_ent));
       break;
     default:
-      LOG("DUR %X\n", opt.optbits);
+      LOG("DUR %X\n", opt->optbits);
       break;
 
   }
@@ -1371,7 +1379,7 @@ int main(int argc, char **argv)
 
   init_stat(&stats);
   /* HERP so many ifs .. WTB Refactoring time*/
-  if(opt.optbits & READMODE){
+  if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
     clock_gettime(CLOCK_REALTIME, &start_t);
 #else
@@ -1380,7 +1388,7 @@ int main(int argc, char **argv)
   }
   /* If we're capturing, time the threads and run them down after we're done */
   /* Print speed etc. */
-  if(opt.optbits & VERBOSE){
+  if(opt->optbits & VERBOSE){
 
     /* Init the stats */
     struct stats stats_prev, stats_now;//, stats_temp;
@@ -1390,10 +1398,10 @@ int main(int argc, char **argv)
     LOG("STREAMER: Printing stats per second\n");
     LOG("----------------------------------------\n");
 
-    if(opt.optbits & READMODE)
+    if(opt->optbits & READMODE)
       sleeptodo= 1;
     else
-      sleeptodo = opt.time;
+      sleeptodo = opt->time;
     while(sleeptodo >0 && streamer_ent.is_running(&streamer_ent)){
       sleep(1);
       memset(&stats_now, 0,sizeof(struct stats));
@@ -1408,26 +1416,26 @@ int main(int argc, char **argv)
       }
       */
       //TODO: Write end stats
-      oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats_now);
+      oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)&stats_now);
 
       //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
       neg_stats(&stats_now, &stats_prev);
 
       print_intermediate_stats(&stats_now);
       //LOG("Time %ds \t------------------------\n", opt.time-sleeptodo+1);
-      if(!(opt.optbits & READMODE))
-	LOG("Time %lds\n", opt.time-sleeptodo+1);
+      if(!(opt->optbits & READMODE))
+	LOG("Time %lds\n", opt->time-sleeptodo+1);
       else
 	LOG("Time %ds\n", sleeptodo);
 
       LOG("Ringbuffers: ");
-      print_br_stats(opt.membranch);
+      print_br_stats(opt->membranch);
       LOG("Recpoints: ");
-      print_br_stats(opt.diskbranch);
+      print_br_stats(opt->diskbranch);
 
       LOG("----------------------------------------\n");
 
-      if(!(opt.optbits & READMODE))
+      if(!(opt->optbits & READMODE))
 	sleeptodo--;
       else
 	sleeptodo++;
@@ -1442,13 +1450,13 @@ int main(int argc, char **argv)
     }
   }
   else{
-    if(!(opt.optbits & READMODE)){
-      sleep(opt.time);
+    if(!(opt->optbits & READMODE)){
+      sleep(opt->time);
       ////pthread_mutex_destroy(opt.cumlock);
     }
   }
   /* Close the sockets on readmode */
-  if(!(opt.optbits & READMODE)){
+  if(!(opt->optbits & READMODE)){
     //for(i = 0;i<opt.n_threads;i++){
     //threads[i].stop(&(threads[i]));
     //}
@@ -1466,9 +1474,9 @@ int main(int argc, char **argv)
     D("Streamer thread exit OK");
 
   // Stop the memory threads 
-  oper_to_all(opt.membranch, BRANCHOP_STOPANDSIGNAL, NULL);
+  oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
   int k = 0;
-  for(i =0 ;i<opt.n_threads;i++){
+  for(i =0 ;i<opt->n_threads;i++){
     rc = pthread_join(rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
@@ -1480,34 +1488,34 @@ int main(int argc, char **argv)
   D("Getting stats and closing");
 
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
-  oper_to_all(opt.membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
-  oper_to_all(opt.diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
+  oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
+  oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
 
 #ifdef HAVE_LIBCONFIG_H
   //TODO: This will be destroyed outside the mem and diskbranches
-  config_destroy(&opt.cfg);
+  config_destroy(&(opt->cfg));
 #endif
   //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
 
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads finished. Getting stats\n");
 #endif
-  print_stats(&stats, &opt);
+  print_stats(&stats, opt);
 
   /*Close everything */
 
   //}
   /* Log the time */
-  if(opt.optbits & READMODE){
+  if(opt->optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
 #ifdef HAVE_LRT
     struct timespec end_t;
     clock_gettime(CLOCK_REALTIME, &end_t);
-    opt.time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
+    opt->time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
     //LOG("END: %lus %luns, START: %lus, %luns\n", end_t.tv_sec, end_t.tv_nsec, start_t.tv_sec, start_t.tv_nsec);
 #else
     LOGERR("STREAMER: lrt not present. Setting time to 1\n");
-    opt.time = 1;
+    opt->time = 1;
     //opt.time = (clock() - start_t);
 #endif
   }
@@ -1520,26 +1528,29 @@ int main(int argc, char **argv)
   //}
   //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
-  for(i=0;i<opt.n_drives;i++){
+  for(i=0;i<opt->n_drives;i++){
     //opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-    free(opt.filenames[i]);
+    free(opt->filenames[i]);
     //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
   }
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads closed\n");
 #endif
-  if(opt.device_name != NULL)
-    free(opt.device_name);
-  if(opt.optbits & READMODE){
-    if(opt.fileholders != NULL)
-      free(opt.fileholders);
+  if(opt->device_name != NULL)
+    free(opt->device_name);
+  if(opt->optbits & READMODE){
+    if(opt->fileholders != NULL)
+      free(opt->fileholders);
   }
-  if(opt.cfgfile != NULL)
-    free(opt.cfgfile);
-  config_destroy(&(opt.cfg));
-  free(opt.membranch);
-  free(opt.diskbranch);
+  if(opt->cfgfile != NULL)
+    free(opt->cfgfile);
+  config_destroy(&(opt->cfg));
+  free(opt->membranch);
+  free(opt->diskbranch);
   pthread_attr_destroy(&pta);
+#ifndef DAEMON
+  free(opt);
+#endif
 
   //return 0;
   //pthread_exit(NULL);
