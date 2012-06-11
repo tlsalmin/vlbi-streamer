@@ -7,5 +7,5 @@ endif
 if HAVE_LIBAIO
   vlbistreamer_SOURCES += aiowriter.c aiowriter.h
 endif
-AM_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"'
+AM_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLOCALSTATEDIR='"$(localstatedir)"'
 vlbistreamer_LDADD = $(ADD_LIBS)

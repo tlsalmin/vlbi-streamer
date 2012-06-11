@@ -91,6 +91,15 @@ AS_IF([test "x$enable_senddebug" != "xno"], [
 		     ], AC_DEFINE(SEND_DEBUG, 0, [Print senddebug_output to stdout]))
 AM_CONDITIONAL([SEND_DEBUG], [test "${enable_senddebug}" = "yes"])
 
+AC_MSG_CHECKING([--user argument])
+AC_ARG_ENABLE(user,
+    [  --user         Set the user.],
+    [user=$enableval],
+    [user="oper"])
+AC_MSG_RESULT($user)
+USER=$user
+AC_SUBST(USER)
+
 AC_MSG_CHECKING([--enable-multisenddebug argument])
 AC_ARG_ENABLE(multisenddebug,
     [  --enable-multisenddebug         Enable multisend debug output.],

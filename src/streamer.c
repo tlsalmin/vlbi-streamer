@@ -761,9 +761,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
-int parse_options(int argc, char **argv, struct opt_s* opt){
-  int ret,i;
-
+int clear_and_default(struct opt_s* opt){
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
@@ -805,6 +803,11 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   //opt->optbits = 0xff000000;
   opt->optbits |= SIMPLE_BUFFER;
   opt->socket = 0;
+  return 0;
+}
+int parse_options(int argc, char **argv, struct opt_s* opt){
+  int ret,i;
+
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:xc:"))!= -1){
     switch (ret){
       case 'i':
@@ -968,10 +971,12 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	exit(1);
     }
   }
+#if(!DAEMON)
   if(argc -optind != 2){
     usage(argv[0]);
     exit(1);
   }
+#endif
   argv +=optind;
   argc -=optind;
 
@@ -994,17 +999,21 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   if(opt->n_threads == 0)
     opt->n_threads = opt->n_drives +2;
 
+#if(!DAEMON)
   opt->filename = argv[0];
+#endif
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
   for(i=0;i<opt->n_drives;i++){
     opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
     //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
     sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
   }
+#if(!DAEMON)
   if(opt->optbits & READMODE)
     opt->hostname = argv[1];
   else
     opt->time = atoi(argv[1]);
+#endif
   opt->cumul = 0;
 
 
@@ -1092,6 +1101,7 @@ int main(int argc, char **argv)
   LOG("STREAMER: Reading parameters\n");
 #endif
 #ifndef DAEMON
+  clear_and_default(opt);
   err = parse_options(argc,argv,opt);
 #endif
   if(err != 0)
