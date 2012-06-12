@@ -6,11 +6,22 @@
 #include "config.h"
 #include "streamer.h"
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
-#define STATEFILE LOCALSTATEDIR "/schedule"
+#define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+#define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
+#define MAX_SCHEDULED 512
+#define MAX_RUNNING 4
+
+struct scheduled_event{
+  struct timespec event_time;
+  char * name;
+  struct opt_s * opt;
+};
 
 int main(int argc, char **argv)
 {
   int err,running = 1;
+  struct scheduled_event * scheduled[MAX_SCHEDULED];
+  struct scheduled_event * running[MAX_RUNNING];
   struct opt_s * default_opt = malloc(sizeof(struct opt_s));
 
   /* First load defaults to opts, then check default config file	*/
@@ -27,6 +38,7 @@ int main(int argc, char **argv)
   int i_fd = inotify_init();
   CHECK_LTZ("Inotify init", i_fd);
 
+  D("Starting watch on statefile %s",, STATEFILE);
   err = inotify_add_watch(i_fd, STATEFILE, IN_MODIFY);
   CHECK_ERR_LTZ("Add watch");
 

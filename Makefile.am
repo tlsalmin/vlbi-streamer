@@ -12,7 +12,7 @@ log_DATA = vlbistreamer.log
 install-data-hook:
 	chown -R @USER@ $(rundir)
 	chmod -R u+rw $(rundir)
-	chown  @USER@ $(cfgdir)/vlbistreamer.conf
+	chown @USER@ $(cfgdir)/vlbistreamer.conf
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	chown @USER@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log

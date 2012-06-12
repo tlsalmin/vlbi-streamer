@@ -93,7 +93,7 @@ AM_CONDITIONAL([SEND_DEBUG], [test "${enable_senddebug}" = "yes"])
 
 AC_MSG_CHECKING([--user argument])
 AC_ARG_ENABLE(user,
-    [  --user         Set the user.],
+    [  --enable-user         Set the user.],
     [user=$enableval],
     [user="oper"])
 AC_MSG_RESULT($user)
