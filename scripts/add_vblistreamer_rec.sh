@@ -1,6 +1,7 @@
 #!/bin/bash
 if [ "$1" == "" ]; then 
   echo "Syntax: $0 <snapfile>"
+  exit -1
 fi
 
 SNP=$1
@@ -8,27 +9,14 @@ I=1
 #SNAMEVAR=scan_name
 
 echo "Snap file: $SNP"
-LASTLINE=""
-SCANNAME=""
-LASTTIME=""
-TIMENOW=""
 
-while read line; do
-  LINESTART=`echo $line|awk '{split($0,a,"="); print a[1]}'`
-  RECNAME=`echo $line|awk '{split($0,a,"="); print a[2]}'`
-  if `echo $LINESTART|grep scan_name 1>/dev/null 2>&1`
-  then
-    #We found a new scan!
-    SCANNAME=$RECNAME
-    echo $RECNAME
-  elif `echo $LINESTART |grep disk_pos 1>/dev/null 2>&1` 
-  then
-    if [ "${LASTLINE:0:1}" == "!" ]
-    then
-      LASTTIME=$LASTLINE
-      echo $LASTLINE
-    fi
-  fi
-  I=$(($I+1))
-  LASTLINE=$line
-done < $SNP
+# get scan names, convert "," to space
+sed -n -e '/scan_name=/s/scan_name=//p' $SNP | sed -n -e 's/,/ /gp' > ./scans
+
+# get start times
+# sed -n -e '/preob/,/!/p' $SNP | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
+cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
+
+# get end times
+cat $SNP | grep data_valid=off -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./endtimes
+
