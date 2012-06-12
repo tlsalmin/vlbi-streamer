@@ -23,8 +23,11 @@ while read line; do
     echo $RECNAME
   elif `echo $LINESTART |grep disk_pos 1>/dev/null 2>&1` 
   then
-    LASTTIME=$LASTLINE
-    echo $LASTLINE
+    if [ "${LASTLINE:0:1}" == "!" ]
+    then
+      LASTTIME=$LASTLINE
+      echo $LASTLINE
+    fi
   fi
   I=$(($I+1))
   LASTLINE=$line
