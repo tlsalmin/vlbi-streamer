@@ -19,7 +19,7 @@ struct scheduled_event{
 
 int main(int argc, char **argv)
 {
-  int err,running = 1;
+  int err,is_running = 1;
   struct scheduled_event * scheduled[MAX_SCHEDULED];
   struct scheduled_event * running[MAX_RUNNING];
   struct opt_s * default_opt = malloc(sizeof(struct opt_s));
@@ -42,9 +42,13 @@ int main(int argc, char **argv)
   err = inotify_add_watch(i_fd, STATEFILE, IN_MODIFY);
   CHECK_ERR_LTZ("Add watch");
 
-  while(running)
+  /* Remove when ready */
+  (void)scheduled;
+  (void)running;
+
+  while(is_running)
   {
-    running = 0;
+    is_running = 0;
   }
 
   free(default_opt);

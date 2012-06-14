@@ -30,10 +30,10 @@ int sbuf_check(struct buffer_entity *be, int tout){
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%lu Writes complete on seqnum %d",, ret/sbuf->opt->buf_elem_size, sbuf->file_seqnum);
+    D("%lu Writes complete on seqnum %d",, ret/sbuf->opt->packet_size, sbuf->file_seqnum);
     unsigned long num_written;
 
-    num_written = ret/sbuf->opt->buf_elem_size;
+    num_written = ret/sbuf->opt->packet_size;
 
     sbuf->asyncdiff-=num_written;
   }
@@ -61,7 +61,7 @@ int sbuf_acquire(void* buffo, void *opti,unsigned long seq, unsigned long bufnum
   sbuf->opt = (struct opt_s *)opti;
   if(sbuf->opt->optbits & USE_RX_RING){
     /* This threads responsible area */
-    sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+    sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
   }
   sbuf->bufoffset = sbuf->buffer;
   /* If we're reading and we've been acquired: we need to load the buffer */
@@ -80,7 +80,7 @@ int sbuf_release(void* buffo){
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
-  memset(buf, 0, opt->buf_elem_size*(opt->buf_num_elems));
+  memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
 }
 int sbuf_seqnumcheck(void* buffo, int seq){
   if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == seq)
@@ -130,7 +130,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->ready_to_act = 0;
 
   //sbuf->opt->buf_num_elems = opt->buf_num_elems;
-  //sbuf->opt->buf_elem_size = opt->buf_elem_size;
+  //sbuf->opt->packet_size = opt->packet_size;
   //sbuf->writer_head = 0;
   //sbuf->tail = sbuf->hdwriter_head = (sbuf->opt->buf_num_elems-1);
   sbuf->diff =0;
@@ -170,8 +170,8 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 
       /* TODO: Check other flags aswell				*/
       /* TODO: Not sure if shared needed as threads share id 	*/
-      //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
-      sbuf->buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+      //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
+      sbuf->buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
@@ -186,10 +186,10 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
     else
 #endif /* HAVE_HUGEPAGES */
     {
-      D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->buf_elem_size);
-      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
-      //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size));
-      //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
+      D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
+      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
+      //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
+      //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
       preheat_buffer(sbuf->buffer, opt);
 
     }
@@ -222,7 +222,7 @@ int sbuf_close(struct buffer_entity* be, void *stats){
   if(!(sbuf->opt->optbits & USE_RX_RING)){
 #ifdef HAVE_HUGEPAGES
     if(sbuf->opt->optbits & USE_HUGEPAGE){
-      munmap(sbuf->buffer, sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+      munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
       /*
 	 close(sbuf->huge_fd);
 	 char hugefs[FILENAME_MAX];
@@ -258,12 +258,12 @@ void close_recer(struct buffer_entity *be){
 }
 int simple_end_transaction(struct buffer_entity *be){
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
-  //void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->buf_elem_size;
+  //void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->packet_size;
   unsigned long wrote_extra = 0;
   long ret = 0;
 
-  unsigned long count = sbuf->diff*(sbuf->opt->buf_elem_size);
-  //void * start = sbuf->buffer + (*tail * sbuf->opt->buf_elem_size);
+  unsigned long count = sbuf->diff*(sbuf->opt->packet_size);
+  //void * start = sbuf->buffer + (*tail * sbuf->opt->packet_size);
   while(count % BLOCK_ALIGN != 0){
     count++;
     wrote_extra++;
@@ -304,13 +304,13 @@ int* sbuf_getinc(struct buffer_entity *be){
 int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
-  //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->buf_elem_size);
+  //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
   unsigned long limit = sbuf->opt->do_w_stuff_every;
 
-  unsigned long count = sbuf->diff * sbuf->opt->buf_elem_size;
-  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
-  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->buf_elem_size);
-  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->buf_elem_size*sbuf->opt->buf_num_elems);
+  unsigned long count = sbuf->diff * sbuf->opt->packet_size;
+  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
+  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
+  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
 
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   if(count > limit)
@@ -342,10 +342,10 @@ int simple_write_bytes(struct buffer_entity *be){
     }
     else{
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
-      sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->buf_elem_size;
+      sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
 
       sbuf->bufoffset += count;
-      if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->buf_elem_size))
+      if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
 	sbuf->bufoffset = sbuf->buffer;
 #else
       sbuf->diff = 0;

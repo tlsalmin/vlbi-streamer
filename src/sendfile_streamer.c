@@ -87,7 +87,7 @@ void* sendfile_writer(void *se)
 
       //Critical sec in logging n:th packet
       pthread_mutex_lock(spec_ops->cumlock);
-      err = splice(spec_ops->fd, 0, pipes[1], 0, spec_ops->buf_elem_size,SPLICE_F_MOVE|SPLICE_F_MORE);
+      err = splice(spec_ops->fd, 0, pipes[1], 0, spec_ops->packet_size,SPLICE_F_MOVE|SPLICE_F_MORE);
       //err = splice(spec_ops->fd, 0, pipes[1], 0, 500,0);
 
       if(err < 0){
@@ -99,7 +99,7 @@ void* sendfile_writer(void *se)
 	break;
       }
       else{
-	splice(pipes[0], NULL, ffd, NULL, spec_ops->buf_elem_size, SPLICE_F_MOVE|SPLICE_F_MORE);
+	splice(pipes[0], NULL, ffd, NULL, spec_ops->packet_size, SPLICE_F_MOVE|SPLICE_F_MORE);
       }
       pthread_mutex_unlock(spec_ops->cumlock);
       /*

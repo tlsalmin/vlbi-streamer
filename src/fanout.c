@@ -170,8 +170,8 @@ int fanout_setup_socket(struct opt_s* opt, struct streamer_entity* se)
     //struct tpacket_req req;
 
     //Make the socket send packets to the ring
-    spec_ops->req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems);
-  spec_ops->req.tp_frame_size =spec_ops->opt->buf_elem_size;
+    spec_ops->req.tp_block_size = spec_ops->opt->packet_size*(spec_ops->opt->buf_num_elems);
+  spec_ops->req.tp_frame_size =spec_ops->opt->packet_size;
   spec_ops->req.tp_block_nr =spec_ops->opt->n_threads; 
   spec_ops->req.tp_frame_nr =spec_ops->opt->buf_num_elems;
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void*) &(spec_ops->req), sizeof(spec_ops->req));

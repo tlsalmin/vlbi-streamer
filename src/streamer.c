@@ -312,13 +312,13 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	return -1;
       }
       /* Check for same filesize. Now this loops has to have been performed	*/
-      /* once before we try to check the option due to needing buf_elem_size	*/
+      /* once before we try to check the option due to needing packet_size	*/
       else if(check == 1){
-	if((unsigned long)config_setting_get_int64(setting) != opt->buf_elem_size*opt->buf_num_elems)
+	if((unsigned long)config_setting_get_int64(setting) != opt->packet_size*opt->buf_num_elems)
 	  return -1;
       }
       else if(write == 1){
-	filesize = opt->buf_elem_size*opt->buf_num_elems;
+	filesize = opt->packet_size*opt->buf_num_elems;
 	err = config_setting_set_int64(setting,filesize);
 	if(err != CONFIG_TRUE){
 	  E("Writing filesize: %d",, err);
@@ -343,7 +343,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_INT(opt->rate, "rate")
     CFG_FULL_UINT64(opt->do_w_stuff_every, "do_w_stuff_every")
     CFG_FULL_INT(opt->wait_nanoseconds, "wait_nanoseconds")
-    CFG_FULL_UINT64(opt->buf_elem_size, "buf_elem_size")
+    CFG_FULL_UINT64(opt->packet_size, "packet_size")
     CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
     CFG_FULL_INT(opt->buf_division, "buf_division")
     CFG_FULL_STR(hostname)
@@ -352,9 +352,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 
     setting = config_setting_get_elem(root,++index);
   }
-  /* Only use filesize here, since it needs buf_elem_size */
+  /* Only use filesize here, since it needs packet_size */
   if(filesize_found==1){
-    opt->buf_num_elems = filesize/opt->buf_elem_size;
+    opt->buf_num_elems = filesize/opt->packet_size;
     opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
   
@@ -362,9 +362,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 }
 int stub_rec_cfg(config_setting_t *root){
   config_setting_t *setting;
-  setting = config_setting_add(root, "buf_elem_size", CONFIG_TYPE_INT64);
-  CHECK_ERR_NONNULL(setting, "add buf_elem_size");
-  //config_setting_set_int64(setting, opt->buf_elem_size);
+  setting = config_setting_add(root, "packet_size", CONFIG_TYPE_INT64);
+  CHECK_ERR_NONNULL(setting, "add packet_size");
+  //config_setting_set_int64(setting, opt->packet_size);
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
   setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
@@ -378,7 +378,7 @@ int stub_rec_cfg(config_setting_t *root){
 int stub_full_cfg(config_setting_t *root){
   config_setting_t *setting;
   //stub_rec_cfg(root);
-  CFG_ADD_INT64(buf_elem_size);
+  CFG_ADD_INT64(packet_size);
   CFG_ADD_INT64(optbits);
   CFG_ADD_STR(device_name);
   CFG_ADD_INT64(time);
@@ -449,7 +449,7 @@ int init_cfg(struct opt_s *opt){
   if(opt->optbits & READMODE){
     int found = 0;
     /* For checking on cfg-file consistency */
-    //long long buf_elem_size=0,cumul=0,old_buf_elem_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
+    //long long packet_size=0,cumul=0,old_packet_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
@@ -558,15 +558,15 @@ int calculate_buffer_sizes(struct opt_s *opt){
 
   /* Magic is the n of blocks we wan't to divide the ringbuffer to	*/
   opt->buf_division = 8;
-  //unsigned long bufsize;// = opt.buf_elem_size;
+  //unsigned long bufsize;// = opt.packet_size;
   int found = 0;
 
   int extra= 0;
   if(opt->optbits & USE_RX_RING){
-    while((opt->buf_elem_size %16)!= 0){
+    while((opt->packet_size %16)!= 0){
       if(opt->optbits  &READMODE)
 	E("Shouldn't need this in sending with RX-ring!");
-      opt->buf_elem_size++;
+      opt->packet_size++;
       extra++;
     }
     D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
@@ -577,12 +577,12 @@ int calculate_buffer_sizes(struct opt_s *opt){
       "%lu GB to %luGB,"
       " size %lu packets, "
       "Doing maximum %luMB size writes\n"
-      ,opt->minmem, opt->maxmem, opt->buf_elem_size, opt->do_w_stuff_every/MEG);
+      ,opt->minmem, opt->maxmem, opt->packet_size, opt->do_w_stuff_every/MEG);
   /* Set do_w_stuff to minimum wanted */
   /* First set do_w_stuff to be packet aligned */
-  unsigned long temp = opt->do_w_stuff_every/opt->buf_elem_size;
+  unsigned long temp = opt->do_w_stuff_every/opt->packet_size;
   LOG("%lu\n",temp);
-  opt->do_w_stuff_every = temp*(opt->buf_elem_size);
+  opt->do_w_stuff_every = temp*(opt->packet_size);
 
   /* Increase block division to fill min amount of memory */
   while((opt->do_w_stuff_every)*opt->buf_division*(opt->n_threads) < (opt->minmem)*GIG){
@@ -595,11 +595,11 @@ int calculate_buffer_sizes(struct opt_s *opt){
     while((opt->do_w_stuff_every)*opt->buf_division*(opt->n_threads) < (opt->maxmem)*GIG){
       if(opt->do_w_stuff_every % BLOCK_ALIGN == 0){
 	found=1;
-	opt->buf_num_elems = (opt->do_w_stuff_every*opt->buf_division)/opt->buf_elem_size;
-	//opt->do_w_stuff_every = opt->do_w_stuff_every/opt->buf_elem_size;
+	opt->buf_num_elems = (opt->do_w_stuff_every*opt->buf_division)/opt->packet_size;
+	//opt->do_w_stuff_every = opt->do_w_stuff_every/opt->packet_size;
 	break;
       }
-      opt->do_w_stuff_every+=opt->buf_elem_size;
+      opt->do_w_stuff_every+=opt->packet_size;
     }
     if(found == 0){
       opt->do_w_stuff_every = temp;
@@ -613,8 +613,8 @@ int calculate_buffer_sizes(struct opt_s *opt){
 	", Writing in %lu size blocks"
 	", %d Blocks per buffer"
 	", Elements in buffer %d\n"
-	,opt->minmem, opt->maxmem, opt->buf_elem_size*(opt->buf_num_elems), opt->do_w_stuff_every,opt->buf_division ,opt->buf_num_elems);
-    //LOG("STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->buf_elem_size,opt->n_threads, (opt->buf_elem_size*(opt->buf_num_elems))/opt->buf_division);
+	,opt->minmem, opt->maxmem, opt->packet_size*(opt->buf_num_elems), opt->do_w_stuff_every,opt->buf_division ,opt->buf_num_elems);
+    //LOG("STREAMER: Didnt find alignment for %lu on %d threads, with w_every %lu\n", opt->packet_size,opt->n_threads, (opt->packet_size*(opt->buf_num_elems))/opt->buf_division);
     return -1;
   }
   else{
@@ -628,7 +628,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
        filesztemp+=opt.do_w_stuff_every;
        opt.filesize= filesztemp;
        */
-    //opt.filesize = opt->buf_num_elems*(opt->buf_elem_size);
+    //opt.filesize = opt->buf_num_elems*(opt->packet_size);
 
     LOG("STREAMER: Alignment found between "
 	"%lu GB to %luGB"
@@ -636,8 +636,8 @@ int calculate_buffer_sizes(struct opt_s *opt){
 	", Writing in %lu MB size blocks"
 	", Elements in buffer %d"
 	", Total used memory: %luMB\n"
-	,opt->minmem, opt->maxmem, (opt->buf_elem_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->buf_elem_size*opt->n_threads)/MEG);
-    //LOG("STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->buf_elem_size,opt->n_threads ,opt->buf_num_elems*(opt->buf_elem_size),opt->buf_division, (opt->buf_num_elems*opt->buf_elem_size)/opt->buf_division);
+	,opt->minmem, opt->maxmem, (opt->packet_size*(opt->buf_num_elems))/MEG, (opt->do_w_stuff_every)/MEG, opt->buf_num_elems, (opt->buf_num_elems*opt->packet_size*opt->n_threads)/MEG);
+    //LOG("STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->packet_size,opt->n_threads ,opt->buf_num_elems*(opt->packet_size),opt->buf_division, (opt->buf_num_elems*opt->packet_size)/opt->buf_division);
     return 0;
   }
 }
@@ -781,7 +781,7 @@ int clear_and_default(struct opt_s* opt){
   opt->port = 2222;
   opt->n_threads = 0;
   opt->n_drives = 1;
-  opt->buf_elem_size = DEF_BUF_ELEM_SIZE;
+  opt->packet_size = DEF_BUF_ELEM_SIZE;
   opt->cumul_found = 0;
 
   //opt->optbits |=USE_RX_RING;
@@ -893,7 +893,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->port = atoi(optarg);
 	break;
       case 'p':
-	opt->buf_elem_size = atoi(optarg);
+	opt->packet_size = atoi(optarg);
 	break;
       case 'u':
 #ifdef HAVE_HUGEPAGES
@@ -992,7 +992,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
   /*
      if(opt->optbits & USE_RX_RING)
-     opt->buf_elem_size += TPACKET_HDRLEN;
+     opt->packet_size += TPACKET_HDRLEN;
      */
 
   /* If n_threads isn't set, set it to n_drives +2 */
@@ -1023,15 +1023,15 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
   /* bytes_per_sec * bytes = total_bytes */
   /* total_bytes / threads = bytes per thread */
-  /* bytes_per_thread/opt->buf_elem_size = packets_per_thread */
+  /* bytes_per_thread/opt->packet_size = packets_per_thread */
 
   /* Making this very verbose, since its only done once */
   /*
      loff_t bytes_per_sec = (((unsigned long)opt->rate)*1024l*1024l)/8;
      loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt->n_threads);
      loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt->time);
-     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt->buf_elem_size);
-  //loff_t prealloc_bytes = (((unsigned long)opt->rate)*opt->time*1024)/(opt->buf_elem_size);
+     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt->packet_size);
+  //loff_t prealloc_bytes = (((unsigned long)opt->rate)*opt->time*1024)/(opt->packet_size);
   */
   //Split kb/gb stuff to avoid overflow warning
   //prealloc_bytes = (prealloc_bytes*1024*8)/opt->n_threads;
@@ -1226,7 +1226,7 @@ int main(int argc, char **argv)
      int flags = MAP_ANONYMOUS|MAP_SHARED;
      if(opt.optbits & USE_HUGEPAGE)
      flags |= MAP_HUGETLB;
-     opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->buf_elem_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
+     opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
      }
      */
 
@@ -1598,17 +1598,17 @@ int update_cfg(struct opt_s* opt, struct config_t * cfg){
   if(opt->optbits & READMODE){
     unsigned long filesize=0;
     GET_I64("cumul",opt->cumul);
-    GET_I64("buf_elem_size", opt->buf_elem_size);
+    GET_I64("packet_size", opt->packet_size);
     GET_I64("filesize", filesize);
     GET_I64("total_packets", opt->total_packets);
     GET_I("buf_division", opt->buf_division);
-    opt->buf_num_elems = filesize/opt->buf_elem_size;
+    opt->buf_num_elems = filesize/opt->packet_size;
     opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
   else{
     SET_I64("cumul",opt->cumul);
-    SET_I64("buf_elem_size", opt->buf_elem_size);
-    SET_I64("filesize", (opt->buf_elem_size)*(opt->buf_num_elems));
+    SET_I64("packet_size", opt->packet_size);
+    SET_I64("filesize", (opt->packet_size)*(opt->buf_num_elems));
     SET_I("buf_division", opt->buf_division);
     SET_I64("total_packets", opt->total_packets);
   }

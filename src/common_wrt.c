@@ -355,7 +355,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     //prealloc_bytes = prealloc_bytes*1024*1024;
     //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
 
-    //prealloc_bytes = opt->max_num_packets* opt->buf_elem_size;
+    //prealloc_bytes = opt->max_num_packets* opt->packet_size;
     //prealloc_bytes=0;
 
   }

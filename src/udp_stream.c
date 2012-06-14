@@ -110,10 +110,10 @@ int udps_bind_rx(struct udpopts * spec_ops){
   /* I guess I need to just calculate this .. */
   /* FIX: Just set frame size as n-larger so its 16 divisable. */
 
-  unsigned long total_mem_div_blocksize = (spec_ops->opt->buf_elem_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every);
-  //req.tp_block_size = spec_ops->opt->buf_elem_size*(spec_ops->opt->buf_num_elems)/4096;
+  unsigned long total_mem_div_blocksize = (spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems*spec_ops->opt->n_threads)/(spec_ops->opt->do_w_stuff_every);
+  //req.tp_block_size = spec_ops->opt->packet_size*(spec_ops->opt->buf_num_elems)/4096;
   req.tp_block_size = spec_ops->opt->do_w_stuff_every;
-  req.tp_frame_size = spec_ops->opt->buf_elem_size;
+  req.tp_frame_size = spec_ops->opt->packet_size;
   req.tp_frame_nr = spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads);
   //req.tp_block_nr = spec_ops->opt->n_threads;
   req.tp_block_nr = total_mem_div_blocksize;
@@ -182,7 +182,7 @@ int udps_common_init_stuff(struct streamer_entity *se)
     struct ifreq ifr;
     //Get the interface index
     memset(&ifr, 0, sizeof(ifr));
-    ifr.ifr_ifru.ifru_ivalue = ((1000000000L)*spec_ops->opt->wait_nanoseconds)*8*spec_ops->opt->buf_elem_size;
+    ifr.ifr_ifru.ifru_ivalue = ((1000000000L)*spec_ops->opt->wait_nanoseconds)*8*spec_ops->opt->packet_size;
     err = ioctl(spec_ops->fd, SIOCSCANBAUDRATE, &ifr);
     CHECK_ERR("Baud Rater");
   }
@@ -221,7 +221,7 @@ int udps_common_init_stuff(struct streamer_entity *se)
   if(spec_ops->opt->optbits & READMODE){
     err = 0;
     D("Doing the double rcvbuf-loop");
-    def = spec_ops->opt->buf_elem_size;
+    def = spec_ops->opt->packet_size;
     while(err == 0){
       //D("RCVBUF size is %d",,def);
       def  = def << 1;
@@ -243,7 +243,7 @@ int udps_common_init_stuff(struct streamer_entity *se)
     CHECK_ERR("RCVBUF size");
     */
     D("Doing the double rcvbuf-loop");
-    def = spec_ops->opt->buf_elem_size;
+    def = spec_ops->opt->packet_size;
     while(err == 0){
       //D("RCVBUF size is %d",,def);
       def  = def << 1;
@@ -620,7 +620,7 @@ void * udp_sender(void *streamo){
     }
 
 #endif //HAVE_RATELIMITER
-    err = sendto(spec_ops->fd, buf, spec_ops->opt->buf_elem_size, 0, spec_ops->sin,spec_ops->sinsize);
+    err = sendto(spec_ops->fd, buf, spec_ops->opt->packet_size, 0, spec_ops->sin,spec_ops->sinsize);
 
     // Increment to the next sendable packet
     if(err < 0){
@@ -635,7 +635,7 @@ void * udp_sender(void *streamo){
       packets_left_to_send--;
       spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets++;
-      buf += spec_ops->opt->buf_elem_size;
+      buf += spec_ops->opt->packet_size;
       i++;
     }
   }
@@ -657,7 +657,7 @@ void* udp_rxring(void *streamo)
   int timeout = 1000;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
+  struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   struct pollfd pfd;
   int bufnum = 0;
   int *inc;
@@ -733,11 +733,11 @@ void* udp_rxring(void *streamo)
 #endif
 
       hdr->tp_status = TP_STATUS_KERNEL;
-      hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
+      hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
     }
     //D("Packets handled");
     //fprintf(stdout, "i: %d, j: %d\n", i,j);
-    hdr = spec_ops->opt->buffer + j*(spec_ops->opt->buf_elem_size); 
+    hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   }
   if(j > 0){
     spec_ops->opt->cumul++;
@@ -797,7 +797,7 @@ void* udp_receiver(void *streamo)
       buf = se->be->simple_get_writebuf(se->be, &inc);
       i=0;
     }
-    err = recv(spec_ops->fd, buf, spec_ops->opt->buf_elem_size,0);
+    err = recv(spec_ops->fd, buf, spec_ops->opt->packet_size,0);
     if(err < 0){
       if(err == EINTR)
 	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
@@ -811,7 +811,7 @@ void* udp_receiver(void *streamo)
     /* Success! */
     else if(spec_ops->running==1){
       i++;
-      buf+=spec_ops->opt->buf_elem_size;
+      buf+=spec_ops->opt->packet_size;
       (*inc)++;
 
       spec_ops->total_captured_bytes +=(unsigned int) err;

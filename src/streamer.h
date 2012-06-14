@@ -392,7 +392,7 @@ struct opt_s
   //int handle;
 
   /* Bloat TODO Find alternative place for this */
-  INDEX_FILE_TYPE buf_elem_size;
+  INDEX_FILE_TYPE packet_size;
   int buf_num_elems;
   int buf_division;
   //These two are a bit silly. Should be moved to use as a parameter

@@ -53,7 +53,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 #endif
 
   //rbuf->opt->buf_num_elems = opt->buf_num_elems;
-  //rbuf->opt->buf_elem_size = opt->buf_elem_size;
+  //rbuf->opt->packet_size = opt->packet_size;
   //rbuf->writer_head = 0;
   //rbuf->tail = rbuf->hdwriter_head = (rbuf->opt->buf_num_elems-1);
   if(rbuf->opt->optbits & READMODE){
@@ -103,8 +103,8 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
     /* TODO: Check other flags aswell				*/
     /* TODO: Not sure if shared needed as threads share id 	*/
-    //rbuf->buffer = mmap(NULL, (rbuf->opt->buf_num_elems)*(rbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, rbuf->huge_fd,0);
-    rbuf->buffer = mmap(NULL, ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->buf_elem_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+    //rbuf->buffer = mmap(NULL, (rbuf->opt->buf_num_elems)*(rbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, rbuf->huge_fd,0);
+    rbuf->buffer = mmap(NULL, ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
     if(rbuf->buffer ==MAP_FAILED){
       perror("MMAP");
       fprintf(stderr, "RINGBUF: Couldn't allocate hugepages\n");
@@ -124,7 +124,7 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 #if(DEBUG_OUTPUT)
     fprintf(stdout, "RINGBUF: Memaligning buffer\n");
 #endif
-    err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->buf_elem_size));
+    err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->packet_size));
   }
   if (err < 0 || rbuf->buffer == 0) {
     perror("make_write_buffer");
@@ -150,7 +150,7 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
     */
 #ifdef HAVE_HUGEPAGES
   if(rbuf->opt->optbits & USE_HUGEPAGE){
-    munmap(rbuf->buffer, rbuf->opt->buf_elem_size*rbuf->opt->buf_num_elems);
+    munmap(rbuf->buffer, rbuf->opt->packet_size*rbuf->opt->buf_num_elems);
     /*
     close(rbuf->huge_fd);
     char hugefs[FILENAME_MAX];
@@ -249,7 +249,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
 #endif
   }
   else
-    spot = rbuf->buffer + (((long unsigned)*head)*(long unsigned)rbuf->opt->buf_elem_size);
+    spot = rbuf->buffer + (((long unsigned)*head)*(long unsigned)rbuf->opt->packet_size);
   return spot;
 }
 /*
@@ -273,8 +273,8 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     long count;
     long endi;
     if(i == 0){
-      //start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->opt->buf_elem_size);
-      start = rbuf->buffer + (*tail * rbuf->opt->buf_elem_size);
+      //start = rbuf->buffer + (rbuf->hdwriter_head * rbuf->opt->packet_size);
+      start = rbuf->buffer + (*tail * rbuf->opt->packet_size);
       if(requests ==2){
 	//endi = rbuf->opt->buf_num_elems - rbuf->hdwriter_head;
 	endi = rbuf->opt->buf_num_elems - *tail;
@@ -287,7 +287,7 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
       start = rbuf->buffer;
       endi = diff;
     }
-    count = (endi) * ((long)(rbuf->opt->buf_elem_size));
+    count = (endi) * ((long)(rbuf->opt->packet_size));
 
 #if(DEBUG_OUTPUT)
       fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, %lu bytes\n", *tail, *tail+endi, endi, rbuf->opt->buf_num_elems, count);
@@ -465,8 +465,8 @@ int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
   unsigned long wrote_extra = 0;
   long int ret = 0;
   
-  unsigned long count = diff*(rbuf->opt->buf_elem_size);
-  void * start = rbuf->buffer + (*tail * rbuf->opt->buf_elem_size);
+  unsigned long count = diff*(rbuf->opt->packet_size);
+  void * start = rbuf->buffer + (*tail * rbuf->opt->packet_size);
   while(count % 512 != 0){
     count++;
     wrote_extra++;
@@ -511,7 +511,7 @@ void *rbuf_write_loop(void *buffo){
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
   int limited_head;
 #endif
-  int dow_div_packet = rbuf->opt->do_w_stuff_every/rbuf->opt->buf_elem_size;
+  int dow_div_packet = rbuf->opt->do_w_stuff_every/rbuf->opt->packet_size;
   rbuf_init_head_n_tail(rbuf,&head,&tail);
   rbuf->running = 1;
   while(rbuf->running){
@@ -666,7 +666,7 @@ int rbuf_check(struct buffer_entity *be){
     if(rbuf->opt->optbits & ASYNC_WRITE)
       rbuf->async_writes_submitted--;
 #if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: %lu Writes complete.\n", ret/rbuf->opt->buf_elem_size);
+    fprintf(stdout, "RINGBUF: %lu Writes complete.\n", ret/rbuf->opt->packet_size);
 #endif
     returnable = ret;
     int * to_increment;
@@ -682,7 +682,7 @@ int rbuf_check(struct buffer_entity *be){
     if(ret > rbuf->opt->do_w_stuff_every)
       ret = rbuf->opt->do_w_stuff_every;
 
-    num_written = ret/rbuf->opt->buf_elem_size;
+    num_written = ret/rbuf->opt->packet_size;
 
     /* This might happen on last write, when we need to write some extra */
     /* stuff to keep the writes Block aligned				*/

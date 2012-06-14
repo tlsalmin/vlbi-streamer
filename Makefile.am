@@ -8,6 +8,7 @@ rundir = $(localstatedir)/opt/vlbistreamer
 run_DATA = schedule
 logdir = $(localstatedir)/log
 log_DATA = vlbistreamer.log
+bin_SCRIPTS = scripts/*
 
 install-data-hook:
 	chown -R @USER@ $(rundir)
@@ -16,6 +17,7 @@ install-data-hook:
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	chown @USER@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
+	sed -i 's/SCHEDULE=.*/SCHEDULE=$(rundir)\/opt\/vlbistreamer/' scripts/vbs_queue
 
 ## Set the default command-line flags for the C preprocessor to the value
 ## obtained from pkg-config via PKG_CHECK_MODULES in configure.ac.  These
