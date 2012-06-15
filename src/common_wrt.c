@@ -322,13 +322,15 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
   //loff_t prealloc_bytes;
   //struct stat statinfo;
-  int err =0;
+  //int err =0;
   //ioi->opt->optbits = opt->optbits;
   ioi->opt = opt;
 
   ioi->id = ioi->opt->diskids++;
+#ifndef DAEMON
   err = init_directory(re);
   CHECK_ERR("Init directory");
+#endif
 
   //ioi->latest_write_num = 0;
   if(ioi->opt->optbits & READMODE){

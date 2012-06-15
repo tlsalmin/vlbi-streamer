@@ -360,19 +360,25 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   
   return 0;
 }
+/* Init a rec cfg */
 int stub_rec_cfg(config_setting_t *root){
   config_setting_t *setting;
   setting = config_setting_add(root, "packet_size", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add packet_size");
-  //config_setting_set_int64(setting, opt->packet_size);
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
+  /* If we're using the simpler buffer calculation, which fixes the 	*/
+  /* size of the files, we don't need filesize etc. here anymore	*/
+#ifndef SIMPLE_BUFCACL
   setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add filesize");
+#endif
   setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add total_packets");
+#ifndef SIMPLE_BUFCACL
   setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT);
   CHECK_ERR_NONNULL(setting, "add buf_division");
+#endif
   return 0;
 }
 int stub_full_cfg(config_setting_t *root){
@@ -640,6 +646,36 @@ int calculate_buffer_sizes(struct opt_s *opt){
     //LOG("STREAMER: Alignment found for %lu size packet with %d threads at %lu with ringbuf in %lu blocks. hd write size as %lu\n", opt->packet_size,opt->n_threads ,opt->buf_num_elems*(opt->packet_size),opt->buf_division, (opt->buf_num_elems*opt->packet_size)/opt->buf_division);
     return 0;
   }
+}
+int calculate_buffer_sizes_simple(struct opt_s * opt){ 
+  /* A very simple buffer size calculator that fixes the filesizes to 	*/
+  /* constants according to the packet size. We try to keep the		*/
+  /*filesize between 256 and 512 and must keep it packet- and 		*/
+  /* blockaligned at all times						*/
+  int extra= 0;
+  if(opt->optbits & USE_RX_RING){
+    while((opt->packet_size %16)!= 0){
+      if(opt->optbits  &READMODE)
+	E("Shouldn't need this in sending with RX-ring!");
+      opt->packet_size++;
+      extra++;
+    }
+    D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+  }
+  opt->buf_division = B(3);
+  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= 512*MEG)
+    opt->buf_division  >>= 1;
+  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= 256*MEG)
+    opt->buf_division  <<= 1;
+  opt->buf_num_elems = (BLOCK_ALIGN*opt->buf_division);
+  opt->do_w_stuff_every = (BLOCK_ALIGN*opt->packet_size);
+
+  opt->n_threads = 1;
+  while(opt->n_threads*opt->packet_size*opt->buf_num_elems < opt->maxmem*GIG)
+    opt->n_threads++;
+  opt->n_threads -=1;
+
+  return 0;
 }
 /*
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client
@@ -1062,12 +1098,12 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
     opt->minmem = rl.rlim_cur;
   }
   if(!(opt->optbits & READMODE)){
-    if (calculate_buffer_sizes(opt) != 0)
+    if (CALC_BUF_SIZE(opt) != 0)
       exit(-1);
   }
   return 0;
 }
-#ifdef DAEMON
+#if(DAEMON)
 int vlbistreamer(struct opt_s *opt)
 #else
 int main(int argc, char **argv)
@@ -1075,7 +1111,7 @@ int main(int argc, char **argv)
 {
   int i,rc;
   int err = 0;
-#ifndef DAEMON
+#if(!DAEMON)
   struct opt_s *opt = malloc(sizeof(struct opt_s));
 #endif
 #ifdef PRIORITY_SETTINGS
@@ -1100,7 +1136,7 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
-#ifndef DAEMON
+#if(!DAEMON)
   clear_and_default(opt);
   err = parse_options(argc,argv,opt);
 #endif
@@ -1219,6 +1255,12 @@ int main(int argc, char **argv)
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
   }
+#ifdef SIMPLE_BUFCACL
+  /* Now we have all the object data, so we can calc our buffer sizes	*/
+  if(opt->optbits & READMODE){
+    CALC_BUF_SIZE(opt);
+  }
+#endif
 #endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
@@ -1558,7 +1600,7 @@ int main(int argc, char **argv)
   free(opt->membranch);
   free(opt->diskbranch);
   pthread_attr_destroy(&pta);
-#ifndef DAEMON
+#if(!DAEMON)
   free(opt);
 #endif
 

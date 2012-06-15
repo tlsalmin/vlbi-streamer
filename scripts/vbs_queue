@@ -1,0 +1,70 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 <options> <outputfile>
+
+This script adds a recording to vlbistreamer readable format
+
+OPTIONS:
+      -a MYY		Wait MYY microseconds between packet sends
+      -c CFGFILE	Load config from cfg-file CFGFILE
+      -d DRIVES		Number of drives(Default: 1)
+      -i INTERFACE	Which interface to bind to(Not required)
+      -m {s|r}		Send or Receive the data(Default: receive)
+      -n NUM	        Number of threads(Default: DRIVES+2)
+      -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
+      -q 		Check if packets are in order from first 64bits of package(Not yet implemented)
+      -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
+      -s SOCKET	Socket number(Default: 2222)
+      -v 		Verbose. Print stats on all transfers
+      -V 		Verbose. Print stats on individual mountpoint transfers
+      -x 		Use an mmap rxring for receiving
+
+EOF
+}
+WAIT_NANOSECONDS=
+CFGFILE=
+N_DRIVES=
+DEVICE_NAME=
+READMODE=
+N_THREADS=
+PACKET_SIZE=
+CHECK_SEQ=
+RATE=
+SOCKET=
+VERBOSE=
+MOUNTPOINT_VERBOSE=
+USE_RX_RING=
+STARTING_TIME=
+
+SCHEDULE=/usr/local/var/opt/vlbistreamer/opt/vlbistreamer
+
+while getopts “a:c:d:i:m:n:p:qr:s:vVxS” OPTION
+do
+     case $OPTION in
+         a)
+             usage
+             exit 1
+             ;;
+         t)
+             TEST=$OPTARG
+             ;;
+         r)
+             SERVER=$OPTARG
+             ;;
+         p)
+             PASSWD=$OPTARG
+             ;;
+         v)
+             VERBOSE=1
+             ;;
+         ?)
+             usage
+             exit
+             ;;
+     esac
+done
+
+

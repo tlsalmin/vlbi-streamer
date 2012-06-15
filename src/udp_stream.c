@@ -36,6 +36,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
+#define DUMMYSOCKET
 #define SLEEPCHECK_LOOPTIMES 100
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
@@ -620,7 +621,12 @@ void * udp_sender(void *streamo){
     }
 
 #endif //HAVE_RATELIMITER
+#ifdef DUMMYSOCKET
+    err = spec_ops->opt->packet_size;
+#else
     err = sendto(spec_ops->fd, buf, spec_ops->opt->packet_size, 0, spec_ops->sin,spec_ops->sinsize);
+#endif
+    
 
     // Increment to the next sendable packet
     if(err < 0){
@@ -797,7 +803,11 @@ void* udp_receiver(void *streamo)
       buf = se->be->simple_get_writebuf(se->be, &inc);
       i=0;
     }
+#ifdef DUMMYSOCKET
+    err = spec_ops->opt->packet_size;
+#else
     err = recv(spec_ops->fd, buf, spec_ops->opt->packet_size,0);
+#endif
     if(err < 0){
       if(err == EINTR)
 	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");

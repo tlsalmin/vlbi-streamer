@@ -52,9 +52,9 @@ do
   sed -i "$LINEOFSCAN a sy=ssh $VLBISTREAMER \"$VLBISTART $EXPNAME $dur -S $STARTEPOCH\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
-  if [ ! $EXTRAOUT -eq "" ]
+  if [ -z $EXTRAOUT ]
   then
-    echo '$EXPNAME = \n { \n time = $dur;\n startingtime = $STARTEPOCH; \n};\n' >> $EXTRAOUT
+    #vbs_queue $EXPNAME $dur $STARTEPOCH $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes

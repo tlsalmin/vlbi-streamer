@@ -71,19 +71,29 @@
 #define ROOTDIRS "/mnt/disk"
 #define INITIAL_N_FILES B(7)
 
+#define SIMPLE_BUFCACL
+#ifdef SIMPLE_BUFCACL
+#define CALC_BUF_SIZE(x) calculate_buffer_sizes_simple(x)
+#else
+define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
+#endif
+
 #define MIN_MEM_GIG 4l
 #define MAX_MEM_GIG 12l
 /* TODO query this */
 #define BLOCK_ALIGN 4096
 //#define MAX_MEM_GIG 8
-//The default size
+
+/* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
+
+/* Default packet size */
 #define DEF_BUF_ELEM_SIZE 8192
 //#define BUF_ELEM_SIZE 32768
-//Ok so lets make the buffer size 3GB every time
 #define MAX_OPEN_FILES 48
 //#define MADVISE_INSTEAD_OF_O_DIRECT
-/* To be changed pointing to log file */
+
+/* Send stuff to log file if daemon mode defined 	*/
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
@@ -380,6 +390,7 @@ struct opt_s
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
+  struct timespec starting_time;
   //unsigned long filesize;
 
   /* Moved to optbits */
@@ -501,4 +512,5 @@ int write_cfg(config_t *cfg, char* filename);
 int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);
 int calculate_buffer_sizes(struct opt_s *opt);
+int calculate_buffer_sizes_simple(struct opt_s * opt);
 #endif
