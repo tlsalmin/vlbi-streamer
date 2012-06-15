@@ -36,7 +36,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
-#define DUMMYSOCKET
+//#define DUMMYSOCKET
 #define SLEEPCHECK_LOOPTIMES 100
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
@@ -463,7 +463,7 @@ void * udp_sender(void *streamo){
   D("Can sleep max %lu microseconds on average",, minsleep);
   long wait= 0;
   long unsigned int files_loaded =  0;
-  long unsigned int files_sent = 0;
+  spec_ops->files_sent = 0;
   long unsigned int files_skipped = 0;
   unsigned long packets_left_to_load = spec_ops->opt->total_packets;
   unsigned long packets_left_to_send = packets_left_to_load;
@@ -487,7 +487,7 @@ void * udp_sender(void *streamo){
   }
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
-  se->be = get_loaded(spec_ops->opt->membranch, files_sent);
+  se->be = get_loaded(spec_ops->opt->membranch, spec_ops->files_sent);
   CHECK_AND_EXIT(se->be);
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
@@ -495,17 +495,17 @@ void * udp_sender(void *streamo){
   i=0;
   //clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
   GETTIME(spec_ops->opt->wait_last_sent);
-  while(files_sent <= spec_ops->opt->cumul){
+  while(spec_ops->files_sent <= spec_ops->opt->cumul){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
     if(i == spec_ops->opt->buf_num_elems || packets_left_to_send == 0){
-      files_sent++;
-      D("Buffer empty, Getting another: %lu",, files_sent);
+      spec_ops->files_sent++;
+      D("Buffer empty, Getting another: %lu",, spec_ops->files_sent);
       /* Check for missing file here so we can keep simplebuffer simple 	*/
       while(spec_ops->opt->fileholders[files_loaded]  == -1 && files_loaded < spec_ops->opt->cumul){
 	D("Skipping a file, fileholder set to -1 for file %lu",, files_loaded);
 	files_loaded++;
 	files_skipped++;
-	//files_sent++;
+	//spec_ops->files_sent++;
 	/* If last file is missing, we might hit negative on left_to_send 	*/
 	if(packets_left_to_send < (unsigned long)spec_ops->opt->buf_num_elems)
 	  packets_left_to_send = 0;
@@ -525,12 +525,12 @@ void * udp_sender(void *streamo){
 	set_free(spec_ops->opt->membranch, se->be->self);
       }
 
-      if(files_sent < spec_ops->opt->cumul){
-	D("Getting new loaded for file %lu",, files_sent);
-	se->be = get_loaded(spec_ops->opt->membranch, files_sent);
+      if(spec_ops->files_sent < spec_ops->opt->cumul){
+	D("Getting new loaded for file %lu",, spec_ops->files_sent);
+	se->be = get_loaded(spec_ops->opt->membranch, spec_ops->files_sent);
 	CHECK_AND_EXIT(se->be);
 	buf = se->be->simple_get_writebuf(se->be, &inc);
-	D("Got loaded file %lu to send.",, files_sent);
+	D("Got loaded file %lu to send.",, spec_ops->files_sent);
       }
       else{
 	//E("Shouldn't be here since all packets have been sent!");
@@ -843,6 +843,12 @@ void* udp_receiver(void *streamo)
   pthread_exit(NULL);
 
 }
+inline unsigned long udps_get_fileprogress(struct udpopts* spec_ops){
+  if(spec_ops->opt->optbits & READMODE)
+    return spec_ops->files_sent;
+  else
+    return spec_ops->opt->cumul;
+}
 void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)sp;
@@ -851,6 +857,7 @@ void get_udp_stats(void *sp, void *stats){
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->dropped;
+  stat->files_exchanged = udps_get_fileprogress(spec_ops);
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct udpopts *spec_ops = (struct udpopts *)opt_own;

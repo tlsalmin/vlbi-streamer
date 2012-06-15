@@ -291,6 +291,7 @@ struct stats
   unsigned long total_written;
   unsigned long incomplete;
   unsigned long dropped;
+  unsigned long files_exchanged;
   //Cheating here to keep infra consistent
   //int * packet_index;
 };

@@ -343,14 +343,12 @@ int simple_write_bytes(struct buffer_entity *be){
     else{
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
       sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
-
+#else
+      sbuf->diff = 0;
+#endif
       sbuf->bufoffset += count;
       if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
 	sbuf->bufoffset = sbuf->buffer;
-#else
-      sbuf->diff = 0;
-      sbuf->bufoffset =sbuf->buffer;
-#endif
     }
   }
   return 0;

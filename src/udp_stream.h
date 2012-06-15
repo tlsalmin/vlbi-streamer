@@ -39,6 +39,7 @@ struct udpopts
   unsigned long int incomplete;
   unsigned long int dropped;
   unsigned long int total_captured_packets;
+  unsigned long files_sent; 
 #ifdef CHECK_OUT_OF_ORDER
   unsigned long int out_of_order;
 #endif

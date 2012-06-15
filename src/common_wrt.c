@@ -112,6 +112,13 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   D("COMMON_WRT: Opening file %s",, filename);
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
   if(*fd < 0){
+    if(flags & O_WRONLY){
+      /* Silent version since, acquire stumbles here and it  	*/
+      /* Works as planned. Could do string processing		*/
+      /* to check the dir etc. but meh				*/
+      D("File opening failed with write on for %s. Acquire should create dir",,filename);
+      return *fd;
+    }
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
     return *fd;
   }
