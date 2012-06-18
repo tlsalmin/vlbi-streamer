@@ -43,7 +43,11 @@
 #define BRANCHOP_READ_CFGS 6
 #define BRANCHOP_CHECK_FILES 7
 
+#ifdef PRIORITY_SETTINGS
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
+#else
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
+#endif
 
 /* This should be more configurable */
 extern char *optarg;
@@ -180,7 +184,7 @@ struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct li
   return le;
 }
 /* Get a loaded buffer with the specific seq */
-void* get_loaded(struct entity_list_branch *br, unsigned long seq){
+inline void* get_loaded(struct entity_list_branch *br, unsigned long seq){
   D("Querying for loaded entity");
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity * temp = get_w_check(&br->loadedlist, seq, &br->freelist, &br->busylist, br);
@@ -196,7 +200,7 @@ void* get_loaded(struct entity_list_branch *br, unsigned long seq){
   return temp->entity;
 }
 /* Get a specific free entity from branch 		*/
-void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
+inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity* temp = get_w_check(&br->freelist, id, &br->busylist, &br->loadedlist, br);
@@ -224,7 +228,7 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
   return temp->entity;
 }
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result)
+inline void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result)
 {
   pthread_mutex_lock(&(br->branchlock));
   while(br->freelist == NULL){
@@ -254,7 +258,7 @@ void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsig
   return temp->entity;
 }
 /* Set this entity as busy in this branch		*/
-void set_busy(struct entity_list_branch *br, struct listed_entity* en)
+inline void set_busy(struct entity_list_branch *br, struct listed_entity* en)
 {
   pthread_mutex_lock(&(br->branchlock));
   mutex_free_set_busy(br,en);
@@ -1532,15 +1536,13 @@ int main(int argc, char **argv)
 
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
-  int k = 0;
   for(i =0 ;i<opt->n_threads;i++){
     rc = pthread_join(rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
     else
-      D("%dth buffer exit OK",,k);
-    k++;
+      D("%dth buffer exit OK",,i);
   }
   D("Getting stats and closing");
 
@@ -1604,7 +1606,9 @@ int main(int argc, char **argv)
   config_destroy(&(opt->cfg));
   free(opt->membranch);
   free(opt->diskbranch);
+#ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&pta);
+#endif
 #if(!DAEMON)
   free(opt);
 #endif
