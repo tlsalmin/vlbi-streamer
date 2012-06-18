@@ -36,7 +36,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 
-//#define DUMMYSOCKET
+#define DUMMYSOCKET
 #define SLEEPCHECK_LOOPTIMES 100
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
@@ -843,12 +843,14 @@ void* udp_receiver(void *streamo)
   pthread_exit(NULL);
 
 }
-inline unsigned long udps_get_fileprogress(struct udpopts* spec_ops){
+/*
+unsigned long udps_get_fileprogress(struct udpopts* spec_ops){
   if(spec_ops->opt->optbits & READMODE)
     return spec_ops->files_sent;
   else
     return spec_ops->opt->cumul;
 }
+*/
 void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)sp;
@@ -857,7 +859,7 @@ void get_udp_stats(void *sp, void *stats){
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->dropped;
-  stat->files_exchanged = udps_get_fileprogress(spec_ops);
+  //stat->files_exchanged = udps_get_fileprogress(spec_ops);
 }
 int close_udp_streamer(void *opt_own, void *stats){
   struct udpopts *spec_ops = (struct udpopts *)opt_own;

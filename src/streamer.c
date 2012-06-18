@@ -727,7 +727,12 @@ static void usage(char *binary){
 }
 /* Why don't I just memset? */
 void init_stat(struct stats *stats){
-  memset(stats, 0,sizeof(stats));
+  //memset(stats, 0,sizeof(stats));
+  stats->total_bytes = 0;
+  stats->incomplete = 0;
+  stats->total_written = 0;
+  stats->total_packets = 0;
+  stats->dropped = 0;
 }
 void neg_stats(struct stats* st1, struct stats* st2){
   /* We sometimes get a situation, where the previous val is larger 	*/
@@ -1473,11 +1478,11 @@ int main(int argc, char **argv)
       //LOG("Time %ds \t------------------------\n", opt.time-sleeptodo+1);
       if(!(opt->optbits & READMODE)){
 	LOG("Time %lds\n", opt->time-sleeptodo+1);
-	LOG("Files: %ld\n", stats_now.files_exchanged);
+	//LOG("Files: %ld\n", stats_now.files_exchanged);
       }
       else{
 	LOG("Time %ds\n", sleeptodo);
-	LOG("Files: %ld/%ld\n", stats_now.files_exchanged, opt->cumul_found);
+	//LOG("Files: %ld/%ld\n", stats_now.files_exchanged, opt->cumul_found);
       }
 
       LOG("Ringbuffers: ");
