@@ -149,7 +149,12 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //sbuf->async = opt->async;
 
   if(!(sbuf->opt->optbits & USE_RX_RING)){
-
+    long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
+    unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+    if(hog_memory > (long unsigned)maxmem){
+      E("Max allocatable memory %ld. Cant reserve %lu more",, maxmem, hog_memory);
+      return -1;
+    }
 #ifdef HAVE_HUGEPAGES
     if(sbuf->opt->optbits & USE_HUGEPAGE){
       /* Init fd for hugetlbfs					*/
@@ -171,7 +176,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
       /* TODO: Check other flags aswell				*/
       /* TODO: Not sure if shared needed as threads share id 	*/
       //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
-      sbuf->buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
+      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
@@ -187,7 +192,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 #endif /* HAVE_HUGEPAGES */
     {
       D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
-      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
+      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), hog_memory);
       //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
       //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
       preheat_buffer(sbuf->buffer, opt);

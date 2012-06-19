@@ -149,6 +149,13 @@ int udps_bind_rx(struct udpopts * spec_ops){
 #endif
   assert((req.tp_block_size*req.tp_block_nr) % getpagesize() == 0);
 
+  long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
+  unsigned long hog_memory =  (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr);
+  if((long unsigned)maxmem < hog_memory){
+    E("Error in mem init. Memory available: %ld Memory wanted:  %lu",,maxmem, hog_memory);
+    return -1;
+  }
+
   spec_ops->opt->buffer = mmap(0, (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr), PROT_READ|PROT_WRITE , flags, spec_ops->fd,0);
   if((long)spec_ops->opt->buffer <= 0){
     perror("Ring MMAP");
