@@ -155,8 +155,10 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   D("Entity removed from branch");
 }
 struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
-  struct listed_entity *temp = *lep;
-  struct listed_entity *le = NULL;
+  struct listed_entity *temp;
+  struct listed_entity *le;
+  temp = *lep;
+  le = NULL;
   while(le== NULL){
     while(temp != NULL){
       if(temp->check(temp->entity, seq) == 1){
@@ -1256,17 +1258,17 @@ int main(int argc, char **argv)
   }
   //return -1;
 
+  /* If we're sending stuff, check all the diskbranch members for the files they have 	*/
+  /* Also updates the fileholders list to point the owners of files to correct drives	*/
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
   }
-#ifdef SIMPLE_BUFCACL
+#endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
   if(opt->optbits & READMODE){
     CALC_BUF_SIZE(opt);
   }
-#endif
-#endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
      if(opt.optbits & USE_RX_RING){
@@ -1279,7 +1281,6 @@ int main(int argc, char **argv)
 
 
 #ifdef PRIORITY_SETTINGS
-
   rc = pthread_attr_getschedparam(&pta, &param);
   if(rc != 0)
     E("Error getting schedparam for pthread attr: %s",,strerror(rc));
@@ -1287,7 +1288,7 @@ int main(int argc, char **argv)
     D("Schedparam set to %d, Trying to set to minimun %d",, param.sched_priority, MIN_PRIO_FOR_PTHREAD);
 
   rc = pthread_attr_setschedpolicy(&pta, SCHED_FIFO);
-  if(rc != 0)
+  if(rc != 1)
     E("Error setting schedtype for pthread attr: %s",,strerror(rc));
 
   param.sched_priority = MIN_PRIO_FOR_PTHREAD;
@@ -1353,6 +1354,7 @@ int main(int argc, char **argv)
     }
     CPU_ZERO(&cpuset);
 #endif
+    D("Pthread got id %lu",, rbuf_pthreads[i]);
   }
 
   /* Format the capturing thread */
@@ -1448,9 +1450,12 @@ int main(int argc, char **argv)
   if(opt->optbits & VERBOSE){
 
     /* Init the stats */
-    struct stats stats_prev, stats_now;//, stats_temp;
+    struct stats *stats_prev, *stats_now;//, stats_temp;
+    stats_prev = (struct stats*)malloc(sizeof(struct stats));
+    stats_now = (struct stats*)malloc(sizeof(struct stats));
+    memset(stats_prev, 0,sizeof(struct stats));
+    memset(stats_now, 0,sizeof(struct stats));
     int sleeptodo;
-    memset(&stats_prev, 0,sizeof(struct stats));
     //memset(&stats_now, 0,sizeof(struct stats));
     LOG("STREAMER: Printing stats per second\n");
     LOG("----------------------------------------\n");
@@ -1461,9 +1466,9 @@ int main(int argc, char **argv)
       sleeptodo = opt->time;
     while(sleeptodo >0 && streamer_ent.is_running(&streamer_ent)){
       sleep(1);
-      memset(&stats_now, 0,sizeof(struct stats));
+      memset(stats_now, 0,sizeof(struct stats));
 
-      streamer_ent.get_stats(streamer_ent.opt, &stats_now);
+      streamer_ent.get_stats(streamer_ent.opt, stats_now);
       /* Query and print the stats */
       /*
 	 for(i=0;i<opt.n_threads;i++){
@@ -1473,12 +1478,12 @@ int main(int argc, char **argv)
       }
       */
       //TODO: Write end stats
-      oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)&stats_now);
+      oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_now);
 
       //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
-      neg_stats(&stats_now, &stats_prev);
+      neg_stats(stats_now, stats_prev);
 
-      print_intermediate_stats(&stats_now);
+      print_intermediate_stats(stats_now);
       //LOG("Time %ds \t------------------------\n", opt.time-sleeptodo+1);
       if(!(opt->optbits & READMODE)){
 	LOG("Time %lds\n", opt->time-sleeptodo+1);
@@ -1500,7 +1505,7 @@ int main(int argc, char **argv)
 	sleeptodo--;
       else
 	sleeptodo++;
-      add_stats(&stats_prev, &stats_now);
+      add_stats(stats_prev, stats_now);
       //memcpy(&stats_prev, &stats_temp, sizeof(struct stats));
       /*
 	 if(opt.optbits & READMODE){
@@ -1509,6 +1514,8 @@ int main(int argc, char **argv)
 	 }
 	 */
     }
+    free(stats_now);
+    free(stats_prev);
   }
   else{
     if(!(opt->optbits & READMODE)){
@@ -1537,6 +1544,7 @@ int main(int argc, char **argv)
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
   for(i =0 ;i<opt->n_threads;i++){
+    D("Da thread %lu",, rbuf_pthreads[i]);
     rc = pthread_join(rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
