@@ -32,19 +32,51 @@ struct schedule{
   int n_scheduled;
   int n_running;
 };
-struct scheduled_event* get_event_by_name(char * name, struct schedule* sched){
+inline void zero_sched(struct schedule *sched){
+  sched->scheduled_head = NULL;
+  sched->running_head = NULL;
+  sched->default_opt = NULL;
+  sched->n_scheduled = 0;
+  sched->n_running =0;
+}
+inline struct scheduled_event* get_from_head(char * name, struct scheduled_event* head){
+  while(head != NULL){
+    if(strcmp(head->opt->filename, name) == 0){
+      return head;
+    }
+    head = head->next;
+  }
+  return NULL;
+}
+inline struct scheduled_event* get_event_by_name(char * name, struct schedule* sched){
   struct scheduled_event* returnable = NULL;
+  returnable = get_from_head(name, sched->scheduled_head);
+  if(returnable == NULL)
+    returnable = get_from_head(name, sched->running_head);
   return returnable;
 }
-struct scheduled_event* get_not_found(struct scheduled_event* event){
-  return 0;
+inline struct scheduled_event* get_not_found(struct scheduled_event* event){
+  while(event != NULL){
+    if(event->found == 0)
+      return event;
+    else{
+      event = event->next;
+      /* Note: Below line makes presumptions on call order.	*/
+      event->found = 0;
+    }
+  }
+  return NULL;
 }
 int add_recording(config_setting_t* root, struct schedule* sched)
 {
+  (void)root;
+  (void)sched;
   /* Hmm set found to 1 here, or in check_schedule.. */
   return 0;
 }
 int remove_recording(struct scheduled_event *ev, struct schedule *sched){
+  (void)ev;
+  (void)sched;
   return 0;
 }
 int check_schedule(struct schedule *sched){
@@ -72,23 +104,25 @@ int check_schedule(struct schedule *sched){
       temp->found = 1;
   }
   while((temp = get_not_found(sched->scheduled_head)) != NULL){
+    LOG("Recording %s removed from schedule\n", temp->opt->filename);
     err =  remove_recording(temp, sched);
     CHECK_ERR("Remove recording");
   }
   while((temp = get_not_found(sched->running_head)) != NULL){
+    LOG("Recording %s removed from running\n", temp->opt->filename);
     err =  remove_recording(temp, sched);
     CHECK_ERR("Remove recording");
   }
     
   return 0;
-
 }
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd,is_running = 1;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
-  memset((void*)&sched, 0,sizeof(struct schedule));
+  //memset((void*)&sched, 0,sizeof(struct schedule));
+  zero_sched(sched);
 
   sched->default_opt = malloc(sizeof(struct opt_s));
   char ibuff[BUFF_SIZE] = {0};
