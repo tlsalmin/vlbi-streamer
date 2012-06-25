@@ -455,8 +455,8 @@ int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
 int common_check_files(struct recording_entity *re, void* opti){
-  int err;
-  int temp;
+  int err=0;
+  int temp=0;
   //struct recording_entity **temprecer;
   struct opt_s* opt = (struct opt_s*)opti;
   struct common_io_info * ioi = re->opt;

@@ -510,7 +510,7 @@ void *sbuf_simple_write_loop(void *buffo){
       /* as loaded							*/
     }
     }
-    D("Finished");
+    D("Finished on id %d",,sbuf->bufnum);
     pthread_exit(NULL);
   }
 

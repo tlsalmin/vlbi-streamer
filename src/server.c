@@ -6,6 +6,7 @@
 #include <time.h>
 #include <libconfig.h>
 #include <string.h> /* MEMSET */
+#include <poll.h>
 
 #include "config.h"
 #include "streamer.h"
@@ -39,6 +40,69 @@ inline void zero_sched(struct schedule *sched){
   sched->n_scheduled = 0;
   sched->n_running =0;
 }
+/*
+int set_running(struct schedule *sched, struct scheduled_event * ev, struct scheduled_event *parent){
+  struct scheduled_event * temp;
+  if(parent == NULL){
+    sched->scheduled_head = ev->next;
+  }
+  else{
+    temp = sched->scheduled_hea
+    while(
+  }
+
+}
+*/
+inline void add_to_end(struct scheduled_event ** head, struct scheduled_event * to_add){
+  if(*head == NULL)
+    *head = to_add;
+  else{
+    struct scheduled_event * temp = *head;
+    while(temp->next != NULL)
+      temp = temp->next;
+    temp->next = to_add;
+  }
+}
+inline void change_sched_branch(struct scheduled_event **from, struct scheduled_event ** to, struct scheduled_event *ev){
+
+  if(*from == ev){
+    *from = ev->next;
+    ev->next = NULL;
+  }
+  else{
+    struct scheduled_event * temp = *from;
+    while(temp->next != ev){
+      temp = temp->next;
+    }
+    temp->next = ev->next;
+  }
+  add_to_end(to, ev);
+}
+int start_event(struct scheduled_event *ev){
+  (void)ev;
+  return 0;
+}
+int start_scheduled(struct schedule *sched){
+  int err=0;
+  TIMERTYPE time_now;
+  GETTIME(time_now);
+  struct scheduled_event * ev;
+  struct scheduled_event * parent = NULL;
+  for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
+    if(get_sec_diff(&time_now, &ev->opt->starting_time)< SECS_TO_START_IN_ADVANCE){
+      D("Starting event %s",, ev->opt->filename);
+      sched->n_scheduled--;
+      err = start_event(ev);
+      CHECK_ERR("Start event");
+      change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
+      sched->n_running++;
+      //set_running(sched, ev, parent);
+    }
+    parent = ev;
+    ev = ev->next;
+  }
+  return 0;
+}
 inline struct scheduled_event* get_from_head(char * name, struct scheduled_event* head){
   while(head != NULL){
     if(strcmp(head->opt->filename, name) == 0){
@@ -61,23 +125,77 @@ inline struct scheduled_event* get_not_found(struct scheduled_event* event){
       return event;
     else{
       event = event->next;
-      /* Note: Below line makes presumptions on call order.	*/
-      event->found = 0;
     }
   }
   return NULL;
 }
 int add_recording(config_setting_t* root, struct schedule* sched)
 {
-  (void)root;
-  (void)sched;
-  /* Hmm set found to 1 here, or in check_schedule.. */
+  D("Adding new schedevent");
+  //int err;
+  struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
+  struct opt_s *opt = malloc(sizeof(struct opt_s));
+
+  se->found=1;
+  se->next=NULL;
+  se->opt = opt;
+  /* Copy the default opt over our opt	*/
+  clear_and_default(opt);
+  /* membranch etc. should be copied here also */
+  memcpy(opt,sched->default_opt, sizeof(struct opt_s));
+
+  /* Get the name of the recording	*/
+  opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  strcpy(opt->filename, config_setting_name(root));
+  D("Schedevent is named: %s",, opt->filename);
+
+  /* Get the rest of the opts		*/
+  set_from_root(opt, root, 0,0);
+  //config_init(&(opt->cfg));
+
+  //TODO: Check packet sizes and handle buffers accordingly
+
+  struct scheduled_event * temp = sched->scheduled_head;
+  if(temp !=NULL){
+    while(temp->next != NULL)
+      temp = temp->next;
+  }
+  temp->next = se;
+  D("Schedevent added");
   return 0;
 }
-int remove_recording(struct scheduled_event *ev, struct schedule *sched){
-  (void)ev;
-  (void)sched;
-  return 0;
+int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
+  struct scheduled_event *temp;
+  struct scheduled_event *parent;
+  if(*head == ev){
+    *head = (*head)->next;
+    D("Removed schedevent");
+    return 0;
+  }
+  else{
+    parent = *head;
+    temp = parent->next;
+    while(temp != NULL){
+      if(temp == ev){
+	parent->next = temp->next;
+	D("Removed schedevent");
+	return 0;
+      }
+      else{
+	parent = temp;
+	temp = parent->next;
+      }
+    }
+  }
+  D("Didn't find schedevent in branch");
+  return -1;
+}
+void zerofound(struct schedule *sched){
+  struct scheduled_event * temp;
+  for(temp = sched->scheduled_head; temp != NULL; temp=temp->next)
+    temp->found = 0;
+  for(temp = sched->running_head; temp != NULL; temp=temp->next)
+    temp->found = 0;
 }
 int check_schedule(struct schedule *sched){
   int i=0,err;
@@ -89,6 +207,8 @@ int check_schedule(struct schedule *sched){
 
   root = config_root_setting(&cfg);
   setting = config_setting_get_elem(root,i);
+
+  D("Checking schedule");
   /* Go through all the scheduled recordings	 			*/
   /* If theres a new one: Add it to the scheduled			*/
   /* If one that was there is now missing, remove it from schedule	*/
@@ -97,6 +217,7 @@ int check_schedule(struct schedule *sched){
     temp = get_event_by_name(config_setting_name(setting), sched);
     /* New scheduled recording! 					*/
     if(temp == NULL){
+      D("New schedule event found");
       err = add_recording(setting, sched);
       CHECK_ERR("Add recording");
     }
@@ -105,15 +226,17 @@ int check_schedule(struct schedule *sched){
   }
   while((temp = get_not_found(sched->scheduled_head)) != NULL){
     LOG("Recording %s removed from schedule\n", temp->opt->filename);
-    err =  remove_recording(temp, sched);
+    err =  remove_recording(temp, &(sched->scheduled_head));
     CHECK_ERR("Remove recording");
   }
   while((temp = get_not_found(sched->running_head)) != NULL){
     LOG("Recording %s removed from running\n", temp->opt->filename);
-    err =  remove_recording(temp, sched);
+    //TODO: Stop the recording
+    err =  remove_recording(temp, &(sched->running_head));
     CHECK_ERR("Remove recording");
   }
-    
+  zerofound(sched);
+
   return 0;
 }
 int main(int argc, char **argv)
@@ -146,28 +269,48 @@ int main(int argc, char **argv)
   CHECK_LTZ("Add watch",w_fd);
 
   /* Make the inotify nonblocking for simpler loop 			*/
-  int flags = fcntl(i_fd, F_GETFL, 0);
-  fcntl(i_fd, F_SETFL, flags |O_NONBLOCK);
+  //int flags = fcntl(i_fd, F_GETFL, 0);
+  //fcntl(i_fd, F_SETFL, flags |O_NONBLOCK);
 
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
+  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));
+  memset(pfd, 0,sizeof(pfd));
+  pfd->fd = i_fd;
+  pfd->events = POLLIN|POLLERR;
+
+  /* Initial check before normal loop */
+  err = check_schedule(sched);
+  CHECK_ERR("Checked schedule");
 
 
   while(is_running)
   {
+    err = start_scheduled(sched);
+    CHECK_ERR("Start scheduled");
     /* Check for changes 						*/
-    if (read(i_fd, ibuff, BUFF_SIZE) != 0)
-      {
-	/* There's really just one sort of event. Adding or removing	*/
-	/* a scheduled recording					*/
-	err = check_schedule(sched);
-	CHECK_ERR("Checked schedule");
-      }
+    err = poll(pfd, 1, 5000);
+    if(err < 0){
+      perror("Poll");
+      is_running = 0;
+    }
+    else if(err >0)
+    {
+      read(i_fd, ibuff, BUFF_SIZE);
+      D("Noticed change in schedule file");
+      /* There's really just one sort of event. Adding or removing	*/
+      /* a scheduled recording					*/
+      err = check_schedule(sched);
+      CHECK_ERR("Checked schedule");
+    }
+    else
+      D("Nothing happened on schedule file");
     /*Remove when ready to test properly				*/
-    is_running = 0;
+    //sleep(1);
   }
 
   inotify_rm_watch(i_fd, w_fd);
+  free(pfd);
   free(sched->default_opt);
   free(sched);
   return 0;

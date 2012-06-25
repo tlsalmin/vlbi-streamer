@@ -26,8 +26,8 @@
 #include "splicewriter.h"
 #include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
-#define TUNE_AFFINITY
-#define PRIORITY_SETTINGS
+//#define TUNE_AFFINITY
+//#define PRIORITY_SETTINGS
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
@@ -54,6 +54,69 @@ extern char *optarg;
 extern int optind, optopt;
 
 //static struct opt_s opt;
+void specadd(struct timespec * to, struct timespec *from){
+  if(to->tv_nsec + from->tv_nsec >  BILLION){
+    to->tv_sec++;
+    to->tv_nsec += (BILLION-to->tv_nsec)+from->tv_nsec;
+  }
+  else{
+    to->tv_nsec+=from->tv_nsec;
+    to->tv_sec+=from->tv_sec;
+  }
+}
+/* Return the diff of the two timespecs in nanoseconds */
+long nanodiff(TIMERTYPE * start, TIMERTYPE *end){
+  unsigned long temp=0;
+  temp += (end->tv_sec-start->tv_sec)*BILLION;
+#ifdef TIMERTYPE_GETTIMEOFDAY
+  temp += (end->tv_usec-start->tv_usec)*1000;
+#else
+  temp += end->tv_nsec-start->tv_nsec;
+#endif
+  return temp;
+}
+void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
+#ifdef TIMERTYPE_GETTIMEOFDAY
+  if(datime->tv_usec*1000 + nanos_to_add > BILLION)
+#else
+  if(datime->tv_nsec + nanos_to_add >  BILLION)
+#endif
+  {
+    datime->tv_sec++;
+#ifdef TIMERTYPE_GETTIMEOFDAY
+    datime->tv_usec += (MILLION-datime->tv_usec)+nanos_to_add/1000;
+#else
+    datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
+#endif
+  }
+  else
+  {
+#ifdef TIMERTYPE_GETTIMEOFDAY
+    datime->tv_usec += nanos_to_add/1000;
+#else
+    datime->tv_nsec += nanos_to_add;
+#endif
+  }
+}
+int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
+  int diff = 0;
+  /* Straight second diff */
+  diff += event->tv_sec - timenow->tv_sec;
+#ifdef TIMERTYPE_GETTIMEOFDAY
+  diff += (event->tv_usec-timenow->tv_usec)/1000;
+#else
+  diff += (event->tv_nsec-timenow->tv_nsec)/MILLION;
+#endif
+  return diff;
+}
+void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add){
+  /*
+  datime->tv_sec = 0;
+  datime->tv_nsec = 0;
+  */
+  ZEROTIME((*datime));
+  nanoadd(datime,nanos_to_add);
+}
 
 void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
 {
@@ -476,7 +539,10 @@ int init_cfg(struct opt_s *opt){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
-	  memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
+	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
+	  int j;
+	  for(j=0;j<opt->cumul;j++)
+	    opt->fileholders[j] = -1;
 	  D("opts read from first config");
 	}
 	else{
@@ -732,7 +798,7 @@ static void usage(char *binary){
       ,binary);
 }
 /* Why don't I just memset? */
-void init_stat(struct stats *stats){
+void init_stats(struct stats *stats){
   //memset(stats, 0,sizeof(stats));
   stats->total_bytes = 0;
   stats->incomplete = 0;
@@ -1118,9 +1184,12 @@ int main(int argc, char **argv)
 {
   int i,rc;
   int err = 0;
+#ifdef HAVE_LRT
+  struct timespec start_t;
+#endif
+
 #if(!DAEMON)
   struct opt_s *opt = malloc(sizeof(struct opt_s));
-#endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
   struct sched_param    param;
@@ -1131,24 +1200,21 @@ int main(int argc, char **argv)
     return -1;
   }
 #endif
-
-#ifdef HAVE_LRT
-  struct timespec start_t;
-#endif
-
-#ifdef HAVE_LIBCONFIG_H
-#endif
-
-
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
-#if(!DAEMON)
   clear_and_default(opt);
   err = parse_options(argc,argv,opt);
-#endif
   if(err != 0)
     exit(-1);
+#ifdef TUNE_AFFINITY
+  long processors = sysconf(_SC_NPROCESSORS_ONLN);
+  D("Polled %ld processors",,processors);
+  int cpusetter =1;
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+#endif
+#endif //DAEMON
 
   /*
      switch(opt.capture_type){
@@ -1163,9 +1229,12 @@ int main(int argc, char **argv)
   //struct streamer_entity threads[opt.n_threads];
   struct streamer_entity streamer_ent;
 
-  pthread_t rbuf_pthreads[opt->n_threads];
   pthread_t streamer_pthread;
   struct stats stats;
+
+#if(!DAEMON)
+  pthread_t rbuf_pthreads[opt->n_threads];
+  //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
 
   opt->membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
   opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
@@ -1179,18 +1248,10 @@ int main(int argc, char **argv)
   pthread_mutex_init(&(opt->diskbranch->branchlock), NULL);
   pthread_cond_init(&(opt->membranch->busysignal), NULL);
   pthread_cond_init(&(opt->diskbranch->busysignal), NULL);
+#endif //DAEMON
 
   //pthread_attr_t attr;
-#ifdef TUNE_AFFINITY
-  long processors = sysconf(_SC_NPROCESSORS_ONLN);
-  D("Polled %ld processors",,processors);
-  int cpusetter =1;
-#endif
 
-#ifdef TUNE_AFFINITY
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-#endif
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
   if(opt->optbits & READMODE){
@@ -1208,9 +1269,7 @@ int main(int argc, char **argv)
 #endif
   }
 
-  //Create message queue
-  //pthread_mutex_init(&(optm.cumlock), NULL);
-  //pthread_cond_init (&opt.signal, NULL);
+#if(!DAEMON)
   for(i=0;i<opt->n_drives;i++){
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
     /*
@@ -1248,6 +1307,7 @@ int main(int argc, char **argv)
     }
     /* Add the recording entity to the diskbranch */
   }
+#endif
   /* Check and set cfgs at this point */
 #ifdef HAVE_LIBCONFIG_H
   err = init_cfg(opt);
@@ -1266,9 +1326,11 @@ int main(int argc, char **argv)
   }
 #endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
+#if(!DAEMON)
   if(opt->optbits & READMODE){
     CALC_BUF_SIZE(opt);
   }
+#endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
      if(opt.optbits & USE_RX_RING){
@@ -1280,6 +1342,7 @@ int main(int argc, char **argv)
      */
 
 
+#if(!DAEMON)
 #ifdef PRIORITY_SETTINGS
   rc = pthread_attr_getschedparam(&pta, &param);
   if(rc != 0)
@@ -1353,9 +1416,10 @@ int main(int argc, char **argv)
       E("Error: setting affinity");
     }
     CPU_ZERO(&cpuset);
-#endif
+#endif //TUNE_AFFINITY
     D("Pthread got id %lu",, rbuf_pthreads[i]);
   }
+#endif //DAEMON
 
   /* Format the capturing thread */
   switch(opt->optbits & LOCKER_CAPTURE)
@@ -1436,7 +1500,7 @@ int main(int argc, char **argv)
 
   //}
 
-  init_stat(&stats);
+  init_stats(&stats);
   /* HERP so many ifs .. WTB Refactoring time*/
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
@@ -1453,8 +1517,11 @@ int main(int argc, char **argv)
     struct stats *stats_prev, *stats_now;//, stats_temp;
     stats_prev = (struct stats*)malloc(sizeof(struct stats));
     stats_now = (struct stats*)malloc(sizeof(struct stats));
-    memset(stats_prev, 0,sizeof(struct stats));
-    memset(stats_now, 0,sizeof(struct stats));
+    //memset(stats_prev, 0,sizeof(struct stats));
+    //memset(stats_now, 0,sizeof(struct stats));
+    /* MEmset is doing weird stuff 	*/
+    init_stats(stats_prev);
+    init_stats(stats_now);
     int sleeptodo;
     //memset(&stats_now, 0,sizeof(struct stats));
     LOG("STREAMER: Printing stats per second\n");
@@ -1466,7 +1533,8 @@ int main(int argc, char **argv)
       sleeptodo = opt->time;
     while(sleeptodo >0 && streamer_ent.is_running(&streamer_ent)){
       sleep(1);
-      memset(stats_now, 0,sizeof(struct stats));
+      //memset(stats_now, 0,sizeof(struct stats));
+      init_stats(stats_now);
 
       streamer_ent.get_stats(streamer_ent.opt, stats_now);
       /* Query and print the stats */
@@ -1541,6 +1609,10 @@ int main(int argc, char **argv)
   else
     D("Streamer thread exit OK");
 
+#if(!DAEMON)
+  for(i=0;i<opt->n_threads;i++){
+    D("Da thread %lu",, rbuf_pthreads[i]);
+  }
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
   for(i =0 ;i<opt->n_threads;i++){
@@ -1553,10 +1625,13 @@ int main(int argc, char **argv)
       D("%dth buffer exit OK",,i);
   }
   D("Getting stats and closing");
+#endif
 
   streamer_ent.close(streamer_ent.opt, (void*)&stats);
+#if(!DAEMON)
   oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
   oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
+#endif
 
 #ifdef HAVE_LIBCONFIG_H
   //TODO: This will be destroyed outside the mem and diskbranches
@@ -1596,9 +1671,7 @@ int main(int argc, char **argv)
   //pthread_mutex_destroy(&(opt.cumlock));
   //free(opt.packet_index);
   for(i=0;i<opt->n_drives;i++){
-    //opt.filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
     free(opt->filenames[i]);
-    //opt.filenames[i] = (char*)malloc(FILENAME_MAX);
   }
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads closed\n");
@@ -1612,8 +1685,10 @@ int main(int argc, char **argv)
   if(opt->cfgfile != NULL)
     free(opt->cfgfile);
   config_destroy(&(opt->cfg));
+#if(!DAEMON)
   free(opt->membranch);
   free(opt->diskbranch);
+#endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&pta);
 #endif

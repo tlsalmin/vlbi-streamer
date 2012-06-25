@@ -388,6 +388,7 @@ struct opt_s
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   TIMERTYPE wait_last_sent;
+  TIMERTYPE start_time;
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
@@ -514,4 +515,13 @@ int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);
 int calculate_buffer_sizes(struct opt_s *opt);
 int calculate_buffer_sizes_simple(struct opt_s * opt);
+//Timerstuff
+void specadd(struct timespec * to, struct timespec *from);
+long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
+void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);
+void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add);
+int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event);
+
+
+
 #endif

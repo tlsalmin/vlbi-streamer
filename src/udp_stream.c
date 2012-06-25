@@ -414,50 +414,6 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   st->files_loaded++;
   return 0;
 }
-void specadd(struct timespec * to, struct timespec *from){
-  if(to->tv_nsec + from->tv_nsec >  BILLION){
-    to->tv_sec++;
-    to->tv_nsec += (BILLION-to->tv_nsec)+from->tv_nsec;
-  }
-  else{
-    to->tv_nsec+=from->tv_nsec;
-    to->tv_sec+=from->tv_sec;
-  }
-}
-/* Return the diff of the two timespecs in nanoseconds */
-long nanodiff(TIMERTYPE * start, TIMERTYPE *end){
-  unsigned long temp=0;
-  temp += (end->tv_sec-start->tv_sec)*BILLION;
-#ifdef TIMERTYPE_GETTIMEOFDAY
-  temp += (end->tv_usec-start->tv_usec)*1000;
-#else
-  temp += end->tv_nsec-start->tv_nsec;
-#endif
-  return temp;
-}
-void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
-#ifdef TIMERTYPE_GETTIMEOFDAY
-  if(datime->tv_usec*1000 + nanos_to_add > BILLION)
-#else
-  if(datime->tv_nsec + nanos_to_add >  BILLION)
-#endif
-  {
-    datime->tv_sec++;
-#ifdef TIMERTYPE_GETTIMEOFDAY
-    datime->tv_usec += (MILLION-datime->tv_usec)+nanos_to_add/1000;
-#else
-    datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
-#endif
-  }
-  else
-  {
-#ifdef TIMERTYPE_GETTIMEOFDAY
-    datime->tv_usec += nanos_to_add/1000;
-#else
-    datime->tv_nsec += nanos_to_add;
-#endif
-  }
-}
 unsigned long get_min_sleeptime(){
   unsigned long cumul = 0;
   int i;
@@ -472,14 +428,6 @@ unsigned long get_min_sleeptime(){
     cumul+= nanodiff(&start,&end);
   }
   return cumul/SLEEPCHECK_LOOPTIMES;
-}
-void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add){
-  /*
-  datime->tv_sec = 0;
-  datime->tv_nsec = 0;
-  */
-  ZEROTIME((*datime));
-  nanoadd(datime,nanos_to_add);
 }
 void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
   memset(st, 0,sizeof(struct sender_tracking));
@@ -579,7 +527,7 @@ void * udp_sender(void *streamo){
 	set_free(spec_ops->opt->membranch, se->be->self);
       }
 
-      while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= spec_ops->opt->cumul)
+      while(st.files_sent <= spec_ops->opt->cumul && spec_ops->opt->fileholders[st.files_sent] == -1)
 	/* Skip it away now */
 	st.files_sent++;
       if(st.files_sent < spec_ops->opt->cumul){
