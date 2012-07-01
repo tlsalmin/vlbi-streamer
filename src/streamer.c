@@ -1177,7 +1177,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   return 0;
 }
 #if(DAEMON)
-int vlbistreamer(struct opt_s *opt)
+void* vlbistreamer(void *opti)
 #else
 int main(int argc, char **argv)
 #endif
@@ -1188,7 +1188,9 @@ int main(int argc, char **argv)
   struct timespec start_t;
 #endif
 
-#if(!DAEMON)
+#if(DAEMON)
+  struct opt_s *opt = (struct opt_s*)opti;
+#else
   struct opt_s *opt = malloc(sizeof(struct opt_s));
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
@@ -1697,8 +1699,11 @@ int main(int argc, char **argv)
 #endif
 
   //return 0;
-  //pthread_exit(NULL);
+#if(DAEMON)
+  pthread_exit(NULL);
+#else
   return 0;
+#endif
 }
 /* These two separated here */
 int write_cfg(config_t *cfg, char* filename){

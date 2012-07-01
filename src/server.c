@@ -23,6 +23,7 @@
 struct scheduled_event{
   struct opt_s * opt;
   struct scheduled_event* next;
+  pthread_t pt;
   int found;
 };
 /* Just to cut down on number of variables passed to functions		*/
@@ -34,12 +35,21 @@ struct schedule{
   int n_running;
 };
 inline void zero_sched(struct schedule *sched){
+  /*
+  memset(sched,0,sizeof(sched));
+    */
   sched->scheduled_head = NULL;
   sched->running_head = NULL;
   sched->default_opt = NULL;
   sched->n_scheduled = 0;
   sched->n_running =0;
 }
+inline void zero_schedevnt(struct scheduled_event* ev){
+  ev->opt = NULL;
+  ev->next =NULL;
+  ev->pt =0;
+  ev->found=0;
+    }
 /*
 int set_running(struct schedule *sched, struct scheduled_event * ev, struct scheduled_event *parent){
   struct scheduled_event * temp;
@@ -79,6 +89,9 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
   add_to_end(to, ev);
 }
 int start_event(struct scheduled_event *ev){
+  int err;
+  err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
+  CHECK_ERR("streamer thread create");
   (void)ev;
   return 0;
 }
@@ -87,7 +100,7 @@ int start_scheduled(struct schedule *sched){
   TIMERTYPE time_now;
   GETTIME(time_now);
   struct scheduled_event * ev;
-  struct scheduled_event * parent = NULL;
+  //struct scheduled_event * parent = NULL;
   for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
     if(get_sec_diff(&time_now, &ev->opt->starting_time)< SECS_TO_START_IN_ADVANCE){
       D("Starting event %s",, ev->opt->filename);
@@ -98,7 +111,7 @@ int start_scheduled(struct schedule *sched){
       sched->n_running++;
       //set_running(sched, ev, parent);
     }
-    parent = ev;
+    //parent = ev;
     ev = ev->next;
   }
   return 0;

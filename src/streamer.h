@@ -417,6 +417,9 @@ struct opt_s
   //struct hostent he;
   //int f_flags;
   unsigned long total_packets;
+#if(DAEMON)
+  int running;
+#endif
 };
 int write_cfgs_to_disks(struct opt_s *opt);
 int read_full_cfg(struct opt_s *opt);
@@ -521,6 +524,7 @@ long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
 void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);
 void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add);
 int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event);
+void* vlbistreamer(void *opti);
 
 
 
