@@ -26,8 +26,8 @@
 #include "splicewriter.h"
 #include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
-#define TUNE_AFFINITY
-#define PRIORITY_SETTINGS
+//#define TUNE_AFFINITY
+//#define PRIORITY_SETTINGS
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 //#define UGLY_HACKS_ON_STATS
@@ -43,8 +43,11 @@
 #define BRANCHOP_READ_CFGS 6
 #define BRANCHOP_CHECK_FILES 7
 
+#ifdef PRIORITY_SETTINGS
 #define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
-
+#else
+#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); exit(-1);
+#endif
 /* This should be more configurable */
 extern char *optarg;
 extern int optind, optopt;
@@ -1534,7 +1537,9 @@ int main(int argc, char **argv)
   config_destroy(&(opt.cfg));
   free(opt.membranch);
   free(opt.diskbranch);
+#ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&pta);
+#endif
 
   //return 0;
   //pthread_exit(NULL);
