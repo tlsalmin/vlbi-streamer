@@ -483,6 +483,7 @@ void * udp_sender(void *streamo){
   D("Getting first loaded buffer for sender");
   while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= spec_ops->opt->cumul)
     st.files_sent++;
+  /* TODO: Handle dropped out rec points */
   if(st.files_sent < spec_ops->opt->cumul)
     se->be = get_loaded(spec_ops->opt->membranch, st.files_sent);
   else{

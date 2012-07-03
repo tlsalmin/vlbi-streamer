@@ -217,32 +217,40 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   }
   D("Entity removed from branch");
 }
-struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
-  struct listed_entity *temp;
-  struct listed_entity *le;
-  temp = *lep;
-  le = NULL;
-  while(le== NULL){
-    while(temp != NULL){
-      if(temp->check(temp->entity, seq) == 1){
-	le = temp;
-	break;
-      }
-      else{
-	temp = temp->child;
-      }
+inline struct listed_entity * loop_and_check(struct listed_entity* head, int seq){
+  while(head != NULL){
+    if(head->check(head->entity, seq) == 1){
+      return head;
     }
+    else{
+      head = head->child;
+    }
+  }
+  return NULL;
+}
+struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
+  //struct listed_entity *temp;
+  struct listed_entity *le = NULL;
+  //le = NULL;
+  while(le== NULL){
+    le = loop_and_check(*lep, seq);
     /* If le wasn't found in the list */
     if(le == NULL){
       /* Check if branch is dead */
+      D("Checking for dead branch");
       if(*lep == NULL && *other == NULL && *other2 == NULL){
 	E("No entities in list. Returning NULL");
+	return NULL;
+      }
+      /* Need to check if it exists at all */
+      D("Looping to check if exists");
+      if(loop_and_check(*other, seq) == NULL && loop_and_check(*other2,seq) == NULL){
+	D("Rec point disappeared!");
 	return NULL;
       }
       D("Failed to get free buffer. Sleeping waiting for %d",,seq);
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
       D("Woke up! Checking for %d again",, seq);
-      temp = *lep;
     }
   }
   D("Found specific elem id %d!",, seq);
@@ -272,6 +280,8 @@ inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long
   
   if(temp ==NULL){
     pthread_mutex_unlock(&(br->branchlock));
+    if(acquire_result !=NULL)
+      *acquire_result = -1;
     return NULL;
   }
 
@@ -541,7 +551,7 @@ int init_cfg(struct opt_s *opt){
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	  int j;
-	  for(j=0;j<opt->cumul;j++)
+	  for(j=0;(unsigned)j<opt->cumul;j++)
 	    opt->fileholders[j] = -1;
 	  D("opts read from first config");
 	}
@@ -851,10 +861,11 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"Bytes: %lu\n"
 	"Read: %lu\n"
 	"Time: %lus\n"
+	"Files: %lu\n"
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
     LOG("Stats for %s \n"
@@ -864,10 +875,11 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"Incomplete: %lu\n"
 	"Written: %lu\n"
 	"Time: %lu\n"
+	"Files: %lu\n"
 	"HD-failures: %d\n"
 	"Net receive Speed: %luMb/s\n"
 	"HD write Speed: %luMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
 int clear_and_default(struct opt_s* opt){
@@ -1612,9 +1624,6 @@ int main(int argc, char **argv)
     D("Streamer thread exit OK");
 
 #if(!DAEMON)
-  for(i=0;i<opt->n_threads;i++){
-    D("Da thread %lu",, rbuf_pthreads[i]);
-  }
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
   for(i =0 ;i<opt->n_threads;i++){

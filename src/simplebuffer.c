@@ -16,7 +16,7 @@
 
 #define HAVE_ASSERT 1
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
-#define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be);}return -1;}}while(0)
+#define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
 #define DO_W_STUFF_IN_FIXED_BLOCKS
 
@@ -126,6 +126,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //sbuf->read = opt->read;
 
   //sbuf->opt->optbits = opt->optbits;
+  sbuf->file_seqnum = -1;
   sbuf->async_writes_submitted = 0;
   sbuf->ready_to_act = 0;
 
@@ -251,14 +252,15 @@ remove(hugefs);
   D("Simplebuf closed");
   return 0;
 }
-void close_recer(struct buffer_entity *be){
+void close_recer(struct buffer_entity *be, int errornum){
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
-  E("Writer broken");
-  /* Done in close */
-  sbuf->opt->hd_failures++;
-  remove_from_branch(sbuf->opt->diskbranch, be->recer->self,0);
-  //be->recer->close(be->recer,NULL);
-  D("Closed recer");
+  be->recer->handle_error(be->recer, errornum);
+  sbuf->file_seqnum = -1;
+  if(sbuf->opt->optbits & READMODE){
+    remove_specific_from_fileholders(sbuf->opt, sbuf->opt->fileholders[sbuf->file_seqnum]);
+    set_free(sbuf->opt->membranch, be->self);
+    sbuf->ready_to_act = 0;
+  }
   be->recer = NULL;
 }
 int simple_end_transaction(struct buffer_entity *be){
@@ -278,7 +280,7 @@ int simple_end_transaction(struct buffer_entity *be){
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
     fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%d\n", ret,sbuf->diff);
-    close_recer(be);
+    close_recer(be,ret);
     return -1;
   }
   else if (ret == 0){
@@ -331,13 +333,13 @@ int simple_write_bytes(struct buffer_entity *be){
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
-    close_recer(be);
+    close_recer(be,ret);
     return -1;
   }
   else if (ret == 0){
     if(!(sbuf->opt->optbits & READMODE)){
       E("Failed write with 0");
-      //close_recer(be);
+      //close_recer(be,ret);
     }
     //Don't increment
   }
@@ -414,11 +416,11 @@ int write_buffer(struct buffer_entity *be){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
 	/* Not thread safe atm 			*/
-	remove_specific_from_fileholders(sbuf->opt, sbuf->opt->fileholders[sbuf->file_seqnum]);
-	close_recer(be);
-	set_free(sbuf->opt->membranch, be->self);
-	sbuf->ready_to_act = 0;
-	return 0;
+	//Let the one using it close it!
+	if(be->recer !=NULL){
+	  close_recer(be,ret);
+	}
+	return -1;
       }
     }
     else{
@@ -426,7 +428,8 @@ int write_buffer(struct buffer_entity *be){
       if(ret !=0){
 	E("Error in acquired for random entity");
 	E("Shutting faulty writer down");
-	close_recer(be);
+	  /* TODO: In daemonmode, the remove specific needs to exist also! */
+	close_recer(be,ret);
 	/* The next round will get a new recer */
 	return -1;
       }
@@ -502,8 +505,16 @@ void *sbuf_simple_write_loop(void *buffo){
 	/* Write failed so set the diff back to old value and rewrite	*/
 	ret = write_buffer(be);
 	if(ret != 0){
-	  D("Error in rec. Returning diff");
+	  D("Error in rec. Returning diff and bufoffset");
 	  sbuf->diff = savedif;
+	  sbuf->bufoffset = sbuf->buffer;
+	  if(sbuf->opt->optbits & READMODE){
+	    D("Error on drive with readmode on. File is skipped and set self to free");
+	    //Common_write handles the fileholder-settings
+	    sbuf->ready_to_act = 0;
+	    set_free(sbuf->opt->membranch, be->self);
+	    ret=0;
+	  }
 	}
       }
       /* If write is ready and we're in readmode we set this elements	*/

@@ -21,7 +21,7 @@
 /* functions before it, disabled them etc. but can't 	*/
 /* find the reason for this bug. This will disable the	*/
 /* IO_DIRECT flag for the last write			*/
-#define ERR_IN_INIT free(ioi);return -1
+#define ERR_IN_INIT return -1
 
 
 /* These should be moved somewhere general, since they should be used by all anyway */
@@ -46,7 +46,8 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
     /* writing so this shouldn't be a failure 				*/
     if((err & (ENOTDIR|ENOENT)) && !(ioi->opt->optbits & READMODE)){
       D("Directory doesn't exist. Creating it");
-      init_directory(re);
+      err = init_directory(re);
+      CHECK_ERR("Init directory");
       err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
       if(err!=0){
 	fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
@@ -153,6 +154,17 @@ int common_writecfg(struct recording_entity *re, void *opti){
   struct common_io_info *ioi  = re->opt;
   struct opt_s * opt = opti;
   char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  char * dirname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  struct stat sb;
+
+  sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",opt->filename); 
+
+  if(stat(dirname,&sb) != 0){
+    //perror("Error Opening dir");
+    //ERR_IN_INIT;
+    D("The dir %s doesn't exist. Probably no files written to it. Returning ok",, dirname);
+    return 0;
+  }
 
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
   err = write_cfg(&(opt->cfg), cfgname);
@@ -232,6 +244,29 @@ int common_write_index_data(const char * filename_orig, long unsigned elem_size,
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Index file written\n");
 #endif
+
+  return err;
+}
+int handle_error(struct recording_entity *re, int errornum){
+  int err;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  if(errornum == ENOSPC){
+    E("Mount point full. Setting to read only");
+    //TODO: Augment infra for read only nodes
+    //Remember to not remove straight from branch
+  }
+  else
+    E("Writer broken");
+  /* Done in close */
+  ioi->opt->hd_failures++;
+  err = re->close(re, NULL);
+  remove_from_branch(ioi->opt->diskbranch, re->self,0);
+  CHECK_ERR("Close faulty recer");
+  if(ioi->opt->optbits & READMODE){
+    remove_specific_from_fileholders(ioi->opt, ioi->id);
+  }
+  //be->recer->close(be->recer,NULL);
+  D("Closed recer");
 
   return err;
 }
@@ -537,6 +572,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->writecfg = common_writecfg;
   re->readcfg = common_readcfg;
   re->check_files = common_check_files;
+  re->handle_error = handle_error;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

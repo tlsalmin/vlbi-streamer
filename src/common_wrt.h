@@ -32,6 +32,7 @@ const char * common_wrt_get_filename(struct recording_entity *re);
 int common_init_dummy(struct opt_s * opt, struct recording_entity *re);
 int common_getfd(struct recording_entity *re);
 void common_init_common_functions(struct opt_s *opt, struct recording_entity *re);
+int handle_error(struct recording_entity *re, int errornum);
 #ifdef HAVE_HUGEPAGES
 char * find_hugetlbfs(char *fsmount, int len);
 #endif

@@ -478,6 +478,7 @@ struct recording_entity
   int (*readcfg)(struct recording_entity *, void*);
 
   int (*get_w_flags)();
+  int (*handle_error)(struct recording_entity *, int);
   int (*get_r_flags)();
   int (*write_index_data)(const char*, long unsigned, void*, long unsigned);
   const char* (*get_filename)(struct recording_entity *re);
