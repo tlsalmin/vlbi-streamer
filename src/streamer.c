@@ -44,11 +44,10 @@
 #define BRANCHOP_CHECK_FILES 7
 
 #ifdef PRIORITY_SETTINGS
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
+#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
 #else
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
+#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); exit(-1);
 #endif
-
 /* This should be more configurable */
 extern char *optarg;
 extern int optind, optopt;
