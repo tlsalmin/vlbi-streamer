@@ -68,13 +68,13 @@ do
     rtest ${i}
     END=$(date +%s.%N)
     RSPEED=$(echo "scale=$SCALE; $TESTMEGS/($END - $START)" | bc -l)
-    RACCU=$((RACCU+WSPEED))
+    RACCU=$((RACCU+RSPEED))
     echo "Testing read+write on ${i}"
     START=$(date +%s.%N)
     rwtest ${i}
     END=$(date +%s.%N)
     RWSPEED=$(echo "scale=$SCALE; $TESTMEGS/($END - $START)" | bc -l)
-    RWACCU=$((RWACCU+WSPEED))
+    RWACCU=$((RWACCU+RWSPEED))
     echo "Disk ${i} 	- W: $WSPEED MB/s R: $RSPEED MB/s RW: $RWSPEED MB/s"
     rm ${i}/$TEMPFILE
     rm ${i}/$TEMPFILE2
