@@ -30,10 +30,16 @@
 //#define PRIORITY_SETTINGS
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
-//#define UGLY_HACKS_ON_STATS
+#define UGLY_FIX_ON_RBUFTHREAD_EXIT
 //TODO: Search these
 #define MAX_PRIO_FOR_PTHREAD 4
 #define MIN_PRIO_FOR_PTHREAD 1
+#if(DAEMON)
+#define STREAMER_CHECK_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);pthread_exit(NULL);}else{D(mes);}}while(0)
+#else
+#define STREAMER_CHECK_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#endif
+
 
 #define BRANCHOP_STOPANDSIGNAL 1
 #define BRANCHOP_GETSTATS 2
@@ -44,9 +50,9 @@
 #define BRANCHOP_CHECK_FILES 7
 
 #ifdef PRIORITY_SETTINGS
-#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); pthread_attr_destroy(&pta);exit(-1);
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
 #else
-#define FREE_AND_ERROREXIT if(opt.device_name != NULL){free(opt.device_name);} if(opt.optbits & READMODE){ if(opt.fileholders != NULL) free(opt.fileholders); } config_destroy(&(opt.cfg)); free(opt.membranch); free(opt.diskbranch); exit(-1);
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
 #endif
 /* This should be more configurable */
 extern char *optarg;
@@ -535,6 +541,7 @@ int init_cfg(struct opt_s *opt){
     /* For checking on cfg-file consistency */
     //long long packet_size=0,cumul=0,old_packet_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
+    CHECK_ERR_NONNULL(path, "Filepath malloc");
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
@@ -548,6 +555,7 @@ int init_cfg(struct opt_s *opt){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
+	  CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	  int j;
 	  for(j=0;(unsigned)j<opt->cumul;j++)
@@ -885,7 +893,7 @@ int clear_and_default(struct opt_s* opt){
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
-  opt->cfgfile = NULL;//(char*)malloc(sizeof(char)*FILENAME_MAX);
+  opt->cfgfile = NULL;
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -935,6 +943,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	break;
       case 'c':
 	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	CHECK_ERR_NONNULL(opt->cfgfile, "Cfgfile malloc");
 	opt->cfgfile = strdup(optarg);
 	break;
       case 'v':
@@ -1125,6 +1134,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
   for(i=0;i<opt->n_drives;i++){
     opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+    CHECK_ERR_NONNULL(opt->filenames[i], "filename malloc");
     //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
     sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
   }
@@ -1203,6 +1213,7 @@ int main(int argc, char **argv)
   struct opt_s *opt = (struct opt_s*)opti;
 #else
   struct opt_s *opt = malloc(sizeof(struct opt_s));
+  CHECK_ERR_NONNULL(opt, "opt malloc");
 #ifdef PRIORITY_SETTINGS
   pthread_attr_t        pta;
   struct sched_param    param;
@@ -1243,14 +1254,16 @@ int main(int argc, char **argv)
   struct streamer_entity streamer_ent;
 
   pthread_t streamer_pthread;
-  struct stats stats;
+  struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
 
 #if(!DAEMON)
   pthread_t rbuf_pthreads[opt->n_threads];
   //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
 
   opt->membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  CHECK_ERR_NONNULL(opt->membranch, "membranch malloc");
   opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  CHECK_ERR_NONNULL(opt->diskbranch, "diskbranch malloc");
 
   opt->membranch->freelist = NULL;
   opt->membranch->busylist = NULL;
@@ -1285,6 +1298,7 @@ int main(int argc, char **argv)
 #if(!DAEMON)
   for(i=0;i<opt->n_drives;i++){
     struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
+    CHECK_ERR_NONNULL(re, "rec entity malloc");
     /*
        struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
        le->entity = (void*)re;
@@ -1378,6 +1392,7 @@ int main(int argc, char **argv)
   for(i=0;i<opt->n_threads;i++){
     //int err = 0;
     struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
+    CHECK_ERR_NONNULL(be, "be malloc");
     /*
        struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
        le->entity = (void*)be;
@@ -1513,7 +1528,7 @@ int main(int argc, char **argv)
 
   //}
 
-  init_stats(&stats);
+  init_stats(stats_full);
   /* HERP so many ifs .. WTB Refactoring time*/
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
@@ -1529,7 +1544,9 @@ int main(int argc, char **argv)
     /* Init the stats */
     struct stats *stats_prev, *stats_now;//, stats_temp;
     stats_prev = (struct stats*)malloc(sizeof(struct stats));
+    STREAMER_CHECK_NONNULL(stats_prev, "stats malloc");
     stats_now = (struct stats*)malloc(sizeof(struct stats));
+    STREAMER_CHECK_NONNULL(stats_now, "stats malloc");
     //memset(stats_prev, 0,sizeof(struct stats));
     //memset(stats_now, 0,sizeof(struct stats));
     /* MEmset is doing weird stuff 	*/
@@ -1625,6 +1642,7 @@ int main(int argc, char **argv)
 #if(!DAEMON)
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
+#ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
   for(i =0 ;i<opt->n_threads;i++){
     D("Da thread %lu",, rbuf_pthreads[i]);
     rc = pthread_join(rbuf_pthreads[i], NULL);
@@ -1634,13 +1652,14 @@ int main(int argc, char **argv)
     else
       D("%dth buffer exit OK",,i);
   }
+#endif
   D("Getting stats and closing");
 #endif
 
-  streamer_ent.close(streamer_ent.opt, (void*)&stats);
+  streamer_ent.close(streamer_ent.opt, (void*)stats_full);
 #if(!DAEMON)
-  oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)&stats);
-  oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)&stats);
+  oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)stats_full);
+  oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)stats_full);
 #endif
 
 #ifdef HAVE_LIBCONFIG_H
@@ -1652,7 +1671,8 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads finished. Getting stats\n");
 #endif
-  print_stats(&stats, opt);
+  print_stats(stats_full, opt);
+  free(stats_full);
 
   /*Close everything */
 

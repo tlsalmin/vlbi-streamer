@@ -110,6 +110,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //be->diskbranch = opt->diskbranch;
   D("Adding simplebuf to membranch");
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+  CHECK_ERR_NONNULL(le, "malloc listed_entity");
   le->entity = (void*)be;
   le->child = NULL;
   le->father = NULL;
@@ -140,7 +141,9 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //sbuf->opt->do_w_stuff_every = opt->do_w_stuff_every;
 
   be->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  CHECK_ERR_NONNULL(be->headlock, "Headlock malloc");
   be->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
+  CHECK_ERR_NONNULL(be->iosignal, "iosignal malloc");
   pthread_mutex_init(be->headlock, NULL);
   pthread_cond_init(be->iosignal, NULL);
 

@@ -21,7 +21,7 @@
 /* functions before it, disabled them etc. but can't 	*/
 /* find the reason for this bug. This will disable the	*/
 /* IO_DIRECT flag for the last write			*/
-#define ERR_IN_INIT return -1
+#define ERR_IN_INIT free(dirname);return -1
 
 
 /* These should be moved somewhere general, since they should be used by all anyway */
@@ -37,6 +37,7 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
   sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,seq); 
 
   D("Opening file %s",,ioi->curfilename);
@@ -155,6 +156,8 @@ int common_writecfg(struct recording_entity *re, void *opti){
   struct opt_s * opt = opti;
   char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
   char * dirname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(cfgname, "Malloc cfgname");
+  CHECK_ERR_NONNULL(dirname, "Malloc dirname");
   struct stat sb;
 
   sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",opt->filename); 
@@ -169,6 +172,7 @@ int common_writecfg(struct recording_entity *re, void *opti){
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
   err = write_cfg(&(opt->cfg), cfgname);
   free(cfgname);
+  free(dirname);
 
   return err;
 }
@@ -177,73 +181,11 @@ int common_readcfg(struct recording_entity *re, void *opti){
   struct common_io_info *ioi  = re->opt;
   struct opt_s * opt = opti;
   char * cfgname = (char*) malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(cfgname,"cfgname malloc");
 
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
   err = read_cfg(&(opt->cfg), cfgname);
   free(cfgname);
-
-  return err;
-}
-int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count){
-  //struct io_info * ioi = (struct io_info*)re->opt;
-  int err = 0;
-  char * filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  int fd;
-
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Writing index file\n");
-#endif
-  sprintf(filename, "%s%s", filename_orig, ".index");
-  int f_flags = O_WRONLY;//|O_DIRECT|O_NOATIME|O_NONBLOCK;
-
-  err = common_open_file(&fd, f_flags, filename, 0);
-  if(err != 0){
-    fprintf(stdout, "COMMON_WRT: File open failed when trying to write index data on %s\n", filename);
-    return err;
-  }
-
-  FILE * file = fdopen(fd, "w");
-  //Write the elem size to the first index
-  //err = write(fd, (void*)&(elem_size), sizeof(INDEX_FILE_TYPE));
-  err = fwrite((void*)&(elem_size), sizeof(elem_size), 1, file);
-  if(err != 1){
-    if(err == -1)
-      perror("COMMON_WRT: Index file size write");
-    else
-      fprintf(stderr, "COMMON_WRT: Index file size write didn't write as much as requested!. Wrote only %d\n", err);
-    return err;
-  }
-  else{
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
-    INDEX_FILE_TYPE *debughelp = data;
-    fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
-#endif
-    err =0;
-  }
-  //Write the data
-  //err = write(fd, data, count*sizeof(INDEX_FILE_TYPE));
-  err = fwrite(data, sizeof(INDEX_FILE_TYPE), count, file);
-  if((unsigned long)err != count){
-    if(err == -1)
-      perror("COMMON_WRT: Writing indices");
-    else
-      fprintf(stderr, "COMMON_WRT: indice writedidn't write as much as requested!. Wrote only %d\n", err);
-    return err;
-  }
-  else{
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "COMMON_WRT: Wrote %lu as elem size\n",elem_size);
-    INDEX_FILE_TYPE *debughelp = data;
-    fprintf(stdout, "COMMON_WRT: First indices: %lu %lu %lu %lu\n", *debughelp, *(debughelp+1),*(debughelp+2),*(debughelp+3));
-#endif
-    err =0;
-  }
-  fclose(file);
-  free(filename);
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: Index file written\n");
-#endif
 
   return err;
 }
@@ -496,12 +438,14 @@ int common_check_files(struct recording_entity *re, void* opti){
   struct opt_s* opt = (struct opt_s*)opti;
   struct common_io_info * ioi = re->opt;
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(dirname, "Dirname malloc");
   regex_t regex;
   D("Checking for files and updating fileholders");
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
   /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
   char* regstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(regstring, "Malloc regexp string");
   sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", opt->filename);
   //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   err = regcomp(&regex, regstring, 0);
@@ -564,7 +508,6 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   (void)opt;
   re->init = common_w_init;
   re->close = common_close;
-  re->write_index_data = common_write_index_data;
   re->get_n_packets = common_nofpacks;
   re->get_packet_index = common_pindex;
   re->get_stats = get_io_stats;

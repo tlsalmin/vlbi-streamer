@@ -443,7 +443,6 @@ struct buffer_entity
   void (*cancel_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
-  //int (*write_index_data)(struct buffer_entity*, void*, int);
   void* (*write_loop)(void *);
   void (*stop)(struct buffer_entity*);
   void (*init_mutex)(struct buffer_entity *, void*,void*);
@@ -480,7 +479,6 @@ struct recording_entity
   int (*get_w_flags)();
   int (*handle_error)(struct recording_entity *, int);
   int (*get_r_flags)();
-  int (*write_index_data)(const char*, long unsigned, void*, long unsigned);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/
   unsigned long (*get_n_packets)(struct recording_entity*);

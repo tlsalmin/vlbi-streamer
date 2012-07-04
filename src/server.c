@@ -147,7 +147,9 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   D("Adding new schedevent");
   //int err;
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
+  CHECK_ERR_NONNULL(se, "Malloc scheduled event");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
+  CHECK_ERR_NONNULL(opt, "Opt for event malloc");
 
   se->found=1;
   se->next=NULL;
@@ -159,6 +161,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
   strcpy(opt->filename, config_setting_name(root));
   D("Schedevent is named: %s",, opt->filename);
 
@@ -257,10 +260,12 @@ int main(int argc, char **argv)
   int err,i_fd,w_fd,is_running = 1;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
+  CHECK_ERR_NONNULL(sched, "Sched malloc");
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
 
   sched->default_opt = malloc(sizeof(struct opt_s));
+  CHECK_ERR_NONNULL(sched->default_opt, "Default opt malloc");
   char ibuff[BUFF_SIZE] = {0};
 
   /* First load defaults to opts, then check default config file	*/
@@ -288,6 +293,7 @@ int main(int argc, char **argv)
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
   struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));
+  CHECK_ERR_NONNULL(pfd, "pollfd malloc");
   memset(pfd, 0,sizeof(pfd));
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;

@@ -86,6 +86,7 @@ int udps_bind_port(struct udpopts * spec_ops){
   //prep port
   //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
   spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+  CHECK_ERR_NONNULL(spec_ops->sin, "sin malloc");
   //socklen_t len = sizeof(struct sockaddr_in);
   memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
   spec_ops->sin->sin_family = AF_INET;           
@@ -307,6 +308,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
+  CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
   spec_ops->running = 1;
   se->opt = (void*)spec_ops;
 

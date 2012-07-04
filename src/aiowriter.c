@@ -73,6 +73,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 #endif
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
   ioi->extra_param = (void*) malloc(sizeof(struct extra_parameters));
+  CHECK_ERR_NONNULL(ioi->extra_param, "Malloc extra params");
   ep = (struct extra_parameters *) ioi->extra_param;
   ep->used_events = 0;
   memset(&(ep->ib), 0,sizeof(struct iocb)*MAX_EVENTS);

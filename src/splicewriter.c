@@ -67,6 +67,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
     return -1;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct splice_ops * sp = (struct splice_ops*)malloc(sizeof(struct splice_ops));
+  CHECK_ERR_NONNULL(sp, "Splice ops malloc");
 
 #ifndef PIPE_STUFF_IN_WRITELOOP
   ret = pipe(sp->pipes);
@@ -98,6 +99,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #else
   sp->iov = (struct iovec*)malloc(sp->max_pipe_length * sizeof(struct iovec));
 #endif
+  CHECK_ERR_NONNULL(sp->iov, "Sp iov malloc");
 
 #ifdef USE_FOPEN
   if(ioi->optbits & READMODE)

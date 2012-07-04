@@ -20,7 +20,6 @@ struct common_io_info{
   void * extra_param;
 };
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
-int common_write_index_data(const char * filename_orig, long unsigned elem_size, void *data, long unsigned count);
 int init_directory(struct recording_entity *re);
 int common_handle_indices(struct common_io_info *ioi);
 int common_w_init(struct opt_s* opt, struct recording_entity *re);
