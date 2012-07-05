@@ -400,6 +400,7 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   D("Requested a load start on file %lu",, st->files_loaded);
   if (be == NULL){
     be = get_free(opt->membranch, opt, st->files_loaded,0, NULL);
+    CHECK_ERR_NONNULL(be, "Get loadable");
   /* Reacquiring just updates the file number we want */
   }
   else
@@ -407,11 +408,13 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   CHECK_AND_EXIT(be);
   D("Setting seqnum %lu to load %lu packets",,st->files_loaded, nuf);
   pthread_mutex_lock(be->headlock);
+  //D("HUR");
   int * inc = be->get_inc(be);
   *inc = nuf;
   st->packets_left_to_load-=nuf;
   pthread_cond_signal(be->iosignal);
   pthread_mutex_unlock(be->headlock);
+  D("Loading request complete for id %lu",, st->files_loaded);
 
   st->files_loaded++;
   return 0;

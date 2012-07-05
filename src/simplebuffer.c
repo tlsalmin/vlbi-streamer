@@ -144,8 +144,10 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   CHECK_ERR_NONNULL(be->headlock, "Headlock malloc");
   be->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
   CHECK_ERR_NONNULL(be->iosignal, "iosignal malloc");
-  pthread_mutex_init(be->headlock, NULL);
-  pthread_cond_init(be->iosignal, NULL);
+  err = pthread_mutex_init(be->headlock, NULL);
+  CHECK_ERR("headlock init");
+  err = pthread_cond_init(be->iosignal, NULL);
+  CHECK_ERR("iosignal init");
 
 
 
@@ -476,12 +478,13 @@ void *sbuf_simple_write_loop(void *buffo){
   int ret=0;
   int savedif=0;
   sbuf->running = 1;
+  D("Start running");
   while(sbuf->running){
     /* Checks if we've finished a write and we're holding a writer 	*/
     /* In this case we need to free the writer and ourselves		*/
     while(sbuf->ready_to_act == 0 && sbuf->running == 1){
-      D("Sleeping on ready");
       pthread_mutex_lock(be->headlock);
+      D("Sleeping on ready");
       pthread_cond_wait(be->iosignal, be->headlock);
       D("Woke up");
       pthread_mutex_unlock(be->headlock);

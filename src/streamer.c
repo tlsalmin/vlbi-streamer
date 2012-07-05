@@ -26,11 +26,11 @@
 #include "splicewriter.h"
 #include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
-//#define TUNE_AFFINITY
-//#define PRIORITY_SETTINGS
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
-#define UGLY_FIX_ON_RBUFTHREAD_EXIT
+/* Segfaults if pthread_joins done at exit. Tried to debug this 	*/
+/* for days but no solution						*/
+//#define UGLY_FIX_ON_RBUFTHREAD_EXIT
 //TODO: Search these
 #define MAX_PRIO_FOR_PTHREAD 4
 #define MIN_PRIO_FOR_PTHREAD 1
@@ -413,6 +413,21 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	filesize_found=1;
 	filesize = (unsigned long)config_setting_get_int64(setting);
       }
+    }
+    /* "Legacy" stuff*/
+    CFG_ELIF("buf_elem_size"){
+      if(config_setting_type(setting) != CONFIG_TYPE_INT64)
+	return -1;
+      if(check==1){
+	if(((unsigned long)config_setting_get_int64(setting)) != opt->packet_size)
+	  return -1;
+      }
+      else if(write==1){
+	if(((unsigned long)config_setting_get_int64(setting)) != opt->packet_size)
+	  return -1;
+      }
+      else
+	opt->packet_size = (unsigned long)config_setting_get_int64(setting);
     }
     CFG_FULL_STR(filename)
     CFG_FULL_UINT64(opt->cumul,"cumul")
@@ -1197,6 +1212,159 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   }
   return 0;
 }
+int init_branches(struct opt_s *opt){
+  int err;
+  opt->membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  CHECK_ERR_NONNULL(opt->membranch, "membranch malloc");
+  opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
+  CHECK_ERR_NONNULL(opt->diskbranch, "diskbranch malloc");
+
+  opt->membranch->freelist = NULL;
+  opt->membranch->busylist = NULL;
+  opt->membranch->loadedlist = NULL;
+  opt->diskbranch->freelist = NULL;
+  opt->diskbranch->busylist = NULL;
+  opt->diskbranch->loadedlist = NULL;
+
+  err = pthread_mutex_init(&(opt->membranch->branchlock), NULL);
+  CHECK_ERR("branchlock");
+  err = pthread_mutex_init(&(opt->diskbranch->branchlock), NULL);
+  CHECK_ERR("branchlock");
+  err = pthread_cond_init(&(opt->membranch->busysignal), NULL);
+  CHECK_ERR("busysignal");
+  err = pthread_cond_init(&(opt->diskbranch->busysignal), NULL);
+  CHECK_ERR("busysignal");
+  return 0;
+}
+int init_rbufs(struct opt_s *opt){
+  int i, err;
+#ifdef PRIORITY_SETTINGS
+  memset(&opt->param, 0, sizeof(param));
+  err = pthread_attr_init(&opt->pta);
+  if(err != 0){
+    E("Pthread attr initialization: %s",,strerror(err));
+    return -1;
+  }
+#endif
+#ifdef TUNE_AFFINITY
+  long processors = sysconf(_SC_NPROCESSORS_ONLN);
+  D("Polled %ld processors",,processors);
+  int cpusetter =2;
+  CPU_ZERO(&opt->cpuset);
+#endif
+
+  opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
+  if(opt->optbits & READMODE){
+    CALC_BUF_SIZE(opt);
+  }
+
+  opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
+  CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
+
+#ifdef PRIORITY_SETTINGS
+  err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
+  if(err != 0)
+    E("Error getting schedparam for pthread attr: %s",,strerror(err));
+  else
+    D("Schedparam set to %d, Trying to set to minimun %d",, opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
+
+  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
+  if(err != 1)
+    E("Error setting schedtype for pthread attr: %s",,strerror(err));
+
+  opt->param.sched_priority = MIN_PRIO_FOR_PTHREAD;
+  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
+  if(rc != 0)
+    E("Error setting schedparam for pthread attr: %s",,strerror(err));
+#endif
+
+#if(DEBUG_OUTPUT)
+  LOG("STREAMER: Initializing threads\n");
+#endif
+
+  for(i=0;i<opt->n_threads;i++){
+    //int err = 0;
+    //be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
+    //CHECK_ERR_NONNULL(be, "be malloc");
+
+    err = sbuf_init_buf_entity(opt, &(opt->bes[i]));
+    if(err != 0){
+      LOGERR("Error in buffer init\n");
+      exit(-1);
+    }
+    //TODO: Change write loop to just loop. Now means both read and write
+    D("Starting buffer thread");
+#ifdef PRIORITY_SETTINGS
+    err = pthread_create(&(opt->rbuf_pthreads[i]), &(opt->pta), (opt->bes[i]).write_loop,(void*)&(opt->bes[i]));
+#else
+    err = pthread_create(&(opt->rbuf_pthreads[i]), NULL, opt->bes[i].write_loop,(void*)&(opt->bes[i]));
+#endif
+    CHECK_ERR("pthread create");
+#ifdef TUNE_AFFINITY
+    if(cpusetter == processors)
+      cpusetter = 1;
+    CPU_SET(cpusetter,&(opt->cpuset));
+    cpusetter++;
+
+    D("Tuning buffer thread %i to processor %i",,i,cpusetter);
+    err = pthread_setaffinity_np(opt->rbuf_pthreads[i], sizeof(cpu_set_t), &(opt->cpuset));
+    if(err != 0){
+      perror("Affinity");
+      E("Error: setting affinity");
+    }
+    CPU_ZERO(&(opt->cpuset));
+#endif //TUNE_AFFINITY
+    D("Pthread got id %lu",, opt->rbuf_pthreads[i]);
+  }
+  //pthread_t rbuf_pthreads[opt->n_threads];
+  //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
+  return 0;
+}
+int init_recp(struct opt_s *opt){
+  int err, i;
+  opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
+  CHECK_ERR_NONNULL(opt->recs, "rec entity malloc");
+  for(i=0;i<opt->n_drives;i++){
+    //struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
+    /*
+       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+       le->entity = (void*)re;
+       add_to_entlist(opt.diskbranch, le);
+       */
+
+    /*
+     * NOTE: AIOW-stuff and udp-streamer are bidirectional and
+     * only require the setting of opt->read to one for 
+     * sending stuff
+     */
+    switch(opt->optbits & LOCKER_REC){
+#if HAVE_LIBAIO
+      case REC_AIO:
+	err = aiow_init_rec_entity(opt, &(opt->recs[i]));
+	//NOTE: elem_size is read inside if we're reading
+	break;
+#endif
+      case REC_DUMMY:
+	err = common_init_dummy(opt, &(opt->recs[i]));
+	break;
+      case REC_DEF:
+	err = def_init_def(opt, &(opt->recs[i]));
+	break;
+      case REC_SPLICER:
+	err = splice_init_splice(opt, &(opt->recs[i]));
+	break;
+    }
+    if(err != 0){
+      LOGERR("Error in writer init\n");
+      /* TODO: Need to free all kinds of stuff if init goes bad */
+      /* in the writer itself 					*/
+      //free(re);
+      //exit(-1);
+    }
+    /* Add the recording entity to the diskbranch */
+  }
+  return 0;
+}
 #if(DAEMON)
 void* vlbistreamer(void *opti)
 #else
@@ -1214,16 +1382,6 @@ int main(int argc, char **argv)
 #else
   struct opt_s *opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(opt, "opt malloc");
-#ifdef PRIORITY_SETTINGS
-  pthread_attr_t        pta;
-  struct sched_param    param;
-  memset(&param, 0, sizeof(param));
-  rc = pthread_attr_init(&pta);
-  if(rc != 0){
-    E("Pthread attr initialization: %s",,strerror(rc));
-    return -1;
-  }
-#endif
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
@@ -1231,13 +1389,6 @@ int main(int argc, char **argv)
   err = parse_options(argc,argv,opt);
   if(err != 0)
     exit(-1);
-#ifdef TUNE_AFFINITY
-  long processors = sysconf(_SC_NPROCESSORS_ONLN);
-  D("Polled %ld processors",,processors);
-  int cpusetter =1;
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-#endif
 #endif //DAEMON
 
   /*
@@ -1257,23 +1408,7 @@ int main(int argc, char **argv)
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
 
 #if(!DAEMON)
-  pthread_t rbuf_pthreads[opt->n_threads];
-  //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
 
-  opt->membranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
-  CHECK_ERR_NONNULL(opt->membranch, "membranch malloc");
-  opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
-  CHECK_ERR_NONNULL(opt->diskbranch, "diskbranch malloc");
-
-  opt->membranch->freelist = NULL;
-  opt->membranch->busylist = NULL;
-  opt->diskbranch->freelist = NULL;
-  opt->diskbranch->busylist = NULL;
-
-  pthread_mutex_init(&(opt->membranch->branchlock), NULL);
-  pthread_mutex_init(&(opt->diskbranch->branchlock), NULL);
-  pthread_cond_init(&(opt->membranch->busysignal), NULL);
-  pthread_cond_init(&(opt->diskbranch->busysignal), NULL);
 #endif //DAEMON
 
   //pthread_attr_t attr;
@@ -1296,46 +1431,11 @@ int main(int argc, char **argv)
   }
 
 #if(!DAEMON)
-  for(i=0;i<opt->n_drives;i++){
-    struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
-    CHECK_ERR_NONNULL(re, "rec entity malloc");
-    /*
-       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-       le->entity = (void*)re;
-       add_to_entlist(opt.diskbranch, le);
-       */
+  err = init_branches(opt);
+  CHECK_ERR("init branches");
+  err = init_recp(opt);
+  CHECK_ERR("init recpoints");
 
-    /*
-     * NOTE: AIOW-stuff and udp-streamer are bidirectional and
-     * only require the setting of opt->read to one for 
-     * sending stuff
-     */
-    switch(opt->optbits & LOCKER_REC){
-#if HAVE_LIBAIO
-      case REC_AIO:
-	err = aiow_init_rec_entity(opt, re);
-	//NOTE: elem_size is read inside if we're reading
-	break;
-#endif
-      case REC_DUMMY:
-	err = common_init_dummy(opt, re);
-	break;
-      case REC_DEF:
-	err = def_init_def(opt, re);
-	break;
-      case REC_SPLICER:
-	err = splice_init_splice(opt, re);
-	break;
-    }
-    if(err != 0){
-      LOGERR("Error in writer init\n");
-      free(re);
-      //exit(-1);
-    }
-    /* Add the recording entity to the diskbranch */
-  }
-#endif
-  /* Check and set cfgs at this point */
 #ifdef HAVE_LIBCONFIG_H
   err = init_cfg(opt);
   //TODO: cfg destruction
@@ -1343,10 +1443,17 @@ int main(int argc, char **argv)
     E("Error in cfg init");
     FREE_AND_ERROREXIT
   }
+#endif
+
+  err = init_rbufs(opt);
+  CHECK_ERR("init rbufs");
+#endif
+  /* Check and set cfgs at this point */
   //return -1;
 
   /* If we're sending stuff, check all the diskbranch members for the files they have 	*/
   /* Also updates the fileholders list to point the owners of files to correct drives	*/
+#ifdef HAVE_LIBCONFIG_H
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
@@ -1354,9 +1461,6 @@ int main(int argc, char **argv)
 #endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
 #if(!DAEMON)
-  if(opt->optbits & READMODE){
-    CALC_BUF_SIZE(opt);
-  }
 #endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
@@ -1370,83 +1474,6 @@ int main(int argc, char **argv)
 
 
 #if(!DAEMON)
-#ifdef PRIORITY_SETTINGS
-  rc = pthread_attr_getschedparam(&pta, &param);
-  if(rc != 0)
-    E("Error getting schedparam for pthread attr: %s",,strerror(rc));
-  else
-    D("Schedparam set to %d, Trying to set to minimun %d",, param.sched_priority, MIN_PRIO_FOR_PTHREAD);
-
-  rc = pthread_attr_setschedpolicy(&pta, SCHED_FIFO);
-  if(rc != 1)
-    E("Error setting schedtype for pthread attr: %s",,strerror(rc));
-
-  param.sched_priority = MIN_PRIO_FOR_PTHREAD;
-  rc = pthread_attr_setschedparam(&pta, &param);
-  if(rc != 0)
-    E("Error setting schedparam for pthread attr: %s",,strerror(rc));
-#endif
-#if(DEBUG_OUTPUT)
-  LOG("STREAMER: Initializing threads\n");
-#endif
-  for(i=0;i<opt->n_threads;i++){
-    //int err = 0;
-    struct buffer_entity * be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
-    CHECK_ERR_NONNULL(be, "be malloc");
-    /*
-       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-       le->entity = (void*)be;
-       add_to_entlist(&(opt.diskbranch), le);
-       */
-    //Make elements accessible
-    //be->recer = re;
-    //re->be = be;
-
-    //Initialize recorder entity
-    switch(opt->optbits & LOCKER_WRITER)
-    {
-      /*
-	 case BUFFER_RINGBUF:
-      //Helper function
-      err = rbuf_init_buf_entity(&opt, be);
-      break;
-      */
-      case BUFFER_SIMPLE:
-	err = sbuf_init_buf_entity(opt,be);
-	D("Initialized simple buffer for thread %d",,i);
-	break;
-      case WRITER_DUMMY:
-	err = sbuf_init_buf_entity(opt, be);
-	D("Initialized simple buffer for thread %d",,i);
-	break;
-    }
-    if(err != 0){
-      LOGERR("Error in buffer init\n");
-      exit(-1);
-    }
-    //TODO: Change write loop to just loop. Now means both read and write
-    D("Starting buffer thread");
-#ifdef PRIORITY_SETTINGS
-    rc = pthread_create(&rbuf_pthreads[i], &pta, be->write_loop,(void*)be);
-#else
-    rc = pthread_create(&rbuf_pthreads[i], NULL, be->write_loop,(void*)be);
-#endif
-#ifdef TUNE_AFFINITY
-    if(cpusetter == processors)
-      cpusetter = 1;
-    CPU_SET(cpusetter,&cpuset);
-    cpusetter++;
-
-    D("Tuning buffer thread %i to processor %i",,i,cpusetter);
-    rc = pthread_setaffinity_np(rbuf_pthreads[i], sizeof(cpu_set_t), &cpuset);
-    if(rc != 0){
-      perror("Affinity");
-      E("Error: setting affinity");
-    }
-    CPU_ZERO(&cpuset);
-#endif //TUNE_AFFINITY
-    D("Pthread got id %lu",, rbuf_pthreads[i]);
-  }
 #endif //DAEMON
 
   /* Format the capturing thread */
@@ -1497,20 +1524,20 @@ int main(int argc, char **argv)
 
 #ifdef PRIORITY_SETTINGS
   param.sched_priority = MAX_PRIO_FOR_PTHREAD;
-  rc = pthread_attr_setschedparam(&pta, &param);
-  if(rc != 0)
+  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
+  if(err != 0)
     E("Error setting schedparam for pthread attr: %s, to %d",, strerror(rc), MAX_PRIO_FOR_PTHREAD);
-  rc = pthread_create(&streamer_pthread, &pta, streamer_ent.start, (void*)&streamer_ent);
+  err = pthread_create(&streamer_pthread, &(opt->pta), streamer_ent.start, (void*)&streamer_ent);
 #else
-  rc = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
+  err = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
 #endif
-  if (rc != 0){
-    printf("ERROR; return code from pthread_create() is %d\n", rc);
-    exit(-1);
+  if (err != 0){
+    printf("ERROR; return code from pthread_create() is %d\n", err);
+    return -1;
   }
 #ifdef TUNE_AFFINITY
   /* Put the capture on the first core */
-  CPU_SET(0,&cpuset);
+  CPU_SET(0,&(opt->cpuset));
   /*
      cpusetter++;
      if(cpusetter > processors)
@@ -1644,15 +1671,16 @@ int main(int argc, char **argv)
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
 #ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
   for(i =0 ;i<opt->n_threads;i++){
-    D("Da thread %lu",, rbuf_pthreads[i]);
-    rc = pthread_join(rbuf_pthreads[i], NULL);
+    D("Da thread %lu",, opt->rbuf_pthreads[i]);
+    rc = pthread_join(opt->rbuf_pthreads[i], NULL);
     if (rc<0) {
       printf("ERROR; return code from pthread_join() is %d\n", rc);
     }
     else
       D("%dth buffer exit OK",,i);
   }
-#endif
+#endif //UGLY_FIX_ON_RBUFTHREAD_EXIT
+  free(opt->rbuf_pthreads);
   D("Getting stats and closing");
 #endif
 

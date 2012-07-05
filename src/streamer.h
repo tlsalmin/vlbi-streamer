@@ -251,6 +251,9 @@ CHECK_ERR_NONNULL(setting, "add "#x);\
 /* Moving the rbuf-stuff to its own thread */
 #define SPLIT_RBUF_AND_IO_TO_THREAD
 
+//#define TUNE_AFFINITY
+//#define PRIORITY_SETTINGS
+
 
 /* Enable if you don't want extra messaging to nonblocked processes */
 //#define CHECK_FOR_BLOCK_BEFORE_SIGNAL
@@ -417,6 +420,16 @@ struct opt_s
   //struct hostent he;
   //int f_flags;
   unsigned long total_packets;
+  pthread_t *rbuf_pthreads;
+  struct buffer_entity * bes;
+  struct recording_entity *recs;
+#ifdef PRIORITY_SETTINGS
+  pthread_attr_t        pta;
+  struct sched_param    param;
+#endif
+#ifdef TUNE_AFFINITY
+  cpu_set_t cpuset;
+#endif
 #if(DAEMON)
   int running;
 #endif

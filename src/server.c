@@ -279,6 +279,8 @@ int main(int argc, char **argv)
 
   parse_options(argc,argv,sched->default_opt);
 
+  /* Start memory buffers */
+
   i_fd = inotify_init();
   CHECK_LTZ("Inotify init", i_fd);
 
@@ -289,7 +291,7 @@ int main(int argc, char **argv)
   /* Make the inotify nonblocking for simpler loop 			*/
   //int flags = fcntl(i_fd, F_GETFL, 0);
   //fcntl(i_fd, F_SETFL, flags |O_NONBLOCK);
-
+  
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
   struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));

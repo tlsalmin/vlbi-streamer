@@ -355,7 +355,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->bytes_exchanged = 0;
 
   /* Only after everything ok add to the diskbranches */
-  D("Adding writer to diskbranch");
+  D("Adding writer %d to diskbranch",,ioi->id);
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
   le->entity = (void*)re;
   le->child = NULL;
@@ -434,29 +434,28 @@ int common_getfd(struct recording_entity *re){
 int common_check_files(struct recording_entity *re, void* opti){
   int err=0;
   int temp=0;
+  int retval = 0;
   //struct recording_entity **temprecer;
   struct opt_s* opt = (struct opt_s*)opti;
   struct common_io_info * ioi = re->opt;
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(dirname, "Dirname malloc");
   regex_t regex;
-  D("Checking for files and updating fileholders");
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
+  D("Checking for files and updating fileholders on %s",, dirname);
   /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
   char* regstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(regstring, "Malloc regexp string");
   sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", opt->filename);
   //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   err = regcomp(&regex, regstring, 0);
-  free(regstring);
   CHECK_ERR("Regcomp");
 
 
   DIR *dir;
   struct dirent *ent;
   dir = opendir(dirname);
-  free(dirname);
   if (dir != NULL) {
 
     /* print all the files and directories within directory */
@@ -493,16 +492,17 @@ int common_check_files(struct recording_entity *re, void* opti){
 	//exit(1);
       }
     }
-    D("Finished reading files in dir");
     closedir (dir);
+    D("Finished reading files in dir");
   } else {
     /* could not open directory */
     perror ("Check files");
-    return EXIT_FAILURE;
+    retval= EXIT_FAILURE;
   }
-
+  free(regstring);
+  free(dirname);
   regfree(&regex);
-  return 0;
+  return retval;
 }
 void common_init_common_functions(struct opt_s * opt, struct recording_entity *re){
   (void)opt;
