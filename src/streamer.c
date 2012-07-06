@@ -919,7 +919,9 @@ int clear_and_default(struct opt_s* opt){
 
   opt->diskids = 0;
   opt->hd_failures = 0;
+#if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
+#endif
 
   config_init(&(opt->cfg));
   /* Opts using optbits */
@@ -1593,7 +1595,9 @@ int main(int argc, char **argv)
   //NOTE: setaffinity should be used after thread has been started
 
   //}
+#if(DAEMON)
   opt->status = STATUS_RUNNING;
+#endif
 
   init_stats(stats_full);
   /* HERP so many ifs .. WTB Refactoring time*/
@@ -1730,7 +1734,9 @@ int main(int argc, char **argv)
   D("Membranch and diskbranch shut down");
 
 #endif
+#if(DAEMON)
   opt->status = STATUS_FINISHED;
+#endif
 
   D("Printing stats");
   print_stats(stats_full, opt);
