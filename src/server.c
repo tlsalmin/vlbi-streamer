@@ -263,6 +263,7 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(sched, "Sched malloc");
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
+  struct stats stats_full;
 
   sched->default_opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(sched->default_opt, "Default opt malloc");
@@ -280,6 +281,12 @@ int main(int argc, char **argv)
   parse_options(argc,argv,sched->default_opt);
 
   /* Start memory buffers */
+  err = init_branches(sched->default_opt);
+  CHECK_ERR("init branches");
+  err = init_recp(sched->default_opt);
+  CHECK_ERR("init recpoints");
+  err = init_rbufs(sched->default_opt);
+  CHECK_ERR("init rbufs");
 
   i_fd = inotify_init();
   CHECK_LTZ("Inotify init", i_fd);
@@ -331,8 +338,15 @@ int main(int argc, char **argv)
   }
 
   inotify_rm_watch(i_fd, w_fd);
+
+  D("Closing membranch and diskbranch");
+  close_rbufs(sched->default_opt, &stats_full);
+  close_recp(sched->default_opt,&stats_full);
+  D("Membranch and diskbranch shut down");
+
   free(pfd);
-  free(sched->default_opt);
+  close_opts(sched->default_opt);
+  //free(sched->default_opt);
   free(sched);
   return 0;
 }

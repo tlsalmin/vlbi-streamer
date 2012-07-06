@@ -64,6 +64,12 @@
 #define MEG			B(20)
 #define GIG			B(30)
 
+#define STATUS_NOT_STARTED	1
+#define STATUS_RUNNING		2
+#define	STATUS_STOPPED		3
+#define STATUS_FINISHED		4
+#define STATUS_ERROR		5
+
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
 //#define WRITE_WHOLE_BUFFER
@@ -431,7 +437,7 @@ struct opt_s
   cpu_set_t cpuset;
 #endif
 #if(DAEMON)
-  int running;
+  int status;
 #endif
 };
 int write_cfgs_to_disks(struct opt_s *opt);
@@ -525,6 +531,12 @@ struct streamer_entity
   //struct entity_list_branch *membranch;
 };
 
+int init_branches(struct opt_s *opt);
+int init_rbufs(struct opt_s *opt);
+int close_rbufs(struct opt_s *opt, struct stats* da_stats);
+int close_opts(struct opt_s *opt);
+int init_recp(struct opt_s *opt);
+int close_recp(struct opt_s *opt, struct stats* da_stats);
 int write_cfg(config_t *cfg, char* filename);
 int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);

@@ -39,6 +39,13 @@
 #else
 #define STREAMER_CHECK_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
 #endif
+#if(DAEMON)
+#define STREAMER_EXIT opt->status = STATUS_FINISHED; pthread_exit(NULL)
+#define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; STREAMER_EXIT
+#else
+#define STREAMER_EXIT return 0
+#define STREAMER_ERROR_EXIT return -1
+#endif
 
 
 #define BRANCHOP_STOPANDSIGNAL 1
@@ -912,6 +919,7 @@ int clear_and_default(struct opt_s* opt){
 
   opt->diskids = 0;
   opt->hd_failures = 0;
+  opt->status = STATUS_NOT_STARTED;
 
   config_init(&(opt->cfg));
   /* Opts using optbits */
@@ -1462,9 +1470,6 @@ int main(int argc, char **argv)
   pthread_t streamer_pthread;
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
 
-#if(!DAEMON)
-
-#endif //DAEMON
 
   //pthread_attr_t attr;
 
@@ -1490,6 +1495,7 @@ int main(int argc, char **argv)
   CHECK_ERR("init branches");
   err = init_recp(opt);
   CHECK_ERR("init recpoints");
+#endif
 
 #ifdef HAVE_LIBCONFIG_H
   err = init_cfg(opt);
@@ -1500,9 +1506,10 @@ int main(int argc, char **argv)
   }
 #endif
 
+#if(!DAEMON)
   err = init_rbufs(opt);
   CHECK_ERR("init rbufs");
-#endif
+#endif //DAEMON
   /* Check and set cfgs at this point */
   //return -1;
 
@@ -1515,8 +1522,6 @@ int main(int argc, char **argv)
   }
 #endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
-#if(!DAEMON)
-#endif
   /* If we're using the rx-ring, reserve space for it here */
   /*
      if(opt.optbits & USE_RX_RING){
@@ -1528,8 +1533,6 @@ int main(int argc, char **argv)
      */
 
 
-#if(!DAEMON)
-#endif //DAEMON
 
   /* Format the capturing thread */
   switch(opt->optbits & LOCKER_CAPTURE)
@@ -1569,7 +1572,7 @@ int main(int argc, char **argv)
 #endif
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
-    return -1;
+    STREAMER_ERROR_EXIT;
   }
 #ifdef TUNE_AFFINITY
   /* Put the capture on the first core */
@@ -1590,6 +1593,7 @@ int main(int argc, char **argv)
   //NOTE: setaffinity should be used after thread has been started
 
   //}
+  opt->status = STATUS_RUNNING;
 
   init_stats(stats_full);
   /* HERP so many ifs .. WTB Refactoring time*/
@@ -1719,13 +1723,14 @@ int main(int argc, char **argv)
 #endif
   }
 
-#if(!DAEMON)
   streamer_ent.close(streamer_ent.opt, (void*)stats_full);
+#if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
 
 #endif
+  opt->status = STATUS_FINISHED;
 
   D("Printing stats");
   print_stats(stats_full, opt);
@@ -1736,7 +1741,7 @@ int main(int argc, char **argv)
   close_opts(opt);
   pthread_exit(NULL);
 #else
-  return 0;
+  STREAMER_EXIT;
 #endif
 }
 /* These two separated here */
