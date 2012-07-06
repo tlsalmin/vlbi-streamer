@@ -1326,6 +1326,46 @@ int init_rbufs(struct opt_s *opt){
   //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
   return 0;
 }
+int close_rbufs(struct opt_s *opt, struct stats* da_stats){
+  int i,err;
+  // Stop the memory threads 
+  oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
+#ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
+  for(i =0 ;i<opt->n_threads;i++){
+    D("Da thread %lu",, opt->rbuf_pthreads[i]);
+    err = pthread_join(opt->rbuf_pthreads[i], NULL);
+    if (err<0) {
+      printf("ERROR; return code from pthread_join() is %d\n", err);
+    }
+    else
+      D("%dth buffer exit OK",,i);
+  }
+#endif //UGLY_FIX_ON_RBUFTHREAD_EXIT
+  free(opt->rbuf_pthreads);
+  D("Getting stats and closing for membranch");
+  oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)da_stats);
+
+  free(opt->membranch);
+  free(opt->bes);
+
+  return 0;
+}
+int close_opts(struct opt_s *opt){
+  if(opt->device_name != NULL)
+    free(opt->device_name);
+  if(opt->optbits & READMODE){
+    if(opt->fileholders != NULL)
+      free(opt->fileholders);
+  }
+  if(opt->cfgfile != NULL)
+    free(opt->cfgfile);
+  config_destroy(&(opt->cfg));
+#ifdef PRIORITY_SETTINGS
+  pthread_attr_destroy(&(opt->pta));
+#endif
+  free(opt);
+  return 0;
+}
 int init_recp(struct opt_s *opt){
   int err, i;
   opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
@@ -1371,13 +1411,22 @@ int init_recp(struct opt_s *opt){
   }
   return 0;
 }
+int close_recp(struct opt_s *opt, struct stats* da_stats){
+  int i;
+  oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)da_stats);
+  for(i=0;i<opt->n_drives;i++){
+    free(opt->filenames[i]);
+  }
+  free(opt->diskbranch);
+  free(opt->recs);
+  return 0;
+}
 #if(DAEMON)
 void* vlbistreamer(void *opti)
 #else
 int main(int argc, char **argv)
 #endif
 {
-  int i,rc;
   int err = 0;
 #ifdef HAVE_LRT
   struct timespec start_t;
@@ -1507,32 +1556,13 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
-  //be->se = &(threads[i]);
-  //threads[i].be = be;
-
-  //TODO: Packet index recovery 
-  /*
-     if(opt.optbits & READMODE){
-  //unsigned long total_packets = 0;
-  opt.max_num_packets =0 ;
-  for(i=0;i<opt.n_threads;i++)
-  //TODO: Fix sendside
-  //opt.max_num_packets += threads[i].be->recer->get_n_packets(threads[i].be->recer);
-
-  }
-  */
-
-  /* Just start the one receiver */
-  //for(i=0;i<opt.n_threads;i++){
-  //#if(DEBUG_OUTPUT)
   printf("STREAMER: In main, starting receiver thread \n");
-  //#endif
 
 #ifdef PRIORITY_SETTINGS
   param.sched_priority = MAX_PRIO_FOR_PTHREAD;
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
-    E("Error setting schedparam for pthread attr: %s, to %d",, strerror(rc), MAX_PRIO_FOR_PTHREAD);
+    E("Error setting schedparam for pthread attr: %s, to %d",, strerror(err), MAX_PRIO_FOR_PTHREAD);
   err = pthread_create(&streamer_pthread, &(opt->pta), streamer_ent.start, (void*)&streamer_ent);
 #else
   err = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
@@ -1550,9 +1580,9 @@ int main(int argc, char **argv)
      cpusetter = 1;
      */
 
-  rc = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
-  if(rc != 0){
-    E("Error: setting affinity: %d",,rc);
+  err = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
+  if(err != 0){
+    E("Error: setting affinity: %d",,err);
   }
   CPU_ZERO(&cpuset);
 #endif
@@ -1665,53 +1695,16 @@ int main(int argc, char **argv)
     //streamer_ent.close_socket(&(streamer_ent));
   }
   //for (i = 0; i < opt.n_threads; i++) {
-  rc = pthread_join(streamer_pthread, NULL);
-  if (rc<0) {
-    printf("ERROR; return code from pthread_join() is %d\n", rc);
+  err = pthread_join(streamer_pthread, NULL);
+  if (err<0) {
+    printf("ERROR; return code from pthread_join() is %d\n", err);
   }
   else
     D("Streamer thread exit OK");
-
-#if(!DAEMON)
-  // Stop the memory threads 
-  oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
-#ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
-  for(i =0 ;i<opt->n_threads;i++){
-    D("Da thread %lu",, opt->rbuf_pthreads[i]);
-    rc = pthread_join(opt->rbuf_pthreads[i], NULL);
-    if (rc<0) {
-      printf("ERROR; return code from pthread_join() is %d\n", rc);
-    }
-    else
-      D("%dth buffer exit OK",,i);
-  }
-#endif //UGLY_FIX_ON_RBUFTHREAD_EXIT
-  free(opt->rbuf_pthreads);
-  D("Getting stats and closing");
-#endif
-
-  streamer_ent.close(streamer_ent.opt, (void*)stats_full);
-#if(!DAEMON)
-  oper_to_all(opt->membranch, BRANCHOP_CLOSERBUF, (void*)stats_full);
-  oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)stats_full);
-#endif
-
-#ifdef HAVE_LIBCONFIG_H
-  //TODO: This will be destroyed outside the mem and diskbranches
-  config_destroy(&(opt->cfg));
-#endif
-  //oper_to_all(opt.diskbranch,BRANCHOP_GETSTATS,(void*)&stats);
-
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads finished. Getting stats\n");
 #endif
-  print_stats(stats_full, opt);
-  free(stats_full);
 
-  /*Close everything */
-
-  //}
-  /* Log the time */
   if(opt->optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
 #ifdef HAVE_LRT
@@ -1725,45 +1718,22 @@ int main(int argc, char **argv)
     //opt.time = (clock() - start_t);
 #endif
   }
-  //Close all threads. Buffers and writers are closed in the threads close
-  //for(i=0;i<opt.n_threads;i++){
-  //threads[i].close(threads[i].opt, &stats);
-  //TODO Free this stuff elsewhere
-  //free(threads[i].be->recer);
-  //free(threads[i].be);
-  //}
-  //pthread_mutex_destroy(&(opt.cumlock));
-  //free(opt.packet_index);
-  for(i=0;i<opt->n_drives;i++){
-    free(opt->filenames[i]);
-  }
-#if(DEBUG_OUTPUT)
-  LOG("STREAMER: Threads closed\n");
-#endif
-  if(opt->device_name != NULL)
-    free(opt->device_name);
-  if(opt->optbits & READMODE){
-    if(opt->fileholders != NULL)
-      free(opt->fileholders);
-  }
-  if(opt->cfgfile != NULL)
-    free(opt->cfgfile);
-  config_destroy(&(opt->cfg));
+
 #if(!DAEMON)
-  free(opt->membranch);
-  free(opt->diskbranch);
-  free(opt->bes);
-  free(opt->recs);
-#endif
-#ifdef PRIORITY_SETTINGS
-  pthread_attr_destroy(&pta);
-#endif
-#if(!DAEMON)
-  free(opt);
+  streamer_ent.close(streamer_ent.opt, (void*)stats_full);
+  close_rbufs(opt, stats_full);
+  close_recp(opt,stats_full);
+  D("Membranch and diskbranch shut down");
+
 #endif
 
-  //return 0;
+  D("Printing stats");
+  print_stats(stats_full, opt);
+  free(stats_full);
+  D("Stats over");
+
 #if(DAEMON)
+  close_opts(opt);
   pthread_exit(NULL);
 #else
   return 0;
@@ -1789,35 +1759,3 @@ int read_cfg(config_t *cfg, char * filename){
   else
     return 0;
 }
-/*
-int update_cfg(struct opt_s* opt, struct config_t * cfg){
-  if (cfg == NULL)
-    cfg = &(opt->cfg);
-  int err;
-  D("Updating CFG");
-  config_setting_t *root, *setting;
-  root = config_root_setting(cfg);
-  CHECK_ERR_NONNULL(root, "getroot");
-  if(opt->optbits & READMODE){
-    unsigned long filesize=0;
-    GET_I64("cumul",opt->cumul);
-    GET_I64("packet_size", opt->packet_size);
-    GET_I64("filesize", filesize);
-    GET_I64("total_packets", opt->total_packets);
-    GET_I("buf_division", opt->buf_division);
-    opt->buf_num_elems = filesize/opt->packet_size;
-    opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
-  }
-  else{
-    SET_I64("cumul",opt->cumul);
-    SET_I64("packet_size", opt->packet_size);
-    SET_I64("filesize", (opt->packet_size)*(opt->buf_num_elems));
-    SET_I("buf_division", opt->buf_division);
-    SET_I64("total_packets", opt->total_packets);
-  }
-  //err = config_lookup_int64(&opt->cfg, "cumul", &cumul);
-  //CHECK_CFG("get cumul");
-  D("CFG updated");
-  return 0;
-}
-*/
