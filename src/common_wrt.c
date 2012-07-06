@@ -442,6 +442,7 @@ int common_check_files(struct recording_entity *re){
   int err=0;
   int temp=0;
   int retval = 0;
+  int i,n_files;
   //int len;
   //struct recording_entity **temprecer;
   struct common_io_info * ioi = re->opt;
@@ -461,22 +462,30 @@ int common_check_files(struct recording_entity *re){
   CHECK_ERR("Regcomp");
 
 
-  DIR *dir;
+  //DIR *dir;
 
-  struct dirent *ent; //= malloc(sizeof(struct dirent));
-  dir = opendir(dirname);
-  if (dir != NULL) {
+  //struct dirent *ent; //= malloc(sizeof(struct dirent));
+  //dir = opendir(dirname);
+  //if (dir != NULL) {
 
-    /* print all the files and directories within directory */
-    while ((ent = readdir (dir)) != NULL) {
-      err = regexec(&regex, ent->d_name, 0,NULL,0);
+  /* print all the files and directories within directory */
+  struct dirent **namelist;
+  n_files = scandir(dirname, &namelist, NULL, NULL);
+  if(n_files <0){
+    // could not open directory 
+    perror ("Check files");
+    retval= EXIT_FAILURE;
+  }
+  else{
+    for(i=0;i<n_files;i++){
+      err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);
       /* If we match a data file */
       if( !err ){
-	D("Regexp matched %s",, ent->d_name);
+	D("Regexp matched %s",, namelist[i]->d_name);
 	char the_index[INDEXING_LENGTH];
 	/* Grab the INDEXING_LENGTH last chars from ent->d_name, which is the	*/
 	/* The files index							*/
-	char * start_of_index= ent->d_name+(strlen(ent->d_name))-INDEXING_LENGTH;
+	char * start_of_index= namelist[i]->d_name+(strlen(namelist[i]->d_name))-INDEXING_LENGTH;
 	memcpy(the_index,start_of_index,INDEXING_LENGTH);
 	//temp = atoi(ent->d_name);
 	temp = atoi(the_index);
@@ -492,7 +501,7 @@ int common_check_files(struct recording_entity *re){
 	}
       }
       else if( err == REG_NOMATCH ){
-	D("Regexp didn't match %s",, ent->d_name);
+	D("Regexp didn't match %s",, namelist[i]->d_name);
       }
       else{
 	char msgbuf[100];
@@ -500,16 +509,17 @@ int common_check_files(struct recording_entity *re){
 	E("Regex match failed: %s",, msgbuf);
 	//exit(1);
       }
-      free(ent);
+      free(namelist[i]);
     }
-    closedir (dir);
-    D("Finished reading files in dir");
-  } else {
-    /* could not open directory */
-    perror ("Check files");
-    retval= EXIT_FAILURE;
+    free(namelist);
   }
-  free(ent);
+  //closedir (dir);
+  D("Finished reading files in dir");
+  /*
+     } else {
+     }
+     */
+  //free(ent);
   free(regstring);
   free(dirname);
   regfree(&regex);

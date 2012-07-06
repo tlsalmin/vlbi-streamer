@@ -508,17 +508,21 @@ void * udp_sender(void *streamo){
       st.files_sent++;
       D("Buffer empty, Getting another: %lu",, st.files_sent);
       /* Check for missing file here so we can keep simplebuffer simple 	*/
-      while(spec_ops->opt->fileholders[st.files_loaded]  == -1 && st.files_loaded <=spec_ops->opt->cumul){
-	D("Skipping a file, fileholder set to -1 for file %lu",, st.files_loaded);
-	st.files_loaded++;
-	st.files_skipped++;
-	//spec_ops->files_sent++;
-	/* If last file is missing, we might hit negative on left_to_send 	*/
-	if(st.packets_left_to_load < (unsigned long)spec_ops->opt->buf_num_elems){
-	  st.packets_left_to_load = 0;
+      while(st.files_loaded <= spec_ops->opt->cumul){
+	if (spec_ops->opt->fileholders[st.files_loaded]  == -1){
+	  D("Skipping a file, fileholder set to -1 for file %lu",, st.files_loaded);
+	  st.files_loaded++;
+	  st.files_skipped++;
+	  //spec_ops->files_sent++;
+	  /* If last file is missing, we might hit negative on left_to_send 	*/
+	  if(st.packets_left_to_load < (unsigned long)spec_ops->opt->buf_num_elems){
+	    st.packets_left_to_load = 0;
+	  }
+	  else
+	    st.packets_left_to_load -= spec_ops->opt->buf_num_elems;
 	}
 	else
-	  st.packets_left_to_load -= spec_ops->opt->buf_num_elems;
+	  break;
       }
       //if((spec_ops->opt->cumul - files_loaded) > 0){
       /* Files loaded is incremented after we've gotten a load, so we can set	*/

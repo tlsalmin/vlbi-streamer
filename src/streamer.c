@@ -1253,10 +1253,10 @@ int init_rbufs(struct opt_s *opt){
   CPU_ZERO(&opt->cpuset);
 #endif
 
-  opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
   if(opt->optbits & READMODE){
     CALC_BUF_SIZE(opt);
   }
+  opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
 
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
