@@ -29,11 +29,15 @@
 int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
   (void)sbuf_still_running;
   int err;
+  int tempflags;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   D("Acquiring new recorder and changing opt");
   ioi->opt = (struct opt_s*)opti;
-  int tempflags = ioi->f_flags;
+  if(ioi->opt->optbits & READMODE)
+    tempflags = re->get_r_flags();
+  else
+    tempflags = re->get_w_flags();
   ioi->file_seqnum = seq;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -311,12 +315,15 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->opt = opt;
 
   ioi->id = ioi->opt->diskids++;
+  /*
 #ifndef DAEMON
   err = init_directory(re);
   CHECK_ERR("Init directory");
 #endif
+*/
 
   //ioi->latest_write_num = 0;
+  /*
   if(ioi->opt->optbits & READMODE){
 #if(DEBUG_OUTPUT)
     fprintf(stdout, "COMMON_WRT: Initializing read point\n");
@@ -333,7 +340,6 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
     ioi->f_flags = re->get_w_flags();
 
-    /* Why did i do this twice? */
     //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
     //for s seconds.
     //prealloc_bytes = ((unsigned long)opt->rate*opt->time)/(opt->n_threads*8);
@@ -345,6 +351,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
     //prealloc_bytes=0;
 
   }
+  */
   //fprintf(stdout, "wut\n");
   //ioi->filename = opt->filenames[opt->taken_rpoints++];
 
@@ -431,13 +438,14 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
-int common_check_files(struct recording_entity *re, void* opti){
+int common_check_files(struct recording_entity *re){
   int err=0;
   int temp=0;
   int retval = 0;
+  //int len;
   //struct recording_entity **temprecer;
-  struct opt_s* opt = (struct opt_s*)opti;
   struct common_io_info * ioi = re->opt;
+  struct opt_s* opt = (struct opt_s*)ioi->opt;
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(dirname, "Dirname malloc");
   regex_t regex;
@@ -454,7 +462,8 @@ int common_check_files(struct recording_entity *re, void* opti){
 
 
   DIR *dir;
-  struct dirent *ent;
+
+  struct dirent *ent; //= malloc(sizeof(struct dirent));
   dir = opendir(dirname);
   if (dir != NULL) {
 
@@ -491,6 +500,7 @@ int common_check_files(struct recording_entity *re, void* opti){
 	E("Regex match failed: %s",, msgbuf);
 	//exit(1);
       }
+      free(ent);
     }
     closedir (dir);
     D("Finished reading files in dir");
@@ -499,6 +509,7 @@ int common_check_files(struct recording_entity *re, void* opti){
     perror ("Check files");
     retval= EXIT_FAILURE;
   }
+  free(ent);
   free(regstring);
   free(dirname);
   regfree(&regex);

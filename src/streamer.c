@@ -636,7 +636,7 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
 	((struct recording_entity*)le->entity)->readcfg(((struct recording_entity*)le->entity), param);
 	break;
       case BRANCHOP_CHECK_FILES:
-	((struct recording_entity*)le->entity)->check_files(((struct recording_entity*)le->entity), param);
+	((struct recording_entity*)le->entity)->check_files(((struct recording_entity*)le->entity));
 	break;
     }
     le = le->child;
