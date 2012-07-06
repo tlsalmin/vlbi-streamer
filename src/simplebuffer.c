@@ -89,10 +89,12 @@ int sbuf_seqnumcheck(void* buffo, int seq){
     return 0;
 }
 int sbuf_free(void* buffo){
+  /*
   if(buffo != NULL){
-    struct simplebuf * sbuf = (struct simplebuf*)buffo;
-    free(sbuf);
+    struct buffer_entity * be = (struct buffer_entity*)buffo;
+    free(be);
   }
+  */
   return 0;
 }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
@@ -252,7 +254,9 @@ remove(hugefs);
   }
   else
     D("Not freeing mem. Done in main");
+  D("Freeing structs");
   free(sbuf);
+  //free(be);
   //free(be->recer);
   D("Simplebuf closed");
   return 0;
@@ -489,17 +493,6 @@ void *sbuf_simple_write_loop(void *buffo){
       D("Woke up");
       pthread_mutex_unlock(be->headlock);
     }
-    /*
-       if(sbuf->running == 0)
-       break;
-       */
-    /*
-       if(sbuf->ready_to_act == 1 && sbuf->opt->optbits & USE_RX_RING){
-       }
-       */
-    if(sbuf->ready_to_act == 1 && (sbuf->opt->optbits & READMODE))
-    {
-    }
 
     if(sbuf->diff > 0){
       D("Blocking writes. Left to write %d",,sbuf->diff);
@@ -523,8 +516,6 @@ void *sbuf_simple_write_loop(void *buffo){
 	  }
 	}
       }
-      /* If write is ready and we're in readmode we set this elements	*/
-      /* as loaded							*/
     }
     }
     D("Finished on id %d",,sbuf->bufnum);

@@ -53,9 +53,9 @@
 //#define SHOW_PACKET_METADATA;
 
 struct sender_tracking{
-  long unsigned int files_loaded;
-  long unsigned int files_sent;
-  long unsigned int files_skipped;
+  unsigned long files_loaded;
+  unsigned long files_sent;
+  unsigned long files_skipped;
   unsigned long packets_left_to_load;
   unsigned long packets_left_to_send;
   TIMERTYPE now;
@@ -508,7 +508,7 @@ void * udp_sender(void *streamo){
       st.files_sent++;
       D("Buffer empty, Getting another: %lu",, st.files_sent);
       /* Check for missing file here so we can keep simplebuffer simple 	*/
-      while(st.files_loaded <= spec_ops->opt->cumul){
+      while(st.files_loaded < spec_ops->opt->cumul){
 	if (spec_ops->opt->fileholders[st.files_loaded]  == -1){
 	  D("Skipping a file, fileholder set to -1 for file %lu",, st.files_loaded);
 	  st.files_loaded++;
@@ -537,7 +537,7 @@ void * udp_sender(void *streamo){
 	set_free(spec_ops->opt->membranch, se->be->self);
       }
 
-      while(st.files_sent <= spec_ops->opt->cumul && spec_ops->opt->fileholders[st.files_sent] == -1)
+      while(st.files_sent < spec_ops->opt->cumul && spec_ops->opt->fileholders[st.files_sent] == -1)
 	/* Skip it away now */
 	st.files_sent++;
       if(st.files_sent < spec_ops->opt->cumul){

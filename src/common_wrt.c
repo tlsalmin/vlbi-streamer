@@ -256,11 +256,13 @@ int common_check_id(void *recco, int id){
   //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
 }
 int common_close_and_free(void* recco){
+  /*
   if(recco != NULL){
     struct recording_entity * re = (struct recording_entity *)recco;
     //re->close(re,NULL);
     free(re);
   }
+  */
   return 0;
 }
 int init_directory(struct recording_entity *re){

@@ -566,9 +566,9 @@ int init_cfg(struct opt_s *opt){
 	LOG("Config found on %s\n",path); 
 	root = config_root_setting(&(opt->cfg));
 	if(found == 0){
-	  D("Getting opts from first config");
 	  set_from_root(opt,root,0,0);
 	  found = 1;
+	  D("Getting opts from first config, cumul is %lu",, opt->cumul);
 	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
 	  CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
@@ -1206,10 +1206,12 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 #endif
     opt->minmem = rl.rlim_cur;
   }
-  if(!(opt->optbits & READMODE)){
-    if (CALC_BUF_SIZE(opt) != 0)
-      exit(-1);
-  }
+  //if(!(opt->optbits & READMODE)){
+  /*
+  if (CALC_BUF_SIZE(opt) != 0)
+    return -1;
+    */
+  //}
   return 0;
 }
 int init_branches(struct opt_s *opt){
@@ -1238,6 +1240,9 @@ int init_branches(struct opt_s *opt){
 }
 int init_rbufs(struct opt_s *opt){
   int i, err;
+  err = CALC_BUF_SIZE(opt);
+  CHECK_ERR("calc bufsize");
+  D("Here we are with nthreads as %d",, opt->n_threads);
 #ifdef PRIORITY_SETTINGS
   memset(&opt->param, 0, sizeof(param));
   err = pthread_attr_init(&opt->pta);
@@ -1253,9 +1258,10 @@ int init_rbufs(struct opt_s *opt){
   CPU_ZERO(&opt->cpuset);
 #endif
 
+  /*
   if(opt->optbits & READMODE){
-    CALC_BUF_SIZE(opt);
   }
+  */
   opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
 
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
@@ -1314,7 +1320,7 @@ int init_rbufs(struct opt_s *opt){
     }
     CPU_ZERO(&(opt->cpuset));
 #endif //TUNE_AFFINITY
-    D("Pthread got id %lu",, opt->rbuf_pthreads[i]);
+    D("Pthread number %d got id %lu",, i,opt->rbuf_pthreads[i]);
   }
   //pthread_t rbuf_pthreads[opt->n_threads];
   //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
@@ -1746,6 +1752,8 @@ int main(int argc, char **argv)
 #if(!DAEMON)
   free(opt->membranch);
   free(opt->diskbranch);
+  free(opt->bes);
+  free(opt->recs);
 #endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&pta);
