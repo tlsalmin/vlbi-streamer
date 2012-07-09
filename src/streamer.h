@@ -69,6 +69,7 @@
 #define	STATUS_STOPPED		3
 #define STATUS_FINISHED		4
 #define STATUS_ERROR		5
+#define STATUS_CANCELLED	6
 
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
@@ -151,8 +152,15 @@ else if(write==1){\
 #define CFG_GET_STR(x) \
 else{\
   const char * temp = config_setting_get_string(setting);\
-  if(temp != NULL)\
-    OPT(x) = strdup(temp);\
+  if(temp != NULL){\
+    if(OPT(x) == NULL)\
+      OPT(x) = strdup(temp);\
+    else{\
+      D("Overwriting string");\
+      if(strcpy(OPT(x),temp) == NULL)\
+	return -1;\
+    }\
+  }\
   else\
     return -1;\
 }

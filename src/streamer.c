@@ -27,6 +27,9 @@
 #include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 #define KB 1024
+/* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
+/* added one for null char */
+#define IP_LENGTH 46
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 /* Segfaults if pthread_joins done at exit. Tried to debug this 	*/
 /* for days but no solution						*/
@@ -41,7 +44,7 @@
 #endif
 #if(DAEMON)
 #define STREAMER_EXIT opt->status = STATUS_FINISHED; pthread_exit(NULL)
-#define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; STREAMER_EXIT
+#define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; pthread_exit(NULL)
 #else
 #define STREAMER_EXIT return 0
 #define STREAMER_ERROR_EXIT return -1
@@ -1149,12 +1152,22 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
      opt->packet_size += TPACKET_HDRLEN;
      */
 
-  /* If n_threads isn't set, set it to n_drives +2 */
+  /* If n_threads isn't set, set it to n_drives +2 	*/
+  /* Not used. Maxmem limits this instead		*/
+  /*
   if(opt->n_threads == 0)
     opt->n_threads = opt->n_drives +2;
+    */
 
 #if(!DAEMON)
-  opt->filename = argv[0];
+  opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(opt->filename, "filename malloc");
+  if(strcpy(opt->filename, argv[0]) == NULL){
+    E("strcpy filename");
+    return -1;
+  }
+  CHECK_ERR_NONNULL(err);
+  //opt->filename = argv[0];
 #endif
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
   for(i=0;i<opt->n_drives;i++){
@@ -1164,38 +1177,18 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
     sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
   }
 #if(!DAEMON)
-  if(opt->optbits & READMODE)
-    opt->hostname = argv[1];
+  if(opt->optbits & READMODE){
+    opt->hostname = (char*)malloc(sizeof(char)*IP_LENGTH);
+    if(strcpy(opt->hostname, argv[1]) == NULL){
+      E("strcpy hostname");
+      return -1;
+    }
+    //opt->hostname = argv[1];
+  }
   else
     opt->time = atoi(argv[1]);
 #endif
   opt->cumul = 0;
-
-
-  /* Calc the max per thread amount of packets we can receive */
-  /* TODO: Systems with non-uniform diskspeeds stop writing after too many packets */
-  //if(!(opt->optbits & READMODE)){
-  /* Ok so rate = Mb/s. (rate * 1024*1024)/8 = bytes_per_sec */
-  /* bytes_per_sec * bytes = total_bytes */
-  /* total_bytes / threads = bytes per thread */
-  /* bytes_per_thread/opt->packet_size = packets_per_thread */
-
-  /* Making this very verbose, since its only done once */
-  /*
-     loff_t bytes_per_sec = (((unsigned long)opt->rate)*1024l*1024l)/8;
-     loff_t bytes_per_thread_per_sec = bytes_per_sec/((unsigned long)opt->n_threads);
-     loff_t bytes_per_thread = bytes_per_thread_per_sec*((unsigned long)opt->time);
-     loff_t packets_per_thread = bytes_per_thread/((unsigned long)opt->packet_size);
-  //loff_t prealloc_bytes = (((unsigned long)opt->rate)*opt->time*1024)/(opt->packet_size);
-  */
-  //Split kb/gb stuff to avoid overflow warning
-  //prealloc_bytes = (prealloc_bytes*1024*8)/opt->n_threads;
-  /* TODO this is quite bad as might confuse this for actual number of packets, not bytes */
-  //opt->max_num_packets = packets_per_thread;
-#if(DEBUG_OUTPUT)
-  //LOG("Calculated with rate %d we would get %lu B/s a total of %lu bytes per thread and %lu packets per thread\n", opt->rate, bytes_per_sec, bytes_per_thread, packets_per_thread);
-#endif
-  //}
 
   struct rlimit rl;
   /* Query max size */
@@ -1342,7 +1335,6 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
 #ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
   for(i =0 ;i<opt->n_threads;i++){
-    D("Da thread %lu",, opt->rbuf_pthreads[i]);
     err = pthread_join(opt->rbuf_pthreads[i], NULL);
     if (err<0) {
       printf("ERROR; return code from pthread_join() is %d\n", err);
@@ -1367,8 +1359,13 @@ int close_opts(struct opt_s *opt){
     if(opt->fileholders != NULL)
       free(opt->fileholders);
   }
-  if(opt->cfgfile != NULL)
+  if(opt->cfgfile != NULL){
     free(opt->cfgfile);
+  }
+  if(opt->hostname != NULL)
+    free(opt->hostname);
+  if(opt->filename != NULL)
+    free(opt->filename);
   config_destroy(&(opt->cfg));
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&(opt->pta));
@@ -1596,7 +1593,7 @@ int main(int argc, char **argv)
 
   //}
 #if(DAEMON)
-  opt->status = STATUS_RUNNING;
+  //opt->status = STATUS_RUNNING;
 #endif
 
   init_stats(stats_full);
@@ -1732,8 +1729,8 @@ int main(int argc, char **argv)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
-
 #endif
+
 #if(DAEMON)
   opt->status = STATUS_FINISHED;
 #endif

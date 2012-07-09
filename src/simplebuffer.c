@@ -95,6 +95,7 @@ int sbuf_free(void* buffo){
     free(be);
   }
   */
+  (void)buffo;
   return 0;
 }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){

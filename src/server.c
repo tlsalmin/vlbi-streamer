@@ -18,7 +18,7 @@
 #define SECS_TO_START_IN_ADVANCE 10
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
 //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
-#define BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
+#define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
 
 struct scheduled_event{
   struct opt_s * opt;
@@ -90,9 +90,10 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
 }
 int start_event(struct scheduled_event *ev){
   int err;
+  ev->opt->status = STATUS_RUNNING;
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
   CHECK_ERR("streamer thread create");
-  (void)ev;
+  /* TODO: check if packet size etc. match original config */
   return 0;
 }
 int start_scheduled(struct schedule *sched){
@@ -180,6 +181,19 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   D("Schedevent added");
   return 0;
 }
+int free_and_close(struct scheduled_event *ev){
+  int err;
+  if(ev->opt->status & (STATUS_FINISHED || STATUS_ERROR)){
+    err =  pthread_join(ev->pt, NULL);
+    CHECK_ERR("join thread");
+  }
+  if(ev->opt->status == STATUS_RUNNING){
+  //TODO: Cancelling threads running etc.
+  }
+  ev->opt->status = STATUS_CANCELLED;
+  close_opts(ev->opt);
+  return 0;
+}
 int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
   struct scheduled_event *temp;
   struct scheduled_event *parent;
@@ -194,6 +208,7 @@ int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
     while(temp != NULL){
       if(temp == ev){
 	parent->next = temp->next;
+	free_and_close(temp);
 	D("Removed schedevent");
 	return 0;
       }
@@ -229,7 +244,7 @@ int check_schedule(struct schedule *sched){
   /* If theres a new one: Add it to the scheduled			*/
   /* If one that was there is now missing, remove it from schedule	*/
   /* else just set the events found to 1				*/
-  for(i=0;setting != NULL;setting=config_setting_get_elem(root,i)){
+  for(i=0;setting != NULL;setting=config_setting_get_elem(root,++i)){
     temp = get_event_by_name(config_setting_name(setting), sched);
     /* New scheduled recording! 					*/
     if(temp == NULL){
@@ -252,6 +267,7 @@ int check_schedule(struct schedule *sched){
     CHECK_ERR("Remove recording");
   }
   zerofound(sched);
+  config_destroy(&cfg);
 
   return 0;
 }
@@ -263,20 +279,27 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(sched, "Sched malloc");
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
-  struct stats stats_full;
+  struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
+  CHECK_ERR_NONNULL(stats_full, "stats malloc");
 
   sched->default_opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(sched->default_opt, "Default opt malloc");
-  char ibuff[BUFF_SIZE] = {0};
+  char *ibuff = (char*)malloc(sizeof(char)*CHAR_BUFF_SIZE);
+  CHECK_ERR_NONNULL(ibuff, "ibuff malloc");
+  memset(ibuff, 0,sizeof(ibuff));
 
   /* First load defaults to opts, then check default config file	*/
   /* and lastly check command line arguments. This means config file	*/
   /* overrides defaults and command line arguments override config file	*/
   clear_and_default(sched->default_opt);
 
-  sched->default_opt->cfgfile = CFGFILE;
+  sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
+  sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
+  //sched->default_opt->cfgfile = CFGFILE;
   err = read_full_cfg(sched->default_opt);
   CHECK_ERR("Load default cfg");
+  LOG("Read config from %s\n", sched->default_opt->cfgfile);
 
   parse_options(argc,argv,sched->default_opt);
 
@@ -324,7 +347,7 @@ int main(int argc, char **argv)
     }
     else if(err >0)
     {
-      read(i_fd, ibuff, BUFF_SIZE);
+      read(i_fd, ibuff, CHAR_BUFF_SIZE);
       D("Noticed change in schedule file");
       /* There's really just one sort of event. Adding or removing	*/
       /* a scheduled recording					*/
@@ -334,19 +357,24 @@ int main(int argc, char **argv)
     else
       D("Nothing happened on schedule file");
     /*Remove when ready to test properly				*/
-    //sleep(1);
+    //is_running=0;
   }
 
   inotify_rm_watch(i_fd, w_fd);
 
   D("Closing membranch and diskbranch");
-  close_rbufs(sched->default_opt, &stats_full);
-  close_recp(sched->default_opt,&stats_full);
+  close_rbufs(sched->default_opt, stats_full);
+  close_recp(sched->default_opt,stats_full);
   D("Membranch and diskbranch shut down");
 
+  free(stats_full);
   free(pfd);
+  free(ibuff);
+  D("Poll device closed");
   close_opts(sched->default_opt);
+  D("Closed default opt");
   //free(sched->default_opt);
   free(sched);
+  D("Schedule freed");
   return 0;
 }

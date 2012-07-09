@@ -1,0 +1,17 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 <recording name> <start time> <duration>
+
+This script queues a recording for the vlbistreamer daemon
+EOF
+}
+SCHEDULE=Makefile should update this
+LOGFILE=Makefile should update this
+RECNAME=$1
+STIME=$2
+DUR=$3
+
+echo "$RECNAME = \n {\n starting_time = $STIME;\n time = $DUR; \n};" >> $SCHEDULE
