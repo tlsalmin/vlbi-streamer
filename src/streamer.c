@@ -1166,7 +1166,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
     E("strcpy filename");
     return -1;
   }
-  CHECK_ERR_NONNULL(err);
   //opt->filename = argv[0];
 #endif
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));

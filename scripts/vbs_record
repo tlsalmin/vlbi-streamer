@@ -8,10 +8,24 @@ usage: $0 <recording name> <start time> <duration>
 This script queues a recording for the vlbistreamer daemon
 EOF
 }
-SCHEDULE=Makefile should update this
-LOGFILE=Makefile should update this
+#Both should update at installed location after make install
+SCHEDULE=temp/vlbischedule
+LOGFILE=temp/vlbistreamer.log
 RECNAME=$1
-STIME=$2
-DUR=$3
+DUR=$2
+STIME=$3
 
-echo "$RECNAME = \n {\n starting_time = $STIME;\n time = $DUR; \n};" >> $SCHEDULE
+if [ -z "$RECNAME" ] || [ -z "$STIME" ] || [ -z "$DUR" ]
+then
+  usage
+  exit  -1
+fi
+
+echo "$RECNAME = 
+{
+  starting_time = $((STIME))L;
+  time = $DUR; 
+};
+" >> $SCHEDULE
+#TODO: What date format people want?
+echo "`date`:Added recording named $RECNAME to record for $DUR s" >> $LOGFILE

@@ -100,6 +100,11 @@ AC_MSG_RESULT($user)
 USER=$user
 AC_SUBST(USER)
 
+AC_ARG_VAR([ROOTDIRS], [Prefix for disks organized as prefix<n>.
+                         Default = "/mnt/disk" >= disks are /mnt/disk0..n])
+AS_IF([test "x$ROOTDIRS" = x], [ROOTDIRS="/mnt/disk"])
+AC_DEFINE_UNQUOTED(ROOTDIRS, "${ROOTDIRS}", [Location for disks])
+
 AC_MSG_CHECKING([--enable-multisenddebug argument])
 AC_ARG_ENABLE(multisenddebug,
     [  --enable-multisenddebug         Enable multisend debug output.],

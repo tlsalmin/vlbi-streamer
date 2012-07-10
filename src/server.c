@@ -168,16 +168,20 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* Get the rest of the opts		*/
   set_from_root(opt, root, 0,0);
+  D("Opts checked");
   //config_init(&(opt->cfg));
 
+  //Special case if some old buggers in sched file
   //TODO: Check packet sizes and handle buffers accordingly
 
   struct scheduled_event * temp = sched->scheduled_head;
   if(temp !=NULL){
     while(temp->next != NULL)
       temp = temp->next;
+    temp->next = se;
   }
-  temp->next = se;
+  else
+    sched->scheduled_head = se;
   D("Schedevent added");
   return 0;
 }

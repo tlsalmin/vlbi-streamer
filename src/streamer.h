@@ -75,7 +75,7 @@
 //#define HAVE_HUGEPAGES
 //#define WRITE_WHOLE_BUFFER
 //
-#define ROOTDIRS "/mnt/disk"
+//#define ROOTDIRS "/mnt/disk"
 #define INITIAL_N_FILES B(7)
 
 #define SIMPLE_BUFCACL
@@ -405,7 +405,7 @@ struct opt_s
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   TIMERTYPE wait_last_sent;
-  TIMERTYPE start_time;
+  TIMERTYPE* start_time;
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
