@@ -433,11 +433,45 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  return -1;
       }
       else if(write==1){
-	if(((unsigned long)config_setting_get_int64(setting)) != opt->packet_size)
+	err = config_setting_set_int64(setting,opt->packet_size);
+	if(err != CONFIG_TRUE){
+	  E("Writing packetsize: %d",, err);
+	  return -1;
+	}
+      }
+      else{
+	opt->packet_size = (unsigned long)config_setting_get_int64(setting);
+      }
+    }
+    /* Used when checking a schedule */
+    CFG_ELIF("record"){
+      if(config_setting_type(setting) != CONFIG_TYPE_INT)
+	return -1;
+      if(check==1){
+	int hur = config_setting_get_int(setting);
+	if(hur && (opt->optbits & READMODE))
+	  return -1;
+	else if (!hur && !(opt->optbits & READMODE))
 	  return -1;
       }
-      else
-	opt->packet_size = (unsigned long)config_setting_get_int64(setting);
+      else if(write==1){
+	int value=0;
+	/* record is 1, when readmode is 0 */
+	if(!(opt->optbits & READMODE))
+	  value=1;
+	err = config_setting_set_int(setting, value);
+	if(err != CONFIG_TRUE){
+	  E("Writing recordmode: %d",, err);
+	  return -1;
+	}
+      }
+      else{
+	if(config_setting_get_int(setting) == 1)
+	  opt->optbits &= ~READMODE;
+	else
+	  opt->optbits |= READMODE;
+
+      }
     }
     CFG_FULL_STR(filename)
     CFG_FULL_UINT64(opt->cumul,"cumul")
@@ -611,6 +645,7 @@ int init_cfg(struct opt_s *opt){
     root = config_root_setting(&(opt->cfg));
     stub_rec_cfg(root);
   }
+  D("CFG init done");
   return 0;
 }
 #endif
@@ -900,7 +935,10 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
-    LOG("Stats for %s \n"
+    if(opts->time == 0)
+      E("Time is 0. Something went wrong");
+    else
+      LOG("Stats for %s \n"
 	"Packets: %lu\n"
 	"Bytes: %lu\n"
 	"Dropped: %lu\n"
@@ -914,7 +952,14 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
-int clear_and_default(struct opt_s* opt){
+/* Defensive stuff to check we're not copying stuff from default	*/
+int clear_pointers(struct opt_s* opt){
+  opt->filename = NULL;
+  opt->device_name = NULL;
+  opt->cfgfile = NULL;
+  return 0;
+}
+int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
@@ -926,7 +971,9 @@ int clear_and_default(struct opt_s* opt){
   opt->status = STATUS_NOT_STARTED;
 #endif
 
-  config_init(&(opt->cfg));
+  if(create_cfg)
+    config_init(&(opt->cfg));
+  
   /* Opts using optbits */
   //opt->capture_type = CAPTURE_W_FANOUT;
   opt->optbits |= CAPTURE_W_UDPSTREAM;
@@ -1446,7 +1493,7 @@ int main(int argc, char **argv)
 #if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
 #endif
-  clear_and_default(opt);
+  clear_and_default(opt,1);
   err = parse_options(argc,argv,opt);
   if(err != 0)
     exit(-1);
@@ -1728,6 +1775,8 @@ int main(int argc, char **argv)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
+#else
+  oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
 #endif
 
 #if(DAEMON)

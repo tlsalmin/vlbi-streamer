@@ -15,16 +15,21 @@ RECNAME=$1
 DUR=$2
 STIME=$3
 
-if [ -z "$RECNAME" ] || [ -z "$STIME" ] || [ -z "$DUR" ]
+if [ -z "$RECNAME" ] || [ -z "$DUR" ]
 then
   usage
   exit  -1
 fi
+if [ -z "$STIME" ]
+then
+  echo "Not setting stamp of first packet. Starting immediately"
+fi
 
-echo "$RECNAME = 
+echo "$RECNAME =
 {
+  time = $((DUR))L;
   starting_time = $((STIME))L;
-  time = $DUR; 
+  record = 1;
 };
 " >> $SCHEDULE
 #TODO: What date format people want?

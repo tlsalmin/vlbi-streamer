@@ -113,7 +113,6 @@ int start_scheduled(struct schedule *sched){
       //set_running(sched, ev, parent);
     }
     //parent = ev;
-    ev = ev->next;
   }
   return 0;
 }
@@ -156,9 +155,12 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   se->next=NULL;
   se->opt = opt;
   /* Copy the default opt over our opt	*/
-  clear_and_default(opt);
+  clear_and_default(opt,0);
   /* membranch etc. should be copied here also */
   memcpy(opt,sched->default_opt, sizeof(struct opt_s));
+
+  clear_pointers(opt);
+  config_init(&(opt->cfg));
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -295,7 +297,7 @@ int main(int argc, char **argv)
   /* First load defaults to opts, then check default config file	*/
   /* and lastly check command line arguments. This means config file	*/
   /* overrides defaults and command line arguments override config file	*/
-  clear_and_default(sched->default_opt);
+  clear_and_default(sched->default_opt,1);
 
   sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");

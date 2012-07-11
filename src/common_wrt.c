@@ -263,6 +263,7 @@ int common_close_and_free(void* recco){
     free(re);
   }
   */
+  (void)recco;
   return 0;
 }
 int init_directory(struct recording_entity *re){

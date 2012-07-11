@@ -1,0 +1,34 @@
+#!/bin/bash
+
+OUTF=$1
+PROGRM=vlbistreamer
+DA_PID=`ps -A |grep -i $PROGRM | awk '{print $1}'`
+
+while [ ! -z "$DA_PID" ]
+do
+  #echo "still alive"
+  C=0
+  PLOSS=0
+  while read i #in `cat /proc/$DA_PID/net/udp`
+  do
+    #Skip the first line
+    if [ $C -eq 0 ]
+    then
+      C=1
+    else
+      NUPLOS=`echo $i| awk '{print $13}'`
+      PLOSS=$((PLOSS + NUPLOS))
+      #echo $PLOSS $NUPLOS
+    fi
+  done < /proc/$DA_PID/net/udp
+  if [ -z $OUTF ]
+  then
+    echo time: `date +%s` ploss: $PLOSS
+  else
+    echo time: `date +%s` ploss: $PLOSS > $OUTF
+  fi
+  sleep 1
+  DA_PID=`ps -A |grep -i $PROGRM | awk '{print $1}'`
+done
+
+echo "No more vlbistreamer active"

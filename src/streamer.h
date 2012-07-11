@@ -451,7 +451,8 @@ struct opt_s
 int write_cfgs_to_disks(struct opt_s *opt);
 int read_full_cfg(struct opt_s *opt);
 int parse_options(int argc, char **argv, struct opt_s* opt);
-int clear_and_default(struct opt_s* opt);
+int clear_and_default(struct opt_s* opt, int create_cfg);
+int clear_pointers(struct opt_s* opt);
 int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int write);
 int remove_specific_from_fileholders(struct opt_s *opt, int id);
 struct buffer_entity
