@@ -170,6 +170,8 @@ int common_writecfg(struct recording_entity *re, void *opti){
     //perror("Error Opening dir");
     //ERR_IN_INIT;
     D("The dir %s doesn't exist. Probably no files written to it. Returning ok",, dirname);
+    free(cfgname);
+    free(dirname);
     return 0;
   }
 

@@ -64,12 +64,12 @@
 #define MEG			B(20)
 #define GIG			B(30)
 
-#define STATUS_NOT_STARTED	1
-#define STATUS_RUNNING		2
-#define	STATUS_STOPPED		3
-#define STATUS_FINISHED		4
-#define STATUS_ERROR		5
-#define STATUS_CANCELLED	6
+#define STATUS_NOT_STARTED	B(0)
+#define STATUS_RUNNING		B(1)
+#define	STATUS_STOPPED		B(2)
+#define STATUS_FINISHED		B(3)
+#define STATUS_ERROR		B(4)
+#define STATUS_CANCELLED	B(5)
 
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
@@ -447,6 +447,7 @@ struct opt_s
 #if(DAEMON)
   int status;
 #endif
+  struct streamer_entity * streamer_ent;
 };
 int write_cfgs_to_disks(struct opt_s *opt);
 int read_full_cfg(struct opt_s *opt);
@@ -553,6 +554,7 @@ int calculate_buffer_sizes(struct opt_s *opt);
 int calculate_buffer_sizes_simple(struct opt_s * opt);
 //Timerstuff
 void specadd(struct timespec * to, struct timespec *from);
+int close_streamer(struct opt_s *opt);
 long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
 void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);
 void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add);

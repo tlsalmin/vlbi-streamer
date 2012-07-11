@@ -964,6 +964,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
+  opt->streamer_ent = NULL;
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -1408,6 +1409,8 @@ int close_opts(struct opt_s *opt){
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
   }
+  if(opt->streamer_ent != NULL)
+    free(opt->streamer_ent);
   if(opt->hostname != NULL)
     free(opt->hostname);
   if(opt->filename != NULL)
@@ -1510,10 +1513,10 @@ int main(int argc, char **argv)
      }
      */
   //struct streamer_entity threads[opt.n_threads];
-  struct streamer_entity streamer_ent;
+  //struct streamer_entity streamer_ent;
+  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
 
   pthread_t streamer_pthread;
-  struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
 
 
   //pthread_attr_t attr;
@@ -1584,12 +1587,12 @@ int main(int argc, char **argv)
   {
     case CAPTURE_W_UDPSTREAM:
       if(opt->optbits & READMODE)
-	err = udps_init_udp_sender(opt, &(streamer_ent));
+	err = udps_init_udp_sender(opt, opt->streamer_ent);
       else
-	err = udps_init_udp_receiver(opt, &(streamer_ent));
+	err = udps_init_udp_receiver(opt, opt->streamer_ent);
       break;
     case CAPTURE_W_FANOUT:
-      err = fanout_init_fanout(opt, &(streamer_ent));
+      err = fanout_init_fanout(opt, opt->streamer_ent);
       break;
     case CAPTURE_W_SPLICER:
       //err = sendfile_init_writer(&opt, &(streamer_ent));
@@ -1611,9 +1614,9 @@ int main(int argc, char **argv)
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
     E("Error setting schedparam for pthread attr: %s, to %d",, strerror(err), MAX_PRIO_FOR_PTHREAD);
-  err = pthread_create(&streamer_pthread, &(opt->pta), streamer_ent.start, (void*)&streamer_ent);
+  err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent.start, (void*)opt->streamer_ent);
 #else
-  err = pthread_create(&streamer_pthread, NULL, streamer_ent.start, (void*)&streamer_ent);
+  err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
 #endif
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
@@ -1642,7 +1645,6 @@ int main(int argc, char **argv)
   //opt->status = STATUS_RUNNING;
 #endif
 
-  init_stats(stats_full);
   /* HERP so many ifs .. WTB Refactoring time*/
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
@@ -1675,12 +1677,12 @@ int main(int argc, char **argv)
       sleeptodo= 1;
     else
       sleeptodo = opt->time;
-    while(sleeptodo >0 && streamer_ent.is_running(&streamer_ent)){
+    while(sleeptodo >0 && opt->streamer_ent->is_running(opt->streamer_ent)){
       sleep(1);
       //memset(stats_now, 0,sizeof(struct stats));
       init_stats(stats_now);
 
-      streamer_ent.get_stats(streamer_ent.opt, stats_now);
+      opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats_now);
       /* Query and print the stats */
       /*
 	 for(i=0;i<opt.n_threads;i++){
@@ -1740,8 +1742,8 @@ int main(int argc, char **argv)
     //for(i = 0;i<opt.n_threads;i++){
     //threads[i].stop(&(threads[i]));
     //}
-    streamer_ent.stop(&(streamer_ent));
-    udps_close_socket(&streamer_ent);
+    opt->streamer_ent->stop(opt->streamer_ent);
+    udps_close_socket(opt->streamer_ent);
     //threads[0].close_socket(&(threads[0]));
     //streamer_ent.close_socket(&(streamer_ent));
   }
@@ -1770,7 +1772,23 @@ int main(int argc, char **argv)
 #endif
   }
 
-  streamer_ent.close(streamer_ent.opt, (void*)stats_full);
+#if(DAEMON)
+  opt->status = STATUS_FINISHED;
+#else
+  close_streamer(opt);
+#endif
+
+#if(DAEMON)
+  pthread_exit(NULL);
+#else
+  close_opts(opt);
+  STREAMER_EXIT;
+#endif
+}
+int close_streamer(struct opt_s *opt){
+  struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
+  init_stats(stats_full);
+  opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
 #if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
@@ -1778,22 +1796,11 @@ int main(int argc, char **argv)
 #else
   oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
 #endif
-
-#if(DAEMON)
-  opt->status = STATUS_FINISHED;
-#endif
-
   D("Printing stats");
   print_stats(stats_full, opt);
   free(stats_full);
   D("Stats over");
-
-#if(DAEMON)
-  close_opts(opt);
-  pthread_exit(NULL);
-#else
-  STREAMER_EXIT;
-#endif
+  return 0;
 }
 /* These two separated here */
 int write_cfg(config_t *cfg, char* filename){

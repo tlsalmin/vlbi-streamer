@@ -86,7 +86,9 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
     }
     temp->next = ev->next;
   }
-  add_to_end(to, ev);
+  /* If we want to use this for removing */
+  if(to != NULL)
+    add_to_end(to, ev);
 }
 int start_event(struct scheduled_event *ev){
   int err;
@@ -236,8 +238,8 @@ void zerofound(struct schedule *sched){
 }
 int check_schedule(struct schedule *sched){
   int i=0,err;
-  config_t cfg;
   struct scheduled_event * temp = NULL;
+  config_t cfg;
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
   config_setting_t *root, *setting;
@@ -275,6 +277,45 @@ int check_schedule(struct schedule *sched){
   zerofound(sched);
   config_destroy(&cfg);
 
+  return 0;
+}
+int remove_from_cfgsched(struct scheduled_event *ev){
+  int err;
+  config_t cfg;
+  config_init(&cfg);
+  config_read_file(&cfg, STATEFILE);
+  config_setting_t *root;
+
+  root = config_root_setting(&cfg);
+  err = config_setting_remove(root, ev->opt->filename);
+  CHECK_CFG("remove closed recording");
+  err = config_write_file(&cfg, STATEFILE);
+  CHECK_CFG("Wrote config");
+  LOG("Updated config file and removed %s", ev->opt->filename);
+  return 0;
+}
+int close_recording(struct schedule* sched, struct scheduled_event* ev){
+  int err;
+  err =pthread_join(ev->pt, NULL);
+  CHECK_ERR("pthread tryjoin");
+  D("Thread for %s finished",,ev->opt->filename);
+  change_sched_branch(&(sched->running_head), NULL, ev);
+
+  err = remove_from_cfgsched(ev);
+  CHECK_ERR("Remove from cfgsched");
+  close_opts(ev->opt);
+  free(ev);
+  return 0;
+}
+int check_finished(struct schedule* sched){
+  struct scheduled_event *ev;
+  int err;
+  for(ev = sched->running_head;ev!=NULL;ev = ev->next){
+    if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED)){
+      err = close_recording(sched, ev);
+      CHECK_ERR("close recording");
+    }
+  }
   return 0;
 }
 int main(int argc, char **argv)
@@ -362,6 +403,8 @@ int main(int argc, char **argv)
     }
     else
       D("Nothing happened on schedule file");
+    err = check_finished(sched);
+    CHECK_ERR("check finished");
     /*Remove when ready to test properly				*/
     //is_running=0;
   }
