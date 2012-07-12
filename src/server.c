@@ -15,7 +15,7 @@
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
 #define MAX_SCHEDULED 512
 #define MAX_RUNNING 4
-#define SECS_TO_START_IN_ADVANCE 10
+#define SECS_TO_START_IN_ADVANCE 1
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
 //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
@@ -184,12 +184,21 @@ int start_event(struct scheduled_event *ev){
 }
 int start_scheduled(struct schedule *sched){
   int err=0;
+  int tdif;
   TIMERTYPE time_now;
   GETTIME(time_now);
   struct scheduled_event * ev;
   //struct scheduled_event * parent = NULL;
   for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
-    if(get_sec_diff(&time_now, &ev->opt->starting_time)< SECS_TO_START_IN_ADVANCE){
+    if((tdif = get_sec_diff(&time_now, &ev->opt->starting_time))< SECS_TO_START_IN_ADVANCE && !(ev->opt->status & STATUS_RUNNING)){
+      //TODO: remove old stuff 
+    /*
+      if(!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time))){
+	LOG("Removing clearly too old recording request %s\n", ev->opt->filename);
+	remove_recording(ev,&(sched->scheduled_head));
+	continue;
+      }
+      */
       LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
       err = start_event(ev);
