@@ -633,7 +633,7 @@ int init_cfg(struct opt_s *opt){
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
-	E("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
+	D("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
 	LOG("Config found on %s\n",path); 

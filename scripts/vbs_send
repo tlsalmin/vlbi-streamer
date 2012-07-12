@@ -1,0 +1,37 @@
+#!/bin/bash
+
+usage()
+{
+cat << EOF
+usage: $0 <recording name> <destination host or ip> (optional)<starttime>
+
+This script queues a streaming for the vlbistreamer daemon
+EOF
+}
+#Both should update at installed location after make install
+SCHEDULE=temp/vlbischedule
+LOGFILE=temp/vlbistreamer.log
+RECNAME=$1
+#Dont know about the defacto way of doing this
+DESTINATION=`getent ahosts $2 | head -1 |awk '{print $1}' | uniq`
+STIME=$3
+
+if [ -z "$RECNAME" ] || [ -z "$DESTINATION" ]
+then
+  usage
+  exit  -1
+fi
+if [ -z "$STIME" ]
+then
+  echo "Not setting stamp of first packet. Starting immediately"
+fi
+
+echo "$RECNAME =
+{
+  hostname = \"$DESTINATION\";
+  starting_time = $((STIME))L;
+  record = 0;
+};
+" >> $SCHEDULE
+#TODO: What date format people want?
+echo "`date`:Added recording named $RECNAME to stream to $DESTINATION" >> $LOGFILE

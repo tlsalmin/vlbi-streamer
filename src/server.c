@@ -84,14 +84,14 @@ int free_and_close(struct scheduled_event *ev){
   D("optstatus: %d",, ev->opt->status);
   int err;
   if(ev->opt->status == STATUS_FINISHED){
-    D("Thread has finished");
+    LOG("Recording %s finished OK\n",ev->opt->filename);
     err =  pthread_join(ev->pt, NULL);
     CHECK_ERR("join thread");
     err = close_streamer(ev->opt);
     CHECK_ERR("Close streamer");
   }
   else if(ev->opt->status == STATUS_ERROR){
-    D("thread finished in error");
+    LOG("Recording %s finished in ERROR\n",ev->opt->filename);
     err = pthread_join(ev->pt, NULL);
     CHECK_ERR("join");
     err = close_streamer(ev->opt);
@@ -102,6 +102,7 @@ int free_and_close(struct scheduled_event *ev){
   //TODO: Cancelling threads running etc.
   }
   else{
+    LOG("Recording %s cancelled\n",ev->opt->filename);
     ev->opt->status = STATUS_CANCELLED;
     //TODO: cancellation
   }
@@ -189,7 +190,7 @@ int start_scheduled(struct schedule *sched){
   //struct scheduled_event * parent = NULL;
   for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
     if(get_sec_diff(&time_now, &ev->opt->starting_time)< SECS_TO_START_IN_ADVANCE){
-      D("Starting event %s",, ev->opt->filename);
+      LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
       err = start_event(ev);
       if(err != 0){
@@ -237,6 +238,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   D("Adding new schedevent");
   int err;
   if(strcmp(config_setting_name(root), "shutdown") == 0){
+    LOG("Shutdown scheduled\n");
     config_t cfg;
     config_setting_t *realroot;
     config_init(&cfg);
@@ -271,7 +273,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
   strcpy(opt->filename, config_setting_name(root));
-  D("Schedevent is named: %s",, opt->filename);
+  LOG("Adding new request named: %s\n", opt->filename);
 
   /* Get the rest of the opts		*/
   err = set_from_root(opt, root, 0,0);
@@ -338,6 +340,7 @@ int check_schedule(struct schedule *sched){
   }
   zerofound(sched);
   config_destroy(&cfg);
+  D("Nada");
 
   return 0;
 }
@@ -404,6 +407,7 @@ int main(int argc, char **argv)
   parse_options(argc,argv,sched->default_opt);
 
   /* Start memory buffers */
+  LOG("Prepping recpoints and membuffers..");
   err = init_branches(sched->default_opt);
   CHECK_ERR("init branches");
   err = init_recp(sched->default_opt);
@@ -414,7 +418,7 @@ int main(int argc, char **argv)
   i_fd = inotify_init();
   CHECK_LTZ("Inotify init", i_fd);
 
-  D("Starting watch on statefile %s",, STATEFILE);
+  LOG("Starting watch on statefile %s\n", STATEFILE);
   w_fd = inotify_add_watch(i_fd, STATEFILE, IN_MODIFY);
   CHECK_LTZ("Add watch",w_fd);
 
@@ -433,10 +437,11 @@ int main(int argc, char **argv)
   sched->running = 1;
 
   /* Initial check before normal loop */
+  LOG("Checking initial schedule\n");
   err = check_schedule(sched);
   CHECK_ERR("Checked schedule");
 
-
+  LOG("Running..\n");
   while(sched->running == 1)
   {
     err = start_scheduled(sched);
