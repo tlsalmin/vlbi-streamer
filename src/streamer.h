@@ -189,21 +189,27 @@ else if(write==1){\
 }
 #define CFG_CHK_INT(x) \
 if(check==1){\
-  if(config_setting_get_int(setting) != x)\
+  if(config_setting_get_int(setting) != x){\
+    E(#x "doesn't check out");\
     return -1;\
+  }\
 }
 #define CFG_FULL_UINT64(x,y) \
 CFG_ELIF(y){\
-  if(config_setting_type(setting) != CONFIG_TYPE_INT64)	\
+  if(config_setting_type(setting) != CONFIG_TYPE_INT64){\
+    E(#x" Type not correct");\
     return -1;\
+  }\
   CFG_CHK_UINT64(x)\
   CFG_WRT_UINT64(x,y)\
   CFG_GET_UINT64(x)\
 }
 #define CFG_FULL_STR(x) \
 CFG_ELIF(#x){\
-  if(config_setting_type(setting) != CONFIG_TYPE_STRING)	\
+  if(config_setting_type(setting) != CONFIG_TYPE_STRING){\
+    E(#x" Not string type");\
     return -1;\
+  }\
   CFG_CHK_STR(x)\
   CFG_WRT_STR(x)\
   CFG_GET_STR(x)\
@@ -322,6 +328,7 @@ struct listed_entity
   struct listed_entity* father;
   int (*acquire)(void*,void*,unsigned long,unsigned long);
   int (*check)(void*, int);
+  const char* (*getrecname)(void*);
   int (*close)(void*);
   int (*release)(void*);
   void* entity;

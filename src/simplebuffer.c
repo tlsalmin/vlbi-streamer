@@ -98,6 +98,11 @@ int sbuf_free(void* buffo){
   (void)buffo;
   return 0;
 }
+const char* sbuf_getrecname(void* ent){
+  struct buffer_entity *be = (struct buffer_entity*)ent;
+  struct simplebuf* sbuf= (struct simplebuf*)be->opt;
+  return (const char*)sbuf->opt->filename;
+}
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
@@ -108,6 +113,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->opt = opt;
   be->recer =NULL;
   sbuf->bufnum = sbuf->opt->bufculum++;
+  sbuf->optbits = sbuf->opt->optbits;
 
   //be->membranch = opt->membranch;
   //be->diskbranch = opt->diskbranch;
@@ -121,6 +127,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   le->check = sbuf_seqnumcheck;
   le->release = sbuf_release;
   le->close = sbuf_free;
+  le->getrecname = sbuf_getrecname;
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
   D("Ringbuf added to membranch");
@@ -165,7 +172,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
       return -1;
     }
 #ifdef HAVE_HUGEPAGES
-    if(sbuf->opt->optbits & USE_HUGEPAGE){
+    if(sbuf->optbits & USE_HUGEPAGE){
       /* Init fd for hugetlbfs					*/
       /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
       /*
@@ -233,9 +240,9 @@ int sbuf_close(struct buffer_entity* be, void *stats){
      if(be->recer->close != NULL)
      be->recer->close(be->recer, stats);
      */
-  if(!(sbuf->opt->optbits & USE_RX_RING)){
+  if(!(sbuf->optbits & USE_RX_RING)){
 #ifdef HAVE_HUGEPAGES
-    if(sbuf->opt->optbits & USE_HUGEPAGE){
+    if(sbuf->optbits & USE_HUGEPAGE){
       munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
       /*
 	 close(sbuf->huge_fd);

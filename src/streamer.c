@@ -94,24 +94,24 @@ void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
 #ifdef TIMERTYPE_GETTIMEOFDAY
   if(datime->tv_usec*1000 + nanos_to_add > BILLION)
 #else
-  if(datime->tv_nsec + nanos_to_add >  BILLION)
+    if(datime->tv_nsec + nanos_to_add >  BILLION)
 #endif
-  {
-    datime->tv_sec++;
+    {
+      datime->tv_sec++;
 #ifdef TIMERTYPE_GETTIMEOFDAY
-    datime->tv_usec += (MILLION-datime->tv_usec)+nanos_to_add/1000;
+      datime->tv_usec += (MILLION-datime->tv_usec)+nanos_to_add/1000;
 #else
-    datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
+      datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
 #endif
-  }
-  else
-  {
+    }
+    else
+    {
 #ifdef TIMERTYPE_GETTIMEOFDAY
-    datime->tv_usec += nanos_to_add/1000;
+      datime->tv_usec += nanos_to_add/1000;
 #else
-    datime->tv_nsec += nanos_to_add;
+      datime->tv_nsec += nanos_to_add;
 #endif
-  }
+    }
 }
 int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
   int diff = 0;
@@ -126,9 +126,9 @@ int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
 }
 void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add){
   /*
-  datime->tv_sec = 0;
-  datime->tv_nsec = 0;
-  */
+     datime->tv_sec = 0;
+     datime->tv_nsec = 0;
+     */
   ZEROTIME((*datime));
   nanoadd(datime,nanos_to_add);
 }
@@ -197,6 +197,25 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en){
 void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
 {
   mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
+}
+void block_until_free(struct entity_list_branch *br, const char* recname){
+  struct listed_entity * shouldntfind,* checker;
+  pthread_mutex_lock(&(br->branchlock));
+  do{
+    checker = br->busylist;
+    shouldntfind = NULL;
+    while(checker != NULL && shouldntfind == NULL){
+      if(strcmp(checker->getrecname(checker->entity),recname)== 0){
+	shouldntfind = checker;
+      }
+      else
+	checker = checker->child;
+    }
+    if(shouldntfind != NULL)
+      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+  }
+  while(shouldntfind != NULL);
+  pthread_mutex_unlock(&(br->branchlock));
 }
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free){
   D("Removing entity from branch");
@@ -292,7 +311,7 @@ inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long
 {
   pthread_mutex_lock(&(br->branchlock));
   struct listed_entity* temp = get_w_check(&br->freelist, id, &br->busylist, &br->loadedlist, br);
-  
+
   if(temp ==NULL){
     pthread_mutex_unlock(&(br->branchlock));
     if(acquire_result !=NULL)
@@ -409,7 +428,8 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       /* once before we try to check the option due to needing packet_size	*/
       else if(check == 1){
 	if((unsigned long)config_setting_get_int64(setting) != opt->packet_size*opt->buf_num_elems)
-	  return -1;
+	  E("Check failed for packetsize");
+	return -1;
       }
       else if(write == 1){
 	filesize = opt->packet_size*opt->buf_num_elems;
@@ -445,14 +465,20 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     }
     /* Used when checking a schedule */
     CFG_ELIF("record"){
-      if(config_setting_type(setting) != CONFIG_TYPE_INT)
+      if(config_setting_type(setting) != CONFIG_TYPE_INT){
+	E("cfg type not matched");
 	return -1;
+      }
       if(check==1){
 	int hur = config_setting_get_int(setting);
-	if(hur && (opt->optbits & READMODE))
+	if(hur && (opt->optbits & READMODE)){
+	  E("Check doesn't match");
 	  return -1;
-	else if (!hur && !(opt->optbits & READMODE))
+	}
+	else if (!hur && !(opt->optbits & READMODE)){
+	  E("Check doesn't match");
 	  return -1;
+	}
       }
       else if(write==1){
 	int value=0;
@@ -474,33 +500,33 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       }
     }
     CFG_FULL_STR(filename)
-    CFG_FULL_UINT64(opt->cumul,"cumul")
-    CFG_FULL_STR(device_name)
-    CFG_FULL_UINT64(opt->optbits, "optbits")
-    CFG_FULL_UINT64(opt->time, "time")
-    CFG_FULL_INT(opt->port, "port")
-    CFG_FULL_UINT64(opt->minmem, "minmem")
-    CFG_FULL_UINT64(opt->maxmem, "maxmem")
-    CFG_FULL_INT(opt->n_threads, "n_threads")
-    CFG_FULL_INT(opt->n_drives, "n_drives")
-    CFG_FULL_INT(opt->rate, "rate")
-    CFG_FULL_UINT64(opt->do_w_stuff_every, "do_w_stuff_every")
-    CFG_FULL_INT(opt->wait_nanoseconds, "wait_nanoseconds")
-    CFG_FULL_UINT64(opt->packet_size, "packet_size")
-    CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
-    CFG_FULL_INT(opt->buf_division, "buf_division")
-    CFG_FULL_STR(hostname)
-    CFG_FULL_UINT64(opt->serverip, "serverip")
-    CFG_FULL_UINT64(opt->total_packets, "total_packets")
+      CFG_FULL_UINT64(opt->cumul,"cumul")
+      CFG_FULL_STR(device_name)
+      CFG_FULL_UINT64(opt->optbits, "optbits")
+      CFG_FULL_UINT64(opt->time, "time")
+      CFG_FULL_INT(opt->port, "port")
+      CFG_FULL_UINT64(opt->minmem, "minmem")
+      CFG_FULL_UINT64(opt->maxmem, "maxmem")
+      CFG_FULL_INT(opt->n_threads, "n_threads")
+      CFG_FULL_INT(opt->n_drives, "n_drives")
+      CFG_FULL_INT(opt->rate, "rate")
+      CFG_FULL_UINT64(opt->do_w_stuff_every, "do_w_stuff_every")
+      CFG_FULL_INT(opt->wait_nanoseconds, "wait_nanoseconds")
+      CFG_FULL_UINT64(opt->packet_size, "packet_size")
+      CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
+      CFG_FULL_INT(opt->buf_division, "buf_division")
+      CFG_FULL_STR(hostname)
+      CFG_FULL_UINT64(opt->serverip, "serverip")
+      CFG_FULL_UINT64(opt->total_packets, "total_packets")
 
-    setting = config_setting_get_elem(root,++index);
+      setting = config_setting_get_elem(root,++index);
   }
   /* Only use filesize here, since it needs packet_size */
   if(filesize_found==1){
     opt->buf_num_elems = filesize/opt->packet_size;
     opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
-  
+
   return 0;
 }
 /* Init a rec cfg */
@@ -551,8 +577,10 @@ int stub_full_log_cfg(config_setting_t *root){
 }
 int read_full_cfg(struct opt_s *opt){
   int err;
-  if(opt->cfgfile == NULL)
+  if(opt->cfgfile == NULL){
+    E("no cfgfile path");
     return -1;
+  }
   err = read_cfg(&(opt->cfg),opt->cfgfile);
   CHECK_ERR("Read cfg");
   return set_from_root(opt,NULL,0,0);
@@ -580,7 +608,7 @@ int write_full_cfg(struct opt_s *opt){
 #else
 #endif
   }
-  
+
   /* Since were writing, we should check if a cfg  group with the same 	*/
   /* name already exists						*/
   setting = config_setting_add(root, opt->filename, CONFIG_TYPE_GROUP);
@@ -939,17 +967,17 @@ void print_stats(struct stats *stats, struct opt_s * opts){
       E("Time is 0. Something went wrong");
     else
       LOG("Stats for %s \n"
-	"Packets: %lu\n"
-	"Bytes: %lu\n"
-	"Dropped: %lu\n"
-	"Incomplete: %lu\n"
-	"Written: %lu\n"
-	"Time: %lu\n"
-	"Files: %lu\n"
-	"HD-failures: %d\n"
-	"Net receive Speed: %luMb/s\n"
-	"HD write Speed: %luMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	  "Packets: %lu\n"
+	  "Bytes: %lu\n"
+	  "Dropped: %lu\n"
+	  "Incomplete: %lu\n"
+	  "Written: %lu\n"
+	  "Time: %lu\n"
+	  "Files: %lu\n"
+	  "HD-failures: %d\n"
+	  "Net receive Speed: %luMb/s\n"
+	  "HD write Speed: %luMb/s\n"
+	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
 /* Defensive stuff to check we're not copying stuff from default	*/
@@ -972,9 +1000,9 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->status = STATUS_NOT_STARTED;
 #endif
 
-  if(create_cfg)
+  if(create_cfg == 1)
     config_init(&(opt->cfg));
-  
+
   /* Opts using optbits */
   //opt->capture_type = CAPTURE_W_FANOUT;
   opt->optbits |= CAPTURE_W_UDPSTREAM;
@@ -1203,9 +1231,9 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   /* If n_threads isn't set, set it to n_drives +2 	*/
   /* Not used. Maxmem limits this instead		*/
   /*
-  if(opt->n_threads == 0)
-    opt->n_threads = opt->n_drives +2;
-    */
+     if(opt->n_threads == 0)
+     opt->n_threads = opt->n_drives +2;
+     */
 
 #if(!DAEMON)
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -1258,9 +1286,9 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   }
   //if(!(opt->optbits & READMODE)){
   /*
-  if (CALC_BUF_SIZE(opt) != 0)
-    return -1;
-    */
+     if (CALC_BUF_SIZE(opt) != 0)
+     return -1;
+     */
   //}
   return 0;
 }
@@ -1309,9 +1337,9 @@ int init_rbufs(struct opt_s *opt){
 #endif
 
   /*
-  if(opt->optbits & READMODE){
-  }
-  */
+     if(opt->optbits & READMODE){
+     }
+     */
   opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
 
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
@@ -1488,19 +1516,21 @@ int main(int argc, char **argv)
   struct timespec start_t;
 #endif
 
+
 #if(DAEMON)
   struct opt_s *opt = (struct opt_s*)opti;
 #else
   struct opt_s *opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(opt, "opt malloc");
-#if(DEBUG_OUTPUT)
   LOG("STREAMER: Reading parameters\n");
-#endif
   clear_and_default(opt,1);
   err = parse_options(argc,argv,opt);
   if(err != 0)
     exit(-1);
 #endif //DAEMON
+  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
+
+  pthread_t streamer_pthread;
 
   /*
      switch(opt.capture_type){
@@ -1514,9 +1544,6 @@ int main(int argc, char **argv)
      */
   //struct streamer_entity threads[opt.n_threads];
   //struct streamer_entity streamer_ent;
-  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
-
-  pthread_t streamer_pthread;
 
 
   //pthread_attr_t attr;
@@ -1533,9 +1560,7 @@ int main(int argc, char **argv)
     }
     memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
 
-#if(DEBUG_OUTPUT)
-    LOG("STREAMER: Resolved hostname\n");
-#endif
+    D("Resolved hostname");
   }
 
 #if(!DAEMON)
@@ -1604,7 +1629,7 @@ int main(int argc, char **argv)
   }
   if(err != 0){
     LOGERR("Error in thread init\n");
-    exit(-1);
+    STREAMER_ERROR_EXIT;
   }
 
   printf("STREAMER: In main, starting receiver thread \n");
@@ -1637,15 +1662,9 @@ int main(int argc, char **argv)
   }
   CPU_ZERO(&cpuset);
 #endif
-  //Spread processes out to n cores
-  //NOTE: setaffinity should be used after thread has been started
 
-  //}
-#if(DAEMON)
-  //opt->status = STATUS_RUNNING;
-#endif
+  opt->status = STATUS_RUNNING;
 
-  /* HERP so many ifs .. WTB Refactoring time*/
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
     clock_gettime(CLOCK_REALTIME, &start_t);
@@ -1773,6 +1792,9 @@ int main(int argc, char **argv)
   }
 
 #if(DAEMON)
+  D("Blocking until owned buffers are released");
+  block_until_free(opt->membranch, opt->filename);
+  D("Buffers finished");
   opt->status = STATUS_FINISHED;
 #else
   close_streamer(opt);

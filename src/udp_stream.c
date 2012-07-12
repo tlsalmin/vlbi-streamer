@@ -77,6 +77,7 @@ int phandler_sequence(struct streamer_entity * se, void * buffer){
   return 0;
 }
 void udps_close_socket(struct streamer_entity *se){
+  D("Closing socket");
   int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
   if(ret <0)
     perror("Socket shutdown");
@@ -111,6 +112,7 @@ int udps_bind_port(struct udpopts * spec_ops){
     //spec_ops->sin = addr;
   }
   else{
+    D("Binding to port %d",, spec_ops->opt->port);
     spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
     //if(!(spec_ops->opt->optbits & USE_RX_RING))
     err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
@@ -890,6 +892,7 @@ int close_udp_streamer(void *opt_own, void *stats){
     err = write_cfgs_to_disks(spec_ops->opt);
     CHECK_ERR("write_cfg");
   }
+  close(spec_ops->fd);
 
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
@@ -910,6 +913,7 @@ int close_udp_streamer(void *opt_own, void *stats){
   return 0;
 }
 void udps_stop(struct streamer_entity *se){
+  D("Stopping loop");
   ((struct udpopts *)se->opt)->running = 0;
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL

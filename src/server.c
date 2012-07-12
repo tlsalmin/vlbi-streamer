@@ -33,6 +33,7 @@ struct schedule{
   struct opt_s * default_opt;
   int n_scheduled;
   int n_running;
+  int running;
 };
 inline void zero_sched(struct schedule *sched){
   /*
@@ -63,6 +64,86 @@ int set_running(struct schedule *sched, struct scheduled_event * ev, struct sche
 
 }
 */
+int remove_from_cfgsched(struct scheduled_event *ev){
+  int err;
+  config_t cfg;
+  config_init(&cfg);
+  config_read_file(&cfg, STATEFILE);
+  config_setting_t *root;
+
+  root = config_root_setting(&cfg);
+  err = config_setting_remove(root, ev->opt->filename);
+  CHECK_CFG("remove closed recording");
+  err = config_write_file(&cfg, STATEFILE);
+  CHECK_CFG("Wrote config");
+  LOG("Updated config file and removed %s\n", ev->opt->filename);
+  config_destroy(&cfg);
+  return 0;
+}
+int free_and_close(struct scheduled_event *ev){
+  D("optstatus: %d",, ev->opt->status);
+  int err;
+  if(ev->opt->status == STATUS_FINISHED){
+    D("Thread has finished");
+    err =  pthread_join(ev->pt, NULL);
+    CHECK_ERR("join thread");
+    err = close_streamer(ev->opt);
+    CHECK_ERR("Close streamer");
+  }
+  if(ev->opt->status == STATUS_ERROR){
+    D("thread finished in error");
+    err = pthread_join(ev->pt, NULL);
+    err = close_streamer(ev->opt);
+  }
+  if(ev->opt->status == STATUS_RUNNING){
+    D("Still running");
+  //TODO: Cancelling threads running etc.
+  }
+  else{
+    ev->opt->status = STATUS_CANCELLED;
+    //TODO: cancellation
+  }
+  err = remove_from_cfgsched(ev);
+  CHECK_ERR("sched remove");
+  close_opts(ev->opt);
+  free(ev);
+  return 0;
+}
+int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
+  int found = 0;
+  struct scheduled_event *temp;
+  struct scheduled_event *parent;
+  if(*head == ev){
+    *head = (*head)->next;
+    found=1;
+    D("Removed schedevent");
+    //return 0;
+  }
+  else{
+    parent = *head;
+    temp = parent->next;
+    while(temp != NULL){
+      if(temp == ev){
+	found=1;
+	parent->next = temp->next;
+	D("Removed schedevent");
+	break;
+	//return 0;
+      }
+      else{
+	parent = temp;
+	temp = parent->next;
+      }
+    }
+  }
+  if(found){
+    D("Free and close it");
+    free_and_close(ev);
+    return 0;
+  }
+  D("Didn't find schedevent in branch");
+  return -1;
+}
 inline void add_to_end(struct scheduled_event ** head, struct scheduled_event * to_add){
   if(*head == NULL)
     *head = to_add;
@@ -109,9 +190,14 @@ int start_scheduled(struct schedule *sched){
       D("Starting event %s",, ev->opt->filename);
       sched->n_scheduled--;
       err = start_event(ev);
-      CHECK_ERR("Start event");
+      if(err != 0){
+	E("Something went wrong in recording %s start",, ev->opt->filename);
+	remove_recording(ev,&(sched->scheduled_head));
+	}
+      else{
       change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
       sched->n_running++;
+      }
       //set_running(sched, ev, parent);
     }
     //parent = ev;
@@ -147,7 +233,22 @@ inline struct scheduled_event* get_not_found(struct scheduled_event* event){
 int add_recording(config_setting_t* root, struct schedule* sched)
 {
   D("Adding new schedevent");
-  //int err;
+  int err;
+  if(strcmp(config_setting_name(root), "shutdown") == 0){
+    config_t cfg;
+    config_setting_t *realroot;
+    config_init(&cfg);
+    config_read_file(&cfg, STATEFILE);
+
+    realroot = config_root_setting(&cfg);
+    err = config_setting_remove(realroot, "shutdown");
+    CHECK_CFG("remove shutdown command");
+    err = config_write_file(&cfg, STATEFILE);
+    CHECK_CFG("Wrote config");
+    sched->running = 0;
+    config_destroy(&cfg);
+    return 0;
+  }
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
   CHECK_ERR_NONNULL(se, "Malloc scheduled event");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
@@ -171,63 +272,22 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   D("Schedevent is named: %s",, opt->filename);
 
   /* Get the rest of the opts		*/
-  set_from_root(opt, root, 0,0);
-  D("Opts checked");
+  err = set_from_root(opt, root, 0,0);
+  if(err != 0){
+    E("Broken schedule config. Not scheduling %s",, opt->filename);
+    free(se);
+    close_opts(opt);
+    return 0;
+  }
+  D("Opts checked, port is %d",, opt->port);
   //config_init(&(opt->cfg));
 
   //Special case if some old buggers in sched file
   //TODO: Check packet sizes and handle buffers accordingly
 
-  struct scheduled_event * temp = sched->scheduled_head;
-  if(temp !=NULL){
-    while(temp->next != NULL)
-      temp = temp->next;
-    temp->next = se;
-  }
-  else
-    sched->scheduled_head = se;
+  add_to_end(&(sched->scheduled_head), se);
   D("Schedevent added");
   return 0;
-}
-int free_and_close(struct scheduled_event *ev){
-  int err;
-  if(ev->opt->status & (STATUS_FINISHED || STATUS_ERROR)){
-    err =  pthread_join(ev->pt, NULL);
-    CHECK_ERR("join thread");
-  }
-  if(ev->opt->status == STATUS_RUNNING){
-  //TODO: Cancelling threads running etc.
-  }
-  ev->opt->status = STATUS_CANCELLED;
-  close_opts(ev->opt);
-  return 0;
-}
-int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
-  struct scheduled_event *temp;
-  struct scheduled_event *parent;
-  if(*head == ev){
-    *head = (*head)->next;
-    D("Removed schedevent");
-    return 0;
-  }
-  else{
-    parent = *head;
-    temp = parent->next;
-    while(temp != NULL){
-      if(temp == ev){
-	parent->next = temp->next;
-	free_and_close(temp);
-	D("Removed schedevent");
-	return 0;
-      }
-      else{
-	parent = temp;
-	temp = parent->next;
-      }
-    }
-  }
-  D("Didn't find schedevent in branch");
-  return -1;
 }
 void zerofound(struct schedule *sched){
   struct scheduled_event * temp;
@@ -279,21 +339,7 @@ int check_schedule(struct schedule *sched){
 
   return 0;
 }
-int remove_from_cfgsched(struct scheduled_event *ev){
-  int err;
-  config_t cfg;
-  config_init(&cfg);
-  config_read_file(&cfg, STATEFILE);
-  config_setting_t *root;
-
-  root = config_root_setting(&cfg);
-  err = config_setting_remove(root, ev->opt->filename);
-  CHECK_CFG("remove closed recording");
-  err = config_write_file(&cfg, STATEFILE);
-  CHECK_CFG("Wrote config");
-  LOG("Updated config file and removed %s", ev->opt->filename);
-  return 0;
-}
+/*
 int close_recording(struct schedule* sched, struct scheduled_event* ev){
   int err;
   err =pthread_join(ev->pt, NULL);
@@ -303,24 +349,29 @@ int close_recording(struct schedule* sched, struct scheduled_event* ev){
 
   err = remove_from_cfgsched(ev);
   CHECK_ERR("Remove from cfgsched");
+  close_streamer(ev->opt);
   close_opts(ev->opt);
   free(ev);
   return 0;
 }
+*/
 int check_finished(struct schedule* sched){
   struct scheduled_event *ev;
   int err;
-  for(ev = sched->running_head;ev!=NULL;ev = ev->next){
+  for(ev = sched->running_head;ev!=NULL;){
+    struct scheduled_event *temp = ev->next;
     if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED)){
-      err = close_recording(sched, ev);
+      //err = close_recording(sched, ev);
+      err = remove_recording(ev, &(sched->running_head));
       CHECK_ERR("close recording");
     }
+    ev = temp;
   }
   return 0;
 }
 int main(int argc, char **argv)
 {
-  int err,i_fd,w_fd,is_running = 1;
+  int err,i_fd,w_fd;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
   CHECK_ERR_NONNULL(sched, "Sched malloc");
@@ -377,12 +428,14 @@ int main(int argc, char **argv)
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;
 
+  sched->running = 1;
+
   /* Initial check before normal loop */
   err = check_schedule(sched);
   CHECK_ERR("Checked schedule");
 
 
-  while(is_running)
+  while(sched->running == 1)
   {
     err = start_scheduled(sched);
     CHECK_ERR("Start scheduled");
@@ -390,7 +443,7 @@ int main(int argc, char **argv)
     err = poll(pfd, 1, 5000);
     if(err < 0){
       perror("Poll");
-      is_running = 0;
+      sched->running = 0;
     }
     else if(err >0)
     {

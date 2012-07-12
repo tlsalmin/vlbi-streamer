@@ -308,6 +308,11 @@ int init_directory(struct recording_entity *re){
   free(dirname);
   return 0;
 }
+const char* common_get_rec_name(void * ent){
+  struct recording_entity *re = (struct recording_entity *)ent;
+  struct common_io_info * ioi = (struct common_io_info *)re->opt;
+  return (const char*)ioi->opt->filename;
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
@@ -375,6 +380,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->acquire = common_open_new_file;
   le->release = common_finish_file;
   le->check = common_check_id;
+  le->getrecname = common_get_rec_name;
   le->close = common_close_and_free;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);
@@ -414,23 +420,6 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
-  if(!(ioi->opt->optbits & READMODE)){
-    D("Truncating file");
-    /* Enable when we're fallocating again */
-    /*
-       err = ftruncate(ioi->fd, ioi->bytes_exchanged);
-       if(err!=0){
-       perror("COMMON_WRT: ftruncate");
-       return err;
-       }
-       */
-  }
-  else{
-    //free(ioi->indices);
-    /* No need to close indice-file since it was read into memory */
-  }
-  //remove_from_branch(ioi->opt->diskbranch, re->self, 0);
-  //free(re->self);
   free(ioi);
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Writer closed\n");

@@ -4,6 +4,9 @@
 struct simplebuf{
   struct opt_s *opt;
   int diff;
+  /* Used in init and close. Otherwise opts optbits is used 	*/
+  /* TODO: Needs some refactoring to make more sensible		*/
+  int optbits;
   int asyncdiff;
   void* buffer;
   int async_writes_submitted;
