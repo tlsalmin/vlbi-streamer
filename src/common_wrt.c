@@ -432,7 +432,7 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
-int common_check_files(struct recording_entity *re){
+int common_check_files(struct recording_entity *re, void* opt_ss){
   int err=0;
   int temp=0;
   int retval = 0;
@@ -440,7 +440,7 @@ int common_check_files(struct recording_entity *re){
   //int len;
   //struct recording_entity **temprecer;
   struct common_io_info * ioi = re->opt;
-  struct opt_s* opt = (struct opt_s*)ioi->opt;
+  struct opt_s* opt = (struct opt_s*)opt_ss;
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(dirname, "Dirname malloc");
   regex_t regex;
@@ -483,7 +483,7 @@ int common_check_files(struct recording_entity *re){
 	memcpy(the_index,start_of_index,INDEXING_LENGTH);
 	//temp = atoi(ent->d_name);
 	temp = atoi(the_index);
-	if((unsigned long)temp >= ioi->opt->cumul)
+	if((unsigned long)temp >= opt->cumul)
 	  E("Extra files found in dir!");
 	else
 	{
@@ -491,7 +491,7 @@ int common_check_files(struct recording_entity *re){
 	  //temprecer = opt->fileholders + temp*sizeof(*);
 	  //*temprecer = re;
 	  opt->fileholders[temp] = ioi->id;
-	  ioi->opt->cumul_found++;
+	  opt->cumul_found++;
 	}
       }
       else if( err == REG_NOMATCH ){

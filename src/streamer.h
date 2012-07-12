@@ -506,7 +506,7 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   long (*check)(struct recording_entity*, int );
   int (*getfd)(struct recording_entity*);
-  int (*check_files)(struct recording_entity*);
+  int (*check_files)(struct recording_entity*, void*);
   void (*get_stats)(void*, void*);
 
   int (*writecfg)(struct recording_entity *, void*);

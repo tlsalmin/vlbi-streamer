@@ -90,12 +90,14 @@ int free_and_close(struct scheduled_event *ev){
     err = close_streamer(ev->opt);
     CHECK_ERR("Close streamer");
   }
-  if(ev->opt->status == STATUS_ERROR){
+  else if(ev->opt->status == STATUS_ERROR){
     D("thread finished in error");
     err = pthread_join(ev->pt, NULL);
+    CHECK_ERR("join");
     err = close_streamer(ev->opt);
+    CHECK_ERR("close stream");
   }
-  if(ev->opt->status == STATUS_RUNNING){
+  else if(ev->opt->status == STATUS_RUNNING){
     D("Still running");
   //TODO: Cancelling threads running etc.
   }

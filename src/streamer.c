@@ -43,6 +43,7 @@
 #define STREAMER_CHECK_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
 #endif
 #if(DAEMON)
+/* NOTE: Dont use these in dangling if or else */
 #define STREAMER_EXIT opt->status = STATUS_FINISHED; pthread_exit(NULL)
 #define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; pthread_exit(NULL)
 #else
@@ -709,7 +710,7 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
 	((struct recording_entity*)le->entity)->readcfg(((struct recording_entity*)le->entity), param);
 	break;
       case BRANCHOP_CHECK_FILES:
-	((struct recording_entity*)le->entity)->check_files(((struct recording_entity*)le->entity));
+	((struct recording_entity*)le->entity)->check_files(((struct recording_entity*)le->entity), param);
 	break;
     }
     le = le->child;
@@ -988,11 +989,15 @@ int clear_pointers(struct opt_s* opt){
   return 0;
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
+  int i;
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
   opt->streamer_ent = NULL;
+  for(i=0;i<MAX_OPEN_FILES;i++){
+    opt->filenames[i] = NULL;
+  }
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -1038,7 +1043,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   return 0;
 }
 int parse_options(int argc, char **argv, struct opt_s* opt){
-  int ret,i;
+  int ret;
 
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:xc:"))!= -1){
     switch (ret){
@@ -1245,12 +1250,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   //opt->filename = argv[0];
 #endif
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
-  for(i=0;i<opt->n_drives;i++){
-    opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-    CHECK_ERR_NONNULL(opt->filenames[i], "filename malloc");
-    //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
-    sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
-  }
 #if(!DAEMON)
   if(opt->optbits & READMODE){
     opt->hostname = (char*)malloc(sizeof(char)*IP_LENGTH);
@@ -1428,6 +1427,7 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
   return 0;
 }
 int close_opts(struct opt_s *opt){
+  int i;
   if(opt->device_name != NULL)
     free(opt->device_name);
   if(opt->optbits & READMODE){
@@ -1436,6 +1436,12 @@ int close_opts(struct opt_s *opt){
   }
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
+  }
+  if(opt->optbits & READMODE){
+    for(i = 0;i< opt->n_drives;i++){
+      if(opt->filenames[i] != NULL)
+	free(opt->filenames[i]);
+    }
   }
   if(opt->streamer_ent != NULL)
     free(opt->streamer_ent);
@@ -1511,7 +1517,7 @@ void* vlbistreamer(void *opti)
 int main(int argc, char **argv)
 #endif
 {
-  int err = 0;
+  int err = 0,i;
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
@@ -1528,9 +1534,20 @@ int main(int argc, char **argv)
   if(err != 0)
     exit(-1);
 #endif //DAEMON
-  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
 
   pthread_t streamer_pthread;
+  D("preparing filenames");
+  if(opt->optbits & READMODE){
+    for(i=0;i<opt->n_drives;i++){
+      opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+      if(opt->filenames[i] == NULL){
+	STREAMER_ERROR_EXIT;
+      }
+      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
+      sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
+    }
+  }
+  D("filenames prepared");
 
   /*
      switch(opt.capture_type){
@@ -1575,7 +1592,7 @@ int main(int argc, char **argv)
   //TODO: cfg destruction
   if(err != 0){
     E("Error in cfg init");
-    FREE_AND_ERROREXIT
+    STREAMER_ERROR_EXIT;
   }
 #endif
 
@@ -1608,6 +1625,7 @@ int main(int argc, char **argv)
 
 
   /* Format the capturing thread */
+  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
   switch(opt->optbits & LOCKER_CAPTURE)
   {
     case CAPTURE_W_UDPSTREAM:
@@ -1629,6 +1647,8 @@ int main(int argc, char **argv)
   }
   if(err != 0){
     LOGERR("Error in thread init\n");
+    free(opt->streamer_ent);
+    opt->streamer_ent = NULL;
     STREAMER_ERROR_EXIT;
   }
 
@@ -1810,7 +1830,8 @@ int main(int argc, char **argv)
 int close_streamer(struct opt_s *opt){
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
   init_stats(stats_full);
-  opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
+  if(opt->streamer_ent != NULL)
+    opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
 #if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
