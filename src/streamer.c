@@ -1523,11 +1523,12 @@ int init_recp(struct opt_s *opt){
   return 0;
 }
 int close_recp(struct opt_s *opt, struct stats* da_stats){
-  int i;
   oper_to_all(opt->diskbranch, BRANCHOP_CLOSEWRITER, (void*)da_stats);
+  /*
   for(i=0;i<opt->n_drives;i++){
     free(opt->filenames[i]);
   }
+  */
   free(opt->diskbranch);
   free(opt->recs);
   return 0;
