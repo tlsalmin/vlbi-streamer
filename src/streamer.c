@@ -119,9 +119,9 @@ int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
   /* Straight second diff */
   diff += event->tv_sec - timenow->tv_sec;
 #ifdef TIMERTYPE_GETTIMEOFDAY
-  diff += (event->tv_usec-timenow->tv_usec)/1000;
+  diff += (event->tv_usec-timenow->tv_usec)/MILLION;
 #else
-  diff += (event->tv_nsec-timenow->tv_nsec)/MILLION;
+  diff += (event->tv_nsec-timenow->tv_nsec)/BILLION;
 #endif
   return diff;
 }
@@ -212,8 +212,10 @@ void block_until_free(struct entity_list_branch *br, const char* recname){
       else
 	checker = checker->child;
     }
-    if(shouldntfind != NULL)
+    /* Nobody will wake this up if its left to cond_wait */
+    if(shouldntfind != NULL){
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+    }
   }
   while(shouldntfind != NULL);
   pthread_mutex_unlock(&(br->branchlock));
@@ -500,6 +502,25 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 
       }
     }
+    CFG_ELIF("starting_time"){
+      if(config_setting_type(setting) != CONFIG_TYPE_INT64){
+	E("cfg type not matched");
+	return -1;
+      }
+      /* TODO:  Shouldn't need checking */
+      else if(write==1){
+	err = config_setting_set_int64(setting, opt->starting_time.tv_sec);
+	if(err != CONFIG_TRUE){
+	  E("Writing starting_time: %d",, err);
+	  return -1;
+	}
+      }
+      else
+      {
+	opt->starting_time.tv_sec = config_setting_get_int64(setting);
+      }
+    }
+    CFG_FULL_BOOLEAN(VERBOSE, "verbose")
     CFG_FULL_STR(filename)
       CFG_FULL_UINT64(opt->cumul,"cumul")
       CFG_FULL_STR(device_name)
@@ -1683,7 +1704,9 @@ int main(int argc, char **argv)
   CPU_ZERO(&cpuset);
 #endif
 
+#if(DAEMON)
   opt->status = STATUS_RUNNING;
+#endif
 
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT

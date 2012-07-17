@@ -847,12 +847,13 @@ void* udp_receiver(void *streamo)
 	spec_ops->handle_packet(se,buf);
     }
   }
-  /* If we had a file before exit */
-  if (i > 0){
+  /* Release last used buffer */
+
     se->be->set_ready(se->be);
     pthread_mutex_lock(se->be->headlock);
     pthread_cond_signal(se->be->iosignal);
     pthread_mutex_unlock(se->be->headlock);
+  if (i > 0){
     spec_ops->opt->cumul++;
   }
   /* Set total captured packets as saveable. This should be changed to just */

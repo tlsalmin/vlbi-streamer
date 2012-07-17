@@ -204,6 +204,39 @@ CFG_ELIF(y){\
   CFG_WRT_UINT64(x,y)\
   CFG_GET_UINT64(x)\
 }
+#define CFG_CHK_BOOLEAN(x,y) \
+if(check==1){\
+  int temp = config_setting_get_int(setting);\
+  if((temp == 1 && (opt->optbits & x)) || (temp == 0 && !(opt->optbits & x))){\
+    E(#x "doesn't check out");\
+    return -1;\
+  }\
+}
+#define CFG_GET_BOOLEAN(x,y) \
+else{\
+  if(config_setting_get_int(setting) == 1)\
+    opt->optbits |= x;\
+  else\
+    opt->optbits &= ~x;\
+}
+#define CFG_WRT_BOOLEAN(x,y) \
+else if(write==1){\
+  if(opt->optbits & x)\
+    err = config_setting_set_int(setting, 1);\
+  else\
+    err = config_setting_set_int(setting, 1);\
+  CHECK_CFG(y);\
+}
+#define CFG_FULL_BOOLEAN(x,y) \
+CFG_ELIF(y){\
+  if(config_setting_type(setting) != CONFIG_TYPE_INT){\
+    E(#x" type not correct");\
+    return -1;\
+  }\
+  CFG_CHK_BOOLEAN(x,y)\
+  CFG_WRT_BOOLEAN(x,y)\
+  CFG_GET_BOOLEAN(x,y)\
+}
 #define CFG_FULL_STR(x) \
 CFG_ELIF(#x){\
   if(config_setting_type(setting) != CONFIG_TYPE_STRING){\

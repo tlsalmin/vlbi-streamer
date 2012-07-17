@@ -190,15 +190,14 @@ int start_scheduled(struct schedule *sched){
   struct scheduled_event * ev;
   //struct scheduled_event * parent = NULL;
   for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
-    if((tdif = get_sec_diff(&time_now, &ev->opt->starting_time))< SECS_TO_START_IN_ADVANCE && !(ev->opt->status & STATUS_RUNNING)){
+    if((tdif = get_sec_diff(&time_now, &ev->opt->starting_time)) <= SECS_TO_START_IN_ADVANCE){
       //TODO: remove old stuff 
-    /*
       if(!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time))){
-	LOG("Removing clearly too old recording request %s\n", ev->opt->filename);
+	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, tdif);
+	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
 	remove_recording(ev,&(sched->scheduled_head));
 	continue;
       }
-      */
       LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
       err = start_event(ev);
