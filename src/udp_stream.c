@@ -848,14 +848,15 @@ void* udp_receiver(void *streamo)
     }
   }
   /* Release last used buffer */
-
+  if(*inc == 0)
+    se->be->cancel_writebuf(se->be);
+  else{
     se->be->set_ready(se->be);
-    pthread_mutex_lock(se->be->headlock);
-    pthread_cond_signal(se->be->iosignal);
-    pthread_mutex_unlock(se->be->headlock);
-  if (i > 0){
     spec_ops->opt->cumul++;
   }
+  pthread_mutex_lock(se->be->headlock);
+  pthread_cond_signal(se->be->iosignal);
+  pthread_mutex_unlock(se->be->headlock);
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;

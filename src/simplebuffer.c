@@ -529,6 +529,12 @@ void *sbuf_simple_write_loop(void *buffo){
     D("Finished on id %d",,sbuf->bufnum);
     pthread_exit(NULL);
   }
+  void sbuf_cancel_writebuf(struct buffer_entity *be){
+    D("Cancelling request for buffer");
+    struct simplebuf *sbuf = be->opt;
+    sbuf->ready_to_act = 0;
+    set_free(sbuf->opt->membranch, be->self);
+  }
 
   void sbuf_stop_running(struct buffer_entity *be){
     D("Stopping sbuf thread");
@@ -553,7 +559,7 @@ void *sbuf_simple_write_loop(void *buffo){
     be->stop = sbuf_stop_running;
     be->set_ready = sbuf_set_ready;
     be->acquire = sbuf_acquire;
-    //be->cancel_writebuf = sbuf_cancel_writebuf;
+    be->cancel_writebuf = sbuf_cancel_writebuf;
 
     return be->init(opt,be); 
   }

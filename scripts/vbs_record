@@ -6,14 +6,89 @@ cat << EOF
 usage: $0 <recording name> <start time> <duration>
 
 This script queues a recording for the vlbistreamer daemon
+
+OPTIONS:
+      -a MYY		Wait MYY microseconds between packet sends
+      -c CFGFILE	Load config from cfg-file CFGFILE
+      -d DRIVES		Number of drives(Default: 1)
+      -i INTERFACE	Which interface to bind to(Not required)
+      -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
+      -q 		Check if packets are in order from first 64bits of package(Not yet implemented)
+      -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
+      -s SOCKET	Socket number(Default: 2222)
+      -v 		Verbose. Print stats on all transfers
+      -x 		Use an mmap rxring for receiving
+
 EOF
 }
 #Both should update at installed location after make install
 SCHEDULE=temp/vlbischedule
 LOGFILE=temp/vlbistreamer.log
-RECNAME=$1
-DUR=$2
-STIME=$3
+EXTRAOPS="#Schedule extra parameters"
+n=1
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -a) 
+      EXTRAOPS="$EXTRAOPS
+      wait_nanosecods = $(($2*1000));"
+      shift
+      ;;
+    -c)
+      EXTRAOPS="$EXTRAOPS
+      cfgfile = \"$2\";"
+      shift
+      ;;
+    -d)
+      EXTRAOPS="$EXTRAOPS
+      n_drives = $2;"
+      shift
+      ;;
+    -i)
+      EXTRAOPS="$EXTRAOPS
+      device_name = \"$2\";"
+      shift
+      ;;
+    -p)
+      EXTRAOPS="$EXTRAOPS
+      packet_size = $2;"
+      shift
+      ;;
+    -s)
+      EXTRAOPS="$EXTRAOPS
+      port = $2;"
+      shift
+      ;;
+    -v)
+      EXTRAOPS="$EXTRAOPS
+      verbose = 1;"
+      ;;
+    -x)
+      EXTRAOPS="$EXTRAOPS
+      use_rx_ring = 1;"
+      ;;
+    -u)
+      EXTRAOPS="$EXTRAOPS
+      use_hugepage = 1;"
+      ;;
+    -q)
+      EXTRAOPS="$EXTRAOPS
+      check_sequence = 1;"
+      ;;
+    -r)
+      EXTRAOPS="$EXTRAOPS
+      rate = $2;"
+      shift
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1;;
+  *) eval "arg_$n=$1"; n=$(( $n + 1 ));;
+esac
+shift
+done
+
+RECNAME=$arg_1
+DUR=$arg_2
+STIME=$arg_3
 
 if [ -z "$RECNAME" ] || [ -z "$DUR" ]
 then
@@ -30,7 +105,9 @@ echo "$RECNAME =
   time = $((DUR))L;
   starting_time = $((STIME))L;
   record = 1;
+  $EXTRAOPS
 };
 " >> $SCHEDULE
 #TODO: What date format people want?
 echo "`date`:Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
+exit 0
