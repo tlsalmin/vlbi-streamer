@@ -1462,7 +1462,7 @@ int init_rbufs(struct opt_s *opt){
   int i, err;
   err = CALC_BUF_SIZE(opt);
   CHECK_ERR("calc bufsize");
-  D("Here we are with nthreads as %d",, opt->n_threads);
+  D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets",, opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
 #ifdef PRIORITY_SETTINGS
   memset(&opt->param, 0, sizeof(param));
   err = pthread_attr_init(&opt->pta);

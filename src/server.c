@@ -287,8 +287,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   err = set_from_root(opt, root, 0,0);
   if(err != 0){
     E("Broken schedule config. Not scheduling %s",, opt->filename);
-    free(se);
-    close_opts(opt);
+    free_and_close(se);
     return 0;
   }
   D("Opts checked, port is %d",, opt->port);

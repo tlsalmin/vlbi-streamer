@@ -1,68 +1,136 @@
 #!/bin/bash
-
 usage()
 {
 cat << EOF
-usage: $0 <options> <outputfile>
-
-This script adds a recording to vlbistreamer readable format
-
 OPTIONS:
       -a MYY		Wait MYY microseconds between packet sends
       -c CFGFILE	Load config from cfg-file CFGFILE
       -d DRIVES		Number of drives(Default: 1)
       -i INTERFACE	Which interface to bind to(Not required)
-      -m {s|r}		Send or Receive the data(Default: receive)
       -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
       -q 		Check if packets are in order from first 64bits of package(Not yet implemented)
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
+      -u 		Use hugepages
+      -t START_TIME	start time at START_TIME (time since epoch or date +%s)
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
-
 EOF
 }
-WAIT_NANOSECONDS=
-CFGFILE=
-N_DRIVES=
-DEVICE_NAME=
-READMODE=
-N_THREADS=
-PACKET_SIZE=
-CHECK_SEQ=
-RATE=
-SOCKET=
-VERBOSE=
-MOUNTPOINT_VERBOSE=
-USE_RX_RING=
-STARTING_TIME=
 
-SCHEDULE=Make install should update this
-
-while getopts “a:c:d:i:m:n:p:qr:s:vVxS” OPTION
+SCHEDULE=temp/vlbischedule
+LOGFILE=temp/vlbistreamer.log
+EXTRAOPS="#Schedule extra parameters"
+RECORD=1
+n=1
+while [ $# -gt 0 ]
 do
-     case $OPTION in
-         a)
-             usage
-             exit 1
-             ;;
-         t)
-             TEST=$OPTARG
-             ;;
-         r)
-             SERVER=$OPTARG
-             ;;
-         p)
-             PASSWD=$OPTARG
-             ;;
-         v)
-             VERBOSE=1
-             ;;
-         ?)
-             usage
-             exit
-             ;;
-     esac
+  case $1 in
+    -a) 
+      EXTRAOPS="$EXTRAOPS
+      wait_nanosecods = $(($2*1000));"
+      shift
+      ;;
+    -c)
+      EXTRAOPS="$EXTRAOPS
+      cfgfile = \"$2\";"
+      shift
+      ;;
+    -d)
+      EXTRAOPS="$EXTRAOPS
+      n_drives = $2;"
+      shift
+      ;;
+    -i)
+      EXTRAOPS="$EXTRAOPS
+      device_name = \"$2\";"
+      shift
+      ;;
+    -m)
+      if [ "$2" == "r" ]
+      then
+	RECORD=1
+      else
+	RECORD=0
+      fi
+      shift
+      ;;
+    -p)
+      EXTRAOPS="$EXTRAOPS
+      packet_size = $2;"
+      shift
+      ;;
+    -s)
+      EXTRAOPS="$EXTRAOPS
+      port = $2;"
+      shift
+      ;;
+    -t)
+      EXTRAOPS="$EXTRAOPS
+      starting_time = $2;"
+      shift
+      ;;
+    -v)
+      EXTRAOPS="$EXTRAOPS
+      verbose = 1;"
+      ;;
+    -x)
+      EXTRAOPS="$EXTRAOPS
+      use_rx_ring = 1;"
+      ;;
+    -u)
+      EXTRAOPS="$EXTRAOPS
+      use_hugepage = 1;"
+      ;;
+    -q)
+      EXTRAOPS="$EXTRAOPS
+      check_sequence = 1;"
+      ;;
+    -r)
+      EXTRAOPS="$EXTRAOPS
+      rate = $2;"
+      shift
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
 done
 
+RECNAME=$arg_1
+STIME=$arg_3
+CONFSTART=""
 
+if [ $RECORD -eq 0 ]
+then
+  #TODO: Not sure if this works every diggidi time
+  DUR=`getent ahosts $arg_2 | head -1 |awk '{print $1}' | uniq`
+  CONFSTART="hostname = \"$DUR\";
+  record = 0;"
+else
+  DUR=$arg_2
+  CONFSTART="time = $DUR;
+  record = 1;"
+fi
+
+if [ -z "$RECNAME" ] || [ -z "$DUR" ]
+then
+  echo "Record name or destination/duration missing"
+  usage
+  exit  1
+fi
+if [ -z "$STIME" ]
+then
+  echo "Not setting stamp of first packet. Starting immediately"
+fi
+
+echo "$RECNAME =
+{
+  $CONFSTART
+  starting_time = $((STIME))L;
+  $EXTRAOPS
+};
+" >> $SCHEDULE
+#TODO: What date format people want?
+#echo "`date` :Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
+exit 0

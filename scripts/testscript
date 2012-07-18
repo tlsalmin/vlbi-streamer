@@ -14,8 +14,20 @@ EXTRA_PARAMS=$*
 DEFAULT_PARAMS="-I $MINMEM -A $MAXMEM -s $PORT -d $DRIVES"
 WAIT=40
 echo "setting up non-daemon mode"
-./configure --enable-daemon=no
-make
+./configure --enable-daemon=no &> /dev/null
+make &> /dev/null
+
+if [ $? -ne 0 ]
+then
+  echo "Error in compilation"
+  exit -1
+fi
+
+NRHUGE=`cat  /proc/sys/vm/nr_hugepages`
+if [ $NRHUGE -ne 0 ]
+then
+  DEFAULT_PARAMS="$DEFAULT_PARAMS -u "
+fi
 
 echo "Cleaning up leftovers from previous test"
 for i in /mnt/disk*
