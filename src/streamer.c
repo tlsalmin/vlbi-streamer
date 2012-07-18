@@ -1632,6 +1632,9 @@ int init_recp(struct opt_s *opt){
       case REC_SPLICER:
 	err = splice_init_splice(opt, &(opt->recs[i]));
 	break;
+      default:
+	err = -1;
+	break;
     }
     if(err != 0){
       LOGERR("Error in writer init\n");

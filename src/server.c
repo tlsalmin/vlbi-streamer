@@ -461,7 +461,8 @@ int main(int argc, char **argv)
     }
     else if(err >0)
     {
-      read(i_fd, ibuff, CHAR_BUFF_SIZE);
+      err = read(i_fd, ibuff, CHAR_BUFF_SIZE);
+      CHECK_ERR_LTZ("Read schedule");
       D("Noticed change in schedule file");
       /* There's really just one sort of event. Adding or removing	*/
       /* a scheduled recording					*/

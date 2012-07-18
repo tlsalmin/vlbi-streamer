@@ -52,12 +52,12 @@ do
   LINEOFSCAN=`grep "scan_name=${RARRAY[0]}" $NEWFILE -n| sed  's/\([0-9]*\).*/\1/'`
   #Adding $I to $LINEOFSCAN here because augmenting the file changes the
   #result each time. Don't know why thought..
-  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur $STARTEPOCH\"" $NEWFILE
+  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -t $STARTEPOCH\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
   if [ ! -z $EXTRAOUT ]
   then
-    echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur $STARTEPOCH\"">> $EXTRAOUT
+    echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -t $STARTEPOCH\"">> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes
