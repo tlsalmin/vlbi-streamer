@@ -224,7 +224,7 @@ else if(write==1){\
   if(opt->optbits & x)\
     err = config_setting_set_int(setting, 1);\
   else\
-    err = config_setting_set_int(setting, 1);\
+    err = config_setting_set_int(setting, 0);\
   CHECK_CFG(y);\
 }
 #define CFG_FULL_BOOLEAN(x,y) \

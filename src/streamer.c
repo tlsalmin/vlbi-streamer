@@ -520,8 +520,129 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	opt->starting_time.tv_sec = config_setting_get_int64(setting);
       }
     }
+    /*There might be some twisted way of capitalizing the strings	*/
+    /* but meh!								*/
+    CFG_ELIF("writer"){
+      if(config_setting_type(setting) != CONFIG_TYPE_STRING){
+	E("writer type not correct");
+	return -1;
+      }
+      if(check==1){
+	/* Do nothing! */ 
+      }
+      else if(write==1){
+	switch(opt->optbits & LOCKER_REC){
+	  case REC_DEF:
+	    err = config_setting_set_string(setting, "def");
+	    break;
+	  case REC_AIO:
+	    err = config_setting_set_string(setting, "aio");
+	    break;
+	  case REC_SPLICER:
+	    err = config_setting_set_string(setting, "splice");
+	    break;
+	  case REC_DUMMY:
+	    err = config_setting_set_string(setting, "dummy");
+	    break;
+	  default:
+	    E("Unknown writer");
+	    return -1;
+	}
+	CHECK_CFG("writer");
+      }
+      else{
+	opt->optbits &= ~LOCKER_REC;
+	if (!strcmp(config_setting_get_string(setting), "def")){
+	  /*
+	     opt->rec_type = REC_DEF;
+	     opt->async = 0;
+	     */
+	  opt->optbits |= REC_DEF;
+	  opt->optbits &= ~ASYNC_WRITE;
+	}
+#ifdef HAVE_LIBAIO
+	else if (!strcmp(config_setting_get_string(setting), "aio")){
+	  /*
+	     opt->rec_type = REC_AIO;
+	     opt->async = 1;
+	     */
+	  opt->optbits |= REC_AIO|ASYNC_WRITE;
+	}
+#endif
+	else if (!strcmp(config_setting_get_string(setting), "splice")){
+	  /*
+	     opt->rec_type = REC_SPLICER;
+	     opt->async = 0;
+	     */
+	  opt->optbits |= REC_SPLICER;
+	  opt->optbits &= ~ASYNC_WRITE;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "dummy")){
+	  /*
+	     opt->rec_type = REC_DUMMY;
+	     opt->buf_type = WRITER_DUMMY;
+	     */
+	  opt->optbits &= ~LOCKER_WRITER;
+	  opt->optbits |= REC_DUMMY|WRITER_DUMMY;
+	  opt->optbits &= ~ASYNC_WRITE;
+	}
+	else {
+	  LOGERR("Unknown mode type [%s]\n", config_setting_get_string(setting));
+	  return -1;
+	}
+      }
+    }
+    CFG_ELIF("capture"){
+      if(config_setting_type(setting) != CONFIG_TYPE_STRING){
+	E("capture type not correct");
+	return -1;
+      }
+      if(check==1){
+	/* Do nothing! */ 
+      }
+      else if(write==1){
+	switch(opt->optbits & LOCKER_CAPTURE){
+	  case CAPTURE_W_FANOUT:
+	    err = config_setting_set_string(setting, "fanout");
+	    break;
+	  case CAPTURE_W_UDPSTREAM:
+	    err = config_setting_set_string(setting, "udpstream");
+	    break;
+	  case CAPTURE_W_SPLICER:
+	    err = config_setting_set_string(setting, "sendfile");
+	    break;
+	  default:
+	    E("Unknown capture");
+	    return -1;
+	}
+	CHECK_CFG("capture");
+      }
+      else{
+	opt->optbits &= ~LOCKER_CAPTURE;
+	if (!strcmp(config_setting_get_string(setting), "fanout")){
+	  //opt->capture_type = CAPTURE_W_FANOUT;
+	  opt->optbits |= CAPTURE_W_FANOUT;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "udpstream")){
+	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
+	  opt->optbits |= CAPTURE_W_UDPSTREAM;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_SPLICER;
+	}
+	else {
+	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));
+	  return -1;
+	}
+      }
+    }
+    CFG_FULL_BOOLEAN(USE_HUGEPAGE, "use_hugepage")
+    CFG_FULL_BOOLEAN(CHECK_SEQUENCE, "check_sequence")
+    CFG_FULL_BOOLEAN(USE_RX_RING, "use_rx_ring")
     CFG_FULL_BOOLEAN(VERBOSE, "verbose")
     CFG_FULL_STR(filename)
+    /* Could have done these with concatenation .. */
       CFG_FULL_UINT64(opt->cumul,"cumul")
       CFG_FULL_STR(device_name)
       CFG_FULL_UINT64(opt->optbits, "optbits")
@@ -1114,7 +1235,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", optarg);
 	  usage(argv[0]);
-	  exit(1);
+	  return -1;
 	}
 	break;
 	/* Fanout choosing removed and set to default LB since
@@ -1222,7 +1343,8 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	else {
 	  LOGERR("Unknown mode type [%s]\n", optarg);
 	  usage(argv[0]);
-	  exit(1);
+	  //exit(1);
+	  return -1;
 	}
 	break;
       default:

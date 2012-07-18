@@ -16,6 +16,7 @@ OPTIONS:
       -q 		Check if packets are in order from first 64bits of package(Not yet implemented)
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
+      -u 		Use hugepages
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
 
