@@ -1483,6 +1483,7 @@ int init_rbufs(struct opt_s *opt){
      }
      */
   opt->rbuf_pthreads = (pthread_t*)malloc(sizeof(pthread_t)*opt->n_threads);
+  CHECK_ERR_NONNULL(opt->rbuf_pthreads, "pthreads malloc");
 
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
@@ -1509,16 +1510,10 @@ int init_rbufs(struct opt_s *opt){
 #endif
 
   for(i=0;i<opt->n_threads;i++){
-    //int err = 0;
-    //be = (struct buffer_entity*)malloc(sizeof(struct buffer_entity));
-    //CHECK_ERR_NONNULL(be, "be malloc");
 
     err = sbuf_init_buf_entity(opt, &(opt->bes[i]));
-    if(err != 0){
-      LOGERR("Error in buffer init\n");
-      exit(-1);
-    }
-    //TODO: Change write loop to just loop. Now means both read and write
+    CHECK_ERR("sbuf init");
+
     D("Starting buffer thread");
 #ifdef PRIORITY_SETTINGS
     err = pthread_create(&(opt->rbuf_pthreads[i]), &(opt->pta), (opt->bes[i]).write_loop,(void*)&(opt->bes[i]));
@@ -1542,8 +1537,6 @@ int init_rbufs(struct opt_s *opt){
 #endif //TUNE_AFFINITY
     D("Pthread number %d got id %lu",, i,opt->rbuf_pthreads[i]);
   }
-  //pthread_t rbuf_pthreads[opt->n_threads];
-  //long unsigned * y_u_touch_this = &rbuf_pthreads[27];
   return 0;
 }
 int close_rbufs(struct opt_s *opt, struct stats* da_stats){
@@ -1668,6 +1661,7 @@ int main(int argc, char **argv)
 #if(DAEMON)
   struct opt_s *opt = (struct opt_s*)opti;
 #else
+  LOG("Running in non-daemon mode\n");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(opt, "opt malloc");
   LOG("STREAMER: Reading parameters\n");

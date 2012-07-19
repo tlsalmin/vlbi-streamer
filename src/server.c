@@ -403,6 +403,7 @@ int main(int argc, char **argv)
   /* overrides defaults and command line arguments override config file	*/
   clear_and_default(sched->default_opt,1);
 
+  LOG("Running in daemon mode\n");
   sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
   sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
