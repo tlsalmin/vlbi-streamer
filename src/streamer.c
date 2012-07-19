@@ -1018,25 +1018,25 @@ static void usage(char *binary){
       "-a MYY		Wait MYY microseconds between packet sends\n"
 #endif
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
-      "-c CFGFILE	Load config from cfg-file CFGFILE\n"
+      //"-c CFGFILE	Load config from cfg-file CFGFILE\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-d DRIVES	Number of drives(Default: 1)\n"
       "-i INTERFACE	Which interface to bind to(Not required)\n"
-      "-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
-      "-m {s|r}		Send or Receive the data(Default: receive)\n"
-      "-n NUM	        Number of threads(Default: DRIVES+2)\n"
+      //"-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
+      "-m {s|r}	Send or Receive the data(Default: receive)\n"
+      //"-n NUM	        Number of threads(Default: DRIVES+2)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
 #ifdef CHECK_OUT_OF_ORDER
       "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
 #endif
-      "-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
+      //"-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"
 #endif
       "-v 		Verbose. Print stats on all transfers\n"
-      "-V 		Verbose. Print stats on individual mountpoint transfers\n"
-      "-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
+      //"-V 		Verbose. Print stats on individual mountpoint transfers\n"
+      //"-W WRITEEVERY	Try to do HD-writes every WRITEEVERY MB(default 16MB)\n"
       "-w {"
 #ifdef HAVE_LIBAIO
       "aio|"
@@ -1203,6 +1203,11 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
       case 'd':
 	opt->n_drives = atoi(optarg);
 	break;
+#if(DAEMON)
+      case 'e':
+	opt->start_time.tv_sec = atoi(optarg);
+	break;
+#endif
       case 'I':
 	opt->minmem = atoi(optarg);
 	break;
@@ -1361,6 +1366,8 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   argv +=optind;
   argc -=optind;
 
+  /* TODO: Enable giving a custom cfg-file on invocation */
+#if(!DAEMON)
   if(opt->cfgfile!=NULL){
     LOG("Path for cfgfile specified. All command line options specced in this file will be ignored\n");
     ret = read_full_cfg(opt);
@@ -1369,6 +1376,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
       return -1;
     }
   }
+#endif //DAEMON
 
   /* If we're using rx-ring, then set the packet size to +TPACKET_HDRLEN */
   /*
@@ -1668,7 +1676,7 @@ int main(int argc, char **argv)
   clear_and_default(opt,1);
   err = parse_options(argc,argv,opt);
   if(err != 0)
-    exit(-1);
+    STREAMER_ERROR_EXIT;
 #endif //DAEMON
 
   pthread_t streamer_pthread;
@@ -1709,7 +1717,7 @@ int main(int argc, char **argv)
     hostptr = gethostbyname(opt->hostname);
     if(hostptr == NULL){
       perror("Hostname");
-      exit(-1);
+      STREAMER_ERROR_EXIT;
     }
     memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
 

@@ -12,7 +12,7 @@ OPTIONS:
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
       -u 		Use hugepages
-      -t START_TIME	start time at START_TIME (time since epoch or date +%s)
+      -e START_TIME	start time at START_TIME (time since epoch or date +%s)
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
 EOF
@@ -65,7 +65,7 @@ do
       port = $2;"
       shift
       ;;
-    -t)
+    -e)
       EXTRAOPS="$EXTRAOPS
       starting_time = $2;"
       shift
