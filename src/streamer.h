@@ -588,6 +588,7 @@ int close_opts(struct opt_s *opt);
 int init_recp(struct opt_s *opt);
 int close_recp(struct opt_s *opt, struct stats* da_stats);
 int write_cfg(config_t *cfg, char* filename);
+int write_cfg_for_rec(struct opt_s * opt, char* filename);
 int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);
 int calculate_buffer_sizes(struct opt_s *opt);

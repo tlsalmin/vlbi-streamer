@@ -673,23 +673,44 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   return 0;
 }
 /* Init a rec cfg */
-int stub_rec_cfg(config_setting_t *root){
+int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
+  int err;
   config_setting_t *setting;
   setting = config_setting_add(root, "packet_size", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add packet_size");
+  if(opt != NULL){
+    err = config_setting_set_int64(setting, opt->packet_size);
+    CHECK_CFG("set packet size");
+  }
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
+  if(opt != NULL){
+    err = config_setting_set_int64(setting, opt->cumul);
+    CHECK_CFG("set cumul");
+  }
   /* If we're using the simpler buffer calculation, which fixes the 	*/
   /* size of the files, we don't need filesize etc. here anymore	*/
 #ifndef SIMPLE_BUFCACL
   setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add filesize");
+  if(opt != NULL){
+    err = config_setting_set_int64(setting, opt->filesize);
+    CHECK_CFG("set filesize");
+  }
 #endif
   setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add total_packets");
+  if(opt != NULL){
+    err = config_setting_set_int64(setting, opt->total_packets);
+    CHECK_CFG("set total packetsize");
+  }
 #ifndef SIMPLE_BUFCACL
   setting = config_setting_add(root, "buf_division", CONFIG_TYPE_INT);
   CHECK_ERR_NONNULL(setting, "add buf_division");
+  if(opt != NULL){
+    err = config_setting_set_int64(setting, opt->buf_division);
+    CHECK_CFG("set buf_division");
+  }
 #endif
   return 0;
 }
@@ -714,7 +735,7 @@ int stub_full_cfg(config_setting_t *root){
 }
 /* Combination of full and session specific conf */
 int stub_full_log_cfg(config_setting_t *root){
-  stub_rec_cfg(root);
+  stub_rec_cfg(root, NULL);
   stub_full_cfg(root);
   return 0;
 }
@@ -814,7 +835,7 @@ int init_cfg(struct opt_s *opt){
   else{
     /* Set the root and other settings we need */
     root = config_root_setting(&(opt->cfg));
-    stub_rec_cfg(root);
+    stub_rec_cfg(root, NULL);
   }
   D("CFG init done");
   return 0;
@@ -1198,6 +1219,14 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
 	CHECK_ERR_NONNULL(opt->cfgfile, "Cfgfile malloc");
 	opt->cfgfile = strdup(optarg);
+//#if(!DAEMON)
+	LOG("Path for cfgfile specified. All command line options before this argument wmight be ignored\n");
+	ret = read_full_cfg(opt);
+	if(ret != 0){
+	  E("Error parsing cfg file. Exiting");
+	  return -1;
+	}
+//#endif
 	break;
       case 'v':
 	opt->optbits |= VERBOSE;
@@ -1371,12 +1400,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   /* TODO: Enable giving a custom cfg-file on invocation */
 #if(!DAEMON)
   if(opt->cfgfile!=NULL){
-    LOG("Path for cfgfile specified. All command line options specced in this file will be ignored\n");
-    ret = read_full_cfg(opt);
-    if(ret != 0){
-      E("Error parsing cfg file. Exiting");
-      return -1;
-    }
   }
 #endif //DAEMON
 
@@ -2002,6 +2025,15 @@ int write_cfg(config_t *cfg, char* filename){
   }
   else
     return 0;
+}
+int write_cfg_for_rec(struct opt_s * opt, char* filename){
+  int err;
+  config_t cfg;
+  config_init(&cfg);
+  stub_rec_cfg(config_root_setting(&cfg),opt);
+  err = write_cfg(&cfg, filename);
+  config_destroy(&cfg);
+  return err;
 }
 int read_cfg(config_t *cfg, char * filename){
   int err = config_read_file(cfg,filename);

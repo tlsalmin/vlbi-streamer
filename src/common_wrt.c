@@ -176,7 +176,8 @@ int common_writecfg(struct recording_entity *re, void *opti){
   }
 
   sprintf(cfgname, "%s%i%s%s%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/",opt->filename, ".cfg"); 
-  err = write_cfg(&(opt->cfg), cfgname);
+  err = write_cfg_for_rec(opt, cfgname);
+  CHECK_ERR("write cfg for rec");
   free(cfgname);
   free(dirname);
 
