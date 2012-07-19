@@ -445,7 +445,7 @@ struct opt_s
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   TIMERTYPE wait_last_sent;
-  TIMERTYPE* start_time;
+  TIMERTYPE start_time;
 #endif
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];

@@ -57,7 +57,7 @@ do
       ;;
     -p)
       EXTRAOPS="$EXTRAOPS
-      packet_size = $2;"
+      packet_size = $(($2));"
       shift
       ;;
     -s)
@@ -67,7 +67,7 @@ do
       ;;
     -e)
       EXTRAOPS="$EXTRAOPS
-      starting_time = $2;"
+      starting_time = $(($2))L;"
       shift
       ;;
     -v)
@@ -109,7 +109,7 @@ then
   record = 0;"
 else
   DUR=$arg_2
-  CONFSTART="time = $DUR;
+  CONFSTART="time = $(($DUR))L;
   record = 1;"
 fi
 
@@ -127,7 +127,6 @@ fi
 echo "$RECNAME =
 {
   $CONFSTART
-  starting_time = $((STIME))L;
   $EXTRAOPS
 };
 " >> $SCHEDULE
