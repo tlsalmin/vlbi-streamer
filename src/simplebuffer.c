@@ -159,18 +159,9 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   err = pthread_cond_init(be->iosignal, NULL);
   CHECK_ERR("iosignal init");
 
-
-
-  /* TODO: Make choosable or just get rid of async totally 	*/
-  //sbuf->async = opt->async;
-
   if(!(sbuf->opt->optbits & USE_RX_RING)){
-    long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
     unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
-    if(hog_memory > (long unsigned)maxmem){
-      E("Max allocatable memory %ld. Cant reserve %lu more",, maxmem, hog_memory);
-      return -1;
-    }
+    /* TODO: Make a check for available number of hugepages */
 #ifdef HAVE_HUGEPAGES
     if(sbuf->optbits & USE_HUGEPAGE){
       /* Init fd for hugetlbfs					*/
@@ -207,6 +198,11 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
     else
 #endif /* HAVE_HUGEPAGES */
     {
+      long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
+      if(hog_memory > (long unsigned)maxmem){
+	E("Max allocatable memory %ld MB. Cant reserve %lu MB more",, maxmem/MEG, hog_memory/MEG);
+	return -1;
+      }
       D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
       err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), hog_memory);
       //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
