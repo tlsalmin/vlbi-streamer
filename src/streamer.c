@@ -1018,7 +1018,7 @@ static void usage(char *binary){
       "-a MYY		Wait MYY microseconds between packet sends\n"
 #endif
       "-t {fanout|udpstream|sendfile|TODO	Capture type(Default: udpstream)(sendfile is a prototype not yet in kernel)(fanout doesn't write to disk. Poor performance)\n"
-      //"-c CFGFILE	Load config from cfg-file CFGFILE\n"
+      "-c CFGFILE	Load config from cfg-file CFGFILE\n"
       //"-a {lb|hash}	Fanout type(Default: lb)\n"
       "-d DRIVES	Number of drives(Default: 1)\n"
       "-i INTERFACE	Which interface to bind to(Not required)\n"
