@@ -124,8 +124,11 @@ then
   echo "Not setting stamp of first packet. Starting immediately"
 fi
 
-echo "$RECNAME =
+#A 12 char random string is used to identify a request
+#stolen from http://nixcraft.com/shell-scripting/13454-command-generate-random-password-string.html
+echo "`tr -dc A-Za-z0-9_ < /dev/urandom |head -c 12` =
 {
+  filename = \"$RECNAME\";
   $CONFSTART
   $EXTRAOPS
 };

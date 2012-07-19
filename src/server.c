@@ -17,12 +17,14 @@
 #define MAX_RUNNING 4
 #define SECS_TO_START_IN_ADVANCE 1
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
+#define IDSTRING_LENGTH 24
 //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
 
 struct scheduled_event{
   struct opt_s * opt;
   struct scheduled_event* next;
+  char * idstring;
   pthread_t pt;
   int found;
 };
@@ -72,7 +74,7 @@ int remove_from_cfgsched(struct scheduled_event *ev){
   config_setting_t *root;
 
   root = config_root_setting(&cfg);
-  err = config_setting_remove(root, ev->opt->filename);
+  err = config_setting_remove(root, ev->idstring);
   CHECK_CFG("remove closed recording");
   err = config_write_file(&cfg, STATEFILE);
   CHECK_CFG("Wrote config");
@@ -108,6 +110,7 @@ int free_and_close(struct scheduled_event *ev){
   }
   err = remove_from_cfgsched(ev);
   CHECK_ERR("sched remove");
+  free(ev->idstring);
   close_opts(ev->opt);
   free(ev);
   return 0;
@@ -193,7 +196,7 @@ int start_scheduled(struct schedule *sched){
     if((tdif = get_sec_diff(&time_now, &ev->opt->starting_time)) <= SECS_TO_START_IN_ADVANCE){
       //TODO: remove old stuff 
       if(!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time))){
-	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, tdif);
+	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, -tdif);
 	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
 	remove_recording(ev,&(sched->scheduled_head));
 	continue;
@@ -217,7 +220,7 @@ int start_scheduled(struct schedule *sched){
 }
 inline struct scheduled_event* get_from_head(char * name, struct scheduled_event* head){
   while(head != NULL){
-    if(strcmp(head->opt->filename, name) == 0){
+    if(strcmp(head->idstring, name) == 0){
       return head;
     }
     head = head->next;
@@ -279,17 +282,21 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  se->idstring = (char*)malloc(sizeof(char)*24);
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
-  strcpy(opt->filename, config_setting_name(root));
-  LOG("Adding new request named: %s\n", opt->filename);
+  //strcpy(opt->filename, config_setting_name(root));
+  strcpy(se->idstring, config_setting_name(root));
+
+  LOG("Adding new request with id string: %s\n", se->idstring);
 
   /* Get the rest of the opts		*/
   err = set_from_root(opt, root, 0,0);
   if(err != 0){
-    E("Broken schedule config. Not scheduling %s",, opt->filename);
+    E("Broken schedule config. Not scheduling %s",, se->idstring);
     free_and_close(se);
     return 0;
   }
+  LOG("New request is for session: %s\n", opt->filename);
   D("Opts checked, port is %d",, opt->port);
   //config_init(&(opt->cfg));
 
