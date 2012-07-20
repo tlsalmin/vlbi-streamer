@@ -106,6 +106,7 @@ const char* sbuf_getrecname(void* ent){
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
+  void* errp;
   struct simplebuf * sbuf = (struct simplebuf*) malloc(sizeof(struct simplebuf));
   if(sbuf == NULL)
     return -1;
@@ -114,6 +115,12 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   be->recer =NULL;
   sbuf->bufnum = sbuf->opt->bufculum++;
   sbuf->optbits = sbuf->opt->optbits;
+  /* We want a bit for each packet */
+  sbuf->packet_bitmap = malloc(sbuf->opt->buf_num_elems/8);
+  CHECK_ERR_NONNULL(sbuf->packet_bitmap, "Bitmap malloc");
+  errp=memset(sbuf->packet_bitmap, 0, sbuf->opt->buf_num_elems/8);
+  CHECK_ERR_NONNULL(errp, "bitmap memset");
+  //CHECK_ERR("memset bitmap");
 
   //be->membranch = opt->membranch;
   //be->diskbranch = opt->diskbranch;
@@ -230,6 +237,7 @@ int sbuf_close(struct buffer_entity* be, void *stats){
   pthread_mutex_destroy(be->headlock);
   free(be->headlock);
   free(be->iosignal);
+  free(sbuf->packet_bitmap);
 
   //int ret = 0;
   /*
@@ -313,9 +321,11 @@ int simple_end_transaction(struct buffer_entity *be){
   return 0;
 
 }
-void* sbuf_getbuf(struct buffer_entity *be, int ** diff){
+void* sbuf_getbuf(struct buffer_entity *be, int ** diff, void** bitmap){
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   *diff = &(sbuf->diff);
+  if(bitmap != NULL)
+    *bitmap = sbuf->packet_bitmap;
   return sbuf->buffer;
 }
 int* sbuf_getinc(struct buffer_entity *be){
@@ -461,8 +471,23 @@ int write_buffer(struct buffer_entity *be){
     return -1;
 
   /* If we've succesfully written everything: set everything free etc */
-  //if((sbuf->diff == 0 && be->recer != NULL )){
   if(sbuf->diff == 0){
+
+    /* If what we previously wrote/sent had a datatype	*/
+    /* Zero the array!					*/
+    if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN)){
+      D("Resetting bitmap");
+      void* errp = memset(sbuf->packet_bitmap, 0, sbuf->opt->buf_num_elems/8);
+      CHECK_ERR_NONNULL(errp, "bitmap memset");
+    }
+
+
+    /* Might have closed recer already 	*/
+    if(be->recer != NULL)
+      set_free(sbuf->opt->diskbranch, be->recer->self);
+    sbuf->ready_to_act = 0;
+    be->recer = NULL;
+
     if(sbuf->opt->optbits & READMODE){
       D("Read cycle complete. Setting self to loaded");
       set_loaded(sbuf->opt->membranch, be->self);
@@ -471,11 +496,6 @@ int write_buffer(struct buffer_entity *be){
       D("Write cycle complete. Setting self to free");
       set_free(sbuf->opt->membranch, be->self);
     }
-    /* Might have closed recer already */
-    if(be->recer != NULL)
-      set_free(sbuf->opt->diskbranch, be->recer->self);
-    sbuf->ready_to_act = 0;
-    be->recer = NULL;
   }
   return ret;
 }

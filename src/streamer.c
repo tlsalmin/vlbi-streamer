@@ -638,7 +638,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       }
     }
     CFG_FULL_BOOLEAN(USE_HUGEPAGE, "use_hugepage")
-    CFG_FULL_BOOLEAN(CHECK_SEQUENCE, "check_sequence")
+    //CFG_FULL_BOOLEAN(CHECK_SEQUENCE, "check_sequence")
     CFG_FULL_BOOLEAN(USE_RX_RING, "use_rx_ring")
     CFG_FULL_BOOLEAN(VERBOSE, "verbose")
     CFG_FULL_STR(filename)
@@ -1048,7 +1048,7 @@ static void usage(char *binary){
       //"-n NUM	        Number of threads(Default: DRIVES+2)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
 #ifdef CHECK_OUT_OF_ORDER
-      "-q 		Check if packets are in order from first 64bits of package(Not yet implemented)\n"
+      "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)\n"
 #endif
       //"-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
@@ -1210,7 +1210,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 int parse_options(int argc, char **argv, struct opt_s* opt){
   int ret;
 
-  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:qur:a:vVI:A:W:xc:"))!= -1){
+  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:q:ur:a:vVI:A:W:xc:"))!= -1){
     switch (ret){
       case 'i':
 	opt->device_name = strdup(optarg);
@@ -1320,11 +1320,21 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->n_threads = atoi(optarg);
 	break;
       case 'q':
-#ifdef CHECK_OUT_OF_ORDER
-	//opt->handle |= CHECK_SEQUENCE;
-	opt->optbits |= CHECK_SEQUENCE;
+	opt->optbits &= ~LOCKER_DATATYPE;
+	if (!strcmp(optarg, "vdif")){
+	  opt->optbits |= DATATYPE_VDIF;
+	}
+	else if(!strcmp(optarg, "mark5b")){
+	  opt->optbits |= DATATYPE_MARK5B;
+	}
+	else if(!strcmp(optarg, "updmon")){
+	  opt->optbits |= DATATYPE_UDPMON;
+	}
+	else{
+	  E("Unknown datatype %s",, optarg);
+	  opt->optbits |= DATATYPE_UNKNOWN;
+	}
 	break;
-#endif
       case 'm':
 	if (!strcmp(optarg, "r")){
 	  opt->optbits &= ~READMODE;

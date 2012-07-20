@@ -49,7 +49,7 @@
 */
 
 /* Global stuff */
-#define CHECK_SEQUENCE 		B(12)
+//#define CHECK_SEQUENCE 		B(12)
 #define ASYNC_WRITE		B(13)
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
@@ -60,6 +60,13 @@
 #define SIMPLE_BUFFER		B(19)
 
 #define USE_RX_RING		B(20)
+/* Empty B(21) B(22) B(23)	*/
+
+#define LOCKER_DATATYPE		0x0f000000
+#define	DATATYPE_UNKNOWN	B(24) 
+#define	DATATYPE_VDIF		B(25) 
+#define	DATATYPE_MARK5B		B(26) 
+#define DATATYPE_UDPMON		B(27)
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -70,6 +77,24 @@
 #define STATUS_FINISHED		B(3)
 #define STATUS_ERROR		B(4)
 #define STATUS_CANCELLED	B(5)
+
+
+//Stolen from Harro Verkouters jive5ab
+#define MK5B_FRAME_WORDS	2504
+#define MK5B_FRAME_SIZE		(MK5B_FRAME_WORDS * sizeof(uint32_t))
+
+#define VDIF_SECOND_BITSHIFT 24
+/* Grab the last 30 bits of the first 4 byte word 	*/
+#define GET_VDIF_SECONDS(buf) (0x3fffffff & ((uint32_t*)(buf)))
+#define GET_VDIF_SSEQ(buf) (0x00ffffff & (((uint32_t*)(buf))+1))
+#define GET_VDIF_SEQNUM(seconds, sseq) ((unsigned long)((((unsigned long)(seconds))<<VDIF_SECOND_BITSHIFT) | ((unsigned long)(sseq))))
+#define GET_VDIF_SEQ(buf) GET_VDIF_SEQNUM(GET_VDIF_SECONDS(buf), GET_VDIF_SSEQ(buf))
+#define GET_VDIF_SECONDS_FROM_SEQNUM(seqnum) (buf) >> VDIF_SECOND_BITSHIFT
+/* Idea for seqnuming: Have a buf first number, which grounds 	*/
+/* frame. If get_spot is negative, it belongs to the previous	*/
+/* buffer. If larger than buf, belongs to the next		*/
+
+
 
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
@@ -87,26 +112,26 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 
 #define MIN_MEM_GIG 4l
 #define MAX_MEM_GIG 12l
-/* TODO query this */
+  /* TODO query this */
 #define BLOCK_ALIGN 4096
-//#define MAX_MEM_GIG 8
+  //#define MAX_MEM_GIG 8
 
-/* Default lenght of index following file as in <filename>.[0-9]8 */
+  /* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
 
-/* Default packet size */
+  /* Default packet size */
 #define DEF_BUF_ELEM_SIZE 8192
-//#define BUF_ELEM_SIZE 32768
+  //#define BUF_ELEM_SIZE 32768
 #define MAX_OPEN_FILES 48
-//#define MADVISE_INSTEAD_OF_O_DIRECT
+  //#define MADVISE_INSTEAD_OF_O_DIRECT
 
-/* Send stuff to log file if daemon mode defined 	*/
+  /* Send stuff to log file if daemon mode defined 	*/
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
-  do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
-  do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
 #define DEBUG_OUTPUT_2 0
 #define DD(str, ...) if(DEBUG_OUTPUT_2)D(str, __VA_ARGS__)
@@ -125,7 +150,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define CHECK_LTZ(x,y) do{if(y<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
 #define CHECK_ERR_LTZ(x) CHECK_LTZ(x,err)
 #define CALL_AND_CHECK(x,...)\
-  err = x(__VA_ARGS__);\
+    err = x(__VA_ARGS__);\
   CHECK_ERR(#x);
 
 #define CHECK_CFG_CUSTOM(x,y) do{if(y == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
@@ -137,145 +162,145 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 
 #define OPT(x) opt->x
 #define CFG_ELIF(x) else if(strcmp(config_setting_name(setting), x)==0)
-//#define CFG_GET_STR config_setting_get_string(setting)
-//#define CFG_GET_INT64 config_setting_get_int64(setting)
+  //#define CFG_GET_STR config_setting_get_string(setting)
+  //#define CFG_GET_INT64 config_setting_get_int64(setting)
 #define CFG_CHK_STR(x) \
-if(check==1){	\
-  if(strcmp(config_setting_get_string(setting),OPT(x)) != 0)\
-    return -1;\
-}
+    if(check==1){	\
+      if(strcmp(config_setting_get_string(setting),OPT(x)) != 0)\
+      return -1;\
+    }
 #define CFG_WRT_STR(x) \
-else if(write==1){\
-  err = config_setting_set_string(setting,OPT(x));\
-  CHECK_CFG(#x);\
-}
+    else if(write==1){\
+      err = config_setting_set_string(setting,OPT(x));\
+      CHECK_CFG(#x);\
+    }
 #define CFG_GET_STR(x) \
-else{\
-  const char * temp = config_setting_get_string(setting);\
-  if(temp != NULL){\
-    if(OPT(x) == NULL)\
-      OPT(x) = strdup(temp);\
     else{\
-      D("Overwriting string");\
-      if(strcpy(OPT(x),temp) == NULL)\
-	return -1;\
-    }\
-  }\
-  else\
-    return -1;\
-}
+      const char * temp = config_setting_get_string(setting);\
+      if(temp != NULL){\
+	if(OPT(x) == NULL)\
+	OPT(x) = strdup(temp);\
+	else{\
+	  D("Overwriting string");\
+	  if(strcpy(OPT(x),temp) == NULL)\
+	  return -1;\
+	}\
+      }\
+      else\
+      return -1;\
+    }
 #define CFG_CHK_UINT64(x) \
-if(check==1){\
-  if(((unsigned long)config_setting_get_int64(setting)) != x)\
-    return -1;\
-}
+    if(check==1){\
+      if(((unsigned long)config_setting_get_int64(setting)) != x)\
+      return -1;\
+    }
 #define CFG_WRT_UINT64(x,y) \
-else if(write==1){\
-  err = config_setting_set_int64(setting, x);\
-  CHECK_CFG(y);\
-}
+    else if(write==1){\
+      err = config_setting_set_int64(setting, x);\
+      CHECK_CFG(y);\
+    }
 #define CFG_GET_UINT64(x) \
-else{\
-  x = (unsigned long)config_setting_get_int64(setting);\
-}
+    else{\
+      x = (unsigned long)config_setting_get_int64(setting);\
+    }
 #define CFG_GET_INT(x) \
-else{\
-  x = config_setting_get_int(setting);\
-}
+    else{\
+      x = config_setting_get_int(setting);\
+    }
 #define CFG_WRT_INT(x,y) \
-else if(write==1){\
-  err = config_setting_set_int(setting, x);\
-  CHECK_CFG(y);\
-}
+    else if(write==1){\
+      err = config_setting_set_int(setting, x);\
+      CHECK_CFG(y);\
+    }
 #define CFG_CHK_INT(x) \
-if(check==1){\
-  if(config_setting_get_int(setting) != x){\
-    E(#x "doesn't check out");\
-    return -1;\
-  }\
-}
+    if(check==1){\
+      if(config_setting_get_int(setting) != x){\
+	E(#x "doesn't check out");\
+	return -1;\
+      }\
+    }
 #define CFG_FULL_UINT64(x,y) \
-CFG_ELIF(y){\
-  if(config_setting_type(setting) != CONFIG_TYPE_INT64){\
-    E(#x" Type not correct");\
-    return -1;\
-  }\
-  CFG_CHK_UINT64(x)\
-  CFG_WRT_UINT64(x,y)\
-  CFG_GET_UINT64(x)\
-}
+    CFG_ELIF(y){\
+      if(config_setting_type(setting) != CONFIG_TYPE_INT64){\
+	E(#x" Type not correct");\
+	return -1;\
+      }\
+      CFG_CHK_UINT64(x)\
+      CFG_WRT_UINT64(x,y)\
+      CFG_GET_UINT64(x)\
+    }
 #define CFG_CHK_BOOLEAN(x,y) \
-if(check==1){\
-  int temp = config_setting_get_int(setting);\
-  if((temp == 1 && (opt->optbits & x)) || (temp == 0 && !(opt->optbits & x))){\
-    E(#x "doesn't check out");\
-    return -1;\
-  }\
-}
+    if(check==1){\
+      int temp = config_setting_get_int(setting);\
+      if((temp == 1 && (opt->optbits & x)) || (temp == 0 && !(opt->optbits & x))){\
+	E(#x "doesn't check out");\
+	return -1;\
+      }\
+    }
 #define CFG_GET_BOOLEAN(x,y) \
-else{\
-  if(config_setting_get_int(setting) == 1)\
-    opt->optbits |= x;\
-  else\
-    opt->optbits &= ~x;\
-}
+    else{\
+      if(config_setting_get_int(setting) == 1)\
+      opt->optbits |= x;\
+      else\
+      opt->optbits &= ~x;\
+    }
 #define CFG_WRT_BOOLEAN(x,y) \
-else if(write==1){\
-  if(opt->optbits & x)\
-    err = config_setting_set_int(setting, 1);\
-  else\
-    err = config_setting_set_int(setting, 0);\
-  CHECK_CFG(y);\
-}
+    else if(write==1){\
+      if(opt->optbits & x)\
+      err = config_setting_set_int(setting, 1);\
+      else\
+      err = config_setting_set_int(setting, 0);\
+      CHECK_CFG(y);\
+    }
 #define CFG_FULL_BOOLEAN(x,y) \
-CFG_ELIF(y){\
-  if(config_setting_type(setting) != CONFIG_TYPE_INT){\
-    E(#x" type not correct");\
-    return -1;\
-  }\
-  CFG_CHK_BOOLEAN(x,y)\
-  CFG_WRT_BOOLEAN(x,y)\
-  CFG_GET_BOOLEAN(x,y)\
-}
+    CFG_ELIF(y){\
+      if(config_setting_type(setting) != CONFIG_TYPE_INT){\
+	E(#x" type not correct");\
+	return -1;\
+      }\
+      CFG_CHK_BOOLEAN(x,y)\
+      CFG_WRT_BOOLEAN(x,y)\
+      CFG_GET_BOOLEAN(x,y)\
+    }
 #define CFG_FULL_STR(x) \
-CFG_ELIF(#x){\
-  if(config_setting_type(setting) != CONFIG_TYPE_STRING){\
-    E(#x" Not string type");\
-    return -1;\
-  }\
-  CFG_CHK_STR(x)\
-  CFG_WRT_STR(x)\
-  CFG_GET_STR(x)\
-}
+    CFG_ELIF(#x){\
+      if(config_setting_type(setting) != CONFIG_TYPE_STRING){\
+	E(#x" Not string type");\
+	return -1;\
+      }\
+      CFG_CHK_STR(x)\
+      CFG_WRT_STR(x)\
+      CFG_GET_STR(x)\
+    }
 #define CFG_FULL_INT(x,y)\
-CFG_ELIF(y){\
-  if(config_setting_type(setting) != CONFIG_TYPE_INT)	\
-    return -1;\
-  CFG_CHK_INT(x)\
-  CFG_WRT_INT(x,y)\
-  CFG_GET_INT(x)\
-}
+    CFG_ELIF(y){\
+      if(config_setting_type(setting) != CONFIG_TYPE_INT)	\
+      return -1;\
+      CFG_CHK_INT(x)\
+      CFG_WRT_INT(x,y)\
+      CFG_GET_INT(x)\
+    }
 #define CFG_ADD_INT64(x)\
-  do{\
-setting = config_setting_add(root, #x, CONFIG_TYPE_INT64);\
-CHECK_ERR_NONNULL(setting, "add "#x);\
-  }while(0)
+    do{\
+      setting = config_setting_add(root, #x, CONFIG_TYPE_INT64);\
+      CHECK_ERR_NONNULL(setting, "add "#x);\
+    }while(0)
 #define CFG_ADD_STR(x)\
-  do{\
-setting = config_setting_add(root, #x, CONFIG_TYPE_STRING);\
-CHECK_ERR_NONNULL(setting, "add "#x);\
-  }while(0)
+    do{\
+      setting = config_setting_add(root, #x, CONFIG_TYPE_STRING);\
+      CHECK_ERR_NONNULL(setting, "add "#x);\
+    }while(0)
 #define CFG_ADD_INT(x)\
-  do{\
-setting = config_setting_add(root, #x, CONFIG_TYPE_INT);\
-CHECK_ERR_NONNULL(setting, "add "#x);\
-  }while(0)
+    do{\
+      setting = config_setting_add(root, #x, CONFIG_TYPE_INT);\
+      CHECK_ERR_NONNULL(setting, "add "#x);\
+    }while(0)
 
-//#define TIMERTYPE_GETTIMEOFDAY
+  //#define TIMERTYPE_GETTIMEOFDAY
 #ifdef TIMERTYPE_GETTIMEOFDAY
 #define TIMERTYPE struct timeval 
 #define GETTIME(x) gettimeofday(&x,NULL)
-//#define ZEROTIME(x) x.tv_sec =0;x.tv_usec=0;
+  //#define ZEROTIME(x) x.tv_sec =0;x.tv_usec=0;
 #define SLEEP_NANOS(x) usleep((x.tv_usec))
 #define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_usec=from.tv_usec
 #define SETNANOS(x,y) x.tv_usec = (y)/1000
@@ -284,7 +309,7 @@ CHECK_ERR_NONNULL(setting, "add "#x);\
 #else
 #define TIMERTYPE struct timespec
 #define GETTIME(x) clock_gettime(CLOCK_REALTIME, &x)
-//#define ZEROTIME(x) x.tv_sec =0;x.tv_nsec=0;
+  //#define ZEROTIME(x) x.tv_sec =0;x.tv_nsec=0;
 #define SLEEP_NANOS(x) nanosleep(&x,NULL)
 #define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_nsec=from.tv_nsec
 #define SETNANOS(x,y) x.tv_nsec = (y)
@@ -293,54 +318,54 @@ CHECK_ERR_NONNULL(setting, "add "#x);\
 #endif
 #define ZEROTIME(x) memset((void*)(&x),0,sizeof(TIMERTYPE))
 
-//Moved to configure
-//#define DEBUG_OUTPUT
-//Magic number TODO: Refactor so we won't need this
+  //Moved to configure
+  //#define DEBUG_OUTPUT
+  //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
-/* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
+  /* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
 #define INDEX_FILE_TYPE unsigned long
-/* TODO: Make the definition below work where used */
+  /* TODO: Make the definition below work where used */
 #define INDEX_FILE_PRINT lu
-/* Moving the rbuf-stuff to its own thread */
+  /* Moving the rbuf-stuff to its own thread */
 #define SPLIT_RBUF_AND_IO_TO_THREAD
 
-//#define TUNE_AFFINITY
-//#define PRIORITY_SETTINGS
+  //#define TUNE_AFFINITY
+  //#define PRIORITY_SETTINGS
 
 
-/* Enable if you don't want extra messaging to nonblocked processes */
-//#define CHECK_FOR_BLOCK_BEFORE_SIGNAL
+  /* Enable if you don't want extra messaging to nonblocked processes */
+  //#define CHECK_FOR_BLOCK_BEFORE_SIGNAL
 
-//NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
-//But this only happens on buffer size > (atleast) 30000
-//Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-//Default write size as 16MB
+  //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
+  //But this only happens on buffer size > (atleast) 30000
+  //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
+  //Default write size as 16MB
 #define HD_MIN_WRITE_SIZE 16777216
-//Default file size as 500MB
+  //Default file size as 500MB
 #define FILE_SPLIT_TO_BLOCKS B(29)l
-//#define HD_MIN_WRITE_SIZE 1048576
-/* Size of current default huge page */
-//#define HD_MIN_WRITE_SIZE 2097152
-//#define HD_MIN_WRITE_SIZE 134217728
-//#define HD_MIN_WRITE_SIZE 33554432
-//#define HD_MIN_WRITE_SIZE 262144
-//#define HD_WRITE_SIZE 524288
-//#define HD_MIN_WRITE_SIZE 65536
-/* Tested with misc/bytaligntest.c that dividing the buffer 	*/
-/* to 16 blocks gives a good byte aling and only doesn't work	*/
-/* on crazy sized packets like 50kB+ */
-//#define MAGIC_BUFFERDIVISION 16
+  //#define HD_MIN_WRITE_SIZE 1048576
+  /* Size of current default huge page */
+  //#define HD_MIN_WRITE_SIZE 2097152
+  //#define HD_MIN_WRITE_SIZE 134217728
+  //#define HD_MIN_WRITE_SIZE 33554432
+  //#define HD_MIN_WRITE_SIZE 262144
+  //#define HD_WRITE_SIZE 524288
+  //#define HD_MIN_WRITE_SIZE 65536
+  /* Tested with misc/bytaligntest.c that dividing the buffer 	*/
+  /* to 16 blocks gives a good byte aling and only doesn't work	*/
+  /* on crazy sized packets like 50kB+ */
+  //#define MAGIC_BUFFERDIVISION 16
 #define MIN(x,y) (x < y ? x : y)
 
-//#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
-//etc for packet handling
+  //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
+  //etc for packet handling
 #include "config.h"
 #include <pthread.h>
 #ifdef HAVE_LIBCONFIG_H
 #include <libconfig.h>
 #endif
 #include <netdb.h> // struct hostent
-struct stats
+  struct stats
 {
   unsigned long total_packets;
   unsigned long total_bytes;
@@ -380,13 +405,13 @@ struct entity_list_branch
   pthread_cond_t busysignal;
 };
 /*
-struct fileblocks
-{
-  int max_elements;
-  int elements;
-  INDEX_FILE_TYPE *files;
-};
-*/
+   struct fileblocks
+   {
+   int max_elements;
+   int elements;
+   INDEX_FILE_TYPE *files;
+   };
+   */
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/
@@ -506,7 +531,7 @@ struct buffer_entity
   void* (*get_writebuf)(struct buffer_entity *);
   /* Used to acquire element past the queue line */
   int (*acquire)(void * , void* , unsigned long, unsigned long);
-  void* (*simple_get_writebuf)(struct buffer_entity *, int **);
+  void* (*simple_get_writebuf)(struct buffer_entity *, int **, void**);
   int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);

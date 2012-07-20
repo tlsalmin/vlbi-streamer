@@ -1,7 +1,5 @@
 #ifndef UDP_STREAMER
 #define UDP_STREAMER
-//#define CHECK_OUT_OF_ORDER
-//#define UDP_STREAM_THREADS 12
 #include <net/if.h>
 #include <poll.h>
 #include <linux/if_packet.h>
@@ -16,7 +14,17 @@ void * udp_receiver(void *opt);
 void get_udp_stats(void *opt, void *stats);
 void udps_stop(struct streamer_entity *se);
 int close_udp_streamer(void *opt,void *stats);
-int phandler_sequence(struct streamer_entity * se, void * buffer);
+//int phandler_sequence(struct streamer_entity * se, void * buffer);
+
+struct resq_info{
+  int *inc_after, *inc_before;
+  void  *usebuf, *bufstart, *bufstart_before, *bufstart_after, *bitmap_before, *bitmap,*bitmap_after;
+  struct buffer_entity * before;
+  struct buffer_entity * after;
+  long current_seq;
+  int packets_per_second;
+  int current_second;
+};
 
 int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se);
 
@@ -29,21 +37,18 @@ struct udpopts
   //long unsigned int * cumul;
   struct sockaddr_in *sin;
   size_t sinsize;
-  int (*handle_packet)(struct streamer_entity*,void*);
-#ifdef CHECK_OUT_OF_ORDER
-  //Lazy to use in handle_packet
-  INDEX_FILE_TYPE last_packet;
-#endif
-
-  unsigned long int total_captured_bytes;
-  unsigned long int incomplete;
-  unsigned long int dropped;
-  unsigned long int total_captured_packets;
+  void* (*calc_bufpos)(void*,struct udpopts*,struct resq_info *);
+  unsigned long missing;
+  unsigned long total_captured_packets;
+  unsigned long total_captured_bytes;
+  unsigned long incomplete;
   unsigned long files_sent; 
-#ifdef CHECK_OUT_OF_ORDER
-  unsigned long int out_of_order;
-#endif
+  unsigned long out_of_order;
 };
 void udps_close_socket(struct streamer_entity *se);
+
+void * calc_bufpos_vdif(void* header, struct udpopts* spec_ops, struct resq_info* resq);
+void * calc_bufpos_mark5b(void* header, struct udpopts* spec_ops, struct resq_info* resq);
+void*  calc_bufpos_udpmon(void* header, struct udpopts* spec_ops, struct resq_info* resq);
 
 #endif //UDP_STREAMER
