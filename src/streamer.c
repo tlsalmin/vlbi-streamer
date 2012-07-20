@@ -1226,6 +1226,8 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  E("Error parsing cfg file. Exiting");
 	  return -1;
 	}
+	free(opt->cfgfile);
+	opt->cfgfile = NULL;
 //#endif
 	break;
       case 'v':
@@ -1322,12 +1324,15 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
       case 'q':
 	opt->optbits &= ~LOCKER_DATATYPE;
 	if (!strcmp(optarg, "vdif")){
+	  D("Datatype as VDIF");
 	  opt->optbits |= DATATYPE_VDIF;
 	}
 	else if(!strcmp(optarg, "mark5b")){
+	  D("Datatype as Mark5");
 	  opt->optbits |= DATATYPE_MARK5B;
 	}
-	else if(!strcmp(optarg, "updmon")){
+	else if(!strcmp(optarg, "udpmon")){
+	  D("Datatype as UDPMON");
 	  opt->optbits |= DATATYPE_UDPMON;
 	}
 	else{

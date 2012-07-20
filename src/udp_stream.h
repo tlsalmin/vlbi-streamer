@@ -17,11 +17,13 @@ int close_udp_streamer(void *opt,void *stats);
 //int phandler_sequence(struct streamer_entity * se, void * buffer);
 
 struct resq_info{
-  int *inc_after, *inc_before;
-  void  *usebuf, *bufstart, *bufstart_before, *bufstart_after, *bitmap_before, *bitmap,*bitmap_after;
+  int *inc_after, *inc_before, *inc;
+  void  *buf, *usebuf, *bufstart, *bufstart_before, *bufstart_after;
   struct buffer_entity * before;
   struct buffer_entity * after;
-  long current_seq;
+  unsigned long current_seq;
+  unsigned long seqstart_current;
+  int i;
   int packets_per_second;
   int current_second;
 };
@@ -37,7 +39,7 @@ struct udpopts
   //long unsigned int * cumul;
   struct sockaddr_in *sin;
   size_t sinsize;
-  void* (*calc_bufpos)(void*,struct udpopts*,struct resq_info *);
+  void* (*calc_bufpos)(void*,struct streamer_entity*,struct resq_info *);
   unsigned long missing;
   unsigned long total_captured_packets;
   unsigned long total_captured_bytes;
@@ -47,8 +49,8 @@ struct udpopts
 };
 void udps_close_socket(struct streamer_entity *se);
 
-void * calc_bufpos_vdif(void* header, struct udpopts* spec_ops, struct resq_info* resq);
-void * calc_bufpos_mark5b(void* header, struct udpopts* spec_ops, struct resq_info* resq);
-void*  calc_bufpos_udpmon(void* header, struct udpopts* spec_ops, struct resq_info* resq);
+void * calc_bufpos_vdif(void* header, struct streamer_entity* se, struct resq_info* resq);
+void * calc_bufpos_mark5b(void* header, struct streamer_entity* se, struct resq_info* resq);
+void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_info* resq);
 
 #endif //UDP_STREAMER

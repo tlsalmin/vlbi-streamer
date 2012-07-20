@@ -9,7 +9,6 @@ struct simplebuf{
   int optbits;
   int asyncdiff;
   void* buffer;
-  void* packet_bitmap;
   int async_writes_submitted;
   int running;
   int file_seqnum;
@@ -19,6 +18,6 @@ struct simplebuf{
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);
 int sbuf_close(struct buffer_entity *be, void * stats);
-void* sbuf_getbuf(struct buffer_entity *be, int** diff, void**bitmap);
+void* sbuf_getbuf(struct buffer_entity *be, int** diff);
 int sbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
 #endif
