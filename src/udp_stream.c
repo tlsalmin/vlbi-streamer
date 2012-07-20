@@ -889,13 +889,19 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
 	}
 
 	(*(resq->inc_before))++;
-	return resq->bufstart_before + (spec_ops->opt->buf_num_elems - (resq->seqstart_current - seqnum))*spec_ops->opt->packet_size;
+	if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
+	  D("Buffer before is ready. Freeing it");
+	  free_the_buf(resq->before);
+	  resq->bufstart_before = NULL;
+	  resq->before = NULL;
+	}
+	return resq->bufstart_before + (spec_ops->opt->buf_num_elems - ((long)resq->seqstart_current - (long)seqnum))*spec_ops->opt->packet_size;
       }
       else{
 	D("Packet out of order, but inside this buffer. Shifting current to this");
-	resq->current_seq = seqnum;
+	//resq->current_seq = seqnum;
 	(*(resq->inc))++;
-	return (resq->bufstart + (seqnum-resq->seqstart_current)*spec_ops->opt->packet_size);
+	return (resq->bufstart + ((long)seqnum - (long)seqnum-resq->seqstart_current)*spec_ops->opt->packet_size);
       }
       /*
       */
@@ -912,15 +918,16 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
 	/* Need to jump to next buffer in this case */
 	(*(resq->inc_after))++;
 	err = jump_to_next_buf(se, resq);
-	return resq->bufstart_after + (seqnum - (resq->seqstart_current + spec_ops->opt->buf_num_elems))*spec_ops->opt->packet_size;
+	return resq->bufstart + ((long)seqnum - (long)resq->seqstart_current)*spec_ops->opt->packet_size;
       }
       else{
 	D("Packet ahead of time but in this buffer!");
 	(*(resq->inc))++;
-	/* Jump to this position. This way we are  */
+	/* Jump to this position. This way we dont have to keep a bitmap of what we have etc.  */
 	resq->i+= diff;
 	resq->current_seq = seqnum;
-	return resq->buf + (seqnum - resq->seqstart_current)*spec_ops->opt->packet_size;
+	resq->buf = resq->bufstart + ((long)seqnum - (long)resq->seqstart_current)*spec_ops->opt->packet_size;
+	return resq->buf;
       }
     }
   }
