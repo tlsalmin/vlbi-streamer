@@ -21,8 +21,8 @@ struct resq_info{
   void  *buf, *usebuf, *bufstart, *bufstart_before, *bufstart_after;
   struct buffer_entity * before;
   struct buffer_entity * after;
-  unsigned long current_seq;
-  unsigned long seqstart_current;
+  long current_seq;
+  long seqstart_current;
   int i;
   int packets_per_second;
   int current_second;

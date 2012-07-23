@@ -161,6 +161,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
   if(!(sbuf->opt->optbits & USE_RX_RING)){
     unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+    D("Trying to hog %lu MB of memory",,hog_memory/MEG);
     /* TODO: Make a check for available number of hugepages */
 #ifdef HAVE_HUGEPAGES
     if(sbuf->optbits & USE_HUGEPAGE){

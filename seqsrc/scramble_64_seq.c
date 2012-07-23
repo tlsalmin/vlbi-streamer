@@ -14,7 +14,7 @@ int main(int argc, char** argv){
   long fsize;
   long spacing;
   int scrambles;
-  long read_count, read_count_temp;
+  void* packet1,* packet2;
   struct stat st;
   if(argc < 4){
     O("Usage: %s <filename> <byte spacing> <number of scrambles>\n", argv[0]);
@@ -40,6 +40,8 @@ int main(int argc, char** argv){
   long scr1,scr2;
   count = fsize/spacing;
   O("count: %ld\n", count);
+  packet1 = malloc(spacing);
+  packet2 = malloc(spacing);
 
   /* Interchange two random seqnums scramble times	*/
   for(i=0;i < scrambles;i++){
@@ -50,25 +52,25 @@ int main(int argc, char** argv){
 
 
     lseek(fd, scr1*spacing, SEEK_SET);
-    if(read(fd, &read_count,8) < 0){
+    if(read(fd, packet1,spacing) < 0){
       O("Read error\n");
       perror("read");
       exit(-1);
     }
     lseek(fd, scr2*spacing, SEEK_SET);
-    if(read(fd, &read_count_temp,8) < 0){
+    if(read(fd, packet2,spacing) < 0){
       O("Read error\n");
       perror("read");
       exit(-1);
     }
     lseek(fd, scr2*spacing, SEEK_SET);
-    if(write(fd, &read_count,8) < 0){
+    if(write(fd, packet1,spacing) < 0){
       O("Write error\n");
       perror("write");
       exit(-1);
     }
     lseek(fd, scr1*spacing, SEEK_SET);
-    if(write(fd, &read_count_temp,8) < 0){
+    if(write(fd, packet2,spacing) < 0){
       O("Write error\n");
       perror("write");
       exit(-1);
@@ -76,7 +78,10 @@ int main(int argc, char** argv){
     if( i%4 == 0)
       fprintf(stdout, ".");
   }
+  fprintf(stdout, "Done!\n");
 
+  free(packet1);
+  free(packet2);
   if(close(fd) != 0){
     O("Error on close\n");
     exit(-1);

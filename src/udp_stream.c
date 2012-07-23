@@ -789,8 +789,9 @@ inline void free_the_buf(struct buffer_entity * be){
   pthread_mutex_unlock(be->headlock);
 }
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
+  D("Jumping to next buffer!");
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  resq->i =0;
+  resq->i=0;
   spec_ops->opt->cumul++;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
@@ -824,7 +825,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   /* Set the next seqstart to += buf_num_elems	*/
   /* This way we can keep the buffers consistent	*/
   /* without holes from the resequencing logic	*/
-  resq->seqstart_current = resq->seqstart_current + spec_ops->opt->buf_num_elems;
+  resq->seqstart_current += spec_ops->opt->buf_num_elems;
 
   resq->after = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul+1,0, NULL);
   CHECK_AND_EXIT(resq->after);
@@ -849,23 +850,29 @@ void * calc_bufpos_mark5b(void* header, struct streamer_entity* se, struct resq_
 void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_info *resq){
   /* The seqnum is the first 64bits of the packet 	*/
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  unsigned long seqnum = *((unsigned long*)header);
+  long seqnum = *(long*)((unsigned long*)header);
   seqnum = be64toh(seqnum);
 
   int err;
   //memcpy(&seqnum, header, UDPMON_SEQNUM_BYTES); 
 
   /* Preliminary case					*/
-  if (resq->current_seq == UINT64_MAX && resq->seqstart_current== UINT64_MAX){
+  if (resq->current_seq == INT64_MAX && resq->seqstart_current== INT64_MAX){
     resq->current_seq = resq->seqstart_current = seqnum;
     (*(resq->inc))++;
+    resq->i++;
+    resq->buf+= spec_ops->opt->packet_size;
     D("Got first packet with seqnum %ld",, seqnum);
     return header;
   }
   /* Packet in order					*/
   if(seqnum == resq->current_seq+1){
-    resq->current_seq +=1;
+    resq->current_seq++;
+
     (*(resq->inc))++;
+    resq->i++;
+    resq->buf+= spec_ops->opt->packet_size;
+
     return header;
   }
   else if(seqnum == resq->current_seq){
@@ -873,35 +880,49 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
     return NULL;
   }
   else{
-    long diff = (long)seqnum - (long)resq->current_seq;
-    if (diff < 0){
+    long diff_from_start = seqnum - resq->seqstart_current;
+    long diff_to_current = seqnum - resq->current_seq;
+    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %d, inc_next %d, diff_from_start %ld, diff_from_current %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc, *resq->inc_after, diff_from_start, diff_to_current);
+    if (diff_to_current < 0){
       D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
-      if(seqnum < resq->seqstart_current){
+      if(diff_from_start < 0){
 	D("Delayed beyond file. Writing to buffer_before");
 
 	if(resq->bufstart_before == NULL){
 	  E("Packet before first packet! Dropping!");
+	  spec_ops->missing++;
 	  return NULL;
 	}
-	else if (seqnum < (resq->seqstart_current - spec_ops->opt->buf_num_elems)){
+	else if (diff_from_start < -((long)spec_ops->opt->buf_num_elems)){
 	  D("Packet beyond previous buffer. Dropping");
+	  spec_ops->missing++;
 	  return NULL;
 	}
 
 	(*(resq->inc_before))++;
+
+	/* Copy to the old pos */
+	resq->usebuf = resq->bufstart_before + (spec_ops->opt->buf_num_elems + diff_from_start)*((long)spec_ops->opt->packet_size);
+	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
 	if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
 	  D("Buffer before is ready. Freeing it");
 	  free_the_buf(resq->before);
 	  resq->bufstart_before = NULL;
 	  resq->before = NULL;
 	}
-	return resq->bufstart_before + (spec_ops->opt->buf_num_elems - ((long)resq->seqstart_current - (long)seqnum))*spec_ops->opt->packet_size;
+	return NULL;
       }
       else{
-	D("Packet out of order, but inside this buffer. Shifting current to this");
+	D("Packet out of order, but inside this buffer.");
 	//resq->current_seq = seqnum;
 	(*(resq->inc))++;
-	return (resq->bufstart + ((long)seqnum - (long)seqnum-resq->seqstart_current)*spec_ops->opt->packet_size);
+
+	resq->usebuf = (resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size);
+	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
+	D("Position minus %ld",, (diff_to_current));
+	return NULL;
       }
       /*
       */
@@ -909,25 +930,44 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
     /* seqnum > current */
     else{
       D("Seqnum larger than current: %ld, old seqnum: %ld",, seqnum, resq->current_seq);
-      if (seqnum >= resq->seqstart_current+spec_ops->opt->buf_num_elems){
+      if (diff_from_start >= spec_ops->opt->buf_num_elems){
 	D("Packet ahead of time beyond this buffer!");
-	if(seqnum > resq->seqstart_current+spec_ops->opt->buf_num_elems*2){
+	if(diff_from_start >= spec_ops->opt->buf_num_elems*2){
 	  D("Packet is way beyond buffer after. Dropping!");
+	  spec_ops->missing++;
 	  return NULL;
 	}
 	/* Need to jump to next buffer in this case */
 	(*(resq->inc_after))++;
+
+	long i_from_next_seqstart = diff_from_start - (long)spec_ops->opt->buf_num_elems;
+	resq->usebuf = resq->bufstart_after + (i_from_next_seqstart)*spec_ops->opt->packet_size;
+	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
 	err = jump_to_next_buf(se, resq);
-	return resq->bufstart + ((long)seqnum - (long)resq->seqstart_current)*spec_ops->opt->packet_size;
+
+
+	/* Move diff up as thought we'd be receiving normally at the new position 	*/
+	resq->current_seq = seqnum;
+	resq->i+=i_from_next_seqstart;
+	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
+
+	return NULL;
       }
       else{
 	D("Packet ahead of time but in this buffer!");
 	(*(resq->inc))++;
 	/* Jump to this position. This way we dont have to keep a bitmap of what we have etc.  */
-	resq->i+= diff;
+
+	//resq->usebuf = resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size;
+	resq->usebuf = resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size;
+	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
+	resq->i+= diff_to_current;
 	resq->current_seq = seqnum;
-	resq->buf = resq->bufstart + ((long)seqnum - (long)resq->seqstart_current)*spec_ops->opt->packet_size;
-	return resq->buf;
+	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
+
+	return NULL;
       }
     }
   }
@@ -966,10 +1006,10 @@ void* udp_receiver(void *streamo)
 
     /* Set up preliminaries to -1 so we know to	*/
     /* init this in the calcpos			*/
-    resq->current_seq= UINT64_MAX;
+    resq->current_seq= INT64_MAX;
     resq->packets_per_second = -1;
     resq->current_second = -1;
-    resq->seqstart_current = UINT64_MAX;
+    resq->seqstart_current = INT64_MAX;
 
     resq->usebuf = NULL;
     resq->bufstart = resq->buf;
@@ -993,6 +1033,7 @@ void* udp_receiver(void *streamo)
 
 
       if(spec_ops->calc_bufpos != NULL){
+	D("Jumping to next buffer normally");
 	err = jump_to_next_buf(se, resq);
 	if(err < 0){
 	  E("Error in jump to next");
@@ -1024,38 +1065,43 @@ void* udp_receiver(void *streamo)
       break;
     }
     else if((long unsigned)err != spec_ops->opt->packet_size){
-      E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
-      spec_ops->incomplete++;
+      if(spec_ops->running == 1){
+	E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
+	spec_ops->incomplete++;
+      }
     }
     /* Success! */
     else if(spec_ops->running==1){
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
-      resq->i++;
 
       /* Check if we have a func for checking the	*/
       /* correct sequence from the header		*/
       if(spec_ops->calc_bufpos != NULL){
 	/* Calc the position we should have		*/
-	resq->usebuf = spec_ops->calc_bufpos(resq->buf, se, resq);
+	//resq->usebuf = spec_ops->calc_bufpos(resq->buf, se, resq);
+	spec_ops->calc_bufpos(resq->buf, se, resq);
+	/*
 	if(resq->usebuf == NULL){
 	  D("Packet too much out of sequence!");
 	  spec_ops->missing++;
 	}
 	else if (resq->usebuf == resq->buf){
-	  /* Packet in order! */
-	  resq->buf+=spec_ops->opt->packet_size;
+	  // Packet in order! 
+	  //resq->buf+=spec_ops->opt->packet_size;
 	  //(*inc)++;
 	}
 	else{
-	/* Packet out of order. Memcopying to place */
+	// Packet out of order. Memcopying to place 
 	  memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
 	}
+	*/
       }
       else{
 	/* Ignore datatype and just be happy	*/
 	resq->buf+=spec_ops->opt->packet_size;
 	(*(resq->inc))++;
+	resq->i++;
 
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
