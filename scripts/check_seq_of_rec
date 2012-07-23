@@ -7,6 +7,9 @@ for i in  /mnt/disk*
 do
   for j in $i/$RECNAME/$RECNAME.0*
   do
-    seqsrc/check_64_seq $j $PSIZE
+    if [ -a $j ]
+    then
+      seqsrc/check_64_seq $j $PSIZE
+    fi
   done
 done
