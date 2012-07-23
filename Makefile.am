@@ -30,4 +30,4 @@ install-data-hook:
 ## language-specific options.
 #AM_CPPFLAGS = $(PTHREAD_LIBS) $(LIBAIO_LIBS)
 
-SUBDIRS = src
+SUBDIRS = src seqsrc

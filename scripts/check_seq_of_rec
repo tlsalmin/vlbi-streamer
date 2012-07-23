@@ -1,0 +1,12 @@
+#!/bin/bash
+RECNAME=$1
+PSIZE=`cat /mnt/disk0/$RECNAME/$RECNAME.cfg |grep packet_size|awk '{print $3}'|sed 's/[^0-9]//g'`
+echo $PSIZE
+
+for i in  /mnt/disk*
+do
+  for j in $i/$RECNAME/$RECNAME.0*
+  do
+    seqsrc/check_64_seq $j $PSIZE
+  done
+done
