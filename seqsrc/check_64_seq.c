@@ -57,8 +57,6 @@ int main(int argc, char** argv){
       fprintf(stdout, "\nDiscrepancy as count is %ld and read_count is %ld\n",count, read_count);
       count = read_count;
     }
-    if( i%1024 == 0)
-      fprintf(stdout, ".");
     count++;
   }
   fprintf(stdout, "Done!\n");
