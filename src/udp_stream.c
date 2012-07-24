@@ -337,9 +337,11 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
       spec_ops->calc_bufpos = calc_bufpos_mark5b;
     else if(spec_ops->opt->optbits & DATATYPE_UDPMON)
       spec_ops->calc_bufpos = calc_bufpos_udpmon;
-    else
+    else{
+      spec_ops->calc_bufpos = NULL;
       E("Unknown datatype not set, but no other either!");
     }
+  }
   else
     spec_ops->calc_bufpos = NULL;
 

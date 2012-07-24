@@ -192,28 +192,33 @@ int start_scheduled(struct schedule *sched){
   GETTIME(time_now);
   struct scheduled_event * ev;
   //struct scheduled_event * parent = NULL;
-  for(ev = sched->scheduled_head;ev != NULL;ev = ev->next){
-    if((ev->opt->starting_time.tv_sec == 0) || ((tdif = get_sec_diff(&time_now, &ev->opt->starting_time)) <= SECS_TO_START_IN_ADVANCE)){
-      //TODO: remove old stuff 
-      if(!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time))){
-	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, -tdif);
-	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
-	remove_recording(ev,&(sched->scheduled_head));
+  for(ev = sched->scheduled_head;ev != NULL;){
+    tdif = get_sec_diff(&time_now, &ev->opt->starting_time);
+    if(ev->opt->starting_time.tv_sec == 0 || tdif <= SECS_TO_START_IN_ADVANCE){
+      struct scheduled_event * ev_temp = ev;
+      ev = ev->next;
+      /* Removes old stuff. IF tv_sec is 0, should start immediately */
+      if(ev_temp->opt->starting_time.tv_sec != 0 && (!(ev_temp->opt->optbits & READMODE) && (tdif < -((long)ev_temp->opt->time)))){
+	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev_temp->opt->filename, -tdif);
+	LOG("Start time %lu\n", ev_temp->opt->starting_time.tv_sec);
+	remove_recording(ev_temp,&(sched->scheduled_head));
 	continue;
       }
-      LOG("Starting event %s\n", ev->opt->filename);
+      LOG("Starting event %s\n", ev_temp->opt->filename);
       sched->n_scheduled--;
-      err = start_event(ev);
+      err = start_event(ev_temp);
       if(err != 0){
-	E("Something went wrong in recording %s start",, ev->opt->filename);
-	remove_recording(ev,&(sched->scheduled_head));
+	E("Something went wrong in recording %s start",, ev_temp->opt->filename);
+	remove_recording(ev_temp,&(sched->scheduled_head));
 	}
       else{
-      change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
+      change_sched_branch(&sched->scheduled_head, &sched->running_head, ev_temp);
       sched->n_running++;
       }
       //set_running(sched, ev, parent);
     }
+    else
+      ev = ev->next;
     //parent = ev;
   }
   return 0;
@@ -330,7 +335,7 @@ int check_schedule(struct schedule *sched){
   /* If theres a new one: Add it to the scheduled			*/
   /* If one that was there is now missing, remove it from schedule	*/
   /* else just set the events found to 1				*/
-  for(i=0;setting != NULL;setting=config_setting_get_elem(root,++i)){
+  for(setting=config_setting_get_elem(root,i);setting != NULL;setting=config_setting_get_elem(root,++i)){
     temp = get_event_by_name(config_setting_name(setting), sched);
     /* New scheduled recording! 					*/
     if(temp == NULL){
@@ -338,8 +343,10 @@ int check_schedule(struct schedule *sched){
       err = add_recording(setting, sched);
       CHECK_ERR("Add recording");
     }
-    else
+    else{
+      D("Found ye olde");
       temp->found = 1;
+    }
   }
   while((temp = get_not_found(sched->scheduled_head)) != NULL){
     LOG("Recording %s removed from schedule\n", temp->opt->filename);
@@ -354,7 +361,7 @@ int check_schedule(struct schedule *sched){
   }
   zerofound(sched);
   config_destroy(&cfg);
-  D("Nada");
+  D("Done checking schedule");
 
   return 0;
 }
