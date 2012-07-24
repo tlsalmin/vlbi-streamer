@@ -1051,9 +1051,7 @@ static void usage(char *binary){
       "-m {s|r}	Send or Receive the data(Default: receive)\n"
       //"-n NUM	        Number of threads(Default: DRIVES+2)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
-#ifdef CHECK_OUT_OF_ORDER
       "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)\n"
-#endif
       //"-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
