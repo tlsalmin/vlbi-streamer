@@ -834,8 +834,12 @@ int init_cfg(struct opt_s *opt){
   }
   else{
     /* Set the root and other settings we need */
+    /* NOTE: Done when closing */
+    /*
     root = config_root_setting(&(opt->cfg));
+    CHECK_ERR_NONNULL(root, "Get root");
     stub_rec_cfg(root, NULL);
+    */
   }
   D("CFG init done");
   return 0;
