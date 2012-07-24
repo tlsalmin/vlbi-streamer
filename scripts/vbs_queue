@@ -8,7 +8,7 @@ OPTIONS:
       -d DRIVES		Number of drives(Default: 1)
       -i INTERFACE	Which interface to bind to(Not required)
       -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
-      -q 		Check if packets are in order from first 64bits of package(Not yet implemented)
+      -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)(Only UDPMON supporteed atm.)
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
       -u 		Use hugepages
@@ -84,7 +84,7 @@ do
       ;;
     -q)
       EXTRAOPS="$EXTRAOPS
-      check_sequence = 1;"
+      datatype = $2;"
       ;;
     -r)
       EXTRAOPS="$EXTRAOPS

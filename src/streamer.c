@@ -413,7 +413,8 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   D("Option root parse, check: %d, write %d",,check,write);
   config_setting_t * setting;
   int err=0,index=0,filesize_found=0;
-  unsigned long filesize;
+  /* filesize is deprecated! */
+  unsigned long filesize = 0;
   /* If no root specified, use opt->cfg root */
   if(root == NULL)
     root = config_root_setting(&(opt->cfg));
@@ -633,6 +634,58 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));
+	  return -1;
+	}
+      }
+    }
+    CFG_ELIF("datatype"){
+      if(config_setting_type(setting) != CONFIG_TYPE_STRING){
+	E("datatype type not correct");
+	return -1;
+      }
+      if(check==1){
+	/* Do nothing! */ 
+      }
+      else if(write==1){
+	switch(opt->optbits & LOCKER_DATATYPE){
+	  case DATATYPE_UNKNOWN:
+	    err = config_setting_set_string(setting, "unknown");
+	    break;
+	  case DATATYPE_VDIF:
+	    err = config_setting_set_string(setting, "vdif");
+	    break;
+	  case DATATYPE_MARK5B:
+	    err = config_setting_set_string(setting, "mark5b");
+	    break;
+	  case DATATYPE_UDPMON:
+	    err = config_setting_set_string(setting, "udpmon");
+	    break;
+	  default:
+	    E("Unknown datatype");
+	    return -1;
+	}
+	CHECK_CFG("datatype");
+      }
+      else{
+	opt->optbits &= ~LOCKER_DATATYPE;
+	if (!strcmp(config_setting_get_string(setting), "unknown")){
+	  //opt->capture_type = CAPTURE_W_FANOUT;
+	  opt->optbits |= DATATYPE_UNKNOWN;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "vdif")){
+	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
+	  opt->optbits |= DATATYPE_VDIF;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "mark5b")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= DATATYPE_MARK5B;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "udpmon")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= DATATYPE_UDPMON;
+	}
+	else {
+	  LOGERR("Unknown data type [%s]\n", config_setting_get_string(setting));
 	  return -1;
 	}
       }
@@ -1184,6 +1237,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->n_threads = 0;
   opt->n_drives = 1;
   opt->packet_size = DEF_BUF_ELEM_SIZE;
+  opt->optbits |= DATATYPE_UNKNOWN;
   opt->cumul_found = 0;
 
   //opt->optbits |=USE_RX_RING;
