@@ -28,7 +28,7 @@ do
   case $1 in
     -a) 
       EXTRAOPS="$EXTRAOPS
-      wait_nanosecods = $(($2*1000));"
+      wait_nanoseconds = $(($2*1000));"
       shift
       ;;
     -c)
