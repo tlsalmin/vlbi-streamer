@@ -126,7 +126,7 @@ fi
 
 #A 12 char random string is used to identify a request
 #stolen from http://nixcraft.com/shell-scripting/13454-command-generate-random-password-string.html
-echo "`tr -dc A-Za-z0-9_ < /dev/urandom |head -c 12` =
+echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
 {
   filename = \"$RECNAME\";
   $CONFSTART
