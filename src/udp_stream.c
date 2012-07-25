@@ -821,17 +821,25 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
-  se->be = resq->after;
-  resq->buf = resq->bufstart = resq->bufstart_after;
-  resq->inc = resq->inc_after;
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul,0, NULL);
+  CHECK_AND_EXIT(se->be);
+  resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   /* Set the next seqstart to += buf_num_elems	*/
   /* This way we can keep the buffers consistent	*/
   /* without holes from the resequencing logic	*/
   resq->seqstart_current += spec_ops->opt->buf_num_elems;
 
+  /*
+  se->be = resq->after;
+  resq->buf = resq->bufstart = resq->bufstart_after;
+  resq->inc = resq->inc_after;
+  */
+
+  /*
   resq->after = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul+1,0, NULL);
   CHECK_AND_EXIT(resq->after);
   resq->bufstart_after = resq->after->simple_get_writebuf(resq->after, &resq->inc_after);
+  */
 
   return 0;
 }
@@ -884,7 +892,7 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
   else{
     long diff_from_start = seqnum - resq->seqstart_current;
     long diff_to_current = seqnum - resq->current_seq;
-    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %d, inc_next %d, diff_from_start %ld, diff_from_current %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc, *resq->inc_after, diff_from_start, diff_to_current);
+    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %d,  diff_from_start %ld, diff_from_current %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current);
     if (diff_to_current < 0){
       D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
       if(diff_from_start < 0){
@@ -940,15 +948,17 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
 	  return NULL;
 	}
 	/* Need to jump to next buffer in this case */
-	(*(resq->inc_after))++;
 
 	long i_from_next_seqstart = diff_from_start - (long)spec_ops->opt->buf_num_elems;
-	resq->usebuf = resq->bufstart_after + (i_from_next_seqstart)*spec_ops->opt->packet_size;
-	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+	/* Save pointer to packet		*/
+	void* origbuf = resq->buf;
 
 	err = jump_to_next_buf(se, resq);
 
+	resq->usebuf = resq->bufstart + (i_from_next_seqstart)*spec_ops->opt->packet_size;
+	memcpy(resq->usebuf, origbuf, spec_ops->opt->packet_size);
 
+	(*(resq->inc))++;
 	/* Move diff up as thought we'd be receiving normally at the new position 	*/
 	resq->current_seq = seqnum;
 	resq->i+=i_from_next_seqstart;
@@ -1019,10 +1029,6 @@ void* udp_receiver(void *streamo)
     /* First buffer so before is null 	*/
     resq->bufstart_before = NULL;
     resq->before = NULL;
-    /* Grab an afterbuffer		*/
-    resq->after = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul+1,0, NULL);
-    CHECK_AND_EXIT(resq->after);
-    resq->bufstart_after = resq->after->simple_get_writebuf(resq->after, &resq->inc_after);
   }
 
 #if(DEBUG_OUTPUT)
@@ -1115,9 +1121,6 @@ void* udp_receiver(void *streamo)
     *(resq->inc_before) = spec_ops->opt->buf_num_elems;
     free_the_buf(resq->before);
   }
-  if(resq->after != NULL)
-    free_the_buf(resq->after);
-
   if(*(resq->inc) == 0)
     se->be->cancel_writebuf(se->be);
   else{
