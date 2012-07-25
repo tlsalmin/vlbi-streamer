@@ -54,8 +54,8 @@ int main(int argc, char** argv){
     }
     read_count = be64toh(read_count);
     if(count != read_count){
-      fprintf(stdout, "\nDiscrepancy as count is %ld and read_count is %ld\n",count, read_count);
-      count = read_count;
+      fprintf(stdout, "Discrepancy as count is %ld and read_count is %ld\n",count, read_count);
+      //count = read_count;
     }
     count++;
   }
