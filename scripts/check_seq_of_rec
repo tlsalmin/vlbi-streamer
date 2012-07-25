@@ -9,7 +9,7 @@ do
   do
     if [ -e "$j" ]
     then
-      seqsrc/check_64_seq $j $PSIZE
+      check_64_seq $j $PSIZE
     fi
   done
 done
