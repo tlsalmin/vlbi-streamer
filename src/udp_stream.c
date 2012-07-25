@@ -321,14 +321,6 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 
   spec_ops->opt = opt;
 
-  if(spec_ops->opt->optbits & READMODE){
-#ifdef HAVE_RATELIMITER
-    /* Making this a pointer, so we can later adjust it accordingly */
-    //spec_ops->wait_nanoseconds = &(opt->wait_nanoseconds);
-    //spec_ops->opt->wait_last_sent = &(opt->wait_last_sent);
-#endif
-    //TODO: Get packet index in main by checking all writers
-  }
   if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
     /* TODO: Other than VDIF */
     if(spec_ops->opt->optbits & DATATYPE_VDIF)
@@ -484,6 +476,7 @@ void * udp_sender(void *streamo){
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
+  D("Wait between is %d here",, spec_ops->opt->wait_nanoseconds);
 
   /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
   int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
@@ -576,7 +569,7 @@ void * udp_sender(void *streamo){
       i=0;
     }
 #ifdef HAVE_RATELIMITER
-    if(spec_ops->opt->optbits & WAIT_BETWEEN){
+    if(spec_ops->opt->wait_nanoseconds > 0){
       //clock_gettime(CLOCK_REALTIME, &now);
       GETTIME(st.now);
 #if(SEND_DEBUG)

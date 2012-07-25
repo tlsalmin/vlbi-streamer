@@ -54,7 +54,7 @@
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
 
-#define WAIT_BETWEEN		B(16)
+//#define WAIT_BETWEEN		B(16)
 #define VERBOSE			B(17)
 #define MOUNTPOINT_VERBOSE	B(18)
 #define SIMPLE_BUFFER		B(19)

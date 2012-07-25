@@ -1353,7 +1353,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	*/
       case 'a':
 #ifdef HAVE_RATELIMITER
-	opt->optbits |= WAIT_BETWEEN;
+	//opt->optbits |= WAIT_BETWEEN;
 	opt->wait_nanoseconds = atoi(optarg)*1000;
 	ZEROTIME(opt->wait_last_sent);
 #else
