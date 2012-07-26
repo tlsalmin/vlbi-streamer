@@ -20,7 +20,6 @@ then
   echo ""
   echo "Errors in parameters of recording $RECNAME" >> $LOGFILE
 else
-  #TODO: What date format people want?
-  echo "`date`:Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
+  echo "Recording added OK"
 fi
 exit 0

@@ -91,7 +91,7 @@ do
       rate = $2;"
       shift
       ;;
-    -*) echo "Unknown argument $1";usage;exit 1;;
+    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
   *) eval "arg_$n=$1";n=$(($n+1));;
 esac
 shift
@@ -107,16 +107,19 @@ then
   DUR=`getent ahosts $arg_2 | head -1 |awk '{print $1}' | uniq`
   CONFSTART="hostname = \"$DUR\";
   record = 0;"
+  echo "`date`: Added streaming named $RECNAME to send to $DUR" >> $LOGFILE
 else
   DUR=$arg_2
   CONFSTART="time = $(($DUR))L;
   record = 1;"
+  echo "`date`: Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
 fi
 
 if [ -z "$RECNAME" ] || [ -z "$DUR" ]
 then
   echo "Record name or destination/duration missing"
   usage
+  echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE
   exit  1
 fi
 if [ -z "$STIME" ]
@@ -134,5 +137,4 @@ echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
 };
 " >> $SCHEDULE
 #TODO: What date format people want?
-#echo "`date` :Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
 exit 0

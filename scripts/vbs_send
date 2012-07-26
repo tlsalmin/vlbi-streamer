@@ -19,6 +19,5 @@ then
   echo ""
   echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE
 else
-  #TODO: What date format people want?
-  echo "`date` :Added streaming named $RECNAME to send to $DUR" >> $LOGFILE
+  echo "Streaming added OK"
 fi
