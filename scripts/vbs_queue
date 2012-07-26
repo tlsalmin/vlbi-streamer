@@ -104,6 +104,15 @@ CONFSTART=""
 if [ $RECORD -eq 0 ]
 then
   #TODO: Not sure if this works every diggidi time
+  getent ahosts $arg_2 &> /dev/null
+  if [ $? -ne 0 ]
+  then
+    usage
+    echo "Couldnt resolve hostname $DUR"
+    echo "Couldnt resolve hostname $DUR" >> $LOGFILE
+    exit 1
+  fi
+
   DUR=`getent ahosts $arg_2 | head -1 |awk '{print $1}' | uniq`
   CONFSTART="hostname = \"$DUR\";
   record = 0;"
