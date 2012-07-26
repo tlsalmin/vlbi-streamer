@@ -2,7 +2,7 @@
 #Size of pages in KB
 HUGESIZE=2048
 #Buffer size in GB
-BUFFERSIZE=10
+BUFFERSIZE=12
 G=G
 NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
 if [ -z "$1" ]
@@ -13,7 +13,7 @@ fi
 if [ -z "$2" ]
 then
   echo "Not setting gid"
-  exit 1
+  THE_GID=$(getent group $1 | cut -d: -f3)
 else
   THE_GID=$(getent group $2 | cut -d: -f3)
 fi
@@ -24,10 +24,6 @@ if [ ! -d "/mnt/huge" ]
 then
   mkdir /mnt/huge
 fi
-#if [ -z "$2" ]
-#then
-  #$(mount -t hugetlbfs -o uid=$THE_USER_ID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
-#else
-  $(mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
-#fi
+
+$(mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
 exit 0

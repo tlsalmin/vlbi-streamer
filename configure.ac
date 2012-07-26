@@ -104,7 +104,7 @@ AC_MSG_CHECKING([--group argument])
 AC_ARG_ENABLE(group,
     [  --enable-group         Set the group.(default flexbuf)],
     [group=$enableval],
-    [group="flexbuf"])
+    [group=$user])
 AC_MSG_RESULT($group)
 GROUP=$group
 AC_SUBST(GROUP)
