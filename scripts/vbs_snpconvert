@@ -1,4 +1,18 @@
 #!/bin/bash
+usage()
+{
+cat << EOF
+
+$0 adds vlbistreamer commands to a snp-file. The output is a new snp-file with the name augmented to <snp>vbs.snp and a separate <snp>.recqueue script. The recqueue scripts can be run to queue the recording schedule to the vlbistreamer server.
+
+If no host is given, the script will presume a vlbistreamer instance is running on localhost.
+
+usage: $0 <snp-file> <options>
+
+Options:
+  -h <host> Prepare queue script for specific host
+EOF
+}
 #Go through params
 VLBIHOST=ara.vlbi
 VBS_QUEUE=vbs_record
@@ -9,6 +23,7 @@ do
     -h) 
       VLBIHOST=$2
       REMOTER="ssh $VLBIHOST"
+      shift
       ;;
     -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
   *) eval "arg_$n=$1";n=$(($n+1));;
@@ -16,7 +31,7 @@ esac
 shift
 done
 if [ "$arg_1" == "" ]; then 
-  echo "Syntax: $0 <snapfile>"
+  usage
   exit -1
 fi
 SNP=$arg_1
@@ -75,7 +90,7 @@ do
   sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
-  if [ ! -z $REMOTER ]
+  if [ ! -z "$REMOTER" ]
   then
     echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
   else
