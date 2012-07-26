@@ -1,0 +1,6 @@
+#!/bin/bash
+SCHEDULE=temp/vlbischedule
+LOGFILE=temp/vlbistreamer.log
+
+echo "" > $SCHEDULE
+echo "Manually cleared schedule" >> $LOGFILE
