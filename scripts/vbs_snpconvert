@@ -1,20 +1,34 @@
 #!/bin/bash
-if [ "$1" == "" ]; then 
+#Go through params
+VLBIHOST=ara.vlbi
+VBS_QUEUE=vbs_record
+n=1
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -h) 
+      VLBIHOST=$2
+      REMOTER="ssh $VLBIHOST"
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
+done
+if [ "$arg_1" == "" ]; then 
   echo "Syntax: $0 <snapfile>"
   exit -1
 fi
-SNP=$1
-if [ ! -z "$2" ]; then
+SNP=$arg_1
+if [ ! -z "$arg_2" ]; then
   #EXTRAOUT=`echo $SNP|sed 's/\(.*\)\.snp/\1\.vbs/'`
-  EXTRAOUT=$2
+  EXTRAOUT=$arg_2
   echo "#!/bin/bash" > $EXTRAOUT
 else
-  EXTRAOUT="$1_recqueue"
+  EXTRAOUT=$arg_1".recqueue"
 fi
 
-VLBIHOST=ara.vlbi
-VBS_QUEUE=vbs_record
-REMOTER="ssh $VLBIHOST"
+#REMOTER="ssh $VLBIHOST"
 I=1
 #SNAMEVAR=scan_name
 
@@ -29,6 +43,12 @@ cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
 
 # get end times
 #cat $SNP | grep data_valid=off -1 | grep ! | sed -n -e 's/[!.]/ /gp'|sed -n -e 's/[:.]/ /gp' > ./endtimes
+if [ -e $EXTRAOUT ]
+then
+  echo "Emptying old file $EXTRAOUT"
+  echo "#!/bin/bash" > $EXTRAOUT
+fi
+
 
 #echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'
 NEWFILE=`echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'`
@@ -55,9 +75,12 @@ do
   sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
-  if [ ! -z $EXTRAOUT ]
+  if [ ! -z $REMOTER ]
   then
     echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
+  else
+    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH >> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes
+chmod +x $EXTRAOUT
