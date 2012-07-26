@@ -2008,6 +2008,7 @@ int main(int argc, char **argv)
 	 sleeptodo = 0;
 	 }
 	 */
+      fflush(stdout);
     }
     free(stats_now);
     free(stats_prev);

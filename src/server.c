@@ -490,6 +490,7 @@ int main(int argc, char **argv)
     CHECK_ERR("check finished");
     /*Remove when ready to test properly				*/
     //is_running=0;
+    fflush(stdout);
   }
 
   inotify_rm_watch(i_fd, w_fd);
