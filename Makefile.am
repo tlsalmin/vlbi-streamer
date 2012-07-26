@@ -11,11 +11,11 @@ log_DATA = vlbistreamer.log
 bin_SCRIPTS = scripts/*
 
 install-data-hook:
-	chown -R @USER@ $(rundir)
+	chown -R @USER@:@GROUP@ $(rundir)
 	chmod -R u+rw $(rundir)
-	chown @USER@ $(cfgdir)/vlbistreamer.conf
+	chown @USER@:@GROUP@ $(cfgdir)/vlbistreamer.conf
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
-	chown @USER@ $(logdir)/vlbistreamer.log
+	chown @USER@:@GROUP@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_queue
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_queue

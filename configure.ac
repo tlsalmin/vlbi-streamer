@@ -93,12 +93,21 @@ AM_CONDITIONAL([SEND_DEBUG], [test "${enable_senddebug}" = "yes"])
 
 AC_MSG_CHECKING([--user argument])
 AC_ARG_ENABLE(user,
-    [  --enable-user         Set the user.],
+    [  --enable-user         Set the user.(default oper)],
     [user=$enableval],
     [user="oper"])
 AC_MSG_RESULT($user)
 USER=$user
 AC_SUBST(USER)
+
+AC_MSG_CHECKING([--group argument])
+AC_ARG_ENABLE(group,
+    [  --enable-group         Set the group.(default flexbuf)],
+    [group=$enableval],
+    [group="flexbuf"])
+AC_MSG_RESULT($group)
+GROUP=$group
+AC_SUBST(GROUP)
 
 AC_ARG_VAR([ROOTDIRS], [Prefix for disks organized as prefix<n>.
                          Default = "/mnt/disk" >= disks are /mnt/disk0..n])

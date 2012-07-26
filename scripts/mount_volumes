@@ -11,8 +11,8 @@ MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 #DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 DRIVES=($(echo sd{a..z} sda{a..j}))
 #Hey guys
-GROUP=oper
-USER=oper
+USER=tlsalmin
+GROUP=flexbuf
 k=0
 for i in "${DRIVES[@]}"
 do

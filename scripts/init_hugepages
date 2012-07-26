@@ -2,13 +2,20 @@
 #Size of pages in KB
 HUGESIZE=2048
 #Buffer size in GB
-BUFFERSIZE=12
+BUFFERSIZE=10
 G=G
 NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
 if [ -z "$1" ]
 then
   echo "Please give streamer uid as parameters"
   exit 0
+fi
+if [ -z "$2" ]
+then
+  echo "Not setting gid"
+  exit 1
+else
+  THE_GID=$(getent group $2 | cut -d: -f3)
 fi
 THE_USER_ID=$(id -u $1)
 echo "Setting and creating $NR_HUGE of $HUGESIZE KB pages"
@@ -17,4 +24,10 @@ if [ ! -d "/mnt/huge" ]
 then
   mkdir /mnt/huge
 fi
-$(mount -t hugetlbfs -o uid=$THE_USER_ID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
+#if [ -z "$2" ]
+#then
+  #$(mount -t hugetlbfs -o uid=$THE_USER_ID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
+#else
+  $(mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
+#fi
+exit 0
