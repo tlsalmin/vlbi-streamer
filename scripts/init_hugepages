@@ -1,23 +1,76 @@
 #!/bin/bash
 #Size of pages in KB
+usage()
+{
+cat << EOF
+OPTIONS:
+  -s GIGABYTES	Reserve GIGABYTES of hugepage memory
+  -c		Read GIGABYTES amount from vlbistreamer default config
+EOF
+}
+
 HUGESIZE=2048
 #Buffer size in GB
 BUFFERSIZE=12
 G=G
-NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
-if [ -z "$1" ]
+USER=replaceme
+GROUP=replaceme
+CFGFILE=vlbistreamer.conf
+
+n=1
+#-------------------------------------------------------------------------------
+#  Parse options
+#-------------------------------------------------------------------------------
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -s)
+      BUFFERSIZE=$2
+      shift
+      ;;
+    -c)
+      if [ ! -f $CFGFILE ]; then
+	echo "Config file not found $CFGFILE"
+	exit 1
+      fi
+      BUFFERSIZE=$(grep maxmem $CFGFILE |awk '{print $3}'|cut -d 'L' -f1)
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
+done
+
+
+
+#If given param 1, its the user
+if [ ! -z "$arg_1" ]
 then
+  USER=$arg_1
+fi
+#Check if user is set at all
+
+if [ "$USER" = "replaceme" ] ; then
   echo "Please give streamer uid as parameters"
-  exit 0
+  echo "Or let make install place ./configure --enable-user=<user> here"
+  exit 1
 fi
-if [ -z "$2" ]
+
+#if given param 2, its the group
+if [ ! -z "$arg_2" ]
 then
-  echo "Not setting gid"
-  THE_GID=$(getent group $1 | cut -d: -f3)
-else
-  THE_GID=$(getent group $2 | cut -d: -f3)
+  GROUP=$arg_2
 fi
-THE_USER_ID=$(id -u $1)
+if [ "$GROUP" = "replaceme" ] ; then
+  echo "Not setting gid"
+  THE_GID=$(getent group $USER | cut -d: -f3)
+else
+  THE_GID=$(getent group $GROUP | cut -d: -f3)
+fi
+THE_USER_ID=$(id -u $USER)
+
+NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
+
 echo "Setting and creating $NR_HUGE of $HUGESIZE KB pages"
 echo $NR_HUGE > /proc/sys/vm/nr_hugepages
 if [ ! -d "/mnt/huge" ]

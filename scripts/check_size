@@ -1,0 +1,14 @@
+#!/bin/bash
+RECORDING=$1
+
+SUM=0
+
+for i in /mnt/disk*
+do
+  if [ -d $i/$RECORDING ]
+  then
+    SUM=$(($SUM + `ls -l $i/$RECORDING |awk '{print $5}'|paste -sd+`))
+  fi
+done
+
+echo $SUM B, $(($SUM/(1024*1024)))MB, $((SUM/(1024*1024*1024)))GB
