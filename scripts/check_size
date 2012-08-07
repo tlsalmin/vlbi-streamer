@@ -7,7 +7,10 @@ for i in /mnt/disk*
 do
   if [ -d $i/$RECORDING ]
   then
-    SUM=$(($SUM + `ls -l $i/$RECORDING |awk '{print $5}'|paste -sd+`))
+    for j in $i/$RECORDING/*
+    do
+      SUM=$(($SUM+`stat $j -c %s`))
+    done
   fi
 done
 

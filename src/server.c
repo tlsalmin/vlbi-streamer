@@ -18,12 +18,12 @@
 #define SECS_TO_START_IN_ADVANCE 1
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
 #define IDSTRING_LENGTH 24
-//stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
 
 struct scheduled_event{
   struct opt_s * opt;
   struct scheduled_event* next;
+  struct stats* stats;
   char * idstring;
   pthread_t pt;
   int found;
@@ -180,6 +180,10 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
 int start_event(struct scheduled_event *ev){
   int err;
   ev->opt->status = STATUS_RUNNING;
+  if(ev->opt->optbits & VERBOSE){
+    ev->stats = (struct stats*)malloc(sizeof(struct stats));
+    init_stats(ev->stats);
+  }
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
@@ -212,8 +216,8 @@ int start_scheduled(struct schedule *sched){
 	remove_recording(ev_temp,&(sched->scheduled_head));
 	}
       else{
-      change_sched_branch(&sched->scheduled_head, &sched->running_head, ev_temp);
-      sched->n_running++;
+	change_sched_branch(&sched->scheduled_head, &sched->running_head, ev_temp);
+	sched->n_running++;
       }
       //set_running(sched, ev, parent);
     }
@@ -301,6 +305,10 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     free_and_close(se);
     return 0;
   }
+
+  /* Null here, set in initializer. */
+  opt->get_stats = NULL;
+
   LOG("New request is for session: %s\n", opt->filename);
   D("Opts checked, port is %d",, opt->port);
   //config_init(&(opt->cfg));
@@ -388,8 +396,11 @@ int check_finished(struct schedule* sched){
     struct scheduled_event *temp = ev->next;
     if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED)){
       //err = close_recording(sched, ev);
+      if(ev->opt->optbits & VERBOSE)
+	free(ev->stats);
       err = remove_recording(ev, &(sched->running_head));
       CHECK_ERR("close recording");
+      sched->n_running--;
     }
     ev = temp;
   }
@@ -399,7 +410,10 @@ int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
 
+  struct stats* tempstats;//, stats_temp;
+
   struct schedule *sched = malloc(sizeof(struct schedule));
+  TIMERTYPE *temptime;
   CHECK_ERR_NONNULL(sched, "Sched malloc");
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
@@ -418,6 +432,8 @@ int main(int argc, char **argv)
   clear_and_default(sched->default_opt,1);
 
   LOG("Running in daemon mode\n");
+
+//stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
   sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
   sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
@@ -463,13 +479,22 @@ int main(int argc, char **argv)
   err = check_schedule(sched);
   CHECK_ERR("Checked schedule");
 
+  if(sched->default_opt->optbits & VERBOSE){
+    tempstats = (struct stats*)malloc(sizeof(struct stats));
+    CHECK_ERR_NONNULL(tempstats, "stats malloc");
+    init_stats(tempstats);
+    LOG("STREAMER: Printing stats per second\n");
+    LOG("----------------------------------------\n");
+    temptime = (TIMERTYPE*)malloc(sizeof(TIMERTYPE));
+  }
+
   LOG("Running..\n");
   while(sched->running == 1)
   {
     err = start_scheduled(sched);
     CHECK_ERR("Start scheduled");
     /* Check for changes 						*/
-    err = poll(pfd, 1, 5000);
+    err = poll(pfd, 1, 1000);
     if(err < 0){
       perror("Poll");
       sched->running = 0;
@@ -488,9 +513,42 @@ int main(int argc, char **argv)
       D("Nothing happened on schedule file");
     err = check_finished(sched);
     CHECK_ERR("check finished");
-    /*Remove when ready to test properly				*/
-    //is_running=0;
+    if(sched->default_opt->optbits & VERBOSE && sched->n_running > 0){
+      struct scheduled_event * le = sched->running_head;
+      GETTIME(*temptime);
+      LOG("Time:\t%lu\n", temptime->tv_sec);
+      while(le != NULL){
+	if(le->opt->get_stats != NULL){
+	  init_stats(tempstats);
+	  le->opt->get_stats((void*)le->opt, (void*)tempstats);
+	  neg_stats(tempstats, le->stats);
+	  LOG("Event:\t%s\t", le->opt->filename);
+	  LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu\n"
+	      ,BYTES_TO_MBITSPS(tempstats->total_bytes),tempstats->dropped, tempstats->incomplete);
+	  add_stats(le->stats, tempstats);
+	}
+	le = le->next;
+      }
+      init_stats(tempstats);
+      oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)tempstats);
+      neg_stats(tempstats, stats_full);
+      LOG("HD-Speed:\t%luMB/s\n",BYTES_TO_MBITSPS(tempstats->total_written));
+      add_stats(stats_full, tempstats);
+
+      LOG("Ringbuffers: ");
+      print_br_stats(sched->default_opt->membranch);
+      LOG("Recpoints: ");
+      print_br_stats(sched->default_opt->diskbranch);
+
+      LOG("----------------------------------------\n");
+      fflush(stdout);
+    }
+
     fflush(stdout);
+  }
+  if(sched->default_opt->optbits & VERBOSE){
+    free(tempstats);
+    free(temptime);
   }
 
   inotify_rm_watch(i_fd, w_fd);
@@ -500,6 +558,7 @@ int main(int argc, char **argv)
   close_recp(sched->default_opt,stats_full);
   D("Membranch and diskbranch shut down");
 
+  //TODO: Full stats not used yet
   free(stats_full);
   free(pfd);
   free(ibuff);

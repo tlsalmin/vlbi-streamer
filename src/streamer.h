@@ -21,6 +21,9 @@
 #define BILLION 1E9l
 #define MILLION 1E6l
 
+#define KB 1024
+#define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
+
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
 #define BUFFER_RINGBUF 		B(0)
@@ -78,6 +81,13 @@
 #define STATUS_ERROR		B(4)
 #define STATUS_CANCELLED	B(5)
 
+#define BRANCHOP_STOPANDSIGNAL 1
+#define BRANCHOP_GETSTATS 2
+#define BRANCHOP_CLOSERBUF 3
+#define BRANCHOP_CLOSEWRITER 4
+#define BRANCHOP_WRITE_CFGS 5
+#define BRANCHOP_READ_CFGS 6
+#define BRANCHOP_CHECK_FILES 7
 
 //Stolen from Harro Verkouters jive5ab
 #define MK5B_FRAME_WORDS	2504
@@ -498,6 +508,10 @@ struct opt_s
   //pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
+#if(DAEMON)
+  void (*get_stats)(void*, void*);
+  long unsigned bytes_exchanged;
+#endif
   unsigned long total_packets;
   pthread_t *rbuf_pthreads;
   struct buffer_entity * bes;
@@ -606,6 +620,7 @@ struct streamer_entity
   //struct entity_list_branch *membranch;
 };
 
+/* TODO: Doc these */
 int init_branches(struct opt_s *opt);
 int init_rbufs(struct opt_s *opt);
 int close_rbufs(struct opt_s *opt, struct stats* da_stats);
@@ -618,6 +633,10 @@ int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);
 int calculate_buffer_sizes(struct opt_s *opt);
 int calculate_buffer_sizes_simple(struct opt_s * opt);
+void init_stats(struct stats *stats);
+void neg_stats(struct stats* st1, struct stats* st2);
+void add_stats(struct stats* st1, struct stats* st2);
+void print_br_stats(struct entity_list_branch *br);
 //Timerstuff
 void specadd(struct timespec * to, struct timespec *from);
 int close_streamer(struct opt_s *opt);

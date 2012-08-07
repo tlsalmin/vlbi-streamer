@@ -26,11 +26,9 @@
 #include "splicewriter.h"
 #include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
-#define KB 1024
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
 #define IP_LENGTH 46
-#define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 /* Segfaults if pthread_joins done at exit. Tried to debug this 	*/
 /* for days but no solution						*/
 //#define UGLY_FIX_ON_RBUFTHREAD_EXIT
@@ -52,13 +50,6 @@
 #endif
 
 
-#define BRANCHOP_STOPANDSIGNAL 1
-#define BRANCHOP_GETSTATS 2
-#define BRANCHOP_CLOSERBUF 3
-#define BRANCHOP_CLOSEWRITER 4
-#define BRANCHOP_WRITE_CFGS 5
-#define BRANCHOP_READ_CFGS 6
-#define BRANCHOP_CHECK_FILES 7
 
 #ifdef PRIORITY_SETTINGS
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
@@ -148,6 +139,12 @@ void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
     toadd->child = NULL;
     (*root)->child= toadd;
   }
+}
+void udpstreamer_stats(void* opts, void* statsi){
+  struct opt_s* opt = (struct opt_s*) opts;
+  struct stats* stats = (struct stats*)statsi;
+  opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats);
+  //stats->total_written += opt->bytes_exchanged;
 }
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en)
@@ -395,7 +392,7 @@ void print_br_stats(struct entity_list_branch *br){
     le = le->child;
   }
   pthread_mutex_unlock(&(br->branchlock));
-  LOG("Free: %d, Busy: %d, Loaded: %d\n", free, busy, loaded);
+  LOG("Free:\t%d\tBusy:\t%d\tLoaded:\t%d\n", free, busy, loaded);
 }
 int write_cfgs_to_disks(struct opt_s *opt){
   if(opt->optbits & READMODE)
@@ -1873,6 +1870,9 @@ int main(int argc, char **argv)
 	err = udps_init_udp_sender(opt, opt->streamer_ent);
       else
 	err = udps_init_udp_receiver(opt, opt->streamer_ent);
+#if(DAEMON)
+      opt->get_stats = udpstreamer_stats;
+#endif
       break;
     case CAPTURE_W_FANOUT:
       err = fanout_init_fanout(opt, opt->streamer_ent);
@@ -1934,7 +1934,7 @@ int main(int argc, char **argv)
     //TODO
 #endif
   }
-  /* If we're capturing, time the threads and run them down after we're done */
+#if(!DAEMON)
   /* Print speed etc. */
   if(opt->optbits & VERBOSE){
 
@@ -2013,7 +2013,10 @@ int main(int argc, char **argv)
     free(stats_now);
     free(stats_prev);
   }
-  else{
+  /* If we're capturing, time the threads and run them down after we're done */
+  else
+#endif /* DAEMON */
+  {
     if(!(opt->optbits & READMODE)){
       sleep(opt->time);
       ////pthread_mutex_destroy(opt.cumlock);

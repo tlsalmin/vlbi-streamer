@@ -250,6 +250,7 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 #endif /* DISABLE_WRITE */
 
   ioi->bytes_exchanged += total_w;
+  //ioi->opt->bytes_exchanged += total_w;
   return total_w;
 }
 int splice_get_w_fflags(){

@@ -42,6 +42,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #endif
 	total_w += count;
 	ioi->bytes_exchanged += count;
+	//ioi->opt->bytes_exchanged += count;
 	return count;
       }
       else{
@@ -57,6 +58,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       total_w += ret;
       count -= ret;
       ioi->bytes_exchanged += ret;
+      //ioi->opt->bytes_exchanged += count;
     }
   }
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
