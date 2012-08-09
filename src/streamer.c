@@ -1772,6 +1772,7 @@ int main(int argc, char **argv)
     STREAMER_ERROR_EXIT;
 #endif //DAEMON
 
+
   pthread_t streamer_pthread;
   D("preparing filenames");
   if(opt->optbits & READMODE){
@@ -1846,6 +1847,13 @@ int main(int argc, char **argv)
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
+  }
+#endif
+
+#if(DAEMON)
+  if (pthread_spin_init(&(opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
+    E("Spin init");
+    STREAMER_ERROR_EXIT;
   }
 #endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
@@ -2083,12 +2091,17 @@ int close_streamer(struct opt_s *opt){
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
 #else
-  oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
+  //oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
+  stats_full->total_written = opt->bytes_exchanged;
+  if(pthread_spin_destroy(&(opt->augmentlock)) != 0)
+    E("pthread spin destroy");
+  //free(opt->augmentlock);
 #endif
   D("Printing stats");
   print_stats(stats_full, opt);
   free(stats_full);
   D("Stats over");
+
   return 0;
 }
 /* These two separated here */

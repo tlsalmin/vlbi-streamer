@@ -161,9 +161,13 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
       return -1;
   }
   ioi->offset += count;
-  //ioi->bytes_exchanged += count;
   if(!(aiow_get_r_fflags() & O_NONBLOCK)){
     ioi->bytes_exchanged+=count;
+#if(DAEMON)
+    pthread_spin_lock(&(ioi->opt->augmentlock));
+    ioi->opt->bytes_exchanged += count;
+    pthread_spin_unlock(&(ioi->opt->augmentlock));
+#endif
     //ioi->opt->bytes_exchanged+=count;
   }
   return count;
@@ -189,7 +193,11 @@ long aiow_check(struct recording_entity * re,int tout){
     ep->used_events-=ret;
     if((signed long )event.res > 0){
       ioi->bytes_exchanged += event.res;
-      //ioi->opt->bytes_exchanged+=count;
+#if(DAEMON)
+      pthread_spin_lock(&(ioi->opt->augmentlock));
+      ioi->opt->bytes_exchanged += event.res;
+      pthread_spin_unlock(&(ioi->opt->augmentlock));
+#endif
       ret = event.res;
 #if(DEBUG_OUTPUT)
       fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);

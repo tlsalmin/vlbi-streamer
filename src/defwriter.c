@@ -42,7 +42,13 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #endif
 	total_w += count;
 	ioi->bytes_exchanged += count;
-	//ioi->opt->bytes_exchanged += count;
+#if(DAEMON)
+	if (pthread_spin_lock(&(ioi->opt->augmentlock)) != 0)
+	  E("spinlock lock");
+	ioi->opt->bytes_exchanged += count;
+	if (pthread_spin_unlock(&(ioi->opt->augmentlock)) != 0)
+	  E("Spinlock unlock");
+#endif
 	return count;
       }
       else{
@@ -58,7 +64,13 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       total_w += ret;
       count -= ret;
       ioi->bytes_exchanged += ret;
-      //ioi->opt->bytes_exchanged += count;
+#if(DAEMON)
+      if (pthread_spin_lock(&(ioi->opt->augmentlock)) != 0)
+	E("Spinlock lock");
+      ioi->opt->bytes_exchanged += ret;
+      if (pthread_spin_unlock(&(ioi->opt->augmentlock)) != 0)
+	E("Spinlock unlock");
+#endif
     }
   }
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT

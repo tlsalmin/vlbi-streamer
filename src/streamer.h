@@ -453,6 +453,9 @@ struct opt_s
   char *cfgfile;
   char *logfile;
   int diskids;
+
+  /* Make this a spinlock, since augmenting this struct is fast		*/
+  pthread_spinlock_t augmentlock;
   //unsigned long n_files;
   //struct fileblocks *fbs;
   unsigned int optbits;
