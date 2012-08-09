@@ -64,8 +64,10 @@ done < $LOGFILE
 #echo ${STREAMNAMES[@]}
 #echo ${BUFFERS_FREE[@]}
 #echo ${BUFFERS_LOADED[@]}
-#HUR=${STREAMNAMES[0]}
+
+#HUR=${STREAMNAMES[1]}
 #echo $(eval echo \${$HUR[@]})
+
 STARTLINE=$(echo -e "#time\thd-speed\tb_free\tb_busy\tb_loaded\tr_free\tr_busy")
 #STARTLINE=$(awk {printf "%6s %10s %8s %8s %8s %8s %8s", "#time", "hd-speed", "b_free", "b_busy", "b_loaded", "r_free", "r_busy"})
 for val in ${STREAMNAMES[@]}
@@ -82,13 +84,12 @@ do
   #LINE=$(awk '{ printf "%4s %8s %6s %6s %8s %6s %6s", $J, ${HDSPEEDS[$J]}, ${BUFFERS_FREE[$J]}, ${BUFFERS_BUSY[$J]}, ${BUFFERS_LOADED[$J]}, ${RECPOINTS_FREE[$J]}, ${RECPOINTS_BUSY[$J]} } ')
   for val in ${STREAMNAMES[@]}
   do
-    NAME=${STREAMNAMES[0]}
-    if [ -z "$(eval echo \${$NAME[$J]})" ]
+    if [ -z "$(eval echo \${$val[$J]})" ]
     then
       #If the array doesn't have a value here, just output 0
       LINE=$(echo -e "$LINE\t0")
     else
-      LINE=$(echo -e "$LINE\t$(eval echo \${$NAME[$J]})")
+      LINE=$(echo -e "$LINE\t$(eval echo \${$val[$J]})")
     fi
   done
   echo -e $LINE >> $OUTFILE
