@@ -38,6 +38,7 @@
 #include "udp_stream.h"
 
 #define FULL_COPY_ON_PEEK
+#define MBITS_PER_DRIVE 600
 
 #define UDPMON_SEQNUM_BYTES 8
 //#define DUMMYSOCKET
@@ -457,10 +458,25 @@ void * udp_sender(void *streamo){
   void* buf;
   int i=0;
   int *inc;
+  int max_buffers_in_use=0;
+  /* If theres a wait_nanoseconds, it determines the amount of buffers	*/
+  /* we have in use at any time						*/
   //int besindex;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   struct sender_tracking st;
+
+  if(spec_ops->opt->wait_nanoseconds == 0){
+    max_buffers_in_use = spec_ops->opt->n_threads;
+    D("No wait set, so setting to use all available buffers");
+  }
+  else
+  {
+    long rate = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size*8;
+    /* Add one as n loading for speed and one is being sent over the network */
+    max_buffers_in_use = rate/(MBITS_PER_DRIVE*MILLION) + 1;
+    D("rate as %d ns. Setting to use max %d buffers",, spec_ops->opt->wait_nanoseconds, max_buffers_in_use);
+  }
 
   init_sender_tracking(spec_ops, &st);
 
@@ -468,8 +484,6 @@ void * udp_sender(void *streamo){
   /* Slept with nanosleep or usleep seems to be 55microseconds		*/
   /* This means we can sleep only sleep multiples of it and then	*/
   /* do the rest in a busyloop						*/
-  unsigned long minsleep = get_min_sleeptime();
-  D("Can sleep max %lu microseconds on average",, minsleep);
   long wait= 0;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
@@ -479,7 +493,8 @@ void * udp_sender(void *streamo){
   D("Wait between is %d here",, spec_ops->opt->wait_nanoseconds);
 
   /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
-  int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
+  //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
+  int loadup = MIN((unsigned int)max_buffers_in_use, spec_ops->opt->cumul);
 
   /* Check if theres empties right at the start */
   /* Added && for files might be skipped in start_loading */
@@ -491,6 +506,11 @@ void * udp_sender(void *streamo){
     err = start_loading(spec_ops->opt, NULL, &st);
     CHECK_ERRP("Start loading");
   }
+
+  /* Data won't be instantaneous so get min_sleep here! */
+  unsigned long minsleep = get_min_sleeptime();
+  D("Can sleep max %lu microseconds on average",, minsleep);
+
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
   while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= spec_ops->opt->cumul)
