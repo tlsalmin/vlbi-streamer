@@ -8,6 +8,8 @@ BUFFERS_BUSY=()
 BUFFERS_LOADED=()
 RECPOINTS_FREE=()
 RECPOINTS_BUSY=()
+TOTAL_NET=()
+NETSUM=0
 while read line
 do
   DASTART=${line%%:*}
@@ -15,6 +17,8 @@ do
   then
     if [ "$DASTART" = "Time" ]
     then
+      TOTAL_NET[$I]=$NETSUM
+      NETSUM=0
       I=$(($I+1))
     elif [ "$DASTART" = "HD-Speed" ]
     then
@@ -47,6 +51,7 @@ do
 	NUMNAMES=$(($NUMNAMES + 1))
       fi
       VALUE=`echo $line | awk '{print $4}' | cut -d'M' -f1`
+      NETSUM=$(($NETSUM+$VALUE))
       printf -v $NAME[$I] $VALUE
       #echo $(eval echo \${$NAME[@]})
     elif [ "$DASTART" = "Ringbuffers" ] ; then
@@ -68,7 +73,7 @@ done < $LOGFILE
 #HUR=${STREAMNAMES[1]}
 #echo $(eval echo \${$HUR[@]})
 
-STARTLINE=$(echo -e "#time\thd-speed\tb_free\tb_busy\tb_loaded\tr_free\tr_busy")
+STARTLINE=$(echo -e "#time\thd-speed\tnetspeed\tb_free\tb_busy\tb_loaded\tr_free\tr_busy")
 #STARTLINE=$(awk {printf "%6s %10s %8s %8s %8s %8s %8s", "#time", "hd-speed", "b_free", "b_busy", "b_loaded", "r_free", "r_busy"})
 for val in ${STREAMNAMES[@]}
 do
@@ -80,7 +85,7 @@ echo $STARTLINE > $OUTFILE
 J=0
 while [ "$J" -lt "$I" ]
 do
-  LINE="$J\t${HDSPEEDS[$J]}\t${BUFFERS_FREE[$J]}\t${BUFFERS_BUSY[$J]}\t${BUFFERS_LOADED[$J]}\t${RECPOINTS_FREE[$J]}\t${RECPOINTS_BUSY[$J]}"
+  LINE="$J\t${HDSPEEDS[$J]}\t${TOTAL_NET[$J]}\t${BUFFERS_FREE[$J]}\t${BUFFERS_BUSY[$J]}\t${BUFFERS_LOADED[$J]}\t${RECPOINTS_FREE[$J]}\t${RECPOINTS_BUSY[$J]}"
   #LINE=$(awk '{ printf "%4s %8s %6s %6s %8s %6s %6s", $J, ${HDSPEEDS[$J]}, ${BUFFERS_FREE[$J]}, ${BUFFERS_BUSY[$J]}, ${BUFFERS_LOADED[$J]}, ${RECPOINTS_FREE[$J]}, ${RECPOINTS_BUSY[$J]} } ')
   for val in ${STREAMNAMES[@]}
   do

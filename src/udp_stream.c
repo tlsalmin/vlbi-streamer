@@ -38,7 +38,7 @@
 #include "udp_stream.h"
 
 #define FULL_COPY_ON_PEEK
-#define MBITS_PER_DRIVE 600
+#define MBITS_PER_DRIVE 500
 
 #define UDPMON_SEQNUM_BYTES 8
 //#define DUMMYSOCKET
