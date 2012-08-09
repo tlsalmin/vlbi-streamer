@@ -877,7 +877,7 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
   long seqnum = *((long*)header);
   seqnum = be64toh(seqnum);
 
-  int err;
+  //int err;
   //memcpy(&seqnum, header, UDPMON_SEQNUM_BYTES); 
 
   /* Preliminary case					*/
@@ -972,7 +972,11 @@ void*  calc_bufpos_udpmon(void* header, struct streamer_entity* se, struct resq_
 	/* Save pointer to packet		*/
 	void* origbuf = resq->buf;
 
-	err = jump_to_next_buf(se, resq);
+	int err = jump_to_next_buf(se, resq);
+	if(err != 0){
+	  E("Jump to next failed");
+	  return NULL;
+	}
 
 	resq->usebuf = resq->bufstart + (i_from_next_seqstart)*spec_ops->opt->packet_size;
 	memcpy(resq->usebuf, origbuf, spec_ops->opt->packet_size);
