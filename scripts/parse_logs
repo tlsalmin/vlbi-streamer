@@ -1,0 +1,96 @@
+#!/bin/bash
+LOGFILE=$1
+OUTFILE=$LOGFILE.parsed
+I=0
+NUMNAMES=0
+BUFFERS_FREE=()
+BUFFERS_BUSY=()
+BUFFERS_LOADED=()
+RECPOINTS_FREE=()
+RECPOINTS_BUSY=()
+while read line
+do
+  DASTART=${line%%:*}
+  if [ ! -z "$DASTART" ]
+  then
+    if [ "$DASTART" = "Time" ]
+    then
+      I=$(($I+1))
+    elif [ "$DASTART" = "HD-Speed" ]
+    then
+      HDSPEEDS[$I]=`echo $line | awk '{print $2}' |cut -d'M' -f1`
+    elif [ "$DASTART" = "Event" ] ; then
+      NAME=`echo $line | awk '{print $2}'`
+      found=0
+      arcount=0
+      arindex=0
+      for k in ${STREAMNAMES[@]}
+      do
+	if [ "$k" = "$NAME" ]
+	then
+	  found=1
+	  arindex=$arcount
+	fi
+	arcount=$(($arcount+1))
+      done
+      if [ "$found" -eq "0" ] ; then
+	STREAMNAMES+=($NAME)
+	#Add zeros to the start of this new array for time
+	arindex=$NUMNAMES
+	HUR=0
+	while [ $HUR -lt $I ]
+	do
+	  #declare -a ${STREAMNAMES[$NUMNAMES]}={0..$I}
+	  printf -v $NAME[$HUR] 0
+	  HUR=$(($HUR+1))
+	done
+	NUMNAMES=$(($NUMNAMES + 1))
+      fi
+      VALUE=`echo $line | awk '{print $4}' | cut -d'M' -f1`
+      printf -v $NAME[$I] $VALUE
+      #echo $(eval echo \${$NAME[@]})
+    elif [ "$DASTART" = "Ringbuffers" ] ; then
+      BUFFERS_FREE+=(`echo $line|awk '{print $3}'`)
+      BUFFERS_BUSY+=(`echo $line|awk '{print $5}'`)
+      BUFFERS_LOADED+=(`echo $line|awk '{print $7}'`)
+    elif [ "$DASTART" = "Recpoints" ] ; then
+      RECPOINTS_FREE+=(`echo $line|awk '{print $3}'`)
+      RECPOINTS_BUSY+=(`echo $line|awk '{print $5}'`)
+    fi
+  fi
+done < $LOGFILE
+
+#echo ${HDSPEEDS[@]}
+#echo ${STREAMNAMES[@]}
+#echo ${BUFFERS_FREE[@]}
+#echo ${BUFFERS_LOADED[@]}
+#HUR=${STREAMNAMES[0]}
+#echo $(eval echo \${$HUR[@]})
+STARTLINE=$(echo -e "#time\thd-speed\tb_free\tb_busy\tb_loaded\tr_free\tr_busy")
+#STARTLINE=$(awk {printf "%6s %10s %8s %8s %8s %8s %8s", "#time", "hd-speed", "b_free", "b_busy", "b_loaded", "r_free", "r_busy"})
+for val in ${STREAMNAMES[@]}
+do
+  STARTLINE=$(echo -e "$STARTLINE\t$val")
+done
+
+echo $STARTLINE > $OUTFILE
+
+J=0
+while [ "$J" -lt "$I" ]
+do
+  LINE="$J\t${HDSPEEDS[$J]}\t${BUFFERS_FREE[$J]}\t${BUFFERS_BUSY[$J]}\t${BUFFERS_LOADED[$J]}\t${RECPOINTS_FREE[$J]}\t${RECPOINTS_BUSY[$J]}"
+  #LINE=$(awk '{ printf "%4s %8s %6s %6s %8s %6s %6s", $J, ${HDSPEEDS[$J]}, ${BUFFERS_FREE[$J]}, ${BUFFERS_BUSY[$J]}, ${BUFFERS_LOADED[$J]}, ${RECPOINTS_FREE[$J]}, ${RECPOINTS_BUSY[$J]} } ')
+  for val in ${STREAMNAMES[@]}
+  do
+    NAME=${STREAMNAMES[0]}
+    if [ -z "$(eval echo \${$NAME[$J]})" ]
+    then
+      #If the array doesn't have a value here, just output 0
+      LINE=$(echo -e "$LINE\t0")
+    else
+      LINE=$(echo -e "$LINE\t$(eval echo \${$NAME[$J]})")
+    fi
+  done
+  echo -e $LINE >> $OUTFILE
+  J=$(($J+1))
+done

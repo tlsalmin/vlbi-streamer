@@ -1171,7 +1171,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"Packets: %lu\n"
 	"Bytes: %lu\n"
 	"Read: %lu\n"
-	"Time: %lus\n"
+	"RecvTime: %lus\n"
 	"Files: %lu\n"
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
@@ -1180,7 +1180,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
   }
   else{
     if(opts->time == 0)
-      E("Time is 0. Something went wrong");
+      E("SendTime is 0. Something went wrong");
     else
       LOG("Stats for %s \n"
 	  "Packets: %lu\n"
@@ -1188,7 +1188,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	  "Dropped: %lu\n"
 	  "Incomplete: %lu\n"
 	  "Written: %lu\n"
-	  "Time: %lu\n"
+	  "SendTime: %lu\n"
 	  "Files: %lu\n"
 	  "HD-failures: %d\n"
 	  "Net receive Speed: %luMb/s\n"
