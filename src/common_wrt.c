@@ -477,17 +477,19 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
       /* If we match a data file */
       if( !err ){
 	D("Regexp matched %s",, namelist[i]->d_name);
-	char the_index[INDEXING_LENGTH];
 	/* Grab the INDEXING_LENGTH last chars from ent->d_name, which is the	*/
 	/* The files index							*/
 	char * start_of_index= namelist[i]->d_name+(strlen(namelist[i]->d_name))-INDEXING_LENGTH;
-	memcpy(the_index,start_of_index,INDEXING_LENGTH);
+	//Hehe why don't I just use start_of_index..
+	//memcpy(the_index,start_of_index,INDEXING_LENGTH);
 	//temp = atoi(ent->d_name);
-	temp = atoi(the_index);
+	//temp = atoi(the_index);
+	temp = atoi(start_of_index);
 	if((unsigned long)temp >= opt->cumul)
-	  E("Extra files found in dir!");
+	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
 	else
 	{
+	  D("Identified %s as %d",,start_of_index,  temp);
 	  /* Update pointer at correct spot */
 	  //temprecer = opt->fileholders + temp*sizeof(*);
 	  //*temprecer = re;
