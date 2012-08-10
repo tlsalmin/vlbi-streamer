@@ -1,0 +1,137 @@
+#!/bin/bash
+#Testscript run on metsähovi machines with vlbi-command
+#Tests daemon-mode
+CFGFILE=/usr/local/etc/vlbistreamer.conf
+SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
+PARSELONG=3
+PARSENORMAL=2
+VLBIPREFIX="vlbi"
+PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c -$PARSELONG"`
+PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
+TARGET="192.168.0.1"
+OTARGET="192.168.0.3"
+TESTTIME=30
+VBS_START="$VLBIPREFIX src/vlbistreamer"
+VBS_SEND="$VLBIPREFIX vbs_send"
+VBS_RECV="$VLBIPREFIX vbs_record"
+WAIT=40
+DRIVES=`$VLBIPREFIX "cat $CFGFILE |grep n_drives |cut -d ' ' -f3 |head -c -$PARSENORMAL"`
+UDPPRE="cd /home/kharn/sshfs/watt.vlbi.metsahovi.fi/home/oper"
+UDPBIN="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_send"
+UDPRECV="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_recv"
+UDPEND="cd -"
+UDPOPTS=-"d $TARGET -p $PACKETSIZE -t $((TESTTIME-4)) -u $PORT -S 16777216 -w $WAIT"
+UDPOPTSRECV="-t $(($TESTTIME+5)) -S 16777216 -u $PORT"
+MAXMEM=`$VLBIPREFIX "cat $CFGFILE |grep maxmem |cut -d ' ' -f3 |head -c -$PARSELONG"`
+METHODS=(def aio splice)
+#VERBOSE=" > /dev/null"
+EXTRA_PARAMS="$*"
+DEFAULT_PARAMS="-A $MAXMEM -s $PORT -d $DRIVES"
+TEMPLOG=thistemplogsurelyshouldntbeoverwritten
+echo "setting up daemon mode"
+$VLBIPREFIX ./configure --enable-user=oper &> /dev/null
+$VLBIPREFIX make &> /dev/null
+
+if [ $? -ne "0" ]
+then
+  echo "Error in compilation"
+  exit -1
+fi
+
+NRHUGE=`$VLBIPREFIX "cat /proc/sys/vm/nr_hugepages|head -c -1"`
+if [ "$NRHUGE" -ne "0" ]
+then
+  DEFAULT_PARAMS="$DEFAULT_PARAMS -u "
+fi
+
+DERPAH="derpah"
+echo "Cleaning up leftovers from previous test"
+$VLBIPREFIX "for i in /mnt/disk*
+do
+for j in \"${METHODS[@]}\"
+do
+  rm  -rf $i/$j$derpah &> /dev/null
+done
+done"
+
+echo "Testing sending with nonexisting files"
+for i in "${METHODS[@]}"
+do
+  $VBS_START &> $TEMPLOG &
+  $VBS_SEND bogustuffthatshoulntexist $OTARGET
+  sleep 2
+  $VLBIPREFIX ps -A |grep  vlbistreamer &> /dev/null
+  if [ "$?" -ne "0" ]
+  then
+    echo status $?
+    echo "Bogus send crashed vlbistreamer!"
+    cat $TEMPLOG
+    exit -1
+  fi
+  $VLBIPREFIX cat $TEMPLOG |grep ERROR &> /dev/null
+  if [ "$?" -ne "0" ]
+  then
+    echo "Bogus send didnt output error!"
+    cat $TEMPLOG
+    exit -1
+  fi
+  $VLBIPREFIX vbs_shutdown
+  sleep 1
+  $VLBIPREFIX ps -A |grep vlbistreamer &> /dev/null
+  if [ "$?" -eq "0" ]
+  then
+    echo "vlbistreamer didnt shut down!"
+    exit -1
+  fi
+  echo -e ". $i\t\tok"
+done
+echo -e "Nonexisting files test ... \tOK"
+echo -e "Testing send/receive"
+for i in "${METHODS[@]}"
+do
+  echo "Testing $i for receive"
+  $VBS_START &> $TEMPLOG &
+  SPACE=" "
+  DURPA="derpah"
+  DUR=$i$DURPA$SPACE$TESTTIME
+  $VBS_RECV $DUR
+  $UDPPRE
+  $VLBIPREFIX "$UDPBIN $UDPOPTS > udpmonlog" &
+  echo "Transfer started.."
+  sleep $(($TESTTIME +5))
+  echo "..Transfer finished!"
+  SENTPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $2}'|head -c -2`
+  $UDPEND
+  RECVPACKAGES=`cat $TEMPLOG | grep Packets:| awk '{print $2}'|head -c -1`
+  
+  if [ "$SENTPACKAGES" -ne "$RECVPACKAGES" ]
+  then
+    echo "Mismatch in received/sent files. received $(($SENTPACKAGES-$RECVPACKAGES)) less than sent"
+  else
+    echo "Same amount of packets sent and received"
+  fi
+  $VBS_SEND $i$DURPA $OTARGET
+  $UDPPRE
+  echo "Transfer started.."
+  RECVPACKAGES=`$VLBIPREFIX "$UDPRECV $UDPOPTSRECV | tail -n 1| cut ' ' -f5 |head -c -2"`
+  #sleep $(($TESTTIME +5))
+  echo "..Transfer finished!"
+  #RECVPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $5}'|head -c -2`
+  $UDPEND
+  SENTPACKAGES=`cat $TEMPLOG | grep Packets:|tail -n1 | awk '{print $2}'|head -c -1`
+  echo $RECVPACKAGES $SENTPACKAGES
+  #scripts/parse_logs $i_recv
+
+
+  $VLBIPREFIX vbs_shutdown
+  echo -e "Testing $i ... \tOK"
+done
+
+echo "Cleaning up leftovers from previous test"
+$VLBIPREFIX "for i in /mnt/disk*
+do
+for j in \"${METHODS[@]}\"
+do
+  rm  -rf $i/$j$derpah &> /dev/null
+done
+done"
