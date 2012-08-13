@@ -1,0 +1,109 @@
+#!/bin/bash
+DDATE=$(date +%s)
+OUTFOLDER=perfplots/$DDATE
+usage()
+{
+cat << EOF
+$0 : Creates gnuplot plots from parsed file
+
+OPTIONS: to plot:
+  -d 		drive speeds
+  -n 		network speeds
+  -b 		network buffers
+  -r		recpoints
+  -f <folder> 	Alternate folder to save plots as images
+EOF
+}
+THEPLOT=()
+#time hd-speed netspeed b_free b_busy b_loaded r_free r_busy <stream_0> ...
+n=1
+while [ $# -gt 0 ]
+do
+  #Arg1 can come at any time so doing this the boring way
+  case $1 in
+    -d) 
+      THEPLOT+=(HD)
+      ;;
+    -n)
+      THEPLOT+=(NET)
+      ;;
+    -b)
+      THEPLOT+=(NB)
+      ;;
+    -r)
+      THEPLOT+=(RB)
+      ;;
+    -f)
+      OUTFOLDER=$2
+      EXTRAPARAM="set term png"
+      set 
+      shift
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters $0" >> $LOGFILE;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+  esac
+  shift
+done
+
+if [ ${#THEPLOT[@]} -eq 0 ]
+then
+  usage
+  exit -1
+fi
+
+#mkdir $OUTFOLDER &> /dev/null
+FILE=$arg_1
+#echo ${THEPLOT[@]}
+for i in ${THEPLOT[@]}
+do
+  if [ ! -z "$EXTRAPARAM" ]
+  then 
+    EOUT="$EXTRAPARAM
+    set output \"$OUTFOLDER/${DDATE}${i}\""
+  fi
+  case $i in 
+    HD)
+      gnuplot -persist <<-EOF
+      set title "HD-speed"
+      set xlabel "Time(s)"
+      set ylabel "Mb/s"
+      $EOUT
+      plot "$FILE" using 1:2 with line
+EOF
+      ;;
+    NET)
+      THREADS=($(cat $FILE | head -n 1|cut -b 62-))
+      kk=0
+      for dodo in ${THREADS[@]}
+      do
+	ADDPLOT="$ADDPLOT,\"$FILE\" using 1:$((8+$kk)) with line title \"$dodo\""
+	kk=$(($kk+1))
+      done
+      gnuplot -persist <<-EOF
+      set title "NET-speed"
+      set xlabel "Time(s)"
+      set ylabel "Mb/s"
+      $EOUT
+      plot "$FILE" using 1:3 with line title "Total"$ADDPLOT
+EOF
+      ;;
+    NB)
+      gnuplot -persist <<-EOF
+      set title "Memory buffers"
+      set xlabel "Time(s)"
+      set ylabel "N"
+      $EOUT
+      plot "$FILE" using 1:4 with line title "Free", "$FILE" using 1:5 with line title "Busy", "$FILE" using 1:6 with line title "Loaded"
+EOF
+      ;;
+    RB)
+      gnuplot -persist <<-EOF
+      set title "Recpoints"
+      set xlabel "Time(s)"
+      set ylabel "N"
+      $EOUT
+      plot "$FILE" using 1:7 with line title "Free", "$FILE" using 1:8 with line title "Busy"
+EOF
+      ;;
+  esac
+done

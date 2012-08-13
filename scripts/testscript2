@@ -14,20 +14,28 @@ TESTTIME=30
 VBS_START="$VLBIPREFIX src/vlbistreamer"
 VBS_SEND="$VLBIPREFIX vbs_send"
 VBS_RECV="$VLBIPREFIX vbs_record"
-WAIT=40
+WAIT=20
 DRIVES=`$VLBIPREFIX "cat $CFGFILE |grep n_drives |cut -d ' ' -f3 |head -c -$PARSENORMAL"`
 UDPPRE="cd /home/kharn/sshfs/watt.vlbi.metsahovi.fi/home/oper"
 UDPBIN="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_send"
 UDPRECV="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_recv"
 UDPEND="cd -"
 UDPOPTS=-"d $TARGET -p $PACKETSIZE -t $((TESTTIME-4)) -u $PORT -S 16777216 -w $WAIT"
-UDPOPTSRECV="-t $(($TESTTIME+5)) -S 16777216 -u $PORT"
+UDPOPTSRECV="-t $(($TESTTIME+25)) -S 16777216 -u $PORT"
 MAXMEM=`$VLBIPREFIX "cat $CFGFILE |grep maxmem |cut -d ' ' -f3 |head -c -$PARSELONG"`
 METHODS=(def aio splice)
 #VERBOSE=" > /dev/null"
 EXTRA_PARAMS="$*"
 DEFAULT_PARAMS="-A $MAXMEM -s $PORT -d $DRIVES"
 TEMPLOG=thistemplogsurelyshouldntbeoverwritten
+
+DURPA="derpah"
+echo "Cleaning up leftovers from previous test"
+for i in ${METHODS[@]}
+do
+$VLBIPREFIX "vbs_delete ${i}${DURPA}"
+done
+
 echo "setting up daemon mode"
 $VLBIPREFIX ./configure --enable-user=oper &> /dev/null
 $VLBIPREFIX make &> /dev/null
@@ -44,20 +52,11 @@ then
   DEFAULT_PARAMS="$DEFAULT_PARAMS -u "
 fi
 
-DERPAH="derpah"
-echo "Cleaning up leftovers from previous test"
-$VLBIPREFIX "for i in /mnt/disk*
-do
-for j in \"${METHODS[@]}\"
-do
-  rm  -rf $i/$j$derpah &> /dev/null
-done
-done"
 
 echo "Testing sending with nonexisting files"
 for i in "${METHODS[@]}"
 do
-  $VBS_START &> $TEMPLOG &
+  $VBS_START -w $i &> $TEMPLOG &
   $VBS_SEND bogustuffthatshoulntexist $OTARGET
   sleep 2
   $VLBIPREFIX ps -A |grep  vlbistreamer &> /dev/null
@@ -90,19 +89,18 @@ echo -e "Testing send/receive"
 for i in "${METHODS[@]}"
 do
   echo "Testing $i for receive"
-  $VBS_START &> $TEMPLOG &
+  $VBS_START -w $i &> $TEMPLOG$i &
   SPACE=" "
-  DURPA="derpah"
   DUR=$i$DURPA$SPACE$TESTTIME
   $VBS_RECV $DUR
   $UDPPRE
   $VLBIPREFIX "$UDPBIN $UDPOPTS > udpmonlog" &
-  echo "Transfer started.."
+  echo "Receiving started.."
   sleep $(($TESTTIME +5))
-  echo "..Transfer finished!"
+  echo "..Receiving finished!"
   SENTPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $2}'|head -c -2`
   $UDPEND
-  RECVPACKAGES=`cat $TEMPLOG | grep Packets:| awk '{print $2}'|head -c -1`
+  RECVPACKAGES=`cat ${TEMPLOG}${i} | grep Packets:| awk '{print $2}'|head -c -1`
   
   if [ "$SENTPACKAGES" -ne "$RECVPACKAGES" ]
   then
@@ -110,28 +108,32 @@ do
   else
     echo "Same amount of packets sent and received"
   fi
-  $VBS_SEND $i$DURPA $OTARGET
+  $VBS_SEND $i$DURPA $OTARGET -a $WAIT
   $UDPPRE
-  echo "Transfer started.."
-  RECVPACKAGES=`$VLBIPREFIX "$UDPRECV $UDPOPTSRECV | tail -n 1| cut ' ' -f5 |head -c -2"`
+  echo "Sending started.."
+  TEMPVAR="$($VLBIPREFIX $UDPRECV $UDPOPTSRECV)"
+  RECVPACKAGES=$(echo $TEMPVAR|tail -n 1 |cut ' ' -f5 |head -c -2)
   #sleep $(($TESTTIME +5))
-  echo "..Transfer finished!"
+  echo "..Sending finished!"
   #RECVPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $5}'|head -c -2`
   $UDPEND
   SENTPACKAGES=`cat $TEMPLOG | grep Packets:|tail -n1 | awk '{print $2}'|head -c -1`
   echo $RECVPACKAGES $SENTPACKAGES
-  #scripts/parse_logs $i_recv
-
 
   $VLBIPREFIX vbs_shutdown
+
+  scripts/parse_logs ${TEMPLOG}${i}
+  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r
+  sleep 1
+  rm ${TEMPLOG}${i}.parsed
+
   echo -e "Testing $i ... \tOK"
 done
 
 echo "Cleaning up leftovers from previous test"
-$VLBIPREFIX "for i in /mnt/disk*
+for i in ${METHODS[@]}
 do
-for j in \"${METHODS[@]}\"
-do
-  rm  -rf $i/$j$derpah &> /dev/null
+  rm ${TEMPLOG}${i}
+  rm ${TEMPLOG}${i}.parsed
+  $VLBIPREFIX "vbs_delete ${i}${DURPA}"
 done
-done"

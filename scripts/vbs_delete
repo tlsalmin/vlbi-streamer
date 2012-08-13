@@ -1,0 +1,11 @@
+#!/bin/bash
+if [ -z "$1" ]
+then
+  echo "Usage $0 <recording name>"
+  exit -1
+fi
+
+for i in /mnt/disk*
+do
+  rm  -rf ${i}/$1
+done

@@ -1739,6 +1739,22 @@ int init_recp(struct opt_s *opt){
     }
     /* Add the recording entity to the diskbranch */
   }
+  switch(opt->optbits & LOCKER_REC){
+#if HAVE_LIBAIO
+    case REC_AIO:
+      LOG("Created aio recpoints\n");
+      break;
+#endif
+    case REC_DUMMY:
+      LOG("Created dummy recpoints\n");
+      break;
+    case REC_DEF:
+      LOG("Created default recpoints\n");
+      break;
+    case REC_SPLICER:
+      LOG("Created splice recpoints\n");
+      break;
+  }
   return 0;
 }
 int close_recp(struct opt_s *opt, struct stats* da_stats){
