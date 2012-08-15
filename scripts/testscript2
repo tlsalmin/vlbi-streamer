@@ -14,7 +14,7 @@ do
       TESTTIME=$2
       shift
       ;;
-    -t)
+    -w)
       WAIT=$2
       shift
       ;;
@@ -111,6 +111,11 @@ echo -e "Testing send/receive"
 for i in "${METHODS[@]}"
 do
   echo "Testing $i for receive"
+  while [ "$($VLBIPREFIX pidof vlbistreamer)" ]
+  do
+    echo "Waiting for vlbistreamer to stop"
+    sleep 1
+  done
   $VBS_START -w $i &> $TEMPLOG$i &
   SPACE=" "
   DUR=$i$DURPA$SPACE$TESTTIME
@@ -145,7 +150,7 @@ do
   $VLBIPREFIX vbs_shutdown
 
   scripts/parse_logs ${TEMPLOG}${i} 
-  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r $PLOTPARSED_EXTRA
+  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r ${PLOTPARSED_EXTRA}${i}
   sleep 1
   rm ${TEMPLOG}${i}.parsed
   rm ${TEMPLOG}${i}
