@@ -69,7 +69,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
 #if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Preparing iostructs\n");
+  D("Preparing iostructs");
 #endif
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
   ioi->extra_param = (void*) malloc(sizeof(struct extra_parameters));
@@ -85,9 +85,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
     return -1;
   }
   //io_context_t* ctx = (io_context_t*)ioi->extra_param;
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Queue init\n");
-#endif
+  D("Queue init");
   ret = io_queue_init(MAX_EVENTS, &(ep->ctx));
   if(ret < 0){
     perror("AIOW: IO_QUEUE_INIT");
@@ -104,7 +102,6 @@ int aiow_get_r_fflags(){
     return  O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
     //return  O_RDONLY|O_DIRECT|O_NOATIME;
 }
-
 long aiow_write(struct recording_entity * re, void * start, size_t count){
   long ret;
 #if(DEBUG_OUTPUT)
@@ -175,6 +172,10 @@ long aiow_write(struct recording_entity * re, void * start, size_t count){
 long aiow_check(struct recording_entity * re,int tout){
   //Just poll, so we can keep receiving more packets
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
+  //errno=0;
+  //perror("fcntl");
+  //E("Dat fcntl %d errno %d",, fcntl(ioi->fd, F_GETFL), errno);
+  //perror("fcntl");
   long ret;
   static struct timespec timeout = { 0, 0 };
   static struct timespec rtout = { 1, TIMEOUT_T };
@@ -186,9 +187,9 @@ long aiow_check(struct recording_entity * re,int tout){
     ret = io_getevents(ep->ctx, 0, 1, &event, &rtout);
     D("Released on %s",, ioi->curfilename);
   }
-  else
+  else{
     ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
-  //
+  }
   if(ret > 0){
     ep->used_events-=ret;
     if((signed long )event.res > 0){
@@ -199,41 +200,29 @@ long aiow_check(struct recording_entity * re,int tout){
       pthread_spin_unlock(&(ioi->opt->augmentlock));
 #endif
       ret = event.res;
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "AIOW: Check return %ld, read/written %lu bytes\n", ret, event.res);
-#endif
+      D("Check return %ld, read/written %lu bytes",, ret, event.res);
     }
     else{
-      if(errno == 0){
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "AIOWRITER: end of file! event.red: %ld  %d\n", event.res, errno);
-#endif
+      if(errno == 0 && event.res == 0){
+	D("end of file! event.red: %ld  %d",, event.res, errno);
+	perror("AIOW: Check");
 	//return -1;//event.res;
 	return AIO_END_OF_FILE;
-      }
+      } 
       else{
-	fprintf(stderr, "AIOW: Write check return error %ld\n", event.res);
+	E("Write check return error event.res: %ld, fd: %d,  file: %s",, event.res, ioi->fd, ioi->curfilename);
+	if(ioi->opt->optbits & READMODE)
+	  E("Happened in readmode");
 	perror("AIOW: Check");
 	return -1;
       }
     }
-
   }
-  /*
-  else{
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "AIOW: Check: No writes done\n");
-#endif
+  else if (ret < 0){
+    E("Error in aio check");
+    perror("AIOW:check");
+    return ret;
   }
-  */
-
-  /*
-   * TODO: Change implementation for reads also
-   * Might need a unified writer backend to
-   * queue reads properly, thought reads
-   * go to different file
-   */
-
   return ret;
 }
 //Not used, since can't update status etc.
@@ -248,7 +237,7 @@ int aiow_wait_for_write(struct recording_entity* re){
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
-  D("AIOW: Buffer full %s. Going to sleep\n",, ioi->curfilename);
+  D("Buffer full %s. Going to sleep\n",, ioi->curfilename);
   //Doesn't really sleep :/
   //return io_queue_wait(ep->ctx, &timeout);
   return usleep(5000);

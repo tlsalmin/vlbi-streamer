@@ -15,17 +15,8 @@
 
 #include "streamer.h"
 #include "common_wrt.h"
-/* There is a persistant bug where the writes fail with */
-/* error EINVAL when the streamer has stopped IF the	*/
-/* file was opened with IO_DIRECT. I've checked all the */
-/* functions before it, disabled them etc. but can't 	*/
-/* find the reason for this bug. This will disable the	*/
-/* IO_DIRECT flag for the last write			*/
 #define ERR_IN_INIT free(dirname);return -1
 
-
-/* These should be moved somewhere general, since they should be used by all anyway */
-/* writers anyway */
 int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
   (void)sbuf_still_running;
   int err;
@@ -64,6 +55,17 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
       return err;
     }
   }
+
+  /* Special for libaio stuff */
+  /*
+  if(ioi->opt->optbits & REC_AIO){
+    err = aiow_reset_file(re);
+    CHECK_ERR("aiow reset");
+  }
+  */
+  /* Doh this might be used by other write methods aswell */
+  ioi->offset = 0;
+
   return 0;
 }
 int common_finish_file(void *recco){
@@ -128,9 +130,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
     return *fd;
   }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "COMMON_WRT: File opened\n");
-#endif
+  D(" File opened as fd %d",, *fd);
   if(fallosize > 0){
     err = fallocate(*fd, 0,0, fallosize);
     if(err < 0){
@@ -144,14 +144,10 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 	return err;
       }
     }
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "COMMON_WRT: File preallocated\n");
-#endif
+    D("File preallocated");
   }
-#if(DEBUG_OUTPUT)
   else
-    fprintf(stdout, "COMMON_WRT: Not fallocating\n");
-#endif
+    D("Not fallocating");
   return err;
 }
 int common_writecfg(struct recording_entity *re, void *opti){

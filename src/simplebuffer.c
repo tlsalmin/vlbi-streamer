@@ -24,7 +24,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
-  D("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
+  DD("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
@@ -42,12 +42,11 @@ int sbuf_check(struct buffer_entity *be, int tout){
     sbuf->asyncdiff = 0;
   }
   else if (ret == 0){
-    D("No writes to report on %d",, sbuf->file_seqnum);
+    DD("No writes to report on %d",, sbuf->file_seqnum);
 #ifdef UGLY_TIMEOUT_FIX
-    tout=1000;
-    usleep(tout);
+    if(tout == 1)
+      usleep(1000);
 #endif
-    //NADA
   }
   else{
     E("Error in write check on seqdum %d",, sbuf->file_seqnum);
@@ -332,6 +331,7 @@ int simple_write_bytes(struct buffer_entity *be){
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
   ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+  ASSERT(count != 0);
 
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   if(count > limit)
@@ -391,7 +391,7 @@ int sbuf_async_loop(struct buffer_entity *be){
       return -1;
     }
     else{
-      D("Only checking. Not writing. asyncdiff still %d",,sbuf->asyncdiff);
+      DD("Only checking. Not writing. asyncdiff still %d",,sbuf->asyncdiff);
       err = sbuf_check(be,1);
       CHECK_ERR_QUIET("Async check");
     }
@@ -456,10 +456,14 @@ int write_buffer(struct buffer_entity *be){
     ret = sbuf_async_loop(be);
   }
   else{
-    ret =sbuf_sync_loop(be);
+    ret = sbuf_sync_loop(be);
   }
-  if(ret != 0)
+  if(ret != 0){
+    E("Faulty recer");
+    if(be->recer != NULL)
+      close_recer(be,ret);
     return -1;
+  }
 
   /* If we've succesfully written everything: set everything free etc */
   if(sbuf->diff == 0){

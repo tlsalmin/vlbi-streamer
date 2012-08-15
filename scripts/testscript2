@@ -1,6 +1,26 @@
 #!/bin/bash
 #Testscript run on metsähovi machines with vlbi-command
 #Tests daemon-mode
+TESTTIME=30
+WAIT=20
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -f) 
+      PLOTPARSED_EXTRA="-f $2"
+      shift
+      ;;
+    -t)
+      TESTTIME=$2
+      shift
+      ;;
+    -t)
+      WAIT=$2
+      shift
+      ;;
+  esac
+  shift
+done
 CFGFILE=/usr/local/etc/vlbistreamer.conf
 SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
 PARSELONG=3
@@ -10,11 +30,9 @@ PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c
 PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
 TARGET="192.168.0.1"
 OTARGET="192.168.0.3"
-TESTTIME=30
 VBS_START="$VLBIPREFIX src/vlbistreamer"
 VBS_SEND="$VLBIPREFIX vbs_send"
 VBS_RECV="$VLBIPREFIX vbs_record"
-WAIT=20
 DRIVES=`$VLBIPREFIX "cat $CFGFILE |grep n_drives |cut -d ' ' -f3 |head -c -$PARSENORMAL"`
 UDPPRE="cd /home/kharn/sshfs/watt.vlbi.metsahovi.fi/home/oper"
 UDPBIN="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_send"
@@ -84,7 +102,11 @@ do
   fi
   echo -e ". $i\t\tok"
 done
+
 echo -e "Nonexisting files test ... \tOK"
+
+DATE=$(date +%s)
+
 echo -e "Testing send/receive"
 for i in "${METHODS[@]}"
 do
@@ -122,10 +144,11 @@ do
 
   $VLBIPREFIX vbs_shutdown
 
-  scripts/parse_logs ${TEMPLOG}${i}
-  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r
+  scripts/parse_logs ${TEMPLOG}${i} 
+  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r $PLOTPARSED_EXTRA
   sleep 1
   rm ${TEMPLOG}${i}.parsed
+  rm ${TEMPLOG}${i}
 
   echo -e "Testing $i ... \tOK"
 done
@@ -133,7 +156,5 @@ done
 echo "Cleaning up leftovers from previous test"
 for i in ${METHODS[@]}
 do
-  rm ${TEMPLOG}${i}
-  rm ${TEMPLOG}${i}.parsed
   $VLBIPREFIX "vbs_delete ${i}${DURPA}"
 done

@@ -1,10 +1,11 @@
 #!/bin/bash
 DDATE=$(date +%s)
-OUTFOLDER=perfplots/$DDATE
 usage()
 {
 cat << EOF
 $0 : Creates gnuplot plots from parsed file
+
+Usage: $0 <option> file-to-plot
 
 OPTIONS: to plot:
   -d 		drive speeds
@@ -35,11 +36,16 @@ do
       ;;
     -f)
       OUTFOLDER=$2
+      #Create the outfolder if it doesn't exist
+      if [ ! -d "$OUTFOLDER" ]
+      then
+	mkdir $OUTFOLDER &> /dev/null
+      fi
       EXTRAPARAM="set term png"
-      set 
       shift
       ;;
     -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters $0" >> $LOGFILE;;
+    #File is the extra out
   *) eval "arg_$n=$1";n=$(($n+1));;
   esac
   shift
@@ -51,16 +57,20 @@ then
   exit -1
 fi
 
-#mkdir $OUTFOLDER &> /dev/null
+
 FILE=$arg_1
-#echo ${THEPLOT[@]}
+
+
 for i in ${THEPLOT[@]}
 do
+  #Format extra parameters for outputting files
   if [ ! -z "$EXTRAPARAM" ]
   then 
     EOUT="$EXTRAPARAM
-    set output \"$OUTFOLDER/${DDATE}${i}\""
+    set output \"$OUTFOLDER/${DDATE}_${i}.png\"
+    "
   fi
+  echo $EOUT
   case $i in 
     HD)
       gnuplot -persist <<-EOF
@@ -68,7 +78,7 @@ do
       set xlabel "Time(s)"
       set ylabel "Mb/s"
       $EOUT
-      plot "$FILE" using 1:2 with line
+      plot "$FILE" using 1:2 with line title "HD-speed"
 EOF
       ;;
     NET)

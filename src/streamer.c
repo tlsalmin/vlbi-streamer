@@ -1698,13 +1698,6 @@ int init_recp(struct opt_s *opt){
   opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
   CHECK_ERR_NONNULL(opt->recs, "rec entity malloc");
   for(i=0;i<opt->n_drives;i++){
-    //struct recording_entity * re = (struct recording_entity*)malloc(sizeof(struct recording_entity));
-    /*
-       struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-       le->entity = (void*)re;
-       add_to_entlist(opt.diskbranch, le);
-       */
-
     /*
      * NOTE: AIOW-stuff and udp-streamer are bidirectional and
      * only require the setting of opt->read to one for 
