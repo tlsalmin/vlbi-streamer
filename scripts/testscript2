@@ -1,6 +1,26 @@
 #!/bin/bash
 #Testscript run on metsähovi machines with vlbi-command
 #Tests daemon-mode
+VLBIPREFIX="vlbi"
+end_streamer()
+{
+TIMEOUT=10 
+$VLBIPREFIX vbs_shutdown
+while [ "$($VLBIPREFIX pidof vlbistreamer)" ]
+do
+  echo "Waiting for vlbistreamer to stop"
+  TIMEOUT=$(($TIMEOUT-1))
+  if [ "$TIMEOUT" -le "0" ]
+  then
+    $VLBIPREFIX killall vlbistreamer
+    echo "VLBIstreamer had to be killed!"
+  else
+    sleep 1
+  fi
+done
+$VLBIPREFIX vbs_clearschedule
+}
+
 TESTTIME=30
 WAIT=20
 while [ $# -gt 0 ]
@@ -8,6 +28,7 @@ do
   case $1 in
     -f) 
       PLOTPARSED_EXTRA="-f $2"
+      ROOTFOLDER=$2
       shift
       ;;
     -t)
@@ -25,7 +46,6 @@ CFGFILE=/usr/local/etc/vlbistreamer.conf
 SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
 PARSELONG=3
 PARSENORMAL=2
-VLBIPREFIX="vlbi"
 PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c -$PARSELONG"`
 PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
 TARGET="192.168.0.1"
@@ -48,6 +68,7 @@ DEFAULT_PARAMS="-A $MAXMEM -s $PORT -d $DRIVES"
 TEMPLOG=thistemplogsurelyshouldntbeoverwritten
 
 DURPA="derpah"
+$VLBIPREFIX vbs_clearschedule
 echo "Cleaning up leftovers from previous test"
 for i in ${METHODS[@]}
 do
@@ -83,6 +104,7 @@ do
     echo status $?
     echo "Bogus send crashed vlbistreamer!"
     cat $TEMPLOG
+    end_streamer
     exit -1
   fi
   $VLBIPREFIX cat $TEMPLOG |grep ERROR &> /dev/null
@@ -90,6 +112,7 @@ do
   then
     echo "Bogus send didnt output error!"
     cat $TEMPLOG
+    end_streamer
     exit -1
   fi
   $VLBIPREFIX vbs_shutdown
@@ -98,6 +121,7 @@ do
   if [ "$?" -eq "0" ]
   then
     echo "vlbistreamer didnt shut down!"
+    end_streamer
     exit -1
   fi
   echo -e ". $i\t\tok"
@@ -110,16 +134,21 @@ DATE=$(date +%s)
 echo -e "Testing send/receive"
 for i in "${METHODS[@]}"
 do
+  TARGETFOLDER=${ROOTFOLDER}/${i}
+  mkdir $TARGETFOLDER
   echo "Testing $i for receive"
-  while [ "$($VLBIPREFIX pidof vlbistreamer)" ]
-  do
-    echo "Waiting for vlbistreamer to stop"
-    sleep 1
-  done
-  $VBS_START -w $i &> $TEMPLOG$i &
+
+  end_streamer
+
+  STATLOG=${TARGETFOLDER}/statlog
+  MAINLOG=${TARGETFOLDER}/mainlog
+  RECNAME=testfor_${i}
+  #$VBS_START -w $i &> ${TEMPLOG}${i} &
+  $VBS_START -w $i &> $MAINLOG &
+  nohup $VLBIPREFIX "scripts/statlogger $(($TESTTIME*2+10)) > $STATLOG " &
   SPACE=" "
-  DUR=$i$DURPA$SPACE$TESTTIME
-  $VBS_RECV $DUR
+  #DUR=$i$DURPA$SPACE$TESTTIME
+  $VBS_RECV $RECNAME $TESTTIME
   $UDPPRE
   $VLBIPREFIX "$UDPBIN $UDPOPTS > udpmonlog" &
   echo "Receiving started.."
@@ -127,7 +156,7 @@ do
   echo "..Receiving finished!"
   SENTPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $2}'|head -c -2`
   $UDPEND
-  RECVPACKAGES=`cat ${TEMPLOG}${i} | grep Packets:| awk '{print $2}'|head -c -1`
+  RECVPACKAGES=`cat $MAINLOG | grep Packets:| awk '{print $2}'|head -c -1`
   
   if [ "$SENTPACKAGES" -ne "$RECVPACKAGES" ]
   then
@@ -135,28 +164,36 @@ do
   else
     echo "Same amount of packets sent and received"
   fi
-  $VBS_SEND $i$DURPA $OTARGET -a $WAIT
+  $VBS_SEND $RECNAME $OTARGET -a $WAIT
   $UDPPRE
   echo "Sending started.."
   TEMPVAR="$($VLBIPREFIX $UDPRECV $UDPOPTSRECV)"
-  RECVPACKAGES=$(echo $TEMPVAR|tail -n 1 |cut ' ' -f5 |head -c -2)
+  RECVPACKAGES=`echo $TEMPVAR|tail -n 1 |cut -d' ' -f5 |head -c -2`
   #sleep $(($TESTTIME +5))
   echo "..Sending finished!"
   #RECVPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $5}'|head -c -2`
   $UDPEND
-  SENTPACKAGES=`cat $TEMPLOG | grep Packets:|tail -n1 | awk '{print $2}'|head -c -1`
-  echo $RECVPACKAGES $SENTPACKAGES
+  SENTPACKAGES=`cat $MAINLOG | grep Packets:|tail -n1 | awk '{print $2}'|head -c -1`
+  if [ "$SENTPACKAGES" -ne "$RECVPACKAGES" ]
+  then
+    echo "Mismatch in received/sent files. received $(($SENTPACKAGES-$RECVPACKAGES)) less than sent"
+  else
+    echo "Same amount of packets sent and received"
+  fi
 
-  $VLBIPREFIX vbs_shutdown
 
-  scripts/parse_logs ${TEMPLOG}${i} 
-  scripts/plot_parsed ${TEMPLOG}${i}.parsed -d -n -b -r ${PLOTPARSED_EXTRA}${i}
+  scripts/parse_logs $MAINLOG
+  scripts/plot_parsed ${MAINLOG}.parsed -d -n -b -r -f $TARGETFOLDER &> /dev/null
+  scripts/plot_parsed $STATLOG -c -m -f $TARGETFOLDER &> /dev/null
   sleep 1
-  rm ${TEMPLOG}${i}.parsed
-  rm ${TEMPLOG}${i}
+  #rm ${TEMPLOG}${i}.parsed
+  #rm ${TEMPLOG}${i}
+  #rm $STATLOG
 
   echo -e "Testing $i ... \tOK"
 done
+
+end_streamer
 
 echo "Cleaning up leftovers from previous test"
 for i in ${METHODS[@]}
