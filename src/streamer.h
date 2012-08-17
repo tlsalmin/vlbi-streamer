@@ -422,6 +422,7 @@ void add_stats(struct stats* st1, struct stats* st2);
 //Timerstuff
 int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);
+void shutdown_thread(struct opt_s *opt);
 #if(DAEMON)
 void* vlbistreamer(void *opti);
 #endif

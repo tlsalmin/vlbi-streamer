@@ -26,6 +26,7 @@ struct scheduled_event{
   struct scheduled_event* next;
   struct stats* stats;
   char * idstring;
+  void (*shutdown_thread)(struct opt_s*);
   pthread_t pt;
   int found;
 };
@@ -271,6 +272,13 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     err = config_write_file(&cfg, STATEFILE);
     CHECK_CFG("Wrote config");
     sched->running = 0;
+  
+    struct scheduled_event * temp = sched->running_head;
+    while(temp != NULL){
+      temp->shutdown_thread(temp->opt);
+      temp = temp->next;
+    }
+
     config_destroy(&cfg);
     return 0;
   }
@@ -278,6 +286,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   CHECK_ERR_NONNULL(se, "Malloc scheduled event");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(opt, "Opt for event malloc");
+  se->shutdown_thread = shutdown_thread;
 
   se->found=1;
   se->next=NULL;

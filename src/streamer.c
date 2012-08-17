@@ -1135,7 +1135,12 @@ int main(int argc, char **argv)
 #endif /* DAEMON */
   {
     if(!(opt->optbits & READMODE)){
-      sleep(opt->time);
+      int sleepleft = opt->time;
+      while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
+	sleep(1);
+	sleepleft-=1;
+      }
+      //sleep(opt->time);
       ////pthread_mutex_destroy(opt.cumlock);
     }
   }
@@ -1144,8 +1149,7 @@ int main(int argc, char **argv)
     //for(i = 0;i<opt.n_threads;i++){
     //threads[i].stop(&(threads[i]));
     //}
-    opt->streamer_ent->stop(opt->streamer_ent);
-    udps_close_socket(opt->streamer_ent);
+    shutdown_thread(opt);
     //threads[0].close_socket(&(threads[0]));
     //streamer_ent.close_socket(&(streamer_ent));
   }
@@ -1265,4 +1269,8 @@ int init_branches(struct opt_s *opt){
   err = pthread_cond_init(&(opt->diskbranch->busysignal), NULL);
   CHECK_ERR("busysignal");
   return 0;
+}
+void shutdown_thread(struct opt_s *opt){
+    opt->streamer_ent->stop(opt->streamer_ent);
+    udps_close_socket(opt->streamer_ent);
 }
