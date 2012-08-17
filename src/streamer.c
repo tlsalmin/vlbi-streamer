@@ -1174,9 +1174,9 @@ int main(int argc, char **argv)
 #endif
   }
 
-#if(DAEMON)
   D("Blocking until owned buffers are released");
   block_until_free(opt->membranch, opt->filename);
+#if(DAEMON)
   D("Buffers finished");
   opt->status = STATUS_FINISHED;
 #else
