@@ -37,13 +37,13 @@
 #include "streamer.h"
 #include "udp_stream.h"
 #include "resourcetree.h"
+#include "timer.h"
 
 #define FULL_COPY_ON_PEEK
 #define MBITS_PER_DRIVE 500
 
 #define UDPMON_SEQNUM_BYTES 8
 //#define DUMMYSOCKET
-#define SLEEPCHECK_LOOPTIMES 100
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
 /* Using this until solved properly */
@@ -428,21 +428,6 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
 
   st->files_loaded++;
   return 0;
-}
-unsigned long get_min_sleeptime(){
-  unsigned long cumul = 0;
-  int i;
-  TIMERTYPE start,end;
-  ZEROTIME(start);
-  for(i=0;i<SLEEPCHECK_LOOPTIMES;i++){ 
-    ZEROTIME(end);
-    nanoadd(&end,1);
-    GETTIME(start);
-    SLEEP_NANOS(end);
-    GETTIME(end);
-    cumul+= nanodiff(&start,&end);
-  }
-  return cumul/SLEEPCHECK_LOOPTIMES;
 }
 void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
   memset(st, 0,sizeof(struct sender_tracking));

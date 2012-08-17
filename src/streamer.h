@@ -164,27 +164,6 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   CHECK_ERR(#x);
 
 
-  //#define TIMERTYPE_GETTIMEOFDAY
-#ifdef TIMERTYPE_GETTIMEOFDAY
-#define TIMERTYPE struct timeval 
-#define GETTIME(x) gettimeofday(&x,NULL)
-  //#define ZEROTIME(x) x.tv_sec =0;x.tv_usec=0;
-#define SLEEP_NANOS(x) usleep((x.tv_usec))
-#define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_usec=from.tv_usec
-#define SETNANOS(x,y) x.tv_usec = (y)/1000
-#define SETONE(x) x.tv_usec=1
-#define GETNANOS(x) (x).tv_usec*1000
-#else
-#define TIMERTYPE struct timespec
-#define GETTIME(x) clock_gettime(CLOCK_REALTIME, &x)
-  //#define ZEROTIME(x) x.tv_sec =0;x.tv_nsec=0;
-#define SLEEP_NANOS(x) nanosleep(&x,NULL)
-#define COPYTIME(from,to) to.tv_sec = from.tv_sec;to.tv_nsec=from.tv_nsec
-#define SETNANOS(x,y) x.tv_nsec = (y)
-#define GETNANOS(x) (x).tv_nsec
-#define SETONE(x) x.tv_nsec=1
-#endif
-#define ZEROTIME(x) memset((void*)(&x),0,sizeof(TIMERTYPE))
 
   //Moved to configure
   //#define DEBUG_OUTPUT
@@ -227,13 +206,15 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 
   //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
   //etc for packet handling
-#include "config.h"
 #include <pthread.h>
-#include "resourcetree.h"
+#include <config.h>
 #ifdef HAVE_LIBCONFIG_H
 #include <libconfig.h>
 #endif
 #include <netdb.h> // struct hostent
+#include "config.h"
+#include "resourcetree.h"
+#include "timer.h"
   struct stats
 {
   unsigned long total_packets;
@@ -439,12 +420,7 @@ void init_stats(struct stats *stats);
 void neg_stats(struct stats* st1, struct stats* st2);
 void add_stats(struct stats* st1, struct stats* st2);
 //Timerstuff
-void specadd(struct timespec * to, struct timespec *from);
 int close_streamer(struct opt_s *opt);
-long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
-void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);
-void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add);
-int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event);
 int init_branches(struct opt_s *opt);
 #if(DAEMON)
 void* vlbistreamer(void *opti);
