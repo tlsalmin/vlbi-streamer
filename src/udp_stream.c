@@ -37,6 +37,7 @@
 #include "streamer.h"
 #include "udp_stream.h"
 #include "resourcetree.h"
+#include "confighelper.h"
 
 #define FULL_COPY_ON_PEEK
 #define MBITS_PER_DRIVE 500

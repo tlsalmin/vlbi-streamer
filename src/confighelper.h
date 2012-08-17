@@ -155,4 +155,6 @@ int write_cfg(config_t *cfg, char* filename);
 int write_cfg_for_rec(struct opt_s * opt, char* filename);
 int read_cfg(config_t *cfg, char * filename);
 int update_cfg(struct opt_s *opt, struct config_t * cfg);
+int init_cfg(struct opt_s *opt);
+int stub_rec_cfg(config_setting_t *root, struct opt_s *opt);
 #endif /* CONFIGHELPER_H */

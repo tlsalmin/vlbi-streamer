@@ -411,10 +411,10 @@ int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
 
-  struct stats* tempstats;//, stats_temp;
+  struct stats* tempstats = NULL;//, stats_temp;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
-  TIMERTYPE *temptime;
+  TIMERTYPE *temptime = NULL;
   CHECK_ERR_NONNULL(sched, "Sched malloc");
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
