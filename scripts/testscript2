@@ -28,6 +28,10 @@ do
   case $1 in
     -f) 
       PLOTPARSED_EXTRA="-f $2"
+      if [ ! -d "$2" ]
+      then
+	mkdir $2
+      fi
       ROOTFOLDER=$2
       shift
       ;;
@@ -138,17 +142,15 @@ do
   mkdir $TARGETFOLDER
   echo "Testing $i for receive"
 
-  end_streamer
 
   STATLOG=${TARGETFOLDER}/statlog
   MAINLOG=${TARGETFOLDER}/mainlog
   RECNAME=testfor_${i}
   #$VBS_START -w $i &> ${TEMPLOG}${i} &
   $VBS_START -w $i &> $MAINLOG &
-  nohup $VLBIPREFIX "scripts/statlogger $(($TESTTIME*2+10)) > $STATLOG " &
-  SPACE=" "
-  #DUR=$i$DURPA$SPACE$TESTTIME
+
   $VBS_RECV $RECNAME $TESTTIME
+  nohup $VLBIPREFIX "scripts/statlogger $(($TESTTIME*2+10)) > $STATLOG " &
   $UDPPRE
   $VLBIPREFIX "$UDPBIN $UDPOPTS > udpmonlog" &
   echo "Receiving started.."
@@ -181,6 +183,7 @@ do
     echo "Same amount of packets sent and received"
   fi
 
+  end_streamer
 
   scripts/parse_logs $MAINLOG
   scripts/plot_parsed ${MAINLOG}.parsed -d -n -b -r -f $TARGETFOLDER &> /dev/null

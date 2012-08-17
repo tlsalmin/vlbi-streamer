@@ -10,6 +10,7 @@
 
 #include "config.h"
 #include "streamer.h"
+#include "confighelper.h"
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"

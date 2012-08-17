@@ -10,6 +10,7 @@
 #ifdef HAVE_HUGEPAGES
 #include <sys/mman.h>
 #endif
+#include "resourcetree.h"
 #include "simplebuffer.h"
 #include "streamer.h"
 #include "assert.h"

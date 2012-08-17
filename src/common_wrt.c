@@ -12,9 +12,10 @@
 #include <regex.h> /* For regexp file matching */
 #include "config.h"
 
-
 #include "streamer.h"
+//#include "resourcetree.h"
 #include "common_wrt.h"
+//#include "confighelper.h"
 #define ERR_IN_INIT free(dirname);return -1
 
 int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){

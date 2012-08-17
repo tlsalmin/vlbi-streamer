@@ -36,6 +36,7 @@
 #include <net/if.h>
 #include "streamer.h"
 #include "udp_stream.h"
+#include "resourcetree.h"
 
 #define FULL_COPY_ON_PEEK
 #define MBITS_PER_DRIVE 500
