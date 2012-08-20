@@ -108,7 +108,15 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
       en->child->father = NULL;
     br->busylist = en->child;
   }
+  else if(en == br->loadedlist){
+    if(en->child != NULL)
+      en->child->father = NULL;
+    br->loadedlist = en->child;
+  }
   else{
+    /* Weird thing. Segfault when en->father is NULL	*/
+    /* Shoulnd't happen but happens on vbs_shutdown	*/
+    /* with live sending 				*/
     en->father->child = en->child;
     if(en->child != NULL)
       en->child->father = en->father;

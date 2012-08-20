@@ -277,9 +277,11 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     while(temp != NULL){
       temp->shutdown_thread(temp->opt);
       temp = temp->next;
+      D("Threads shut down");
     }
 
     config_destroy(&cfg);
+    D("Shutdown finished");
     return 0;
   }
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
@@ -565,6 +567,7 @@ int main(int argc, char **argv)
 
   D("Closing membranch and diskbranch");
   close_rbufs(sched->default_opt, stats_full);
+  D("Membranch closed");
   close_recp(sched->default_opt,stats_full);
   D("Membranch and diskbranch shut down");
 

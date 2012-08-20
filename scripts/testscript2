@@ -71,12 +71,11 @@ EXTRA_PARAMS="$*"
 DEFAULT_PARAMS="-A $MAXMEM -s $PORT -d $DRIVES"
 TEMPLOG=thistemplogsurelyshouldntbeoverwritten
 
-DURPA="derpah"
 $VLBIPREFIX vbs_clearschedule
 echo "Cleaning up leftovers from previous test"
 for i in ${METHODS[@]}
 do
-$VLBIPREFIX "vbs_delete ${i}${DURPA}"
+$VLBIPREFIX "vbs_delete testfor_${i}"
 done
 
 echo "setting up daemon mode"
@@ -201,5 +200,5 @@ end_streamer
 echo "Cleaning up leftovers from previous test"
 for i in ${METHODS[@]}
 do
-  $VLBIPREFIX "vbs_delete ${i}${DURPA}"
+  $VLBIPREFIX "vbs_delete testfor_{i}"
 done

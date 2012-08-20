@@ -516,7 +516,7 @@ void * udp_sender(void *streamo){
   i=0;
   //clock_gettime(CLOCK_REALTIME, &(spec_ops->opt->wait_last_sent));
   GETTIME(spec_ops->opt->wait_last_sent);
-  while(st.files_sent <= spec_ops->opt->cumul){
+  while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
     if(i == spec_ops->opt->buf_num_elems || st.packets_left_to_send == 0){
       st.files_sent++;
@@ -1254,6 +1254,7 @@ int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
 
   udps_init_default(opt,se);
   se->start = udp_sender;
+  se->stop = udps_stop;
   return se->init(opt, se);
 
 }

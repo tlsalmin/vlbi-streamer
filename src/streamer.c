@@ -1271,6 +1271,7 @@ int init_branches(struct opt_s *opt){
   return 0;
 }
 void shutdown_thread(struct opt_s *opt){
-    opt->streamer_ent->stop(opt->streamer_ent);
+  opt->streamer_ent->stop(opt->streamer_ent);
+  if(!(opt->optbits & READMODE))
     udps_close_socket(opt->streamer_ent);
 }
