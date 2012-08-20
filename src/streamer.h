@@ -426,6 +426,7 @@ void shutdown_thread(struct opt_s *opt);
 #if(DAEMON)
 void* vlbistreamer(void *opti);
 #endif
+int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type);
 
 
 

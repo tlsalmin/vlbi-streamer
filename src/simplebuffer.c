@@ -98,10 +98,11 @@ int sbuf_free(void* buffo){
   (void)buffo;
   return 0;
 }
-const char* sbuf_getrecname(void* ent){
+int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   struct buffer_entity *be = (struct buffer_entity*)ent;
   struct simplebuf* sbuf= (struct simplebuf*)be->opt;
-  return (const char*)sbuf->opt->filename;
+  return iden_from_opt(sbuf->opt, val1, val2, iden_type);
+  //return (const char*)sbuf->opt->filename;
 }
 int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //Moved buffer init to writer(Choosable by netreader-thread)
@@ -127,7 +128,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   le->check = sbuf_seqnumcheck;
   le->release = sbuf_release;
   le->close = sbuf_free;
-  le->getrecname = sbuf_getrecname;
+  le->identify = sbuf_identify;
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
   D("Ringbuf added to membranch");

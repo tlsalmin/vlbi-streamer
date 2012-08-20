@@ -1179,7 +1179,7 @@ int main(int argc, char **argv)
   }
 
   D("Blocking until owned buffers are released");
-  block_until_free(opt->membranch, opt->filename);
+  block_until_free(opt->membranch, opt);
 #if(DAEMON)
   D("Buffers finished");
   opt->status = STATUS_FINISHED;
@@ -1274,4 +1274,22 @@ void shutdown_thread(struct opt_s *opt){
   opt->streamer_ent->stop(opt->streamer_ent);
   if(!(opt->optbits & READMODE))
     udps_close_socket(opt->streamer_ent);
+}
+/* Generic function which we use after we get the opt	*/
+inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type){
+  switch (iden_type){
+    case CHECK_BY_NAME:
+      //char* name = (char*)val1;
+      if(strcmp(opt->filename,(char*)val1)== 0)
+	return 1;
+      else 
+	return 0;
+      break;
+    case CHECK_BY_OPTPOINTER:
+      if(opt == (struct opt_s*) val1)
+	return 1;
+      else 
+	return 0;
+      break;
+  }
 }

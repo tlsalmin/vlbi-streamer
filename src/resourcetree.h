@@ -1,5 +1,8 @@
 #ifndef RESOURCETREE_H
 #define RESOURCETREE_H
+
+#define CHECK_BY_NAME 1
+#define CHECK_BY_OPTPOINTER 2
 /* This holds any entity, which can be set to either 	*/
 /* A branches free or busy-list				*/
 /* Cant decide if rather traverse the lists and remove	*/
@@ -10,7 +13,8 @@ struct listed_entity
   struct listed_entity* father;
   int (*acquire)(void*,void*,unsigned long,unsigned long);
   int (*check)(void*, int);
-  const char* (*getrecname)(void*);
+  /* 0 for not this, 1 for identified */
+  int (*identify)(void*, void*, void*,int);
   int (*close)(void*);
   int (*release)(void*);
   void* entity;
@@ -48,6 +52,6 @@ void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
 /* Print stats on how many entities are free, busy or loaded	*/
 void print_br_stats(struct entity_list_branch *br);
 /* Blocks until no more entities are busy with this element	*/
-void block_until_free(struct entity_list_branch *br, const char* recname);
+void block_until_free(struct entity_list_branch *br, void* val1);
 
 #endif /* !RESOURCETREE_H */

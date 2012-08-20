@@ -306,10 +306,11 @@ int init_directory(struct recording_entity *re){
   free(dirname);
   return 0;
 }
-const char* common_get_rec_name(void * ent){
+int common_identify(void * ent, void* val1, void* val2, int iden_type){
   struct recording_entity *re = (struct recording_entity *)ent;
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
-  return (const char*)ioi->opt->filename;
+  //return (const char*)ioi->opt->filename;
+  return iden_from_opt(ioi->opt, val1, val2, iden_type);
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
@@ -378,7 +379,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->acquire = common_open_new_file;
   le->release = common_finish_file;
   le->check = common_check_id;
-  le->getrecname = common_get_rec_name;
+  le->identify = common_identify;
   le->close = common_close_and_free;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);

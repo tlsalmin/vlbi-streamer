@@ -89,29 +89,35 @@ int free_and_close(struct scheduled_event *ev){
   int err;
   if(ev->opt->status == STATUS_FINISHED){
     LOG("Recording %s finished OK\n",ev->opt->filename);
-    err =  pthread_join(ev->pt, NULL);
-    CHECK_ERR("join thread");
-    err = close_streamer(ev->opt);
-    CHECK_ERR("Close streamer");
   }
   else if(ev->opt->status == STATUS_ERROR){
     LOG("Recording %s finished in ERROR\n",ev->opt->filename);
-    err = pthread_join(ev->pt, NULL);
-    CHECK_ERR("join");
-    err = close_streamer(ev->opt);
-    CHECK_ERR("close stream");
   }
   else if(ev->opt->status == STATUS_RUNNING){
     D("Still running");
+    if(ev->shutdown_thread != NULL){
+      ev->shutdown_thread(ev->opt);
+      D("Thread shut down");
+    }
   //TODO: Cancelling threads running etc.
   }
   else{
+    if(ev->shutdown_thread != NULL){
+      ev->shutdown_thread(ev->opt);
+      D("Thread shut down");
+    }
     LOG("Recording %s cancelled\n",ev->opt->filename);
     ev->opt->status = STATUS_CANCELLED;
     //TODO: cancellation
   }
+    err = pthread_join(ev->pt, NULL);
+    CHECK_ERR("join");
+    err = close_streamer(ev->opt);
+    CHECK_ERR("close stream");
   err = remove_from_cfgsched(ev);
-  CHECK_ERR("sched remove");
+  /* Not a critical error */
+  if(err !=0)
+    E("Removing cfg entry from sched");
   free(ev->idstring);
   close_opts(ev->opt);
   free(ev);

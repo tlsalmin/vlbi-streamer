@@ -72,16 +72,18 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
 {
   mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
 }
-void block_until_free(struct entity_list_branch *br, const char* recname){
+void block_until_free(struct entity_list_branch *br, void* val1){
   struct listed_entity * shouldntfind,* checker;
   pthread_mutex_lock(&(br->branchlock));
   do{
     checker = br->busylist;
     shouldntfind = NULL;
     while(checker != NULL && shouldntfind == NULL){
-      if(strcmp(checker->getrecname(checker->entity),recname)== 0){
+      if(checker->identify(checker->entity, val1, NULL, CHECK_BY_OPTPOINTER) == 1){
 	shouldntfind = checker;
+	break;
       }
+      //if(strcmp(checker->getrecname(checker->entity),recname)== 0){
       else
 	checker = checker->child;
     }
