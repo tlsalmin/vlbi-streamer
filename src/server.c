@@ -384,6 +384,7 @@ int check_schedule(struct schedule *sched){
     //TODO: Stop the recording
     err =  remove_recording(temp, &(sched->running_head));
     CHECK_ERR("Remove recording");
+    sched->n_running--;
   }
   zerofound(sched);
   config_destroy(&cfg);
