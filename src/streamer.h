@@ -24,6 +24,8 @@
 #define KB 1024
 #define BYTES_TO_MBITSPS(x)	(x*8)/(KB*KB)
 
+#define MUTEX_FREE		1
+
 /* What buf entity to use. Used by buf_type*/ 
 #define LOCKER_WRITER		0x0000000f 
 #define BUFFER_RINGBUF 		B(0)

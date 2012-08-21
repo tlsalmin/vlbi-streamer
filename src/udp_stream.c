@@ -482,6 +482,7 @@ void * udp_sender(void *streamo){
   /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
   //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
   int loadup = MIN((unsigned int)max_buffers_in_use, spec_ops->opt->cumul);
+  loadup = MIN(loadup, spec_ops->opt->n_threads);
 
   /* Check if theres empties right at the start */
   /* Added && for files might be skipped in start_loading */
@@ -504,7 +505,7 @@ void * udp_sender(void *streamo){
     st.files_sent++;
   /* TODO: Handle dropped out rec points */
   if(st.files_sent < spec_ops->opt->cumul)
-    se->be = get_loaded(spec_ops->opt->membranch, st.files_sent);
+    se->be = get_loaded(spec_ops->opt->membranch, st.files_sent, spec_ops->opt);
   else{
     UDPS_EXIT;
   }
@@ -559,7 +560,7 @@ void * udp_sender(void *streamo){
 	while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent < spec_ops->opt->cumul)
 	  st.files_sent++;
 	if(st.files_sent < spec_ops->opt->cumul)
-	  se->be = get_loaded(spec_ops->opt->membranch, st.files_sent);
+	  se->be = get_loaded(spec_ops->opt->membranch, st.files_sent, spec_ops->opt);
 	else{
 	  UDPS_EXIT;
 	}

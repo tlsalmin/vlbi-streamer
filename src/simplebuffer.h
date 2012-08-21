@@ -11,7 +11,7 @@ struct simplebuf{
   void* buffer;
   int async_writes_submitted;
   int running;
-  int file_seqnum;
+  unsigned long file_seqnum;
   int ready_to_act;
   int bufnum;
   void * bufoffset;

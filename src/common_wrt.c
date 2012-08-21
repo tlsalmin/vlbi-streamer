@@ -245,16 +245,14 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   //return rbuf_init_buf_entity(opt,be);
   return 0;
 }
+/*
 int common_check_id(void *recco, int id){
   struct recording_entity *re = (struct recording_entity *)recco;
   struct common_io_info* ioi = re->opt;
   //D("Asked for %d, we are %d",, ioi->id,id);
-  if(ioi->id == id)
-    return 1;
-  else
-    return 0;
   //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
 }
+*/
 int common_close_and_free(void* recco){
   /*
   if(recco != NULL){
@@ -309,7 +307,13 @@ int init_directory(struct recording_entity *re){
 int common_identify(void * ent, void* val1, void* val2, int iden_type){
   struct recording_entity *re = (struct recording_entity *)ent;
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
-  //return (const char*)ioi->opt->filename;
+  /* Special check for recpoint */
+  if(iden_type == CHECK_BY_SEQ){
+    if(ioi->id == (int)*((unsigned long*)val1))
+      return 1;
+    else
+      return 0;
+  }
   return iden_from_opt(ioi->opt, val1, val2, iden_type);
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
@@ -378,7 +382,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->father = NULL;
   le->acquire = common_open_new_file;
   le->release = common_finish_file;
-  le->check = common_check_id;
+  le->check = NULL;
   le->identify = common_identify;
   le->close = common_close_and_free;
   re->self= le;

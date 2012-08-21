@@ -23,7 +23,7 @@
 
 struct scheduled_event{
   struct opt_s * opt;
-  struct scheduled_event* next;
+  //struct scheduled_event* next;
   struct stats* stats;
   char * idstring;
   void (*shutdown_thread)(struct opt_s*);
@@ -32,8 +32,9 @@ struct scheduled_event{
 };
 /* Just to cut down on number of variables passed to functions		*/
 struct schedule{
-  struct scheduled_event* scheduled_head;
-  struct scheduled_event* running_head;
+  struct entity_list_branch br;
+  //listed_entity* scheduled_head;
+  //listed_entity* running_head;
   struct opt_s * default_opt;
   int n_scheduled;
   int n_running;
@@ -43,31 +44,24 @@ inline void zero_sched(struct schedule *sched){
   /*
   memset(sched,0,sizeof(sched));
     */
-  sched->scheduled_head = NULL;
-  sched->running_head = NULL;
+  //sched->scheduled_head = NULL;
+  //sched->running_head = NULL;
+  sched->br.freelist=NULL;
+  sched->br.busylist=NULL;
+  sched->br.loadedlist=NULL;
+  sched->br.mutex_free = MUTEX_FREE;
   sched->default_opt = NULL;
   sched->n_scheduled = 0;
   sched->n_running =0;
 }
 inline void zero_schedevnt(struct scheduled_event* ev){
   ev->opt = NULL;
-  ev->next =NULL;
+  //ev->next =NULL;
+  //ev->father = NULL;
+  //ev->child = NULL;
   ev->pt =0;
   ev->found=0;
-    }
-/*
-int set_running(struct schedule *sched, struct scheduled_event * ev, struct scheduled_event *parent){
-  struct scheduled_event * temp;
-  if(parent == NULL){
-    sched->scheduled_head = ev->next;
-  }
-  else{
-    temp = sched->scheduled_hea
-    while(
-  }
-
 }
-*/
 int remove_from_cfgsched(struct scheduled_event *ev){
   int err;
   config_t cfg;
@@ -84,7 +78,9 @@ int remove_from_cfgsched(struct scheduled_event *ev){
   config_destroy(&cfg);
   return 0;
 }
-int free_and_close(struct scheduled_event *ev){
+int free_and_close(void *le){
+  struct scheduled_event * ev = (struct scheduled_event*) le;
+
   D("optstatus: %d",, ev->opt->status);
   int err;
   if(ev->opt->status == STATUS_FINISHED){
@@ -123,7 +119,8 @@ int free_and_close(struct scheduled_event *ev){
   free(ev);
   return 0;
 }
-int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
+/*
+int remove_recording(struct scheduled_event *ev, listed_entity **head){
   int found = 0;
   struct scheduled_event *temp;
   struct scheduled_event *parent;
@@ -158,6 +155,8 @@ int remove_recording(struct scheduled_event *ev, struct scheduled_event **head){
   D("Didn't find schedevent in branch");
   return -1;
 }
+*/
+/*
 inline void add_to_end(struct scheduled_event ** head, struct scheduled_event * to_add){
   if(*head == NULL)
     *head = to_add;
@@ -181,10 +180,10 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
     }
     temp->next = ev->next;
   }
-  /* If we want to use this for removing */
   if(to != NULL)
     add_to_end(to, ev);
 }
+*/
 int start_event(struct scheduled_event *ev){
   int err;
   ev->opt->status = STATUS_RUNNING;
@@ -204,37 +203,59 @@ int start_scheduled(struct schedule *sched){
   GETTIME(time_now);
   struct scheduled_event * ev;
   //struct scheduled_event * parent = NULL;
-  for(ev = sched->scheduled_head;ev != NULL;){
+  struct listed_entity* le;
+  //for(ev = (struct scheduled_event*)sched->br->freelist->opt;ev != NULL;){
+  for(le = sched->br.freelist;le != NULL;le=le->child){
+    ev = le->entity;
     tdif = get_sec_diff(&time_now, &ev->opt->starting_time);
     if(ev->opt->starting_time.tv_sec == 0 || tdif <= SECS_TO_START_IN_ADVANCE){
-      struct scheduled_event * ev_temp = ev;
-      ev = ev->next;
+      //struct scheduled_event * ev_temp = ev;
+      //ev = ev->next;
       /* Removes old stuff. IF tv_sec is 0, should start immediately */
-      if(ev_temp->opt->starting_time.tv_sec != 0 && (!(ev_temp->opt->optbits & READMODE) && (tdif < -((long)ev_temp->opt->time)))){
-	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev_temp->opt->filename, -tdif);
-	LOG("Start time %lu\n", ev_temp->opt->starting_time.tv_sec);
-	remove_recording(ev_temp,&(sched->scheduled_head));
+      if(ev->opt->starting_time.tv_sec != 0 && (!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time)))){
+	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, -tdif);
+	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
+	//remove_recording(ev_temp,&(sched->scheduled_head));
+	remove_from_branch(&sched->br, le, MUTEX_FREE);
 	continue;
       }
-      LOG("Starting event %s\n", ev_temp->opt->filename);
+      LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
-      err = start_event(ev_temp);
+      err = start_event(ev);
       if(err != 0){
-	E("Something went wrong in recording %s start",, ev_temp->opt->filename);
-	remove_recording(ev_temp,&(sched->scheduled_head));
+	E("Something went wrong in recording %s start",, ev->opt->filename);
+	//remove_recording(le,sched->br.freelist);
+	remove_from_branch(&sched->br, le, MUTEX_FREE);
 	}
       else{
-	change_sched_branch(&sched->scheduled_head, &sched->running_head, ev_temp);
+	//change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
+	mutex_free_change_branch(&sched->br.freelist, &sched->br.busylist, le);
 	sched->n_running++;
       }
       //set_running(sched, ev, parent);
     }
-    else
-      ev = ev->next;
-    //parent = ev;
   }
   return 0;
 }
+int sched_identify(void* opt, void *val1, void * val2, int iden_type){
+  struct scheduled_event* ev = (struct scheduled_event*)opt;
+  if(iden_type == CHECK_BY_IDSTRING){
+    if(strcmp((char*)val1, ev->idstring) == 0)
+      return 1;
+    else
+      return 0;
+    
+  }
+  else if (iden_type == CHECK_BY_NOTFOUND){
+    if(ev->found == 0)
+      return 1;
+    else
+      return 0;
+  }
+  else 
+    return iden_from_opt(ev->opt, val1, val2, iden_type);
+}
+/*
 inline struct scheduled_event* get_from_head(char * name, struct scheduled_event* head){
   while(head != NULL){
     if(strcmp(head->idstring, name) == 0){
@@ -261,6 +282,7 @@ inline struct scheduled_event* get_not_found(struct scheduled_event* event){
   }
   return NULL;
 }
+*/
 int add_recording(config_setting_t* root, struct schedule* sched)
 {
   D("Adding new schedevent");
@@ -279,10 +301,13 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     CHECK_CFG("Wrote config");
     sched->running = 0;
   
-    struct scheduled_event * temp = sched->running_head;
+    struct listed_entity * temp = sched->br.busylist;
+    struct scheduled_event *ev;
     while(temp != NULL){
-      temp->shutdown_thread(temp->opt);
-      temp = temp->next;
+      ev = (struct scheduled_event*)temp->entity;
+      ev->shutdown_thread(ev->opt);
+      //temp = temp->next;
+      temp = temp->child;
       D("Threads shut down");
     }
 
@@ -290,14 +315,20 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     D("Shutdown finished");
     return 0;
   }
+  struct listed_entity * le = (struct listed_entity *)malloc(sizeof(struct listed_entity));
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
+  le->entity= se;
+  le->child = NULL;
+  le->father = NULL;
+  le->identify = sched_identify;
+  le->close = free_and_close;
   CHECK_ERR_NONNULL(se, "Malloc scheduled event");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
   CHECK_ERR_NONNULL(opt, "Opt for event malloc");
   se->shutdown_thread = shutdown_thread;
 
   se->found=1;
-  se->next=NULL;
+  //se->next=NULL;
   se->opt = opt;
   /* Copy the default opt over our opt	*/
   clear_and_default(opt,0);
@@ -334,20 +365,28 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   //Special case if some old buggers in sched file
   //TODO: Check packet sizes and handle buffers accordingly
 
-  add_to_end(&(sched->scheduled_head), se);
+  //add_to_end(&(sched->scheduled_head), se);
+  add_to_entlist(&(sched->br), le);
   D("Schedevent added");
+  sched->n_scheduled++;
   return 0;
 }
 void zerofound(struct schedule *sched){
+  struct listed_entity *le;
   struct scheduled_event * temp;
-  for(temp = sched->scheduled_head; temp != NULL; temp=temp->next)
+  for(le = sched->br.freelist; le != NULL; le=le->child){
+    temp = (struct scheduled_event*)le->entity;
     temp->found = 0;
-  for(temp = sched->running_head; temp != NULL; temp=temp->next)
+  }
+  for(le = sched->br.busylist; le != NULL; le=le->child){
+    temp = (struct scheduled_event*)le->entity;
     temp->found = 0;
+  }
 }
 int check_schedule(struct schedule *sched){
   int i=0,err;
   struct scheduled_event * temp = NULL;
+  struct listed_entity * le = NULL;
   config_t cfg;
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
@@ -362,30 +401,41 @@ int check_schedule(struct schedule *sched){
   /* If one that was there is now missing, remove it from schedule	*/
   /* else just set the events found to 1				*/
   for(setting=config_setting_get_elem(root,i);setting != NULL;setting=config_setting_get_elem(root,++i)){
-    temp = get_event_by_name(config_setting_name(setting), sched);
+    le = get_from_all(&(sched->br), config_setting_name(setting), NULL, CHECK_BY_IDSTRING, MUTEX_FREE);
+    //temp = get_event_by_name(config_setting_name(setting), sched);
     /* New scheduled recording! 					*/
-    if(temp == NULL){
+    if(le == NULL){
       D("New schedule event found");
       err = add_recording(setting, sched);
       CHECK_ERR("Add recording");
     }
     else{
       D("Found ye olde");
+      temp = (struct scheduled_event *)le->entity;
       temp->found = 1;
     }
   }
-  while((temp = get_not_found(sched->scheduled_head)) != NULL){
+  while((le = get_from_all(&sched->br, NULL, NULL, CHECK_BY_NOTFOUND, 1)) != NULL){
+    temp = (struct scheduled_event*)le->entity;
     LOG("Recording %s removed from schedule\n", temp->opt->filename);
-    err =  remove_recording(temp, &(sched->scheduled_head));
-    CHECK_ERR("Remove recording");
+    if(temp->opt->status == STATUS_RUNNING)
+      sched->n_running--;
+    else
+      sched->n_scheduled--;
+
+    //err =  remove_recording(temp, &(sched->scheduled_head));
+    remove_from_branch(&sched->br, le, MUTEX_FREE);
+    //CHECK_ERR("Remove recording");
   }
+  /*
   while((temp = get_not_found(sched->running_head)) != NULL){
     LOG("Recording %s removed from running\n", temp->opt->filename);
     //TODO: Stop the recording
-    err =  remove_recording(temp, &(sched->running_head));
+    //err =  remove_recording(temp, &(sched->running_head));
+    err = remove_from_branch(&sched->br, le, MUTEX_FREE);
     CHECK_ERR("Remove recording");
-    sched->n_running--;
   }
+  */
   zerofound(sched);
   config_destroy(&cfg);
   D("Done checking schedule");
@@ -410,18 +460,21 @@ int close_recording(struct schedule* sched, struct scheduled_event* ev){
 */
 int check_finished(struct schedule* sched){
   struct scheduled_event *ev;
-  int err;
-  for(ev = sched->running_head;ev!=NULL;){
-    struct scheduled_event *temp = ev->next;
+  struct listed_entity *le;
+  //int err;
+  for(le = sched->br.busylist;le!=NULL;){
+    struct listed_entity *letemp = le->child;
+    ev = (struct scheduled_event*)le->entity;
     if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED)){
       //err = close_recording(sched, ev);
       if(ev->opt->optbits & VERBOSE)
 	free(ev->stats);
-      err = remove_recording(ev, &(sched->running_head));
-      CHECK_ERR("close recording");
+      //err = remove_recording(ev, &(sched->running_head));
+      remove_from_branch(&(sched->br), le, MUTEX_FREE);
+      //CHECK_ERR("close recording");
       sched->n_running--;
     }
-    ev = temp;
+    le = letemp;
   }
   return 0;
 }
@@ -430,10 +483,13 @@ int main(int argc, char **argv)
   int err,i_fd,w_fd;
 
   struct stats* tempstats = NULL;//, stats_temp;
+  TIMERTYPE *temptime = NULL;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
-  TIMERTYPE *temptime = NULL;
   CHECK_ERR_NONNULL(sched, "Sched malloc");
+  
+  /* Set the branch as mutex free */
+  sched->br.mutex_free = 1;
   //memset((void*)&sched, 0,sizeof(struct schedule));
   zero_sched(sched);
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
@@ -533,20 +589,21 @@ int main(int argc, char **argv)
     err = check_finished(sched);
     CHECK_ERR("check finished");
     if(sched->default_opt->optbits & VERBOSE && sched->n_running > 0){
-      struct scheduled_event * le = sched->running_head;
+      struct listed_entity *le= sched->br.busylist;
       GETTIME(*temptime);
       LOG("Time:\t%lu\n", temptime->tv_sec);
       while(le != NULL){
-	if(le->opt->get_stats != NULL){
+	struct scheduled_event * ev = (struct scheduled_event*)le->entity;
+	if(ev->opt->get_stats != NULL){
 	  init_stats(tempstats);
-	  le->opt->get_stats((void*)le->opt, (void*)tempstats);
-	  neg_stats(tempstats, le->stats);
-	  LOG("Event:\t%s\t", le->opt->filename);
+	  ev->opt->get_stats((void*)ev->opt, (void*)tempstats);
+	  neg_stats(tempstats, ev->stats);
+	  LOG("Event:\t%s\t", ev->opt->filename);
 	  LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu\n"
 	      ,BYTES_TO_MBITSPS(tempstats->total_bytes),tempstats->dropped, tempstats->incomplete);
-	  add_stats(le->stats, tempstats);
+	  add_stats(ev->stats, tempstats);
 	}
-	le = le->next;
+	le = le->child;
       }
       init_stats(tempstats);
       oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)tempstats);

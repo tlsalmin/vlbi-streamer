@@ -393,14 +393,15 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->device_name = strdup(optarg);
 	break;
       case 'c':
-	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
-	CHECK_ERR_NONNULL(opt->cfgfile, "Cfgfile malloc");
+	//opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	//CHECK_ERR_NONNULL(opt->cfgfile, "Cfgfile malloc");
 	opt->cfgfile = strdup(optarg);
 //#if(!DAEMON)
 	LOG("Path for cfgfile specified. All command line options before this argument wmight be ignored\n");
 	ret = read_full_cfg(opt);
 	if(ret != 0){
 	  E("Error parsing cfg file. Exiting");
+	  free(opt->cfgfile);
 	  return -1;
 	}
 	free(opt->cfgfile);
@@ -1253,6 +1254,9 @@ int init_branches(struct opt_s *opt){
   opt->diskbranch = (struct entity_list_branch*)malloc(sizeof(struct entity_list_branch));
   CHECK_ERR_NONNULL(opt->diskbranch, "diskbranch malloc");
 
+  opt->diskbranch->mutex_free = 0;
+  opt->membranch->mutex_free = 0;
+
   opt->membranch->freelist = NULL;
   opt->membranch->busylist = NULL;
   opt->membranch->loadedlist = NULL;
@@ -1277,6 +1281,7 @@ void shutdown_thread(struct opt_s *opt){
 }
 /* Generic function which we use after we get the opt	*/
 inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type){
+  (void)val2;
   switch (iden_type){
     case CHECK_BY_NAME:
       //char* name = (char*)val1;
@@ -1290,6 +1295,9 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
 	return 1;
       else 
 	return 0;
+      break;
+    default:
+      return 0;
       break;
   }
 }

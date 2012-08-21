@@ -3,6 +3,10 @@
 
 #define CHECK_BY_NAME 1
 #define CHECK_BY_OPTPOINTER 2
+#define CHECK_BY_IDSTRING 3
+#define CHECK_BY_NOTFOUND 4
+#define CHECK_BY_SEQ 5
+#define CHECK_BY_FINISHED 6
 /* This holds any entity, which can be set to either 	*/
 /* A branches free or busy-list				*/
 /* Cant decide if rather traverse the lists and remove	*/
@@ -27,6 +31,7 @@ struct entity_list_branch
   struct listed_entity *freelist;
   struct listed_entity *busylist;
   struct listed_entity *loadedlist;
+  int mutex_free;
   pthread_mutex_t branchlock;
   /* Added here so the get_free caller can sleep	*/
   /* On non-free branch					*/
@@ -43,7 +48,7 @@ void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsi
 /* Get a specific entity according to seq or bufnum	*/
 void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result);
 /* Get a loaded buffer according to seq. Block if not found	*/
-void* get_loaded(struct entity_list_branch *br, unsigned long seq);
+void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* opt);
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
@@ -53,5 +58,7 @@ void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
 void print_br_stats(struct entity_list_branch *br);
 /* Blocks until no more entities are busy with this element	*/
 void block_until_free(struct entity_list_branch *br, void* val1);
+struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free);
 
+void mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en);
 #endif /* !RESOURCETREE_H */

@@ -18,16 +18,18 @@ void add_to_next(struct listed_entity **root, struct listed_entity *toadd)
     while((*root)->child != NULL)
       root = &((*root)->child);
     toadd->father = *root;
-    toadd->child = NULL;
+    //toadd->child = NULL;
     (*root)->child= toadd;
   }
 }
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en)
 {
-  pthread_mutex_lock(&(br->branchlock));
+  if(br->mutex_free == 0)
+    pthread_mutex_lock(&(br->branchlock));
   add_to_next(&(br->freelist), en);
-  pthread_mutex_unlock(&(br->branchlock));
+  if(br->mutex_free == 0)
+    pthread_mutex_unlock(&(br->branchlock));
 }
 void mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en)
 {
@@ -137,9 +139,9 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   }
   D("Entity removed from branch");
 }
-inline struct listed_entity * loop_and_check(struct listed_entity* head, int seq){
+inline struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, void* val2, int iden_type){
   while(head != NULL){
-    if(head->check(head->entity, seq) == 1){
+    if(head->identify(head->entity, val1, val2, iden_type) == 1){
       return head;
     }
     else{
@@ -148,12 +150,51 @@ inline struct listed_entity * loop_and_check(struct listed_entity* head, int seq
   }
   return NULL;
 }
-struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct listed_entity **other, struct listed_entity **other2, struct entity_list_branch* br){
+#define FREE_AND_RETURN_LE \
+  if(!mutex_free){\
+    pthread_mutex_unlock(&(br->branchlock));\
+  }\
+return le;
+
+struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free){
+  struct listed_entity *le = NULL;
+  if(mutex_free == 0){
+    pthread_mutex_lock(&(br->branchlock));
+  }
+  if((le = loop_and_check(br->freelist, val1, val2, iden_type)) != NULL){
+    FREE_AND_RETURN_LE
+  }
+  if((le = loop_and_check(br->busylist, val1, val2, iden_type)) != NULL){
+    FREE_AND_RETURN_LE
+  }
+  if((le = loop_and_check(br->loadedlist, val1, val2, iden_type)) != NULL){
+    FREE_AND_RETURN_LE
+  }
+  if(mutex_free == 0){
+    pthread_mutex_unlock(&(br->branchlock));
+  }
+  return NULL;
+}
+struct listed_entity* get_w_check(struct listed_entity **lep, unsigned long seq, struct entity_list_branch* br, void* optmatch){
   //struct listed_entity *temp;
   struct listed_entity *le = NULL;
+  struct listed_entity **other;
+  struct listed_entity **other2;
+  if(*lep == br->freelist){
+    other = &br->busylist;
+    other2 = &br->loadedlist;
+  }
+  else if (*lep == br->busylist){
+    other = &br->freelist;
+    other2 = &br->loadedlist;
+  }
+  else if (*lep == br->loadedlist){
+    other = &br->freelist;
+    other2 = &br->busylist;
+  }
   //le = NULL;
   while(le== NULL){
-    le = loop_and_check(*lep, seq);
+    le = loop_and_check(*lep, &seq, optmatch, CHECK_BY_SEQ);
     /* If le wasn't found in the list */
     if(le == NULL){
       /* Check if branch is dead */
@@ -163,26 +204,29 @@ struct listed_entity* get_w_check(struct listed_entity **lep, int seq, struct li
 	return NULL;
       }
       /* Need to check if it exists at all */
-      D("Looping to check if exists");
-      if(loop_and_check(*other, seq) == NULL && loop_and_check(*other2,seq) == NULL){
-	D("Rec point disappeared!");
-	return NULL;
+      if(optmatch == NULL){
+	D("Looping to check if exists");
+	if(loop_and_check(*other, &seq, NULL, CHECK_BY_SEQ) == NULL && loop_and_check(*other2,&seq, NULL, CHECK_BY_SEQ) == NULL){
+	  D("Rec point disappeared!");
+	  return NULL;
+	}
       }
-      D("Failed to get free buffer. Sleeping waiting for %d",,seq);
+      D("Failed to get specific. Sleeping waiting for %lu",,seq);
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
-      D("Woke up! Checking for %d again",, seq);
+      D("Woke up! Checking for %lu again",, seq);
     }
   }
-  D("Found specific elem id %d!",, seq);
+  D("Found specific elem id %lu!",, seq);
   return le;
 }
 /* Get a loaded buffer with the specific seq */
-inline void* get_loaded(struct entity_list_branch *br, unsigned long seq){
-  D("Querying for loaded entity");
+inline void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* opt){
+  D("Querying for loaded entity %lu",, seq);
   pthread_mutex_lock(&(br->branchlock));
-  struct listed_entity * temp = get_w_check(&br->loadedlist, seq, &br->freelist, &br->busylist, br);
+  struct listed_entity * temp = get_w_check(&br->loadedlist, seq, br, opt);
 
   if (temp == NULL){
+    D("Nothing to return!");
     pthread_mutex_unlock(&(br->branchlock));
     return NULL;
   }
@@ -196,7 +240,7 @@ inline void* get_loaded(struct entity_list_branch *br, unsigned long seq){
 inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {
   pthread_mutex_lock(&(br->branchlock));
-  struct listed_entity* temp = get_w_check(&br->freelist, id, &br->busylist, &br->loadedlist, br);
+  struct listed_entity* temp = get_w_check(&br->freelist, id, br, NULL);
 
   if(temp ==NULL){
     pthread_mutex_unlock(&(br->branchlock));
