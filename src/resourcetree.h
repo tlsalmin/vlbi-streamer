@@ -7,6 +7,23 @@
 #define CHECK_BY_NOTFOUND 4
 #define CHECK_BY_SEQ 5
 #define CHECK_BY_FINISHED 6
+#if(SPINLOCK)
+#define LOCKTYPE pthread_spinlock_t
+#define LOCK(x) pthread_spin_lock(x)
+#define UNLOCK(x) pthread_spin_unlock(x)
+#define LOCK_INIT(x) pthread_spin_init((x), PTHREAD_PROCESS_SHARED)
+#define LOCK_DESTROY(x) pthread_spin_destroy(x)
+#define LOCK_FREE(x) (void)x
+#else
+#define LOCKTYPE pthread_mutex_t
+#define LOCK(x) pthread_mutex_lock(x)
+#define UNLOCK(x) pthread_mutex_unlock(x)
+#define LOCK_INIT(x) pthread_mutex_init((x), NULL)
+#define LOCK_DESTROY(x) pthread_mutex_destroy(x)
+#define LOCK_FREE(x) free(x)
+#endif
+//#include <pthread.h>
+
 /* This holds any entity, which can be set to either 	*/
 /* A branches free or busy-list				*/
 /* Cant decide if rather traverse the lists and remove	*/
@@ -32,7 +49,7 @@ struct entity_list_branch
   struct listed_entity *busylist;
   struct listed_entity *loadedlist;
   int mutex_free;
-  pthread_mutex_t branchlock;
+  LOCKTYPE branchlock;
   /* Added here so the get_free caller can sleep	*/
   /* On non-free branch					*/
   pthread_cond_t busysignal;

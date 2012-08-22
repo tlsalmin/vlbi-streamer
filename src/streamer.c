@@ -69,10 +69,12 @@ void udpstreamer_stats(void* opts, void* statsi){
 }
 int remove_specific_from_fileholders(struct opt_s *opt, int id){
   unsigned int i;
+  pthread_spin_lock(&opt->augmentlock);
   for(i=0; i < opt->cumul ;i++){
     if(opt->fileholders[i] == id)
       opt->fileholders[i] = -1;
   }
+  pthread_spin_unlock(&opt->augmentlock);
   return 0;
 }
 int calculate_buffer_sizes(struct opt_s *opt){
@@ -1264,9 +1266,9 @@ int init_branches(struct opt_s *opt){
   opt->diskbranch->busylist = NULL;
   opt->diskbranch->loadedlist = NULL;
 
-  err = pthread_mutex_init(&(opt->membranch->branchlock), NULL);
+  err = LOCK_INIT(&(opt->membranch->branchlock));
   CHECK_ERR("branchlock");
-  err = pthread_mutex_init(&(opt->diskbranch->branchlock), NULL);
+  err = LOCK_INIT(&(opt->diskbranch->branchlock));
   CHECK_ERR("branchlock");
   err = pthread_cond_init(&(opt->membranch->busysignal), NULL);
   CHECK_ERR("busysignal");

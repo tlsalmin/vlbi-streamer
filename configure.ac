@@ -80,6 +80,17 @@ AS_IF([test "x$enable_daemon" != "xno"], [
 		     ], AC_DEFINE(DAEMON, 0, [Compile as daemon]))
 AM_CONDITIONAL([DAEMON], [test "${enable_daemon}" = "yes"])
 
+AC_MSG_CHECKING([--enable-spinlock argument])
+AC_ARG_ENABLE(spinlock,
+    [  --enable-spinlock         Use spinlock in resourcetree(default: No).],
+    [enable_spinlock=$enableval],
+    [enable_spinlock="no"])
+AC_MSG_RESULT($enable_spinlock)
+AS_IF([test "x$enable_spinlock" != "xno"], [
+		     AC_DEFINE(SPINLOCK, 1, [Compile as daemon])
+		     ], AC_DEFINE(SPINLOCK, 0, [Compile as daemon]))
+#AM_CONDITIONAL([DAEMON], [test "${enable_daemon}" = "yes"])
+
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,
     [  --enable-senddebug         Enable senddebug output.],

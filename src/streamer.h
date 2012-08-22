@@ -356,7 +356,7 @@ struct buffer_entity
   //struct entity_list_branch *diskbranch;
   //struct rec_point * rp;
 
-  pthread_mutex_t *headlock;
+  LOCKTYPE *headlock;
   pthread_cond_t *iosignal;
 };
 struct recording_entity

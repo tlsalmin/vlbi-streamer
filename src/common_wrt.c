@@ -296,7 +296,7 @@ int init_directory(struct recording_entity *re){
       }
       else{
 	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
-	free(dirname);
+	//free(dirname);
 	ERR_IN_INIT;
       }
     }

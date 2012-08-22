@@ -77,6 +77,8 @@ int sbuf_release(void* buffo){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   if(sbuf->opt->optbits & USE_RX_RING)
     sbuf->buffer = NULL;
+  sbuf->opt = NULL;
+  sbuf->file_seqnum = -1;
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
@@ -166,11 +168,11 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->running = 0;
   //sbuf->opt->do_w_stuff_every = opt->do_w_stuff_every;
 
-  be->headlock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+  be->headlock = (LOCKTYPE *)malloc(sizeof(LOCKTYPE));
   CHECK_ERR_NONNULL(be->headlock, "Headlock malloc");
   be->iosignal = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
   CHECK_ERR_NONNULL(be->iosignal, "iosignal malloc");
-  err = pthread_mutex_init(be->headlock, NULL);
+  err = LOCK_INIT(be->headlock);
   CHECK_ERR("headlock init");
   err = pthread_cond_init(be->iosignal, NULL);
   CHECK_ERR("iosignal init");
@@ -244,8 +246,8 @@ int sbuf_close(struct buffer_entity* be, void *stats){
 
   D("Closing simplebuf");
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
-  pthread_mutex_destroy(be->headlock);
-  free(be->headlock);
+  LOCK_DESTROY(be->headlock);
+  LOCK_FREE(be->headlock);
   free(be->iosignal);
 
   //int ret = 0;
@@ -514,11 +516,11 @@ void *sbuf_simple_write_loop(void *buffo){
     /* Checks if we've finished a write and we're holding a writer 	*/
     /* In this case we need to free the writer and ourselves		*/
     while(sbuf->ready_to_act == 0 && sbuf->running == 1){
-      pthread_mutex_lock(be->headlock);
+      LOCK(be->headlock);
       D("Sleeping on ready");
       pthread_cond_wait(be->iosignal, be->headlock);
       D("Woke up");
-      pthread_mutex_unlock(be->headlock);
+      UNLOCK(be->headlock);
     }
 
     if(sbuf->diff > 0){
@@ -558,9 +560,9 @@ void *sbuf_simple_write_loop(void *buffo){
   void sbuf_stop_running(struct buffer_entity *be){
     D("Stopping sbuf thread");
     ((struct simplebuf*)be->opt)->running = 0;
-    pthread_mutex_lock(be->headlock);
+    LOCK(be->headlock);
     pthread_cond_signal(be->iosignal);
-    pthread_mutex_unlock(be->headlock);
+    UNLOCK(be->headlock);
     D("Stopped and signalled");
   }
   void sbuf_set_ready(struct buffer_entity *be){
