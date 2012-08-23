@@ -84,7 +84,7 @@ do
       ;;
     -q)
       EXTRAOPS="$EXTRAOPS
-      datatype = $2;"
+      datatype = \"$2\";"
       ;;
     -r)
       EXTRAOPS="$EXTRAOPS

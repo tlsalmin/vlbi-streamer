@@ -15,6 +15,10 @@ struct simplebuf{
   int ready_to_act;
   int bufnum;
   void * bufoffset;
+
+  struct opt_s *opt_default;
+  struct opt_s *opt_old;
+  unsigned long file_seqnum_old;
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);
 int sbuf_close(struct buffer_entity *be, void * stats);

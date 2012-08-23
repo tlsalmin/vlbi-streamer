@@ -7,6 +7,7 @@
 #define CHECK_BY_NOTFOUND 4
 #define CHECK_BY_SEQ 5
 #define CHECK_BY_FINISHED 6
+#define CHECK_BY_OLDSEQ 7
 #if(SPINLOCK)
 #define LOCKTYPE pthread_spinlock_t
 #define LOCK(x) pthread_spin_lock(x)
@@ -36,6 +37,7 @@ struct listed_entity
   int (*check)(void*, int);
   /* 0 for not this, 1 for identified */
   int (*identify)(void*, void*, void*,int);
+  void (*infostring)(void*, char*);
   int (*close)(void*);
   int (*release)(void*);
   void* entity;

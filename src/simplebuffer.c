@@ -77,7 +77,11 @@ int sbuf_release(void* buffo){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   if(sbuf->opt->optbits & USE_RX_RING)
     sbuf->buffer = NULL;
-  sbuf->opt = NULL;
+
+  sbuf->opt_old = sbuf->opt;
+  sbuf->file_seqnum_old = sbuf->file_seqnum;
+
+  sbuf->opt = sbuf->opt_default;
   sbuf->file_seqnum = -1;
   return 0;
 }
@@ -106,9 +110,21 @@ int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   struct buffer_entity *be = (struct buffer_entity*)ent;
   struct simplebuf* sbuf= (struct simplebuf*)be->opt;
   if(iden_type == CHECK_BY_SEQ){
-    D("Checking by seq");
     if((struct opt_s*)val2 == sbuf->opt){
       if(sbuf->file_seqnum == *((unsigned long*)val1)){
+	D("Match!");
+	return 1;
+      }
+      else
+      return 0;
+    }
+    else
+      return 0;
+  }
+  /* Check if we previously had a needed file	*/
+  else if (iden_type == CHECK_BY_OLDSEQ){
+    if((struct opt_s*)val2 == sbuf->opt_old){
+      if(sbuf->file_seqnum_old == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
       }
@@ -132,6 +148,10 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   be->recer =NULL;
   sbuf->bufnum = sbuf->opt->bufculum++;
   sbuf->optbits = sbuf->opt->optbits;
+
+  sbuf->opt_old = NULL;
+  sbuf->file_seqnum_old = -1;
+  sbuf->opt_default = opt;
 
   //be->membranch = opt->membranch;
   //be->diskbranch = opt->diskbranch;
@@ -244,8 +264,8 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 int sbuf_close(struct buffer_entity* be, void *stats){
   (void)stats;
 
-  D("Closing simplebuf");
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
+  D("Closing simplebuf for id %d ",, sbuf->bufnum);
   LOCK_DESTROY(be->headlock);
   LOCK_FREE(be->headlock);
   free(be->iosignal);

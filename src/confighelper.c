@@ -305,7 +305,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_BOOLEAN(VERBOSE, "verbose")
     CFG_FULL_STR(filename)
     /* Could have done these with concatenation .. */
-      CFG_FULL_UINT64(opt->cumul,"cumul")
+      CFG_FULL_UINT64((*opt->cumul),"cumul")
       CFG_FULL_STR(device_name)
       CFG_FULL_UINT64(opt->optbits, "optbits")
       CFG_FULL_UINT64(opt->time, "time")
@@ -347,7 +347,7 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
   if(opt != NULL){
-    err = config_setting_set_int64(setting, opt->cumul);
+    err = config_setting_set_int64(setting, *opt->cumul);
     CHECK_CFG("set cumul");
   }
   /* If we're using the simpler buffer calculation, which fixes the 	*/
@@ -466,12 +466,12 @@ int init_cfg(struct opt_s *opt){
 	if(found == 0){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
-	  D("Getting opts from first config, cumul is %lu",, opt->cumul);
-	  opt->fileholders = (int*)malloc(sizeof(int)*(opt->cumul));
+	  D("Getting opts from first config, cumul is %lu",, *opt->cumul);
+	  opt->fileholders = (int*)malloc(sizeof(int)*(*opt->cumul));
 	  CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	  int j;
-	  for(j=0;(unsigned)j<opt->cumul;j++)
+	  for(j=0;(unsigned)j<(*opt->cumul);j++)
 	    opt->fileholders[j] = -1;
 	  D("opts read from first config");
 	}

@@ -316,6 +316,11 @@ int common_identify(void * ent, void* val1, void* val2, int iden_type){
   }
   return iden_from_opt(ioi->opt, val1, val2, iden_type);
 }
+void common_infostring(void * le, char* returnable){
+  struct recording_entity * re = (struct recording_entity*)le;
+  struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  sprintf(returnable, "%s%i%s%s%s%lu", "ID: ", ioi->id, " Filename: ", ioi->curfilename, " File seqnum: ", ioi->file_seqnum);
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
@@ -384,6 +389,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->release = common_finish_file;
   le->check = NULL;
   le->identify = common_identify;
+  le->infostring = common_infostring;
   le->close = common_close_and_free;
   re->self= le;
   add_to_entlist(opt->diskbranch, le);
@@ -487,7 +493,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	//temp = atoi(ent->d_name);
 	//temp = atoi(the_index);
 	temp = atoi(start_of_index);
-	if((unsigned long)temp >= opt->cumul)
+	if((unsigned long)temp >= *opt->cumul)
 	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
 	else
 	{

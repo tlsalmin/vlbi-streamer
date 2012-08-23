@@ -69,12 +69,12 @@ void udpstreamer_stats(void* opts, void* statsi){
 }
 int remove_specific_from_fileholders(struct opt_s *opt, int id){
   unsigned int i;
-  pthread_spin_lock(&opt->augmentlock);
-  for(i=0; i < opt->cumul ;i++){
+  pthread_spin_lock(opt->augmentlock);
+  for(i=0; i < *opt->cumul ;i++){
     if(opt->fileholders[i] == id)
       opt->fileholders[i] = -1;
   }
-  pthread_spin_unlock(&opt->augmentlock);
+  pthread_spin_unlock(opt->augmentlock);
   return 0;
 }
 int calculate_buffer_sizes(struct opt_s *opt){
@@ -302,7 +302,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, *opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
     if(opts->time == 0)
@@ -319,7 +319,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	  "HD-failures: %d\n"
 	  "Net receive Speed: %luMb/s\n"
 	  "HD write Speed: %luMb/s\n"
-	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, *opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
 /* Defensive stuff to check we're not copying stuff from default	*/
@@ -384,6 +384,9 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->socket = 0;
   memset(&opt->start_time, 0,sizeof(TIMERTYPE));
   memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
+
+  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+
   return 0;
 }
 int parse_options(int argc, char **argv, struct opt_s* opt){
@@ -633,7 +636,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   else
     opt->time = atoi(argv[1]);
 #endif
-  opt->cumul = 0;
+  *opt->cumul = 0;
 
   struct rlimit rl;
   /* Query max size */
@@ -792,6 +795,16 @@ int close_opts(struct opt_s *opt){
   config_destroy(&(opt->cfg));
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&(opt->pta));
+#endif
+#if(DAEMON)
+  if(!(opt->optbits & LIVE_RECEIVING)){
+    /* Not harmful to typecast 					*/
+    /*Without casting it warn about freeing a volatile pointer	*/
+    free((void*)opt->augmentlock);
+    free(opt->cumul);
+  }
+#else
+  free(opt->cumul);
 #endif
   free(opt);
   return 0;
@@ -958,12 +971,13 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCONFIG_H
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
-    LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, opt->cumul);
+    LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, *opt->cumul);
   }
 #endif
 
 #if(DAEMON)
-  if (pthread_spin_init(&(opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
+  opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
+  if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
     E("Spin init");
     STREAMER_ERROR_EXIT;
   }
@@ -1209,7 +1223,7 @@ int close_streamer(struct opt_s *opt){
 #else
   //oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
   stats_full->total_written = opt->bytes_exchanged;
-  if(pthread_spin_destroy(&(opt->augmentlock)) != 0)
+  if(pthread_spin_destroy((opt->augmentlock)) != 0)
     E("pthread spin destroy");
   //free(opt->augmentlock);
 #endif

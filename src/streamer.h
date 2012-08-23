@@ -65,6 +65,8 @@
 #define SIMPLE_BUFFER		B(19)
 
 #define USE_RX_RING		B(20)
+#define LIVE_SENDING		B(21)
+#define LIVE_RECEIVING		B(22)
 /* Empty B(21) B(22) B(23)	*/
 
 #define LOCKER_DATATYPE		0x0f000000
@@ -235,9 +237,9 @@ struct opt_s
 
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
-  long unsigned int  cumul;
+  long unsigned *cumul;
   /* Used in read to determine how many we actually found 		*/
-  long unsigned int cumul_found;
+  long unsigned cumul_found;
   //pthread_mutex_t cumlock;
   char *device_name;
   char *cfgfile;
@@ -245,7 +247,7 @@ struct opt_s
   int diskids;
 
   /* Make this a spinlock, since augmenting this struct is fast		*/
-  pthread_spinlock_t augmentlock;
+  pthread_spinlock_t *augmentlock;
   //unsigned long n_files;
   //struct fileblocks *fbs;
   unsigned int optbits;
