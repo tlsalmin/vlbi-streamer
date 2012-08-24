@@ -921,25 +921,36 @@ void * calc_bufpos_mark5b(void* header, struct streamer_entity* se, struct resq_
 */
 #define BITMASK_30 0xfffffff3
 #define BITMASK_24 0xffffff00
+#define RBITMASK_30 0x3fffffff
+#define RBITMASK_24 0x00ffffff
 inline long getseq_vdif(void* header, struct resq_info *resq){
-  int second = be32toh(*((int*)header) & BITMASK_30);
-  int framenum = be32toh(*((int*)(header + 4)) & BITMASK_24);
-  D("Debugging gonna debug second: %d, framenum %d",, second, framenum);
-  if(resq->current_second == -1){
-    D("Got first second as %d, framenum",, second);
-    resq->current_second =  second;
+  long returnable;
+  long second = (long)*((int*)header) & RBITMASK_30;
+  long framenum = (long)*((int*)(header + 4)) & RBITMASK_24;
+  //D("Dat second %lu, dat framenum %lu",, second, framenum);
+  if(resq->starting_second == -1){
+    //D("Got first second as %lu, framenum %lu",, second, framenum);
+    resq->starting_second =  second;
     return framenum;
   }
   if(resq->packets_per_second == -1){
     if(second == resq->current_seq)
       return framenum;
     else{
-      D("got packets per seconds as %lu",, resq->current_seq);
+      //D("got packets per seconds as %lu",, resq->current_seq);
       resq->packets_per_second = resq->current_seq;
+      resq->packetsecdif = second - resq->starting_second;
     }
   }
-
-  return ((long)second - (long)resq->current_second)*((long)resq->packets_per_second) + (long)framenum;
+  
+  if(resq->packets_per_second == 0){
+    returnable = (second - resq->starting_second)/resq->packetsecdif;
+  }
+  else
+    returnable =  (second - (long)resq->starting_second)*((long)resq->packets_per_second) + framenum;
+  D("Returning %lu",, returnable);
+  //resq->current_second = second;
+  return returnable;
 }
 inline long getseq_mark5b(void* header){
   return be64toh(*((long*)header));
@@ -1149,7 +1160,7 @@ void* udp_receiver(void *streamo)
     /* init this in the calcpos			*/
     resq->current_seq= INT64_MAX;
     resq->packets_per_second = -1;
-    resq->current_second = -1;
+    resq->starting_second = -1;
     resq->seqstart_current = INT64_MAX;
 
     resq->usebuf = NULL;

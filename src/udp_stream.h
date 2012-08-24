@@ -24,7 +24,10 @@ struct resq_info{
   long seqstart_current;
   int i;
   int packets_per_second;
-  int current_second;
+  /* Special if the packets are spaced for example every */
+  /* fifth second.					*/
+  int packetsecdif;
+  int starting_second;
 };
 
 int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se);
