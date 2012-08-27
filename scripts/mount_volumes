@@ -1,5 +1,15 @@
 #!/bin/bash
 #Careful with this script, or you'll wipe data off disks
+usage()
+{
+cat << EOF
+usage: mount_volumes <options>
+OPTIONS:
+-f 		Automaticall format all non-mounting volumes (Dangerous)
+-a		Ask to format non-mounting volumes
+-r		Rearrange all volumes(unmounts already mounted /mnt/disk volumes
+EOF
+}
 PARTED=parted
 MKFS=mkfs.ext4
 TUNE=tune2fs
@@ -14,8 +24,8 @@ MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 #DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 #DRIVES=($(echo sd{a..z} sda{a..j}))
 
-USER=tlsalmin
-GROUP=flexbuf
+USER=oper
+GROUP=oper
 FORMAT=0
 ASK=0
 REARRANGE=0
@@ -55,9 +65,6 @@ then
   while [ "$DONE_WITH_SELECTING" -eq "0" ]
   do
     j=0
-    echo " "
-    echo "DEM DEVICES ${DRIVES[@]}"
-    echo " "
     for i in ${DEVICES[@]}
     do
       echo "${DRIVES[@]}" | grep -o $i &>/dev/null
@@ -71,7 +78,7 @@ then
     done
     echo "* = Use this drive"
     echo "Input: c to continue with this setup, <number> to toggle use/don't use, set all on or off"
-    read -n2 -p "Action? [[c]ontinue,<number>,[a]ll,e[x]it]" doit
+    read -n2 -p "Action? [[c]ontinue,<number>,[a]ll,e[x]it]: " doit
     case $doit in
       c) break;;
       [0-9]*) 
@@ -105,7 +112,7 @@ then
 	exit -1
 	;;
       *)
-	echo "HURDR"
+	echo "Unknown argument: $doit"
 	;;
     esac
   done
@@ -143,7 +150,7 @@ do
     echo "^ Error from $i"
     if [ "$FORMAT" -eq "1" ]
     then
-      read -n1 -p "Formatting $i. Are you sure you want to continue? [y,n]" doit
+      read -n1 -p "Do you want to reformat $i? [y,n]" doit
       case $doit in
 	n|N) continue;;
       esac
