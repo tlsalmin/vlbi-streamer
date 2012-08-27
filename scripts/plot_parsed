@@ -50,7 +50,7 @@ do
       EXTRAPARAM="set term png"
       shift
       ;;
-    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters $0" >> $LOGFILE;;
+    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters $0";;
     #File is the extra out
   *) eval "arg_$n=$1";n=$(($n+1));;
   esac
