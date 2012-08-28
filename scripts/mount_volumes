@@ -5,9 +5,10 @@ usage()
 cat << EOF
 usage: mount_volumes <options>
 OPTIONS:
--f 		Automaticall format all non-mounting volumes (Dangerous)
+-f 		Automatically format all non-mounting volumes (Dangerous)
 -a		Ask to format non-mounting volumes
 -r		Rearrange all volumes(unmounts already mounted /mnt/disk volumes
+-j		Just mount the volumes, eventhought mounting with mountpoints failed. This is handy if you want to try a different filesystem and mount it fast
 EOF
 }
 PARTED=parted
@@ -28,6 +29,7 @@ USER=oper
 GROUP=oper
 FORMAT=0
 ASK=0
+JUSTMOUNT=0
 REARRANGE=0
 n=1
 while [ $# -gt 0 ]
@@ -51,6 +53,12 @@ do
     -r) 
       REARRANGE=1
       ;;
+    -j) 
+      JUSTMOUNT=1
+      ;;
+    --help)
+      usage;exit 1;
+    ;;
     -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters $0" >> $LOGFILE;;
     #File is the extra out
   *) eval "arg_$n=$1";n=$(($n+1));;
@@ -148,7 +156,10 @@ do
   mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk$k
   if [ $? -ne "0" ]; then
     echo "^ Error from $i"
-    if [ "$FORMAT" -eq "1" ]
+    if [ "$JUSTMOUNT" -eq "1" ]
+    then
+      mount /dev/${i}1 /mnt/disk$k
+    elif [ "$FORMAT" -eq "1" ]
     then
       read -n1 -p "Do you want to reformat $i? [y,n]" doit
       case $doit in
