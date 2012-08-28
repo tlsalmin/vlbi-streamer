@@ -193,8 +193,8 @@ struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, vo
 struct listed_entity* get_w_check(struct listed_entity **lep, unsigned long seq, struct entity_list_branch* br, void* optmatch){
   //struct listed_entity *temp;
   struct listed_entity *le = NULL;
-  struct listed_entity **other;
-  struct listed_entity **other2;
+  struct listed_entity **other = NULL;
+  struct listed_entity **other2 = NULL;
   if(*lep == br->freelist){
     other = &br->busylist;
     other2 = &br->loadedlist;
@@ -206,6 +206,10 @@ struct listed_entity* get_w_check(struct listed_entity **lep, unsigned long seq,
   else if (*lep == br->loadedlist){
     other = &br->freelist;
     other2 = &br->busylist;
+  }
+  else{
+    E("Queried list is something weird. Should be loaded,free,or busy of the branch");
+    return NULL;
   }
   //le = NULL;
   while(le== NULL){
