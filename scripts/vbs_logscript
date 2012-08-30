@@ -1,0 +1,14 @@
+#!/bin/bash
+LOGFILE=vlbistreamer.log
+BINDIR=src
+
+case "$1" in
+  start)
+    $BINDIR/vlbistreamer &>> $LOGFILE
+    ;;
+  stop)
+    $BINDIR/vbs_shutdown &>> $LOGFILE
+    ;;
+esac
+
+exit 0

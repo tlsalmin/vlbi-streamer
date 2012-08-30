@@ -1,0 +1,64 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:		vlbistreamer
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		
+# Short-Description:	VLBI data streamering server
+### END INIT INFO
+
+#Should be changed by install script
+LOGFILE=vlbistreamer.log
+PIDFILE=vlbistreamer.pid
+BINDIR=src
+USER=oper
+#GROUP=oper
+TIMEOUT=5
+
+check_if_running() {
+  if [ -n "$(ps -A |grep -i vlbistreamer)" ]
+  then
+    return 1
+  else
+    return 0
+  fi
+}
+case "$1" in
+  start)
+    if [ -n "$(ps -A | grep -v grep|grep -i vlbistreamer)" ] ; then
+      echo "vlbistreamer already running"
+      exit 1;
+    else
+      sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
+      if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
+	#if start-stop-daemon --start --pidfile $PIDFILE --user ${USER} --group ${GROUP} --background --name vlbistreamer  --exec $BINDIR/vbs_logscript -- start ; then
+	echo "Vlbistreamer started"
+      else
+	echo "Error in vlbistreamer start"
+      fi
+    fi
+    ;;
+  stop)
+    if [ -n "`ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer`" ] ; then
+      sudo -u $USER $BINDIR/vbs_shutdown &>> $LOGFILE
+      while [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" -a "$TIMEOUT" -gt "0" ]
+      do
+	sleep 1
+	TIMEOUT=$(($TIMEOUT-1))
+      done
+      #if start-stop-daemon --stop --pidfile $PIDFILE --name vlbistreamer --exec $BINDIR/vbs_logscript -- stop ; then
+      if [ -z "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
+	echo "Vlbistreamer stopped"
+      else
+	echo "error in vlbistreamer stop"
+      fi
+    else
+      echo "vlbistreamer not running"
+      exit 1;
+    fi
+    ;;
+esac
+
+exit 0

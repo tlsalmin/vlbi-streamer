@@ -1,2 +1,1 @@
-sudo: tuntematon ryhmä: oper
-sudo: ei kyetä alustamaan menettelytapalisäosaa
+Sorry, user oper is not allowed to execute 'src/vlbistreamer' as oper on ara.vlbi.metsahovi.fi.
