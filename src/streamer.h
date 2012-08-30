@@ -250,6 +250,7 @@ struct opt_s
   pthread_spinlock_t *augmentlock;
   //unsigned long n_files;
   //struct fileblocks *fbs;
+  struct opt_s* liveother;
   unsigned int optbits;
   int root_pid;
   int hd_failures;

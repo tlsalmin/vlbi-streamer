@@ -106,10 +106,13 @@ int free_and_close(void *le){
     ev->opt->status = STATUS_CANCELLED;
     //TODO: cancellation
   }
+  /* Do this only if pthread started */
+  if(ev->pt != 0){
     err = pthread_join(ev->pt, NULL);
     CHECK_ERR("join");
     err = close_streamer(ev->opt);
     CHECK_ERR("close stream");
+  }
   err = remove_from_cfgsched(ev);
   /* Not a critical error */
   if(err !=0)
@@ -184,8 +187,42 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
     add_to_end(to, ev);
 }
 */
-int start_event(struct scheduled_event *ev){
-  int err;
+int start_event(struct scheduled_event *ev, struct schedule* sched){
+  int err, i;
+
+  D("preparing filenames");
+  if(ev->opt->optbits & READMODE){
+    for(i=0;i<ev->opt->n_drives;i++){
+      ev->opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+      if(ev->opt->filenames[i] == NULL){
+	return -1;
+	//STREAMER_ERROR_EXIT;
+      }
+      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
+      sprintf(ev->opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", ev->opt->filename,"/");
+    }
+  }
+  D("filenames prepared");
+
+  err = init_cfg(ev->opt);
+  if(err != 0){
+    // Recording might be going live!
+    struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
+    if(live != NULL){
+      D("Frack it! We'll do it live!");
+      struct scheduled_event *livereceive = (struct scheduled_event*)live->entity;
+      ev->opt->augmentlock = livereceive->opt->augmentlock;
+      ev->opt->cumul = livereceive->opt->cumul;
+      ev->opt->optbits |= LIVE_SENDING;
+      livereceive->opt->optbits |= LIVE_RECEIVING;
+      ev->opt->liveother = livereceive->opt;
+      livereceive->opt->liveother = ev->opt;
+    }
+    else{
+      E("Error in cfg init");
+      return -1 ;
+    }
+  }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
     ev->stats = (struct stats*)malloc(sizeof(struct stats));
@@ -205,7 +242,9 @@ int start_scheduled(struct schedule *sched){
   //struct scheduled_event * parent = NULL;
   struct listed_entity* le;
   //for(ev = (struct scheduled_event*)sched->br->freelist->opt;ev != NULL;){
-  for(le = sched->br.freelist;le != NULL;le=le->child){
+  //for(le = sched->br.freelist;le != NULL;le=le->child){
+  le = sched->br.freelist;
+  while(le != NULL){
     ev = le->entity;
     tdif = get_sec_diff(&time_now, &ev->opt->starting_time);
     if(ev->opt->starting_time.tv_sec == 0 || tdif <= SECS_TO_START_IN_ADVANCE){
@@ -221,7 +260,7 @@ int start_scheduled(struct schedule *sched){
       }
       LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
-      err = start_event(ev);
+      err = start_event(ev, sched);
       if(err != 0){
 	E("Something went wrong in recording %s start",, ev->opt->filename);
 	//remove_recording(le,sched->br.freelist);
@@ -232,8 +271,12 @@ int start_scheduled(struct schedule *sched){
 	mutex_free_change_branch(&sched->br.freelist, &sched->br.busylist, le);
 	sched->n_running++;
       }
+      /* Reset the search, since le has disappeared from freelist */
+      le = sched->br.freelist;
       //set_running(sched, ev, parent);
     }
+    else
+      le = le->child;
   }
   return 0;
 }

@@ -455,12 +455,29 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
  */
 inline int should_i_be_running(struct udpopts *spec_ops, unsigned long files_sent){
   /* TODO: Proper checking for live sending/receiving */
+  unsigned long cumulpeek;
   if(!spec_ops->running)
     return 0;
   SAUGMENTLOCK;
-  if(files_sent <= (*spec_ops->opt->cumul))
-    return 1;
+  cumulpeek = *(spec_ops->opt->cumul);
   SAUGMENTUNLOCK;
+  if(files_sent < cumulpeek){
+    return 1;
+  }
+  else{
+    if(spec_ops->opt->optbits & LIVE_SENDING)
+    {
+      /* Here it gets interesting */
+      if(spec_ops->opt->liveother != NULL)
+      {
+	return 0;
+      }
+      else
+	return 0;
+    }
+    else
+      return 0;
+  }
   return 0;
 }
 void * udp_sender(void *streamo){

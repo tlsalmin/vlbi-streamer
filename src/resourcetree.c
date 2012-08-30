@@ -154,7 +154,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   }
   D("Entity removed from branch");
 }
-inline struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, void* val2, int iden_type){
+struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, void* val2, int iden_type){
   while(head != NULL){
     if(head->identify(head->entity, val1, val2, iden_type) == 1){
       return head;

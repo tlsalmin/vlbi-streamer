@@ -339,6 +339,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   for(i=0;i<MAX_OPEN_FILES;i++){
     opt->filenames[i] = NULL;
   }
+  opt->liveother = NULL;
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -951,12 +952,14 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef HAVE_LIBCONFIG_H
+#if(!DAEMON)
   err = init_cfg(opt);
   //TODO: cfg destruction
   if(err != 0){
     E("Error in cfg init");
     STREAMER_ERROR_EXIT;
   }
+#endif
 #endif
 
 #if(!DAEMON)
@@ -1291,9 +1294,11 @@ int init_branches(struct opt_s *opt){
   return 0;
 }
 void shutdown_thread(struct opt_s *opt){
-  opt->streamer_ent->stop(opt->streamer_ent);
-  if(!(opt->optbits & READMODE))
-    udps_close_socket(opt->streamer_ent);
+  if(opt->streamer_ent != NULL){
+    opt->streamer_ent->stop(opt->streamer_ent);
+    if(!(opt->optbits & READMODE))
+      udps_close_socket(opt->streamer_ent);
+  }
 }
 /* Generic function which we use after we get the opt	*/
 inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type){
