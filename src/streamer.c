@@ -226,7 +226,7 @@ static void usage(char *binary){
       //"-n NUM	        Number of threads(Default: DRIVES+2)\n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)\n"
-      //"-r RATE		Expected network rate in MB(default: 10000)(Deprecated)\n"
+      "-r RATE		Expected network rate in Mb/s. \n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
       "-u 		Use hugepages\n"

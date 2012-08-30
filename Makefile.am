@@ -26,9 +26,16 @@ install-data-hook:
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_send
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_send
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_shutdown
+	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vlbistreamerd
+	sed -i 's:PIDFILE=.*:PIDFILE=$(rundir)/vlbistreamer.pid:' $(bindir)/vlbistreamerd
+	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vlbistreamerd
+	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_logscript
+	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_logscript
 	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/init_hugepages
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_volumes
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_volumes
+	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vlbistreamerd
+	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vlbistreamerd
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/init_hugepages
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/init_hugepages
 

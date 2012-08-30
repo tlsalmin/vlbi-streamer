@@ -7,7 +7,7 @@ usage: mount_volumes <options>
 OPTIONS:
 -f 		Automatically format all non-mounting volumes (Dangerous)
 -a		Ask to format non-mounting volumes
--r		Rearrange all volumes(unmounts already mounted /mnt/disk volumes
+-r		Rearrange all volumes(unmounts already mounted /mnt/disk volumes)
 -j		Just mount the volumes, eventhought mounting with mountpoints failed. This is handy if you want to try a different filesystem and mount it fast
 EOF
 }
