@@ -1,0 +1,41 @@
+#!/bin/bash
+ROOTDIRS=/mnt/disk
+usage()
+{
+cat << EOF
+Lists all the recordings in root: $ROOTDIRS
+
+OPTIONS:
+  -s Also display size the size of the recording
+EOF
+}
+RECORDINGS=( )
+SIZE=0
+n=1
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -s)
+      SIZE=1
+      shift
+      ;;
+    -*) echo "Unknown argument $1";usage;exit 1;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
+done
+
+for i in ${ROOTDIRS}*
+do
+  RECORDINGS+=( $(ls  -1 $i) ) 
+done
+
+for i in $( echo ${RECORDINGS[@]} | tr ' ' '\n' |sort |uniq |egrep -v 'lost.found')
+do
+  if [ "$SIZE" -eq "1" ]
+  then
+    echo $i $(check_size $i)
+  else
+    echo $i
+  fi
+done
