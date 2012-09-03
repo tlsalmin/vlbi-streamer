@@ -100,7 +100,7 @@ int free_and_close(void *le){
   else{
     if(ev->shutdown_thread != NULL){
       ev->shutdown_thread(ev->opt);
-      D("Thread shut down");
+      LOG("Thread shut down\n");
     }
     LOG("Recording %s cancelled\n",ev->opt->filename);
     ev->opt->status = STATUS_CANCELLED;
@@ -217,6 +217,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
       livereceive->opt->optbits |= LIVE_RECEIVING;
       ev->opt->liveother = livereceive->opt;
       livereceive->opt->liveother = ev->opt;
+      D("Live copying done");
     }
     else{
       E("Error in cfg init");
@@ -360,6 +361,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   }
   struct listed_entity * le = (struct listed_entity *)malloc(sizeof(struct listed_entity));
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
+  zero_schedevnt(se);
   le->entity= se;
   le->child = NULL;
   le->father = NULL;
@@ -379,6 +381,16 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   memcpy(opt,sched->default_opt, sizeof(struct opt_s));
 
   clear_pointers(opt);
+
+  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+  *opt->cumul = 0;
+  opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
+  if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
+    E("Spin init");
+    return -1;
+  }
+
+
   config_init(&(opt->cfg));
 
   /* Get the name of the recording	*/

@@ -446,6 +446,7 @@ int write_full_cfg(struct opt_s *opt){
 int init_cfg(struct opt_s *opt){
   config_setting_t *root;
   int err=0;
+  int retval=-1;
   int i;
   D("Initializing CFG");
 
@@ -486,10 +487,12 @@ int init_cfg(struct opt_s *opt){
     }
     if(found == 0){
       E("No config file found! This means no recording with said name found");
-      return -1;
+      retval= -1;
+      //return -1;
     }
     else{
       LOG("Config file reading finished\n");
+      retval =0;
     }
     free(path);
     //config_destroy(&opt->cfg);
@@ -502,8 +505,9 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(root, "Get root");
     stub_rec_cfg(root, NULL);
     */
+    retval = 0;
   }
   D("CFG init done");
-  return 0;
+  return retval;
 }
 #endif

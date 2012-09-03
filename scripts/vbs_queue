@@ -101,15 +101,18 @@ RECNAME=$arg_1
 #STIME=$arg_3
 CONFSTART=""
 
-kk=0
-match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
-while [ -n "$match" ]
-do
-  RECNAME=${RECNAME}_${kk}
-  kk=$(($kk+1))
-  echo "Recording already exists! Renaming to $RECNAME"
+if [ "$RECORD" -eq "1" ]
+then
+  kk=0
   match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
-done
+  while [ -n "$match" ]
+  do
+    RECNAME=${RECNAME}_${kk}
+    kk=$(($kk+1))
+    echo "Recording already exists! Renaming to $RECNAME"
+    match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
+  done
+fi
 
 if [ $RECORD -eq 0 ]
 then

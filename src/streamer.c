@@ -327,6 +327,8 @@ int clear_pointers(struct opt_s* opt){
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
+  opt->cumul = NULL;
+  opt->augmentlock = NULL;
   return 0;
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
@@ -386,7 +388,10 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(&opt->start_time, 0,sizeof(TIMERTYPE));
   memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
 
+  //opt->cumul = NULL;
+#if(!DAEMON)
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+#endif
 
   return 0;
 }
@@ -637,7 +642,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   else
     opt->time = atoi(argv[1]);
 #endif
-  *opt->cumul = 0;
+  //*opt->cumul = 0;
 
   struct rlimit rl;
   /* Query max size */
@@ -801,8 +806,10 @@ int close_opts(struct opt_s *opt){
   if(!(opt->optbits & LIVE_RECEIVING)){
     /* Not harmful to typecast 					*/
     /*Without casting it warn about freeing a volatile pointer	*/
-    free((void*)opt->augmentlock);
-    free(opt->cumul);
+    if(opt->augmentlock != NULL)
+      free((void*)opt->augmentlock);
+    if(opt->cumul != NULL)
+      free(opt->cumul);
   }
 #else
   free(opt->cumul);
@@ -879,7 +886,10 @@ void* vlbistreamer(void *opti)
 int main(int argc, char **argv)
 #endif
 {
-  int err = 0,i;
+  int err = 0;
+#if(!DAEMON)
+  int i;
+#endif
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
@@ -900,6 +910,7 @@ int main(int argc, char **argv)
 
 
   pthread_t streamer_pthread;
+#if(!DAEMON)
   D("preparing filenames");
   if(opt->optbits & READMODE){
     for(i=0;i<opt->n_drives;i++){
@@ -912,7 +923,7 @@ int main(int argc, char **argv)
     }
   }
   D("filenames prepared");
-
+#endif
   /*
      switch(opt.capture_type){
      case CAPTURE_W_FANOUT:
