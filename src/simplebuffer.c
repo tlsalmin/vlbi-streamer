@@ -31,7 +31,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%lu Writes complete on seqnum %lu",, ret/sbuf->opt->packet_size, sbuf->file_seqnum);
+    D("%lu Writes complete on seqnum %lu",, ret/sbuf->opt->packet_size, sbuf->fh->id);
     unsigned long num_written;
 
     num_written = ret/sbuf->opt->packet_size;
@@ -39,36 +39,58 @@ int sbuf_check(struct buffer_entity *be, int tout){
     sbuf->asyncdiff-=num_written;
   }
   else if (ret == AIO_END_OF_FILE){
-    D("End of file on id %lu",, sbuf->file_seqnum);
+    //D("End of file on id %lu",, sbuf->file_seqnum);
+    D("End of file on id %lu",, sbuf->fh->id);
     sbuf->asyncdiff = 0;
   }
   else if (ret == 0){
-    DD("No writes to report on %lu",, sbuf->file_seqnum);
+    DD("No writes to report on %lu",, sbuf->fh->id);
 #ifdef UGLY_TIMEOUT_FIX
     if(tout == 1)
       usleep(1000);
 #endif
   }
   else{
-    E("Error in write check on seqdum %lu",, sbuf->file_seqnum);
+    E("Error in write check on seqdum %lu",, sbuf->fh->id);
     return -1;
   }
   return 0;
 }
-int sbuf_acquire(void* buffo, void *opti,unsigned long seq, unsigned long bufnum){
+int sbuf_acquire(void* buffo, void *opti,void* acq){
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   sbuf->opt = (struct opt_s *)opti;
   if(sbuf->opt->optbits & USE_RX_RING){
+    struct rxring_request* rxr = (struct rxring_request*)acq;
     /* This threads responsible area */
-    sbuf->buffer = sbuf->opt->buffer + bufnum*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+    sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
   }
   sbuf->bufoffset = sbuf->buffer;
   /* If we're reading and we've been acquired: we need to load the buffer */
   if(sbuf->opt->optbits & READMODE){
     sbuf->ready_to_act = 1;
+
+  /* This might be a bit inefficient, but they shouldn't 	*/
+  /* be very far from the root 	*/
+
+    /*
+    struct fileholder* fh = sbuf->opt->fileholders;
+    while(fh != NULL){
+      if(fh->id == seq){
+	sbuf->fh = fh;
+	break;
+      }
+      fh = fh->next;
+    }
+    */
+    sbuf->fh = (struct fileholder*)acq;
   }
-  sbuf->file_seqnum = seq;
+  else{
+    sbuf->fh = sbuf->fh_def; 
+    sbuf->fh->id = *((long unsigned*)acq);
+  }
+  //sbuf->file_seqnum = seq;
+
   //fprintf(stdout, "\n\nDABUF:%lu\n\n", sbuf->buffer);
   return 0;
 }
@@ -79,10 +101,10 @@ int sbuf_release(void* buffo){
     sbuf->buffer = NULL;
 
   sbuf->opt_old = sbuf->opt;
-  sbuf->file_seqnum_old = sbuf->file_seqnum;
+  //sbuf->file_seqnum_old = sbuf->file_seqnum;
 
   sbuf->opt = sbuf->opt_default;
-  sbuf->file_seqnum = -1;
+  //sbuf->file_seqnum = -1;
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
@@ -111,7 +133,7 @@ int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   struct simplebuf* sbuf= (struct simplebuf*)be->opt;
   if(iden_type == CHECK_BY_SEQ){
     if((struct opt_s*)val2 == sbuf->opt){
-      if(sbuf->file_seqnum == *((unsigned long*)val1)){
+      if(sbuf->fh->id == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
       }
@@ -124,7 +146,7 @@ int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   /* Check if we previously had a needed file	*/
   else if (iden_type == CHECK_BY_OLDSEQ){
     if((struct opt_s*)val2 == sbuf->opt_old){
-      if(sbuf->file_seqnum_old == *((unsigned long*)val1)){
+      if(sbuf->fh->id == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
       }
@@ -150,7 +172,11 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->optbits = sbuf->opt->optbits;
 
   sbuf->opt_old = NULL;
-  sbuf->file_seqnum_old = -1;
+  //sbuf->file_seqnum_old = -1;
+  
+  sbuf->fh_def = (struct fileholder*)malloc(sizeof(struct fileholder));
+  sbuf->fh = sbuf->fh_def;
+
   sbuf->opt_default = opt;
 
   //be->membranch = opt->membranch;
@@ -175,7 +201,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   //sbuf->read = opt->read;
 
   //sbuf->opt->optbits = opt->optbits;
-  sbuf->file_seqnum = -1;
+  //sbuf->file_seqnum = -1;
   sbuf->async_writes_submitted = 0;
   sbuf->ready_to_act = 0;
 
@@ -298,6 +324,7 @@ remove(hugefs);
   else
     D("Not freeing mem. Done in main");
   D("Freeing structs");
+  free(sbuf->fh_def);
   free(sbuf);
   //free(be);
   //free(be->recer);
@@ -307,12 +334,12 @@ remove(hugefs);
 void close_recer(struct buffer_entity *be, int errornum){
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
   be->recer->handle_error(be->recer, errornum);
-  sbuf->file_seqnum = -1;
   if(sbuf->opt->optbits & READMODE){
-    remove_specific_from_fileholders(sbuf->opt, sbuf->opt->fileholders[sbuf->file_seqnum]);
+    remove_specific_from_fileholders(sbuf->opt, sbuf->fh->diskid);
     set_free(sbuf->opt->membranch, be->self);
     sbuf->ready_to_act = 0;
   }
+  //sbuf->file_seqnum = -1;
   be->recer = NULL;
 }
 int simple_end_transaction(struct buffer_entity *be){
@@ -462,8 +489,8 @@ int write_buffer(struct buffer_entity *be){
     D("Getting rec entity for buffer");
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
-      D("Getting rec entity id %d for file %lu",, sbuf->opt->fileholders[sbuf->file_seqnum], sbuf->file_seqnum);
-      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->file_seqnum, sbuf->running, sbuf->opt->fileholders[sbuf->file_seqnum], &ret);
+      D("Getting rec entity id %d for file %lu",, sbuf->fh->diskid, sbuf->fh->id);
+      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fh->id, sbuf->running, sbuf->fh->diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
       if(ret !=0){
 	E("Specific writer fails on acquired.");
@@ -477,7 +504,7 @@ int write_buffer(struct buffer_entity *be){
       }
     }
     else{
-      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,sbuf->file_seqnum,sbuf->running, &ret);
+      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fh->id)), &ret);
       if(ret !=0){
 	E("Error in acquired for random entity");
 	E("Shutting faulty writer down");
@@ -514,7 +541,7 @@ int write_buffer(struct buffer_entity *be){
     be->recer = NULL;
 
     if(sbuf->opt->optbits & READMODE){
-      D("Read cycle complete. Setting self to loaded with %lu",, sbuf->file_seqnum);
+      D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fh->id);
       set_loaded(sbuf->opt->membranch, be->self);
     }
     else{

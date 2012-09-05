@@ -67,13 +67,24 @@ void udpstreamer_stats(void* opts, void* statsi){
   opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats);
   //stats->total_written += opt->bytes_exchanged;
 }
-int remove_specific_from_fileholders(struct opt_s *opt, int id){
-  unsigned int i;
+int remove_specific_from_fileholders(struct opt_s *opt, unsigned long file_num){
+  int recer_num = -1;
+  struct fileholder * fh = opt->fileholders;
   pthread_spin_lock(opt->augmentlock);
-  for(i=0; i < *opt->cumul ;i++){
-    if(opt->fileholders[i] == id)
-      opt->fileholders[i] = -1;
+  while(fh != NULL){
+    if(fh->id == file_num){
+      recer_num = fh->diskid;
+      break;
+    }
+    fh = fh->next;
   }
+  fh = opt->fileholders;
+  while(fh != NULL){
+    if(fh->diskid == recer_num)
+      fh->status = FH_MISSING;
+    fh = fh->next;
+  }
+
   pthread_spin_unlock(opt->augmentlock);
   return 0;
 }
@@ -775,6 +786,10 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
 
   return 0;
 }
+void zero_fileholder(struct fileholder* fh)
+{
+  memset(fh, 0, sizeof(struct fileholder));
+}
 int close_opts(struct opt_s *opt){
   int i;
   if(opt->device_name != NULL)
@@ -990,11 +1005,13 @@ int main(int argc, char **argv)
 #endif
 
 #if(DAEMON)
+  /*
   opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
   if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
     E("Spin init");
     STREAMER_ERROR_EXIT;
   }
+  */
 #endif
   /* Now we have all the object data, so we can calc our buffer sizes	*/
   /* If we're using the rx-ring, reserve space for it here */

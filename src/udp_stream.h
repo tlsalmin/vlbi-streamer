@@ -41,6 +41,8 @@ struct udpopts
   //long unsigned int * cumul;
   struct sockaddr_in *sin;
   size_t sinsize;
+
+  struct fileholder* last;
   //void* (*calc_bufpos)(void*,struct streamer_entity*,struct resq_info *);
   unsigned long missing;
   unsigned long total_captured_packets;

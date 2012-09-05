@@ -256,8 +256,9 @@ inline void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* 
   return temp->entity;
 }
 /* Get a specific free entity from branch 		*/
-inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
+void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {
+  (void)bufnum;
   LOCK(&(br->branchlock));
   struct listed_entity* temp = get_w_check(&br->freelist, id, br, NULL);
 
@@ -272,7 +273,7 @@ inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long
   UNLOCK(&(br->branchlock));
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
-    int ret = temp->acquire(temp->entity, opt,seq, bufnum);
+    int ret = temp->acquire(temp->entity, opt,((void*)&seq));
     if(acquire_result != NULL)
       *acquire_result = ret;
     else{
@@ -286,7 +287,7 @@ inline void* get_specific(struct entity_list_branch *br,void * opt,unsigned long
   return temp->entity;
 }
 /* Get a free entity from the branch			*/
-inline void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result)
+inline void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
 {
   LOCK(&(br->branchlock));
   while(br->freelist == NULL){
@@ -303,7 +304,7 @@ inline void* get_free(struct entity_list_branch *br,void * opt,unsigned long seq
   UNLOCK(&(br->branchlock));
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
-    int ret = temp->acquire(temp->entity, opt,seq, bufnum);
+    int ret = temp->acquire(temp->entity, opt,acq);
     if(acquire_result != NULL)
       *acquire_result = ret;
     else{

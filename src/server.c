@@ -210,6 +210,14 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
     struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
     if(live != NULL){
       D("Frack it! We'll do it live!");
+      if(pthread_spin_destroy((ev->opt->augmentlock)) != 0)
+	E("pthread spin destroy");
+
+      if(ev->opt->augmentlock != NULL)
+	free((void*)ev->opt->augmentlock);
+      if(ev->opt->cumul != NULL)
+	free(ev->opt->cumul);
+
       struct scheduled_event *livereceive = (struct scheduled_event*)live->entity;
       ev->opt->augmentlock = livereceive->opt->augmentlock;
       ev->opt->cumul = livereceive->opt->cumul;

@@ -67,8 +67,9 @@
 //#define SHOW_PACKET_METADATA;
 
 struct sender_tracking{
-  unsigned long files_loaded;
-  unsigned long files_sent;
+  //unsigned long files_loaded;
+  struct fileholder* head_loaded;
+  //unsigned long files_sent;
   unsigned long files_skipped;
   unsigned long packets_left_to_load;
   unsigned long packets_left_to_send;
@@ -392,9 +393,11 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   unsigned long nuf = MIN(st->packets_left_to_load, ((unsigned long)opt->buf_num_elems));
   /* Add spinlocks here so broken recers get info set here before use */
   AUGMENTLOCK;
-  while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
-    D("Skipping a file, fileholder set to -1 for file %lu",, st->files_loaded);
-    st->files_loaded++;
+  //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
+  while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
+    D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->head_loaded->id);
+    st->head_loaded = st->head_loaded->next;
+    //st->files_loaded++;
     st->files_skipped++;
     //spec_ops->files_sent++;
     /* If last file is missing, we might hit negative on left_to_send 	*/
@@ -407,21 +410,28 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
       st->packets_left_to_load-=opt->buf_num_elems;
     }
     /* Special case where last file is missing */
+    if(st->head_loaded->next == NULL)
+      return 0;
+    else
+      st->head_loaded = st->head_loaded->next;
+    /*
     if(st->files_loaded == *opt->cumul)
       return 0;
+      */
   }
   AUGMENTUNLOCK;
 
-  D("Requested a load start on file %lu",, st->files_loaded);
+  D("Requested a load start on file %lu",, st->head_loaded->id);
   if (be == NULL){
-    be = get_free(opt->membranch, opt, st->files_loaded,0, NULL);
+    be = get_free(opt->membranch, opt, ((void*)(st->head_loaded)), NULL);
     CHECK_ERR_NONNULL(be, "Get loadable");
   }
   /* Reacquiring just updates the file number we want */
   else
-    be->acquire((void*)be, opt, st->files_loaded,0);
+    //be->acquire((void*)be, opt, st->head_loaded->id,0);
+    be->acquire((void*)be, opt, st->head_loaded);
   CHECK_AND_EXIT(be);
-  D("Setting seqnum %lu to load %lu packets",,st->files_loaded, nuf);
+  D("Setting seqnum %lu to load %lu packets",,st->head_loaded->id, nuf);
   LOCK(be->headlock);
   //D("HUR");
   int * inc = be->get_inc(be);
@@ -429,9 +439,9 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   st->packets_left_to_load-=nuf;
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
-  D("Loading request complete for id %lu",, st->files_loaded);
+  D("Loading request complete for id %lu",, st->head_loaded->id);
 
-  st->files_loaded++;
+  st->head_loaded = st->head_loaded->next;
   return 0;
 }
 void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
@@ -443,6 +453,7 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
   SETONE(st->onenano);
 #endif
   ZEROTIME(st->req);
+  st->head_loaded = spec_ops->opt->fileholders;
 }
 /*
  * Sending handler for an UDP-stream
@@ -453,7 +464,7 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
  * the logic and lead to high probability of bugs
  *
  */
-inline int should_i_be_running(struct udpopts *spec_ops, unsigned long files_sent){
+inline int should_i_be_running(struct udpopts *spec_ops){
   /* TODO: Proper checking for live sending/receiving */
   unsigned long cumulpeek;
   if(!spec_ops->running)
@@ -461,7 +472,7 @@ inline int should_i_be_running(struct udpopts *spec_ops, unsigned long files_sen
   SAUGMENTLOCK;
   cumulpeek = *(spec_ops->opt->cumul);
   SAUGMENTUNLOCK;
-  if(files_sent < cumulpeek){
+  if(spec_ops->opt->fileholders != NULL){
     return 1;
   }
   else{
@@ -487,6 +498,7 @@ void * udp_sender(void *streamo){
   int *inc;
   int max_buffers_in_use=0;
   unsigned long cumulpeek;
+  struct fileholder* tempfh;
   /* If theres a wait_nanoseconds, it determines the amount of buffers	*/
   /* we have in use at any time						*/
   //int besindex;
@@ -530,7 +542,7 @@ void * udp_sender(void *streamo){
 
   /* Check if theres empties right at the start */
   /* Added && for files might be skipped in start_loading */
-  for(i=0;i<loadup && st.files_loaded < cumulpeek;i++){
+  for(i=0;i<loadup && st.head_loaded != NULL;i++){
     /* When running in sendmode, the buffers are first getted 	*/
     /* and then signalled to start loading packets from the hd 	*/
     /* A ready loaded buffer is getted by running get_loaded	*/
@@ -550,14 +562,17 @@ void * udp_sender(void *streamo){
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
   SAUGMENTLOCK;
-  while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= (*spec_ops->opt->cumul)){
-    D("Skipping a file, fileholder set to -1 for file %lu",, st.files_loaded);
-    st.files_sent++;
+  while(spec_ops->opt->fileholders != NULL && spec_ops->opt->fileholders->status == FH_MISSING){
+  //while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= (*spec_ops->opt->cumul)){
+    D("Skipping a file, fileholder set to -1 for file %lu",, st.head_loaded->id);
+    spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
+    //st.files_sent++;
   }
   /* TODO: Handle dropped out rec points */
-  if(st.files_sent < (*spec_ops->opt->cumul)){
+  //if(st.files_sent < (*spec_ops->opt->cumul)){
+  if(spec_ops->opt->fileholders != NULL){
     SAUGMENTUNLOCK;
-    se->be = get_loaded(spec_ops->opt->membranch, st.files_sent, spec_ops->opt);
+    se->be = get_loaded(spec_ops->opt->membranch, spec_ops->opt->fileholders->id, spec_ops->opt);
   }
   else{
     SAUGMENTUNLOCK;
@@ -571,41 +586,26 @@ void * udp_sender(void *streamo){
   i=0;
   GETTIME(spec_ops->opt->wait_last_sent);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
-  while(should_i_be_running(spec_ops, st.files_sent) == 1){
+  while(should_i_be_running(spec_ops) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
     if(i == spec_ops->opt->buf_num_elems || st.packets_left_to_send == 0){
-      st.files_sent++;
-      D("Buffer empty, Getting another: %lu",, st.files_sent);
+      //st.files_sent++;
+      D("Buffer empty for: %lu",, spec_ops->opt->fileholders->id);
+      tempfh = spec_ops->opt->fileholders;
+      spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
+      free(tempfh);
       /* Check for missing file here so we can keep simplebuffer simple 	*/
       SAUGMENTLOCK;
       cumulpeek = (*spec_ops->opt->cumul);
       SAUGMENTUNLOCK;
-      while(st.files_loaded < cumulpeek){
-	if (spec_ops->opt->fileholders[st.files_loaded]  == -1){
-	  D("Skipping a file, fileholder set to -1 for file %lu",, st.files_loaded);
-	  st.files_loaded++;
-	  st.files_skipped++;
-	  //spec_ops->files_sent++;
-	  /* If last file is missing, we might hit negative on left_to_send 	*/
-	  if(st.packets_left_to_load < (unsigned long)spec_ops->opt->buf_num_elems){
-	    st.packets_left_to_load = 0;
-	  }
-	  else
-	    st.packets_left_to_load -= spec_ops->opt->buf_num_elems;
-	}
-	else
-	  break;
-      }
-      //if((spec_ops->opt->cumul - files_loaded) > 0){
-      /* Files loaded is incremented after we've gotten a load, so we can set	*/
-      /* This as less than or equal						*/
-      if(st.files_loaded < cumulpeek){
-	D("Still files to be loaded. Loading %lu",, st.files_loaded);
+      //if(st.files_loaded < cumulpeek){
+      if(st.head_loaded != NULL){
+	D("Still files to be loaded. Loading %lu",, st.head_loaded->id);
 	/* start_loading increments files_loaded */
 	err = start_loading(spec_ops->opt, se->be, &st);
       }
       else{
-	D("Loaded enough files as files_loaded %lu. Setting memorybuf to free",, st.files_loaded);
+	D("Loaded enough files. Setting memorybuf to free");
 	set_free(spec_ops->opt->membranch, se->be->self);
       }
 
@@ -618,25 +618,20 @@ void * udp_sender(void *streamo){
 	SAUGMENTLOCK;
 	cumulpeek = (*spec_ops->opt->cumul);
 	SAUGMENTUNLOCK;
-	if(st.files_sent < cumulpeek){
-	  D("Getting new loaded for file %lu",, st.files_sent);
-	  while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent < cumulpeek){
-	    D("Skipping %lu since its not found in drives",, st.files_sent);
-	  /* Skip it away now */
-	    st.files_sent++;
-	  }
-	  if(st.files_sent < cumulpeek)
-	    se->be = get_loaded(spec_ops->opt->membranch, st.files_sent, spec_ops->opt);
-	  else{
-	    UDPS_EXIT;
-	  }
-	  //CHECK_AND_EXIT(se->be);
-	  if (se->be != NULL){
-	    buf = se->be->simple_get_writebuf(se->be, &inc);
-	    D("Got loaded file %lu to send.",, st.files_sent);
+	//if(st.files_sent < cumulpeek){
+	if(spec_ops->opt->fileholders != NULL){
+	  D("Getting new loaded for file %lu",, spec_ops->opt->fileholders->id);
+	  if(spec_ops->opt->fileholders != NULL && spec_ops->opt->fileholders->status == FH_MISSING){
+	    D("Skipping a file, fileholder set to -1 for file %lu",, st.head_loaded->id);
+	    spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
 	  }
 	  else
-	    D("Didnt get file %lu. Rerunning loop",, st.files_sent);
+	  {
+	    se->be = get_loaded(spec_ops->opt->membranch, spec_ops->opt->fileholders->id, spec_ops->opt);
+	    buf = se->be->simple_get_writebuf(se->be, &inc);
+	    D("Got loaded file %lu to send.",, spec_ops->opt->fileholders->id);
+	  //CHECK_AND_EXIT(se->be);
+	  }
 	}
 	else{
 	  //E("Shouldn't be here since all packets have been sent!");
@@ -771,6 +766,8 @@ void* udp_rxring(void *streamo)
   int bufnum = 0;
   int *inc;
 
+  struct rxring_request rxr;
+
   spec_ops->total_captured_bytes = 0;
   spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
@@ -783,7 +780,9 @@ void* udp_rxring(void *streamo)
   pfd.events = POLLIN|POLLRDNORM|POLLERR;
   D("Starting mmap polling");
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(*spec_ops->opt->cumul), bufnum, NULL);
+  rxr.id = spec_ops->opt->cumul;
+  rxr.bufnum = &bufnum;
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL);
   inc = se->be->get_inc(se->be);
   CHECK_AND_EXIT(se->be);
 
@@ -821,7 +820,7 @@ void* udp_rxring(void *streamo)
 	/* Increment file counter! */
 	//spec_ops->opt->n_files++;
 
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(*spec_ops->opt->cumul), bufnum, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL);
 	CHECK_AND_EXIT(se->be);
 	inc = se->be->get_inc(se->be);
 
@@ -899,7 +898,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,cumulpeek,0, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, &spec_ops->opt,(void*)&cumulpeek, NULL);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
@@ -1163,7 +1162,7 @@ void* udp_receiver(void *streamo)
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(*spec_ops->opt->cumul),0, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
 
   /* IF we have packet resequencing	*/
@@ -1215,7 +1214,7 @@ void* udp_receiver(void *streamo)
 	free_the_buf(se->be);
 
 	/* Get a new buffer */
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,cumulpeek,0, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,((void*)&cumulpeek), NULL);
 	CHECK_AND_EXIT(se->be);
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
       }

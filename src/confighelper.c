@@ -468,12 +468,24 @@ int init_cfg(struct opt_s *opt){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
 	  D("Getting opts from first config, cumul is %lu",, *opt->cumul);
-	  opt->fileholders = (int*)malloc(sizeof(int)*(*opt->cumul));
-	  CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
+	  //opt->fileholders = (int*)malloc(sizeof(int)*(*opt->cumul));
+	  //CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	  int j;
-	  for(j=0;(unsigned)j<(*opt->cumul);j++)
-	    opt->fileholders[j] = -1;
+	  opt->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
+	  zero_fileholder(opt->fileholders);
+	  opt->fileholders->status = FH_MISSING;
+	  opt->fileholders->id = 0;
+
+	  struct fileholder * fh = opt->fileholders;
+
+	  for(j=0;(unsigned)j<(*opt->cumul)-1;j++){
+	    fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+	    zero_fileholder(fh->next);
+	    fh->next->id = j+1;
+	    fh->next->status = FH_MISSING;
+	    fh = fh->next;
+	  }
 	  D("opts read from first config");
 	}
 	else{

@@ -18,8 +18,9 @@
 #include "confighelper.h"
 #define ERR_IN_INIT free(dirname);return -1
 
-int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
-  (void)sbuf_still_running;
+//int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
+int common_open_new_file(void * recco, void *opti,void* acq){
+  //(void)sbuf_still_running;
   int err;
   int tempflags;
   struct recording_entity * re = (struct recording_entity*)recco;
@@ -30,11 +31,11 @@ int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned lo
     tempflags = re->get_r_flags();
   else
     tempflags = re->get_w_flags();
-  ioi->file_seqnum = seq;
+  ioi->file_seqnum = *((unsigned long*)acq);
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
-  sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,seq); 
+  sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
 
   D("Opening file %s",,ioi->curfilename);
   err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
@@ -473,6 +474,8 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 
   /* print all the files and directories within directory */
   struct dirent **namelist;
+  int j;
+  struct fileholder* fh;
   n_files = scandir(dirname, &namelist, NULL, NULL);
   if(n_files <0){
     // could not open directory 
@@ -499,9 +502,15 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	{
 	  D("Identified %s as %d",,start_of_index,  temp);
 	  /* Update pointer at correct spot */
-	  //temprecer = opt->fileholders + temp*sizeof(*);
-	  //*temprecer = re;
-	  opt->fileholders[temp] = ioi->id;
+	  /* This is a bit slow, but required for supporting live sending */
+	  fh = opt->fileholders;
+	  for(j=0;j<temp;j++){
+	    //ASSERT(fh->next != NULL);
+	    fh = fh->next;
+	  }
+	  fh->status = FH_ONDISK;
+	  fh->diskid = ioi->id;
+	  //opt->fileholders[temp] = ioi->id;
 	  opt->cumul_found++;
 	}
       }

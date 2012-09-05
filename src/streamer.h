@@ -230,6 +230,21 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   //Cheating here to keep infra consistent
   //int * packet_index;
 };
+struct rxring_request{
+  long unsigned* id;
+  int* bufnum;
+};
+struct fileholder
+{
+  long unsigned id;
+  int diskid;
+  int status;
+  struct fileholder* next;
+};
+#define FH_ONDISK	B(0)
+#define FH_MISSING	B(1)
+#define FH_INMEM	B(2)
+void zero_fileholder(struct fileholder* fh);
 /* All the options for the main thread			*/
 struct opt_s
 {
@@ -265,7 +280,8 @@ struct opt_s
   int n_drives;
   int bufculum;
   int rate;
-  int* fileholders;
+  //int* fileholders;
+  struct fileholder * fileholders;
   /* Used if RX-ring for receive */
   void* buffer;
 #ifdef HAVE_LIBCONFIG_H
@@ -327,7 +343,7 @@ struct opt_s
 int parse_options(int argc, char **argv, struct opt_s* opt);
 int clear_and_default(struct opt_s* opt, int create_cfg);
 int clear_pointers(struct opt_s* opt);
-int remove_specific_from_fileholders(struct opt_s *opt, int id);
+int remove_specific_from_fileholders(struct opt_s *opt, unsigned long id);
 struct buffer_entity
 {
   void * opt;
@@ -337,7 +353,7 @@ struct buffer_entity
   int (*write)(struct buffer_entity*,int);
   void* (*get_writebuf)(struct buffer_entity *);
   /* Used to acquire element past the queue line */
-  int (*acquire)(void * , void* , unsigned long, unsigned long);
+  int (*acquire)(void * , void* , void*);
   void* (*simple_get_writebuf)(struct buffer_entity *, int **);
   int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);

@@ -33,7 +33,7 @@ struct listed_entity
 {
   struct listed_entity* child;
   struct listed_entity* father;
-  int (*acquire)(void*,void*,unsigned long,unsigned long);
+  int (*acquire)(void*,void*,void*);
   int (*check)(void*, int);
   /* 0 for not this, 1 for identified */
   int (*identify)(void*, void*, void*,int);
@@ -63,7 +63,7 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Set branch as full of data				*/
 void set_loaded(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, int* acquire_result);
+void* get_free(struct entity_list_branch *br, void * opt,void *acq, int* acquire_result);
 /* Get a specific entity according to seq or bufnum	*/
 void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result);
 /* Get a loaded buffer according to seq. Block if not found	*/
