@@ -87,7 +87,9 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
   }
   else{
     sbuf->fh = sbuf->fh_def; 
+    zero_fileholder(sbuf->fh);
     sbuf->fh->id = *((long unsigned*)acq);
+    sbuf->fh->status = FH_BUSY;
   }
   //sbuf->file_seqnum = seq;
 
@@ -102,6 +104,7 @@ int sbuf_release(void* buffo){
 
   sbuf->opt_old = sbuf->opt;
   //sbuf->file_seqnum_old = sbuf->file_seqnum;
+  
 
   sbuf->opt = sbuf->opt_default;
   //sbuf->file_seqnum = -1;
@@ -111,8 +114,8 @@ void preheat_buffer(void* buf, struct opt_s* opt){
   memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
 }
 /*
-int sbuf_seqnumcheck(void* buffo, int seq){
-  if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == seq)
+   int sbuf_seqnumcheck(void* buffo, int seq){
+   if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == seq)
     return 1;
   else
     return 0;
@@ -508,10 +511,58 @@ int write_buffer(struct buffer_entity *be){
       if(ret !=0){
 	E("Error in acquired for random entity");
 	E("Shutting faulty writer down");
-	  /* TODO: In daemonmode, the remove specific needs to exist also! */
+	/* TODO: In daemonmode, the remove specific needs to exist also! */
 	close_recer(be,ret);
 	/* The next round will get a new recer */
 	return -1;
+      }
+      else{
+	if(sbuf->opt->optbits & LIVE_RECEIVING){
+	  //struct fileholder * fh;
+	  pthread_spin_lock(sbuf->opt->augmentlock);
+	  if(sbuf->opt->liveother != NULL){
+	    struct fileholder * temp = NULL;
+	    /* Elegance going down */
+	    struct fileholder * fh_prev = NULL;
+	    struct fileholder* fh = sbuf->opt->liveother->fileholders;
+	    /* Special case with first file */
+	    if(fh == NULL){
+	      sbuf->opt->liveother->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
+	      fh = sbuf->opt->liveother->fileholders;
+	    }
+	    else{
+	      while(fh != NULL){
+		if(fh->id == sbuf->fh->id-1){
+		  /* Found the previous spot! */
+		  if (fh->next != NULL){
+		    /* Some buffer completed before this 	*/
+		    /* with a later id				*/
+		    temp = fh->next;
+		  }
+		  fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+		  fh = fh->next;
+		  break;
+		}
+		fh_prev = fh;
+		fh = fh->next;
+	      }
+	      if (fh == NULL){
+		fh_prev->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+		fh = fh_prev->next;
+		/* Didnt find the previous one in the list */
+	      }
+	    }
+	    zero_fileholder(fh);
+	    if(temp != NULL)
+	      fh->next = temp;
+	    fh->id = sbuf->fh->id;
+	    fh->status = FH_INMEM;
+	    //sbuf->fh->diskid = be->recer->getid(be->recer);
+	  }
+	  else
+	    E("Live receiving, but liveother NULL");
+	  pthread_spin_unlock(sbuf->opt->augmentlock);
+	}
       }
     }
     CHECK_AND_EXIT(be->recer);

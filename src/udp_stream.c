@@ -476,18 +476,11 @@ inline int should_i_be_running(struct udpopts *spec_ops){
     return 1;
   }
   else{
-    if(spec_ops->opt->optbits & LIVE_SENDING)
-    {
+    if(spec_ops->opt->optbits & LIVE_SENDING){
       /* Here it gets interesting */
       if(spec_ops->opt->liveother != NULL)
-      {
-	return 0;
-      }
-      else
-	return 0;
+	return 1;
     }
-    else
-      return 0;
   }
   return 0;
 }

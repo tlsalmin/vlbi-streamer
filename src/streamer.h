@@ -244,6 +244,7 @@ struct fileholder
 #define FH_ONDISK	B(0)
 #define FH_MISSING	B(1)
 #define FH_INMEM	B(2)
+#define FH_BUSY		B(3)
 void zero_fileholder(struct fileholder* fh);
 /* All the options for the main thread			*/
 struct opt_s
@@ -387,6 +388,7 @@ struct recording_entity
   int (*close)(struct recording_entity*, void *);
   long (*check)(struct recording_entity*, int );
   int (*getfd)(struct recording_entity*);
+  int (*getid)(struct recording_entity*);
   int (*check_files)(struct recording_entity*, void*);
   void (*get_stats)(void*, void*);
 

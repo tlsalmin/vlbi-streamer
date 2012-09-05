@@ -19,6 +19,9 @@
 #define ERR_IN_INIT free(dirname);return -1
 
 //int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
+int common_getid(struct recording_entity*re){
+  return ((struct common_io_info*)re->opt)->id;
+}
 int common_open_new_file(void * recco, void *opti,void* acq){
   //(void)sbuf_still_running;
   int err;
@@ -231,6 +234,7 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   re->write = common_fake_recer_write;
   re->close = common_close_dummy;
+  re->getid = common_getid;
   D("Adding writer to diskbranch");
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
   le->entity = (void*)re;
@@ -551,6 +555,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->readcfg = common_readcfg;
   re->check_files = common_check_files;
   re->handle_error = handle_error;
+  re->getid = common_getid;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

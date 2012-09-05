@@ -814,6 +814,10 @@ int close_opts(struct opt_s *opt){
   if(opt->filename != NULL)
     free(opt->filename);
   config_destroy(&(opt->cfg));
+#if(DAEMON)
+  if(opt->liveother != NULL)
+    opt->liveother->liveother = NULL;
+#endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&(opt->pta));
 #endif

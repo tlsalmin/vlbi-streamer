@@ -472,20 +472,30 @@ int init_cfg(struct opt_s *opt){
 	  //CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
 	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
 	  int j;
+	  struct fileholder* fh_orig = NULL;
+	  /*
 	  opt->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
 	  zero_fileholder(opt->fileholders);
 	  opt->fileholders->status = FH_MISSING;
 	  opt->fileholders->id = 0;
+	  */
 
-	  struct fileholder * fh = opt->fileholders;
+	  struct fileholder * fh = NULL;
+	  struct fileholder * fh_prev = NULL;
 
-	  for(j=0;(unsigned)j<(*opt->cumul)-1;j++){
-	    fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-	    zero_fileholder(fh->next);
-	    fh->next->id = j+1;
-	    fh->next->status = FH_MISSING;
-	    fh = fh->next;
+	  for(j=0;(unsigned)j<(*opt->cumul);j++){
+	    fh = (struct fileholder*)malloc(sizeof(struct fileholder));
+	    if(fh_orig ==NULL)
+	      fh_orig = fh;
+	    if(fh_prev != NULL)
+	      fh_prev->next = fh;
+	    //fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+	    zero_fileholder(fh);
+	    fh->id = j;
+	    fh->status = FH_MISSING;
+	    fh_prev = fh;
 	  }
+	  opt->fileholders = fh_orig;
 	  D("opts read from first config");
 	}
 	else{
