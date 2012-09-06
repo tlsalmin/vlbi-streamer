@@ -126,7 +126,12 @@ int udps_bind_port(struct udpopts * spec_ops){
     //err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
     //spec_ops->sin = addr;
   }
-  else{
+  if(!(spec_ops->opt->optbits & READMODE)){
+    if(spec_ops->opt->hostname != NULL){
+      /* Were resending this stream at the same time */
+      spec_ops->sin_send = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+      spec_ops->sin_send->sin_addr.s_addr = spec_ops->opt->serverip;
+    }
     D("Binding to port %d",, spec_ops->opt->port);
     spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
     //if(!(spec_ops->opt->optbits & USE_RX_RING))
@@ -181,42 +186,46 @@ int udps_bind_rx(struct udpopts * spec_ops){
   }
 
   if(spec_ops->opt->device_name  !=NULL){
-  //spec_ops->sin->sin_family = PF_PACKET;           
-  struct sockaddr_ll ll;
-  struct ifreq ifr;
-  memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
-  err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
-  CHECK_ERR("SIOCGIFINDEX");
+    //spec_ops->sin->sin_family = PF_PACKET;           
+    struct sockaddr_ll ll;
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, spec_ops->opt->device_name);
+    err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
+    CHECK_ERR("SIOCGIFINDEX");
 
-  //Bind to a socket
-  memset(&ll, 0, sizeof(ll));
-  ll.sll_family = AF_PACKET;
-  ll.sll_protocol = htons(ETH_P_ALL);
-  ll.sll_ifindex = ifr.ifr_ifindex;
-  err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
-  CHECK_ERR("Bind to IF");
+    //Bind to a socket
+    memset(&ll, 0, sizeof(ll));
+    ll.sll_family = AF_PACKET;
+    ll.sll_protocol = htons(ETH_P_ALL);
+    ll.sll_ifindex = ifr.ifr_ifindex;
+    err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
+    CHECK_ERR("Bind to IF");
   }
 
   return 0;
 }
-int udps_common_init_stuff(struct streamer_entity *se)
+#define MODE_FROM_OPTS -1
+int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
 {
   int err,len,def,defcheck;
-  struct udpopts * spec_ops = se->opt;
+
+  if(mode == MODE_FROM_OPTS)
+    mode = opt->optbits;
+  //struct udpopts * spec_ops = se->opt;
 
 
-  if(spec_ops->opt->device_name != NULL){
+  if(opt->device_name != NULL){
     //struct sockaddr_ll ll;
     struct ifreq ifr;
     //Get the interface index
     memset(&ifr, 0, sizeof(ifr));
-    strcpy(ifr.ifr_name, spec_ops->opt->device_name);
-    err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
+    strcpy(ifr.ifr_name, opt->device_name);
+    err = ioctl(*fd, SIOCGIFINDEX, &ifr);
     CHECK_ERR_LTZ("Interface index find");
 
-    D("Binding to %s",, spec_ops->opt->device_name);
-    err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
+    D("Binding to %s",, opt->device_name);
+    err = setsockopt(*fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
     CHECK_ERR("Bound to NIC");
 
 
@@ -243,10 +252,10 @@ int udps_common_init_stuff(struct streamer_entity *se)
   hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->device_name);
+  strcpy(ifr.ifr_name, opt->device_name);
   ifr.ifr_data = (void *)&hwconfig;
 
-  err  = ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr);
+  err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
   CHECK_ERR_LTZ("HW timestamping");
 #endif
   /* TODO: Drop bad size packets as in */
@@ -263,18 +272,18 @@ int udps_common_init_stuff(struct streamer_entity *se)
    */
   len = sizeof(def);
   def=0;
-  if(spec_ops->opt->optbits & READMODE){
+  if(mode & READMODE){
     err = 0;
     D("Doing the double rcvbuf-loop");
-    def = spec_ops->opt->packet_size;
+    def = opt->packet_size;
     while(err == 0){
       //D("RCVBUF size is %d",,def);
       def  = def << 1;
-      err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
       if(err == 0){
 	D("Trying RCVBUF size %d",, def);
       }
-      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
 	D("Limit reached. Final size is %d Bytes",,defcheck);
 	break;
@@ -288,15 +297,15 @@ int udps_common_init_stuff(struct streamer_entity *se)
     CHECK_ERR("RCVBUF size");
     */
     D("Doing the double rcvbuf-loop");
-    def = spec_ops->opt->packet_size;
+    def = opt->packet_size;
     while(err == 0){
       //D("RCVBUF size is %d",,def);
       def  = def << 1;
-      err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
       if(err == 0){
 	D("Trying RCVBUF size %d",, def);
       }
-      err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
 	D("Limit reached. Final size is %d Bytes",,defcheck);
 	break;
@@ -305,9 +314,9 @@ int udps_common_init_stuff(struct streamer_entity *se)
   }
 
 #ifdef SO_NO_CHECK
-  if(spec_ops->opt->optbits & READMODE){
+  if(mode & READMODE){
     const int sflag = 1;
-    err = setsockopt(spec_ops->fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
+    err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
     CHECK_ERR("UDPCHECKSUM");
 
   }
@@ -317,7 +326,7 @@ int udps_common_init_stuff(struct streamer_entity *se)
   //set hardware timestamping
   int req = 0;
   req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-  err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
+  err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
   CHECK_ERR("HWTIMESTAMP");
 #endif
   return 0;
@@ -360,6 +369,17 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   {
     spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
     D("Socket initialized as AF_INET");
+    if(!(opt->optbits & READMODE) && opt->filename != NULL){
+      spec_ops->fd_send = socket(AF_INET, SOCK_DGRAM, 0);
+      if (spec_ops->fd_send < 0) {
+	perror("socket for simusend");
+	//INIT_ERROR
+      }
+      else{
+	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
+	CHECK_ERR("Simusend init");
+      }
+    }
   }
   //if(!(spec_ops->optbits & READMODE))
   opt->socket = spec_ops->fd;
@@ -369,7 +389,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     perror("socket");
     INIT_ERROR
   }
-  err = udps_common_init_stuff(se);
+  err = udps_common_init_stuff(spec_ops->opt, MODE_FROM_OPTS, &(spec_ops->fd));
   CHECK_ERR("Common init");
 
 
@@ -1231,6 +1251,15 @@ void* udp_receiver(void *streamo)
     }
     /* Success! */
     else if(spec_ops->running==1){
+      if(spec_ops->opt->hostname != NULL){
+	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
+	if(senderr <0 ){
+	  perror("send error");
+	  E("Send er");
+	}
+	else if((unsigned long)senderr != spec_ops->opt->packet_size)
+	  E("Different size");
+      }
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
@@ -1320,6 +1349,10 @@ int close_udp_streamer(void *opt_own, void *stats){
     CHECK_ERR("update_cfg");
     err = write_cfgs_to_disks(spec_ops->opt);
     CHECK_ERR("write_cfg");
+  }
+  if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
+    close(spec_ops->fd_send);
+    free(spec_ops->sin_send);
   }
   close(spec_ops->fd);
 

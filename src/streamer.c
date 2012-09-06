@@ -234,7 +234,7 @@ static void usage(char *binary){
       "-i INTERFACE	Which interface to bind to(Not required)\n"
       //"-I MINMEM	Use at least MINMEM amount of memory for ringbuffers(default 4GB)\n"
       "-m {s|r}	Send or Receive the data(Default: receive)\n"
-      //"-n NUM	        Number of threads(Default: DRIVES+2)\n"
+      "-n IP	        Resend packet immediately to IP \n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
       "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)\n"
       "-r RATE		Expected network rate in Mb/s. \n"
@@ -519,7 +519,13 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 #endif
 	break;
       case 'n':
-	opt->n_threads = atoi(optarg);
+	/* Commandeering this option */
+	opt->hostname = (char*)malloc(sizeof(char)*IP_LENGTH);
+	if(strcpy(opt->hostname, optarg) == NULL){
+	  E("strcpy hostname");
+	  return -1;
+	}
+	//opt->n_threads = atoi(optarg);
 	break;
       case 'q':
 	opt->optbits &= ~LOCKER_DATATYPE;
@@ -961,7 +967,7 @@ int main(int argc, char **argv)
 
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
-  if(opt->optbits & READMODE){
+  if(opt->optbits & READMODE || opt->hostname != NULL){
     struct hostent *hostptr;
 
     hostptr = gethostbyname(opt->hostname);

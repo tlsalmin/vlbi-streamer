@@ -37,9 +37,11 @@ struct udpopts
 {
   int running;
   int fd;
+  int fd_send;
   struct opt_s* opt;
   //long unsigned int * cumul;
   struct sockaddr_in *sin;
+  struct sockaddr_in *sin_send;
   size_t sinsize;
 
   struct fileholder* last;
