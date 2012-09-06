@@ -128,8 +128,11 @@ int udps_bind_port(struct udpopts * spec_ops){
   }
   if(!(spec_ops->opt->optbits & READMODE)){
     if(spec_ops->opt->hostname != NULL){
-      /* Were resending this stream at the same time */
       spec_ops->sin_send = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
+      memset(spec_ops->sin_send, 0, sizeof(struct sockaddr_in));   
+      spec_ops->sin_send->sin_family = AF_INET;           
+      spec_ops->sin_send->sin_port = htons(spec_ops->opt->port);    
+      /* Were resending this stream at the same time */
       spec_ops->sin_send->sin_addr.s_addr = spec_ops->opt->serverip;
     }
     D("Binding to port %d",, spec_ops->opt->port);
@@ -1252,7 +1255,7 @@ void* udp_receiver(void *streamo)
     /* Success! */
     else if(spec_ops->running==1){
       if(spec_ops->opt->hostname != NULL){
-	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
+	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,sizeof(struct sockaddr_in));
 	if(senderr <0 ){
 	  perror("send error");
 	  E("Send er");
