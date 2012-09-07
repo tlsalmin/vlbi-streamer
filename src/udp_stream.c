@@ -134,6 +134,7 @@ int udps_bind_port(struct udpopts * spec_ops){
       spec_ops->sin_send->sin_port = htons(spec_ops->opt->port);    
       /* Were resending this stream at the same time */
       spec_ops->sin_send->sin_addr.s_addr = spec_ops->opt->serverip;
+      spec_ops->sinsize = sizeof(struct sockaddr_in);
     }
     D("Binding to port %d",, spec_ops->opt->port);
     spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
@@ -213,8 +214,10 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
 {
   int err,len,def,defcheck;
 
-  if(mode == MODE_FROM_OPTS)
+  if(mode == MODE_FROM_OPTS){
+    D("Mode from opts");
     mode = opt->optbits;
+  }
   //struct udpopts * spec_ops = se->opt;
 
 
@@ -277,14 +280,14 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
   def=0;
   if(mode & READMODE){
     err = 0;
-    D("Doing the double rcvbuf-loop");
+    D("Doing the double sndbuf-loop");
     def = opt->packet_size;
     while(err == 0){
       //D("RCVBUF size is %d",,def);
       def  = def << 1;
       err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
       if(err == 0){
-	D("Trying RCVBUF size %d",, def);
+	D("Trying SNDBUF size %d",, def);
       }
       err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
@@ -321,7 +324,6 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     const int sflag = 1;
     err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
     CHECK_ERR("UDPCHECKSUM");
-
   }
 #endif
 
@@ -1254,8 +1256,9 @@ void* udp_receiver(void *streamo)
     }
     /* Success! */
     else if(spec_ops->running==1){
+      /*
       if(spec_ops->opt->hostname != NULL){
-	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,sizeof(struct sockaddr_in));
+	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
 	if(senderr <0 ){
 	  perror("send error");
 	  E("Send er");
@@ -1263,6 +1266,7 @@ void* udp_receiver(void *streamo)
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size");
       }
+      */
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
