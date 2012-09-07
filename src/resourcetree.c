@@ -287,7 +287,7 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
   return temp->entity;
 }
 /* Get a free entity from the branch			*/
-inline void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
+void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
 {
   LOCK(&(br->branchlock));
   while(br->freelist == NULL){

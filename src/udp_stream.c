@@ -916,7 +916,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, &spec_ops->opt,((void*)&cumulpeek), NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,((void*)&cumulpeek), NULL);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
