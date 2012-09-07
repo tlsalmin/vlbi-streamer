@@ -916,7 +916,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, &spec_ops->opt,(void*)&cumulpeek, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, &spec_ops->opt,((void*)&cumulpeek), NULL);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
@@ -1256,7 +1256,6 @@ void* udp_receiver(void *streamo)
     }
     /* Success! */
     else if(spec_ops->running==1){
-      /*
       if(spec_ops->opt->hostname != NULL){
 	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
 	if(senderr <0 ){
@@ -1266,7 +1265,6 @@ void* udp_receiver(void *streamo)
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size");
       }
-      */
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
