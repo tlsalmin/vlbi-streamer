@@ -190,25 +190,33 @@ struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, vo
   }
   return NULL;
 }
-struct listed_entity* get_w_check(struct listed_entity **lep, unsigned long seq, struct entity_list_branch* br, void* optmatch){
+#define CHECK_LOADED 1
+#define CHECK_BUSY 2
+#define CHECK_FREE 3
+//#define CHECK_ANY_FREE 4
+struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_check,unsigned long seq,  void* optmatch){
   //struct listed_entity *temp;
   struct listed_entity *le = NULL;
+  struct listed_entity **lep = NULL;
   struct listed_entity **other = NULL;
   struct listed_entity **other2 = NULL;
-  if(*lep == br->freelist){
+  if(branch_to_check == CHECK_FREE){
     other = &br->busylist;
     other2 = &br->loadedlist;
+    lep = &br->freelist;
   }
-  else if (*lep == br->busylist){
+  else if (branch_to_check == CHECK_BUSY){
     other = &br->freelist;
     other2 = &br->loadedlist;
+    lep = &br->busylist;
   }
-  else if (*lep == br->loadedlist){
+  else if (branch_to_check == CHECK_LOADED){
     other = &br->freelist;
     other2 = &br->busylist;
+    lep = &br->loadedlist;
   }
   else{
-    E("Queried list is something weird. Should be loaded,free,or busy of the branch");
+    E("Queried list is something weird. Should be loaded,free,or busy of the branch for checking of missing");
     return NULL;
   }
   //le = NULL;
@@ -242,7 +250,7 @@ struct listed_entity* get_w_check(struct listed_entity **lep, unsigned long seq,
 inline void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* opt){
   D("Querying for loaded entity %lu",, seq);
   LOCK(&(br->branchlock));
-  struct listed_entity * temp = get_w_check(&br->loadedlist, seq, br, opt);
+  struct listed_entity * temp = get_w_check(br, CHECK_LOADED ,seq,  opt);
 
   if (temp == NULL){
     D("Nothing to return!");
@@ -260,7 +268,7 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
 {
   (void)bufnum;
   LOCK(&(br->branchlock));
-  struct listed_entity* temp = get_w_check(&br->freelist, id, br, NULL);
+  struct listed_entity* temp = get_w_check(br,CHECK_FREE ,id, NULL);
 
   if(temp ==NULL){
     UNLOCK(&(br->branchlock));

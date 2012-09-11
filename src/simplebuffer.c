@@ -268,8 +268,8 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
     {
       long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
       if(hog_memory > (long unsigned)maxmem){
-	E("Max allocatable memory %ld MB. Cant reserve %lu MB more",, maxmem/MEG, hog_memory/MEG);
-	return -1;
+	LOG("Max allocatable memory %ld MB. still reserving %lu MB more\n", maxmem/MEG, hog_memory/MEG);
+	//return -1;
       }
       D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
       err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), hog_memory);

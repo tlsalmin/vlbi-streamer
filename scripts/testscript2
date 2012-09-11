@@ -1,7 +1,7 @@
 #!/bin/bash
 #Testscript run on metsähovi machines with vlbi-command
 #Tests daemon-mode
-VLBIPREFIX="vlbi"
+VLBIPREFIX="/home/kharn/metsahovibinvlbi"
 end_streamer()
 {
 TIMEOUT=10 

@@ -236,7 +236,7 @@ static void usage(char *binary){
       "-m {s|r}	Send or Receive the data(Default: receive)\n"
       "-n IP	        Resend packet immediately to IP \n"
       "-p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)\n"
-      "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)\n"
+      "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,none)\n"
       "-r RATE		Expected network rate in Mb/s. \n"
       "-s SOCKET	Socket number(Default: 2222)\n"
 #ifdef HAVE_HUGEPAGES
@@ -540,6 +540,10 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	else if(!strcmp(optarg, "udpmon")){
 	  D("Datatype as UDPMON");
 	  opt->optbits |= DATATYPE_UDPMON;
+	}
+	else if(!strcmp(optarg, "none")){
+	  D("Datatype as none");
+	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	else{
 	  E("Unknown datatype %s",, optarg);

@@ -900,6 +900,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     free_the_buf(resq->before);
     resq->bufstart_before = NULL;
     resq->before = NULL;
+    resq->inc_before = NULL;
   }
   /* Check if we have all the packets for this file */
   if(*(resq->inc) == spec_ops->opt->buf_num_elems){
@@ -924,18 +925,6 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   /* This way we can keep the buffers consistent	*/
   /* without holes from the resequencing logic	*/
   resq->seqstart_current += spec_ops->opt->buf_num_elems;
-
-  /*
-     se->be = resq->after;
-     resq->buf = resq->bufstart = resq->bufstart_after;
-     resq->inc = resq->inc_after;
-     */
-
-  /*
-     resq->after = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul+1,0, NULL);
-     CHECK_AND_EXIT(resq->after);
-     resq->bufstart_after = resq->after->simple_get_writebuf(resq->after, &resq->inc_after);
-     */
 
   return 0;
 }
@@ -1045,7 +1034,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   }
   else{
     long diff_from_start = seqnum - resq->seqstart_current;
-    long diff_to_current = seqnum - (resq->current_seq+1);
+    long diff_to_current = seqnum - (resq->current_seq);
     D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %d,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
     if (diff_to_current < 0){
       D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
@@ -1063,6 +1052,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	  return NULL;
 	}
 
+	assert(resq->inc_before != NULL);
+
 	(*(resq->inc_before))++;
 
 	/* Copy to the old pos */
@@ -1074,6 +1065,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	  free_the_buf(resq->before);
 	  resq->bufstart_before = NULL;
 	  resq->before = NULL;
+	  resq->inc_before = NULL;
 	}
 	return NULL;
       }
@@ -1124,7 +1116,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	(*(resq->inc))++;
 	/* Move diff up as thought we'd be receiving normally at the new position 	*/
 	resq->current_seq = seqnum;
-	resq->i+=i_from_next_seqstart;
+	/* Since i_from_next_seqstart counts also 0 , we need to add 1 here		*/
+	resq->i+=i_from_next_seqstart+1;
 	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
 
 	return NULL;
@@ -1148,6 +1141,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 */
 	//assert(be64toh(*((unsigned long*)resq->bufstart +((seqnum - resq->seqstart_current)*((unsigned long)spec_ops->opt->packet_size)))) == (unsigned long)seqnum);
 
+	/* Since diff_to_current is current_seqnum - seqnum and current_seqnum is for	*/
+	/* the packet received before this, we need to add one here. 			*/
 	resq->i+= diff_to_current;
 	resq->current_seq = seqnum;
 	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
@@ -1243,7 +1238,11 @@ void* udp_receiver(void *streamo)
 	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
       else{
 	perror("RECV error");
+	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
 	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
+	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %d,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
+	}
       }
       spec_ops->running = 0;
       break;
