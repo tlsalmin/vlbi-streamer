@@ -3,13 +3,10 @@ RECNAME=$1
 PSIZE=`cat /mnt/disk0/$RECNAME/$RECNAME.cfg |grep packet_size|awk '{print $3}'|sed 's/[^0-9]//g'`
 echo $PSIZE
 
-for i in  /mnt/disk*
+for j in `ls /mnt/disk*/$RECNAME/$RECNAME.0* |sort -n -t . -k 2`
 do
-  for j in $i/$RECNAME/$RECNAME.0*
-  do
-    if [ -e "$j" ]
-    then
-      check_64_seq $j $PSIZE
-    fi
-  done
+  if [ -e "$j" ]
+  then
+    check_64_seq $j $PSIZE
+  fi
 done
