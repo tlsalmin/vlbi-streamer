@@ -322,7 +322,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       CFG_FULL_INT(opt->buf_division, "buf_division")
       CFG_FULL_STR(hostname)
       CFG_FULL_UINT64(opt->serverip, "serverip")
-      CFG_FULL_UINT64(opt->total_packets, "total_packets")
+      CFG_FULL_UINT64((*opt->total_packets), "total_packets")
 
       setting = config_setting_get_elem(root,++index);
   }
@@ -363,7 +363,7 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   setting = config_setting_add(root, "total_packets", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add total_packets");
   if(opt != NULL){
-    err = config_setting_set_int64(setting, opt->total_packets);
+    err = config_setting_set_int64(setting, *opt->total_packets);
     CHECK_CFG("set total packetsize");
   }
 #ifndef SIMPLE_BUFCACL

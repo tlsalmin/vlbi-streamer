@@ -217,10 +217,13 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
 	free((void*)ev->opt->augmentlock);
       if(ev->opt->cumul != NULL)
 	free(ev->opt->cumul);
+      if(ev->opt->total_packets != NULL)
+	free(ev->opt->total_packets);
 
       struct scheduled_event *livereceive = (struct scheduled_event*)live->entity;
       ev->opt->augmentlock = livereceive->opt->augmentlock;
       ev->opt->cumul = livereceive->opt->cumul;
+      ev->opt->total_packets = livereceive->opt->total_packets;
       ev->opt->optbits |= LIVE_SENDING;
       livereceive->opt->optbits |= LIVE_RECEIVING;
       ev->opt->liveother = livereceive->opt;
@@ -392,6 +395,8 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   *opt->cumul = 0;
+  opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
+  *opt->total_packets = 0;
   opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
   if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
     E("Spin init");

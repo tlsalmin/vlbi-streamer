@@ -65,6 +65,7 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
     /* This threads responsible area */
     sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
   }
+
   sbuf->bufoffset = sbuf->buffer;
   /* If we're reading and we've been acquired: we need to load the buffer */
   if(sbuf->opt->optbits & READMODE){
@@ -102,11 +103,11 @@ int sbuf_release(void* buffo){
   if(sbuf->opt->optbits & USE_RX_RING)
     sbuf->buffer = NULL;
 
-  sbuf->opt_old = sbuf->opt;
+  //sbuf->opt_old = sbuf->opt;
   //sbuf->file_seqnum_old = sbuf->file_seqnum;
   
 
-  sbuf->opt = sbuf->opt_default;
+  //sbuf->opt = sbuf->opt_default;
   //sbuf->file_seqnum = -1;
   return 0;
 }
@@ -136,6 +137,7 @@ int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   struct simplebuf* sbuf= (struct simplebuf*)be->opt;
   if(iden_type == CHECK_BY_SEQ){
     if((struct opt_s*)val2 == sbuf->opt){
+    //if(strcmp(((struct opt_s*)val2)->filename,sbuf->filename_old) == 0){
       if(sbuf->fh->id == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
@@ -148,13 +150,14 @@ int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
   }
   /* Check if we previously had a needed file	*/
   else if (iden_type == CHECK_BY_OLDSEQ){
-    if((struct opt_s*)val2 == sbuf->opt_old){
+    if(strcmp(((struct opt_s*)val2)->filename,sbuf->filename_old) == 0){
+    //if((struct opt_s*)val2 == sbuf->opt){
       if(sbuf->fh->id == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
       }
       else
-      return 0;
+	return 0;
     }
     else
       return 0;
@@ -174,7 +177,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->bufnum = sbuf->opt->bufculum++;
   sbuf->optbits = sbuf->opt->optbits;
 
-  sbuf->opt_old = NULL;
+  sbuf->filename_old = (char*)malloc(sizeof(char)*FILENAME_MAX);
   //sbuf->file_seqnum_old = -1;
   
   sbuf->fh_def = (struct fileholder*)malloc(sizeof(struct fileholder));
@@ -328,6 +331,7 @@ remove(hugefs);
     D("Not freeing mem. Done in main");
   D("Freeing structs");
   free(sbuf->fh_def);
+  free(sbuf->filename_old);
   free(sbuf);
   //free(be);
   //free(be->recer);
@@ -492,6 +496,7 @@ int write_buffer(struct buffer_entity *be){
     D("Getting rec entity for buffer");
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
+      memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
       D("Getting rec entity id %d for file %lu",, sbuf->fh->diskid, sbuf->fh->id);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fh->id, sbuf->running, sbuf->fh->diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
@@ -517,22 +522,27 @@ int write_buffer(struct buffer_entity *be){
 	return -1;
       }
       else{
+	memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
 	if(sbuf->opt->optbits & LIVE_RECEIVING){
+	  //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
 	  //struct fileholder * fh;
-	  pthread_spin_lock(sbuf->opt->augmentlock);
 	  if(sbuf->opt->liveother != NULL){
+	    pthread_spin_lock(sbuf->opt->liveother->augmentlock);
+	    D("We have a live other!");
 	    struct fileholder * temp = NULL;
 	    /* Elegance going down */
 	    struct fileholder * fh_prev = NULL;
 	    struct fileholder* fh = sbuf->opt->liveother->fileholders;
 	    /* Special case with first file */
 	    if(fh == NULL){
+	      D("Liveothers fileholders not yet started");
 	      sbuf->opt->liveother->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
 	      fh = sbuf->opt->liveother->fileholders;
 	    }
 	    else{
 	      while(fh != NULL){
 		if(fh->id == sbuf->fh->id-1){
+		  D("Found spot to set new fileholder");
 		  /* Found the previous spot! */
 		  if (fh->next != NULL){
 		    /* Some buffer completed before this 	*/
@@ -547,6 +557,7 @@ int write_buffer(struct buffer_entity *be){
 		fh = fh->next;
 	      }
 	      if (fh == NULL){
+		D("Didn't find spot. Setting it anyway");
 		fh_prev->next = (struct fileholder*)malloc(sizeof(struct fileholder));
 		fh = fh_prev->next;
 		/* Didnt find the previous one in the list */
@@ -557,11 +568,13 @@ int write_buffer(struct buffer_entity *be){
 	      fh->next = temp;
 	    fh->id = sbuf->fh->id;
 	    fh->status = FH_INMEM;
-	    //sbuf->fh->diskid = be->recer->getid(be->recer);
+	    fh->diskid = be->recer->getid(be->recer);
+	    arrange_by_id(sbuf->opt->liveother);
+	    D("Fileholder for liveother set");
 	  }
 	  else
 	    E("Live receiving, but liveother NULL");
-	  pthread_spin_unlock(sbuf->opt->augmentlock);
+	  pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
 	}
       }
     }
@@ -640,6 +653,11 @@ void *sbuf_simple_write_loop(void *buffo){
 	    sbuf->ready_to_act = 0;
 	    set_free(sbuf->opt->membranch, be->self);
 	    ret=0;
+	  }
+	  else if (sbuf->opt->optbits & LIVE_RECEIVING){
+	    pthread_spin_lock(sbuf->opt->augmentlock);
+	    sbuf->fh->status |= FH_ONDISK;
+	    pthread_spin_unlock(sbuf->opt->augmentlock);
 	  }
 	}
       }

@@ -507,12 +507,39 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  D("Identified %s as %d",,start_of_index,  temp);
 	  /* Update pointer at correct spot */
 	  /* This is a bit slow, but required for supporting live sending */
+	  if(opt->optbits & LIVE_SENDING)
+	    pthread_spin_lock(opt->augmentlock);
 	  fh = opt->fileholders;
-	  for(j=0;j<temp;j++){
-	    //ASSERT(fh->next != NULL);
-	    fh = fh->next;
+	  if(opt->optbits & LIVE_SENDING){
+	    /* Need to sort these later.	*/
+	    if(fh == NULL){
+	      opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));
+	      fh = opt->fileholders;
+	    }
+	    else{
+	      while(fh->next != NULL){
+		fh = fh->next;
+	      }
+	      fh->next = (struct fileholder*) malloc(sizeof(struct fileholder));
+	      fh = fh->next;
+	    }
+	    zero_fileholder(fh);
+	    fh->id = temp;
+	    if(get_lingering(opt->membranch, opt, fh, 1) != NULL){
+	      D("Also found a lingering match for %lu on %s",, fh->id, opt->filename); 
+	      fh->status |= FH_INMEM;
+	    }
+	    else
+	      D("Didnt' find lingering match");
+	    pthread_spin_unlock(opt->augmentlock);
 	  }
-	  fh->status = FH_ONDISK;
+	  else{
+	    for(j=0;j<temp;j++){
+	      //ASSERT(fh->next != NULL);
+	      fh = fh->next;
+	    }
+	  }
+	  fh->status |= FH_ONDISK;
 	  fh->diskid = ioi->id;
 	  //opt->fileholders[temp] = ioi->id;
 	  opt->cumul_found++;

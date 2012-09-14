@@ -325,7 +325,7 @@ struct opt_s
   void (*get_stats)(void*, void*);
   long unsigned bytes_exchanged;
 #endif
-  unsigned long total_packets;
+  unsigned long *total_packets;
   pthread_t *rbuf_pthreads;
   struct buffer_entity * bes;
   struct recording_entity *recs;
@@ -442,6 +442,7 @@ int calculate_buffer_sizes_simple(struct opt_s * opt);
 void init_stats(struct stats *stats);
 void neg_stats(struct stats* st1, struct stats* st2);
 void add_stats(struct stats* st1, struct stats* st2);
+void arrange_by_id(struct opt_s* opt);
 //Timerstuff
 int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);

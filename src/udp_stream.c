@@ -71,8 +71,8 @@ struct sender_tracking{
   struct fileholder* head_loaded;
   //unsigned long files_sent;
   unsigned long files_skipped;
-  unsigned long packets_left_to_load;
-  unsigned long packets_left_to_send;
+  unsigned long packets_loaded;
+  unsigned long packets_sent;
   TIMERTYPE now;
 #if(SEND_DEBUG)
   TIMERTYPE reference;
@@ -82,7 +82,7 @@ struct sender_tracking{
 #endif
   TIMERTYPE req;
 };
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_left_to_send, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
 
 //Gatherer specific options
 int phandler_sequence(struct streamer_entity * se, void * buffer){
@@ -415,9 +415,10 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 //inline int start_loading(struct opt_s * opt, unsigned long *packets_left, unsigned long *fileat, struct buffer_entity * be, unsigned long* files_skipped){
 inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
-  unsigned long nuf = MIN(st->packets_left_to_load, ((unsigned long)opt->buf_num_elems));
-  /* Add spinlocks here so broken recers get info set here before use */
   AUGMENTLOCK;
+  unsigned long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  D("Total packets is: %lu",, *opt->total_packets);
+  /* Add spinlocks here so broken recers get info set here before use */
   //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
   while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
     D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->head_loaded->id);
@@ -426,14 +427,16 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
     st->files_skipped++;
     //spec_ops->files_sent++;
     /* If last file is missing, we might hit negative on left_to_send 	*/
-    if(st->packets_left_to_send < (unsigned long)opt->buf_num_elems){
-      st->packets_left_to_load=0;
-      st->packets_left_to_send = 0;
+    /*
+    if((*opt->total_packets - st->packets_sent) < (unsigned long)opt->buf_num_elems){
+      st->packets_loaded=*opt->total_packets;
+      st->packets_sent += nuf;
     }
     else{
-      st->packets_left_to_send -= opt->buf_num_elems;
-      st->packets_left_to_load-=opt->buf_num_elems;
-    }
+    */
+      st->packets_sent += nuf;
+      st->packets_loaded+= nuf;
+    //}
     /* Special case where last file is missing */
     if(st->head_loaded->next == NULL)
       return 0;
@@ -444,7 +447,25 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
       return 0;
       */
   }
-  AUGMENTUNLOCK;
+  if(st->head_loaded->status & FH_INMEM){
+    struct buffer_entity *tempen;
+    AUGMENTUNLOCK;
+    if((tempen = get_lingering(opt->membranch, opt, st->head_loaded, 0)) != NULL){
+      D("Found lingering file!");
+      if(be != NULL){
+	D("Had a ready buffer, but found lingering. Setting old to free");
+	set_free(opt->membranch, be->self);
+      }
+      be = tempen;
+      st->packets_loaded+=nuf;
+      st->head_loaded = st->head_loaded->next;
+      return 0;
+    }
+    else
+      D("Didn't find lingering file");
+  }
+  else
+    AUGMENTUNLOCK;
 
   D("Requested a load start on file %lu",, st->head_loaded->id);
   if (be == NULL){
@@ -461,7 +482,7 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   //D("HUR");
   int * inc = be->get_inc(be);
   *inc = nuf;
-  st->packets_left_to_load-=nuf;
+  st->packets_loaded+=nuf;
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
   D("Loading request complete for id %lu",, st->head_loaded->id);
@@ -471,7 +492,7 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
 }
 void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
   memset(st, 0,sizeof(struct sender_tracking));
-  st->packets_left_to_send = st->packets_left_to_load = spec_ops->opt->total_packets;
+  st->packets_sent = st->packets_loaded = 0;//spec_ops->opt->total_packets;
 #ifdef UGLY_BUSYLOOP_ON_TIMER
   //TIMERTYPE onenano;
   ZEROTIME(st->onenano);
@@ -516,6 +537,8 @@ void * udp_sender(void *streamo){
   int *inc;
   int max_buffers_in_use=0;
   unsigned long cumulpeek;
+  unsigned long packetpeek;
+  //int active_buffers;
   struct fileholder* tempfh;
   /* If theres a wait_nanoseconds, it determines the amount of buffers	*/
   /* we have in use at any time						*/
@@ -554,6 +577,7 @@ void * udp_sender(void *streamo){
   //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
   SAUGMENTLOCK;
   cumulpeek = (*spec_ops->opt->cumul);
+  packetpeek = (*spec_ops->opt->total_packets);
   SAUGMENTUNLOCK;
   int loadup = MIN((unsigned int)max_buffers_in_use, cumulpeek);
   loadup = MIN(loadup, spec_ops->opt->n_threads);
@@ -567,9 +591,12 @@ void * udp_sender(void *streamo){
     /* With a matching sequence number				*/
     err = start_loading(spec_ops->opt, NULL, &st);
     CHECK_ERRP("Start loading");
+    /*
     SAUGMENTLOCK;
     cumulpeek = (*spec_ops->opt->cumul);
+    packetpeek = (*spec_ops->opt->total_packets);
     SAUGMENTUNLOCK;
+    */
     /* TODO: loadup might cut short if we're sending a recording that has just started */
   }
 
@@ -606,7 +633,7 @@ void * udp_sender(void *streamo){
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
-    if(i == spec_ops->opt->buf_num_elems || st.packets_left_to_send == 0){
+    if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       //st.files_sent++;
       D("Buffer empty for: %lu",, spec_ops->opt->fileholders->id);
       tempfh = spec_ops->opt->fileholders;
@@ -759,7 +786,7 @@ void * udp_sender(void *streamo){
       //break;
     }
     else{
-      st.packets_left_to_send--;
+      st.packets_sent++;
       spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets++;
       buf += spec_ops->opt->packet_size;
@@ -787,7 +814,7 @@ void* udp_rxring(void *streamo)
   struct rxring_request rxr;
 
   spec_ops->total_captured_bytes = 0;
-  spec_ops->opt->total_packets = 0;
+  *spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -815,15 +842,15 @@ void* udp_rxring(void *streamo)
 
       if(hdr->tp_status & TP_STATUS_COPY){
 	spec_ops->incomplete++;
-	spec_ops->opt->total_packets++;
+	(*spec_ops->opt->total_packets)++;
       }
       else if (hdr ->tp_status & TP_STATUS_LOSING){
 	spec_ops->missing++;
-	spec_ops->opt->total_packets++;
+	(*spec_ops->opt->total_packets)++;
       }
       else{
 	spec_ops->total_captured_bytes += hdr->tp_len;
-	spec_ops->opt->total_packets++;
+	(*spec_ops->opt->total_packets)++;
 	(*inc)++;
       }
 
@@ -1170,7 +1197,7 @@ void* udp_receiver(void *streamo)
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
 
   spec_ops->total_captured_bytes = 0;
-  spec_ops->opt->total_packets = 0;
+  *spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -1297,7 +1324,7 @@ void* udp_receiver(void *streamo)
 
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->opt->total_packets += 1;
+      *spec_ops->opt->total_packets += 1;
     }
   }
   /* Release last used buffer */
@@ -1319,7 +1346,7 @@ void* udp_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
+  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
   fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
   spec_ops->running = 0;
   free(resq);
@@ -1338,7 +1365,7 @@ void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)sp;
   //if(spec_ops->opt->optbits & USE_RX_RING)
-  stat->total_packets += spec_ops->opt->total_packets;
+  stat->total_packets += *spec_ops->opt->total_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;

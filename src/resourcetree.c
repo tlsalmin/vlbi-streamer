@@ -263,6 +263,34 @@ inline void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* 
   D("Returning loaded entity");
   return temp->entity;
 }
+void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int just_check){
+  struct listed_entity * temp = NULL;
+  struct fileholder* fh = (struct fileholder*)fhh;
+  LOCK(&(br->branchlock));
+  D("Checking if %lu is already in the buffers",, fh->id);
+  temp = loop_and_check(br->freelist, (void*)&(fh->id), (void*)opt, CHECK_BY_OLDSEQ);
+  if(temp !=NULL && just_check == 0){
+    D("File %lu found in buffer! Setting to loaded",, fh->id);
+    mutex_free_change_branch(&(br->freelist), &(br->loadedlist), temp);
+  if(temp->acquire !=NULL){
+    D("Running acquire on entity");
+    int ret = temp->acquire(temp->entity, opt,((void*)fh));
+    /*
+       if(acquire_result != NULL)
+     *acquire_result = ret;
+     else{
+     if(ret != 0)
+     E("Acquire return non-zero value(Not handled)");
+     }
+     */
+  }
+  }
+  UNLOCK(&(br->branchlock));
+  if(temp != NULL)
+    return temp->entity;
+  else
+    return NULL;
+}
 /* Get a specific free entity from branch 		*/
 void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {

@@ -402,7 +402,9 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   //opt->cumul = NULL;
 #if(!DAEMON)
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+  opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
+
 
   return 0;
 }
@@ -846,6 +848,50 @@ int close_opts(struct opt_s *opt){
   free(opt);
   return 0;
 }
+void arrange_by_id(struct opt_s* opt){
+  struct fileholder *fh, *temp,*fh2;
+  if(DEBUG_OUTPUT){
+    LOG("Indices before sort:");
+    
+    fh = opt->fileholders;
+    while(fh != NULL){
+      fprintf(stdout, "%lu", fh->id);
+      fh = fh->next;
+    }
+  }
+  fh = opt->fileholders;
+  //root = &(opt->fileholders);
+  while(fh != NULL && fh->next != NULL){
+    if(fh->next->id < fh->id){
+      temp = fh->next;
+      fh->next = fh->next->next;
+      if(opt->fileholders->id < temp->id){
+	temp->next = opt->fileholders;
+	opt->fileholders = temp;
+      }
+      else{
+	fh2 =opt->fileholders;
+	/* Shouldn't need this test but meh */
+	while(fh2 != NULL && fh2->next->id < temp->id)
+	  fh2 = fh2->next;
+	temp->next = fh2->next;
+	fh2->next = temp;
+      }
+    }
+    else
+      fh = fh->next;
+  }
+  if(DEBUG_OUTPUT){
+    LOG("\nIndices after sort:");
+    
+    fh = opt->fileholders;
+    while(fh != NULL){
+      fprintf(stdout, "%lu", fh->id);
+      fh = fh->next;
+    }
+    LOG("\n");
+  }
+}
 int init_recp(struct opt_s *opt){
   int err, i;
   opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
@@ -1015,6 +1061,10 @@ int main(int argc, char **argv)
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, *opt->cumul);
+    /* Only if we're sending live, do we need to rearrange these properly */
+    if(opt->optbits & LIVE_SENDING){
+      arrange_by_id(opt);
+    }
   }
 #endif
 
