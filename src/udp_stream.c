@@ -417,7 +417,7 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
 {
   AUGMENTLOCK;
   unsigned long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
-  D("Total packets is: %lu",, *opt->total_packets);
+  D("Total packets is: %lu, packets loaded is %lu",, *opt->total_packets, st->packets_loaded);
   /* Add spinlocks here so broken recers get info set here before use */
   //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
   while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
@@ -467,7 +467,9 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   else
     AUGMENTUNLOCK;
 
+  /* TODO: Not checking if FH_ONDISK is set */
   D("Requested a load start on file %lu",, st->head_loaded->id);
+  assert(st->head_loaded->status & FH_ONDISK);
   if (be == NULL){
     be = get_free(opt->membranch, opt, ((void*)(st->head_loaded)), NULL);
     CHECK_ERR_NONNULL(be, "Get loadable");
@@ -483,6 +485,7 @@ inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct se
   int * inc = be->get_inc(be);
   *inc = nuf;
   st->packets_loaded+=nuf;
+  be->set_ready(be);
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
   D("Loading request complete for id %lu",, st->head_loaded->id);
@@ -510,24 +513,29 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
  * the logic and lead to high probability of bugs
  *
  */
-inline int should_i_be_running(struct udpopts *spec_ops){
+inline int should_i_be_running(struct udpopts *spec_ops, struct sender_tracking *st){
   /* TODO: Proper checking for live sending/receiving */
-  unsigned long cumulpeek;
+  //unsigned long cumulpeek;
   if(!spec_ops->running)
     return 0;
+  /*
   SAUGMENTLOCK;
   cumulpeek = *(spec_ops->opt->cumul);
   SAUGMENTUNLOCK;
+  */
+  /* Check if the receiver is still running */
+  if(spec_ops->opt->optbits & LIVE_SENDING && spec_ops->opt->liveother != NULL){
+    if(spec_ops->opt->liveother->status & STATUS_RUNNING)
+      return 1;
+  }
+  /* If we still have files */
   if(spec_ops->opt->fileholders != NULL){
     return 1;
   }
-  else{
-    if(spec_ops->opt->optbits & LIVE_SENDING){
-      /* Here it gets interesting */
-      if(spec_ops->opt->liveother != NULL)
-	return 1;
-    }
-  }
+  /* If there's still packets to be sent */
+  if(*(spec_ops->opt->total_packets) > st->packets_sent)
+    return 1;
+  
   return 0;
 }
 void * udp_sender(void *streamo){
@@ -631,7 +639,7 @@ void * udp_sender(void *streamo){
   i=0;
   GETTIME(spec_ops->opt->wait_last_sent);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
-  while(should_i_be_running(spec_ops) == 1){
+  while(should_i_be_running(spec_ops, &st) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
     if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       //st.files_sent++;

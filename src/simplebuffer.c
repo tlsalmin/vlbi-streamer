@@ -67,9 +67,10 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
   }
 
   sbuf->bufoffset = sbuf->buffer;
+  memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
   /* If we're reading and we've been acquired: we need to load the buffer */
   if(sbuf->opt->optbits & READMODE){
-    sbuf->ready_to_act = 1;
+    //sbuf->ready_to_act = 1;
 
   /* This might be a bit inefficient, but they shouldn't 	*/
   /* be very far from the root 	*/
@@ -87,6 +88,9 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
     sbuf->fh = (struct fileholder*)acq;
   }
   else{
+    /* If we used to have a inmem buffer ready for live, set it to no in mem */
+    sbuf->fh &= ~FH_INMEM;
+
     sbuf->fh = sbuf->fh_def; 
     zero_fileholder(sbuf->fh);
     sbuf->fh->id = *((long unsigned*)acq);
@@ -496,7 +500,7 @@ int write_buffer(struct buffer_entity *be){
     D("Getting rec entity for buffer");
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
-      memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
+      //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
       D("Getting rec entity id %d for file %lu",, sbuf->fh->diskid, sbuf->fh->id);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fh->id, sbuf->running, sbuf->fh->diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
@@ -522,16 +526,16 @@ int write_buffer(struct buffer_entity *be){
 	return -1;
       }
       else{
-	memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
+	//memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
 	if(sbuf->opt->optbits & LIVE_RECEIVING){
 	  //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
 	  //struct fileholder * fh;
 	  if(sbuf->opt->liveother != NULL){
-	    pthread_spin_lock(sbuf->opt->liveother->augmentlock);
 	    D("We have a live other!");
 	    struct fileholder * temp = NULL;
 	    /* Elegance going down */
 	    struct fileholder * fh_prev = NULL;
+	    pthread_spin_lock(sbuf->opt->liveother->augmentlock);
 	    struct fileholder* fh = sbuf->opt->liveother->fileholders;
 	    /* Special case with first file */
 	    if(fh == NULL){
@@ -545,6 +549,7 @@ int write_buffer(struct buffer_entity *be){
 		  D("Found spot to set new fileholder");
 		  /* Found the previous spot! */
 		  if (fh->next != NULL){
+		    D("Next is not null and has file %lu. Saving it to temp",, fh->next->id);
 		    /* Some buffer completed before this 	*/
 		    /* with a later id				*/
 		    temp = fh->next;
@@ -558,22 +563,26 @@ int write_buffer(struct buffer_entity *be){
 	      }
 	      if (fh == NULL){
 		D("Didn't find spot. Setting it anyway");
-		fh_prev->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-		fh = fh_prev->next;
+		fh_prev->next = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
 		/* Didnt find the previous one in the list */
 	      }
 	    }
 	    zero_fileholder(fh);
-	    if(temp != NULL)
+	    if(temp != NULL){
+	      D("Returning temp");
 	      fh->next = temp;
+	    }
 	    fh->id = sbuf->fh->id;
 	    fh->status = FH_INMEM;
 	    fh->diskid = be->recer->getid(be->recer);
+	    /* sbuf->fh_default will keep old safe */
+	    sbuf->fh = fh;
 	    arrange_by_id(sbuf->opt->liveother);
 	    D("Fileholder for liveother set");
 	  }
-	  else
+	  else{
 	    E("Live receiving, but liveother NULL");
+	  }
 	  pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
 	}
       }
@@ -654,10 +663,16 @@ void *sbuf_simple_write_loop(void *buffo){
 	    set_free(sbuf->opt->membranch, be->self);
 	    ret=0;
 	  }
-	  else if (sbuf->opt->optbits & LIVE_RECEIVING){
-	    pthread_spin_lock(sbuf->opt->augmentlock);
-	    sbuf->fh->status |= FH_ONDISK;
-	    pthread_spin_unlock(sbuf->opt->augmentlock);
+	}
+	/*If everything went great */
+	else{
+	  if (sbuf->opt->optbits & LIVE_RECEIVING){
+	    if(sbuf->opt->liveother != NULL){
+	      D("Setting FH_ONDISK for file %lu,",, sbuf->fh->id);
+	      pthread_spin_lock(sbuf->opt->liveother->augmentlock);
+	      sbuf->fh->status |= FH_ONDISK;
+	      pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
+	    }
 	  }
 	}
       }

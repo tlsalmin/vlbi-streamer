@@ -272,18 +272,12 @@ void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int ju
   if(temp !=NULL && just_check == 0){
     D("File %lu found in buffer! Setting to loaded",, fh->id);
     mutex_free_change_branch(&(br->freelist), &(br->loadedlist), temp);
-  if(temp->acquire !=NULL){
-    D("Running acquire on entity");
-    int ret = temp->acquire(temp->entity, opt,((void*)fh));
-    /*
-       if(acquire_result != NULL)
-     *acquire_result = ret;
-     else{
-     if(ret != 0)
-     E("Acquire return non-zero value(Not handled)");
-     }
-     */
-  }
+    if(temp->acquire !=NULL){
+      D("Running acquire on entity");
+      int ret = temp->acquire(temp->entity, opt,((void*)fh));
+      if(ret != 0)
+	E("Acquire return non-zero value(Not handled)");
+    }
   }
   UNLOCK(&(br->branchlock));
   if(temp != NULL)

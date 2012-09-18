@@ -855,17 +855,18 @@ void arrange_by_id(struct opt_s* opt){
     
     fh = opt->fileholders;
     while(fh != NULL){
-      fprintf(stdout, "%lu", fh->id);
-      fh = fh->next;
+      fprintf(stdout, ", %lu", fh->id);
+      fh = fh->next; 
     }
   }
   fh = opt->fileholders;
   //root = &(opt->fileholders);
   while(fh != NULL && fh->next != NULL){
-    if(fh->next->id < fh->id){
+    //if(fh->next->id < fh->id){
+    if(fh->next->id  != fh->id+1){
       temp = fh->next;
       fh->next = fh->next->next;
-      if(opt->fileholders->id < temp->id){
+      if(opt->fileholders->id > temp->id){
 	temp->next = opt->fileholders;
 	opt->fileholders = temp;
       }
@@ -886,7 +887,7 @@ void arrange_by_id(struct opt_s* opt){
     
     fh = opt->fileholders;
     while(fh != NULL){
-      fprintf(stdout, "%lu", fh->id);
+      fprintf(stdout, ", %lu", fh->id);
       fh = fh->next;
     }
     LOG("\n");
