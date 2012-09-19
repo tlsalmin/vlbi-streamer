@@ -89,7 +89,7 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
   }
   else{
     /* If we used to have a inmem buffer ready for live, set it to no in mem */
-    sbuf->fh &= ~FH_INMEM;
+    //sbuf->fh->status &= ~FH_INMEM;
 
     sbuf->fh = sbuf->fh_def; 
     zero_fileholder(sbuf->fh);
@@ -486,11 +486,62 @@ int sbuf_sync_loop(struct buffer_entity *be){
   }
   return 0;
 }
-/*
-void *sbuf_simple_read_loop(void *buffo){
-  return NULL;
+struct fileholder* livereceive_new_fileholder(struct opt_s* opt, struct fileholder *orig_fh){
+  D("We have a live other!");
+  int no_need_to_sort = 0;
+  //struct fileholder * temp = NULL;
+  /* Elegance going down */
+  //struct fileholder * fh_prev = NULL;
+  pthread_spin_lock(opt->augmentlock);
+  struct fileholder* fh = opt->liveother->fileholders;
+  /* Special case with first file */
+  if(fh == NULL){
+    D("Liveothers fileholders not yet started");
+    opt->liveother->fileholders = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
+  }
+  else{
+    while(fh->next != NULL){
+      fh=fh->next;
+    }
+    /*
+       if(fh->id == sbuf->fh->id-1){
+       D("Found spot to set new fileholder");
+       if (fh->next != NULL){
+       D("Next is not null and has file %lu. Saving it to temp",, fh->next->id);
+       temp = fh->next;
+       }
+       fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+       fh = fh->next;
+       break;
+       }
+       fh_prev = fh;
+       fh = fh->next;
+       */
+    fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
+    if(fh->id == orig_fh->id+1){
+      D("Don't need to sort");
+      no_need_to_sort = 1;
+    }
+    fh = fh->next;
+    /*
+       if (fh == NULL){
+       D("Didn't find spot. Setting it anyway");
+       fh_prev->next = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
+       }
+       */
+  }
+  //zero_fileholder(fh);
+  memcpy(fh, orig_fh, sizeof(struct fileholder));
+
+  /* sbuf->fh_default will keep old safe */
+  //sbuf->fh = fh;
+  fh->next = NULL;
+  if(!no_need_to_sort)
+    arrange_by_id(opt->liveother);
+  D("Fileholder for liveother set");
+  pthread_spin_unlock(opt->augmentlock);
+  return fh;
 }
-*/
 int write_buffer(struct buffer_entity *be){
   struct simplebuf* sbuf = (struct simplebuf*)be->opt;
   int ret;
@@ -526,64 +577,17 @@ int write_buffer(struct buffer_entity *be){
 	return -1;
       }
       else{
+	sbuf->fh->diskid = be->recer->getid(be->recer);
+	sbuf->fh->status = FH_INMEM;
 	//memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
 	if(sbuf->opt->optbits & LIVE_RECEIVING){
 	  //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
 	  //struct fileholder * fh;
 	  if(sbuf->opt->liveother != NULL){
-	    D("We have a live other!");
-	    struct fileholder * temp = NULL;
-	    /* Elegance going down */
-	    struct fileholder * fh_prev = NULL;
-	    pthread_spin_lock(sbuf->opt->liveother->augmentlock);
-	    struct fileholder* fh = sbuf->opt->liveother->fileholders;
-	    /* Special case with first file */
-	    if(fh == NULL){
-	      D("Liveothers fileholders not yet started");
-	      sbuf->opt->liveother->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
-	      fh = sbuf->opt->liveother->fileholders;
-	    }
-	    else{
-	      while(fh != NULL){
-		if(fh->id == sbuf->fh->id-1){
-		  D("Found spot to set new fileholder");
-		  /* Found the previous spot! */
-		  if (fh->next != NULL){
-		    D("Next is not null and has file %lu. Saving it to temp",, fh->next->id);
-		    /* Some buffer completed before this 	*/
-		    /* with a later id				*/
-		    temp = fh->next;
-		  }
-		  fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-		  fh = fh->next;
-		  break;
-		}
-		fh_prev = fh;
-		fh = fh->next;
-	      }
-	      if (fh == NULL){
-		D("Didn't find spot. Setting it anyway");
-		fh_prev->next = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
-		/* Didnt find the previous one in the list */
-	      }
-	    }
-	    zero_fileholder(fh);
-	    if(temp != NULL){
-	      D("Returning temp");
-	      fh->next = temp;
-	    }
-	    fh->id = sbuf->fh->id;
-	    fh->status = FH_INMEM;
-	    fh->diskid = be->recer->getid(be->recer);
-	    /* sbuf->fh_default will keep old safe */
-	    sbuf->fh = fh;
-	    arrange_by_id(sbuf->opt->liveother);
-	    D("Fileholder for liveother set");
+	    sbuf->fh = livereceive_new_fileholder(sbuf->opt, sbuf->fh);
 	  }
-	  else{
+	  else
 	    E("Live receiving, but liveother NULL");
-	  }
-	  pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
 	}
       }
     }

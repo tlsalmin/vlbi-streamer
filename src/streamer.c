@@ -826,25 +826,31 @@ int close_opts(struct opt_s *opt){
   if(opt->filename != NULL)
     free(opt->filename);
   config_destroy(&(opt->cfg));
-#if(DAEMON)
-  if(opt->liveother != NULL)
-    opt->liveother->liveother = NULL;
-#endif
 #ifdef PRIORITY_SETTINGS
   pthread_attr_destroy(&(opt->pta));
 #endif
-#if(DAEMON)
-  if(!(opt->optbits & LIVE_RECEIVING)){
-    /* Not harmful to typecast 					*/
-    /*Without casting it warn about freeing a volatile pointer	*/
+  if(opt->liveother != NULL){
+    if(!(opt->liveother->status & STATUS_RUNNING))
+    {
+      /* Not harmful to typecast 					*/
+      /*Without casting it warn about freeing a volatile pointer	*/
+      if(opt->augmentlock != NULL)
+	free((void*)opt->augmentlock);
+      if(opt->cumul != NULL)
+	free(opt->cumul);
+      if(opt->total_packets != NULL)
+	free(opt->total_packets);
+    }
+    opt->liveother->liveother = NULL;
+  }
+  else{
     if(opt->augmentlock != NULL)
       free((void*)opt->augmentlock);
     if(opt->cumul != NULL)
       free(opt->cumul);
+    if(opt->total_packets != NULL)
+      free(opt->total_packets);
   }
-#else
-  free(opt->cumul);
-#endif
   free(opt);
   return 0;
 }
@@ -852,18 +858,19 @@ void arrange_by_id(struct opt_s* opt){
   struct fileholder *fh, *temp,*fh2;
   if(DEBUG_OUTPUT){
     LOG("Indices before sort:");
-    
+
     fh = opt->fileholders;
     while(fh != NULL){
       fprintf(stdout, ", %lu", fh->id);
       fh = fh->next; 
     }
+    D("Dem indices");
   }
   fh = opt->fileholders;
   //root = &(opt->fileholders);
   while(fh != NULL && fh->next != NULL){
     //if(fh->next->id < fh->id){
-    if(fh->next->id  != fh->id+1){
+    if(fh->next->id  < fh->id+1){
       temp = fh->next;
       fh->next = fh->next->next;
       if(opt->fileholders->id > temp->id){
@@ -873,7 +880,7 @@ void arrange_by_id(struct opt_s* opt){
       else{
 	fh2 =opt->fileholders;
 	/* Shouldn't need this test but meh */
-	while(fh2 != NULL && fh2->next->id < temp->id)
+	while(fh2 != NULL && fh2->next != NULL &&  fh2->next->id < temp->id)
 	  fh2 = fh2->next;
 	temp->next = fh2->next;
 	fh2->next = temp;
@@ -1064,7 +1071,9 @@ int main(int argc, char **argv)
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, *opt->cumul);
     /* Only if we're sending live, do we need to rearrange these properly */
     if(opt->optbits & LIVE_SENDING){
+      pthread_spin_lock(opt->augmentlock);
       arrange_by_id(opt);
+      pthread_spin_unlock(opt->augmentlock);
     }
   }
 #endif

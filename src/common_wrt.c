@@ -507,10 +507,9 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  D("Identified %s as %d",,start_of_index,  temp);
 	  /* Update pointer at correct spot */
 	  /* This is a bit slow, but required for supporting live sending */
-	  if(opt->optbits & LIVE_SENDING)
-	    pthread_spin_lock(opt->augmentlock);
-	  fh = opt->fileholders;
 	  if(opt->optbits & LIVE_SENDING){
+	    pthread_spin_lock(opt->augmentlock);
+	    fh = opt->fileholders;
 	    /* Need to sort these later.	*/
 	    if(fh == NULL){
 	      opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));

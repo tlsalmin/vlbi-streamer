@@ -644,12 +644,13 @@ void * udp_sender(void *streamo){
     if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       //st.files_sent++;
       D("Buffer empty for: %lu",, spec_ops->opt->fileholders->id);
+      SAUGMENTLOCK;
       tempfh = spec_ops->opt->fileholders;
       spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
       free(tempfh);
       /* Check for missing file here so we can keep simplebuffer simple 	*/
-      SAUGMENTLOCK;
       cumulpeek = (*spec_ops->opt->cumul);
+      packetpeek = (*spec_ops->opt->total_packets);
       SAUGMENTUNLOCK;
       //if(st.files_loaded < cumulpeek){
       if(st.head_loaded != NULL){
@@ -676,7 +677,11 @@ void * udp_sender(void *streamo){
 	  D("Getting new loaded for file %lu",, spec_ops->opt->fileholders->id);
 	  if(spec_ops->opt->fileholders != NULL && spec_ops->opt->fileholders->status == FH_MISSING){
 	    D("Skipping a file, fileholder set to -1 for file %lu",, st.head_loaded->id);
+	    SAUGMENTLOCK;
+	    tempfh = spec_ops->opt->fileholders;
 	    spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
+	    free(tempfh);
+	    SAUGMENTUNLOCK;
 	  }
 	  else
 	  {
