@@ -1264,18 +1264,10 @@ int main(int argc, char **argv)
       }
       //sleep(opt->time);
       ////pthread_mutex_destroy(opt.cumlock);
+      shutdown_thread(opt);
     }
   }
-  /* Close the sockets on readmode */
-  if(!(opt->optbits & READMODE)){
-    //for(i = 0;i<opt.n_threads;i++){
-    //threads[i].stop(&(threads[i]));
-    //}
-    shutdown_thread(opt);
-    //threads[0].close_socket(&(threads[0]));
-    //streamer_ent.close_socket(&(streamer_ent));
-  }
-  //for (i = 0; i < opt.n_threads; i++) {
+
   err = pthread_join(streamer_pthread, NULL);
   if (err<0) {
     printf("ERROR; return code from pthread_join() is %d\n", err);
@@ -1420,6 +1412,7 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
 	return 0;
       break;
     default:
+      E("Identification type not recognized!");
       return 0;
       break;
   }

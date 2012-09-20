@@ -11,6 +11,9 @@ struct simplebuf{
   void* buffer;
   int async_writes_submitted;
   int running;
+#ifndef MMAP_NOT_SHMGET
+  int shmid;
+#endif
   struct fileholder* fh;
   struct fileholder* fh_def;
   //unsigned long file_seqnum;

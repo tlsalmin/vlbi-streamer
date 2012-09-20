@@ -37,13 +37,13 @@ do
   #Arg1 can come at any time so doing this the boring way
   case $1 in
     -f) 
+      FORMAT=1
+      ASK=0
       echo "CAUTION: -f set. Formatting set drives if mount shows errors which will erase data on that drive"
       read -n1 -p "Are you sure you want to continue? [y,n]" doit
       case $doit in
 	n|N) exit 1;;
       esac
-      FORMAT=1
-      ASK=0
       ;;
     -a) 
       FORMAT=1
@@ -161,10 +161,13 @@ do
       mount /dev/${i}1 /mnt/disk$k
     elif [ "$FORMAT" -eq "1" ]
     then
-      read -n1 -p "Do you want to reformat $i? [y,n]" doit
-      case $doit in
-	n|N) continue;;
-      esac
+      if [ "$ASK" -eq "1" ]
+      then
+	read -n1 -p "Do you want to reformat $i? [y,n]" doit
+	case $doit in
+	  n|N) continue;;
+	esac
+      fi
       ${PARTED} -s /dev/${i} mklabel msdos
       ${PARTED} -s /dev/${i} mkpart primary ext4 0% 100%
       ${MKFS} /dev/${i}1

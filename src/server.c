@@ -221,6 +221,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
 	free(ev->opt->total_packets);
 
       struct scheduled_event *livereceive = (struct scheduled_event*)live->entity;
+      pthread_spin_lock(livereceive->opt->augmentlock);
       ev->opt->augmentlock = livereceive->opt->augmentlock;
       ev->opt->cumul = livereceive->opt->cumul;
       ev->opt->total_packets = livereceive->opt->total_packets;
@@ -228,6 +229,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
       livereceive->opt->optbits |= LIVE_RECEIVING;
       ev->opt->liveother = livereceive->opt;
       livereceive->opt->liveother = ev->opt;
+      pthread_spin_unlock(livereceive->opt->augmentlock);
       D("Live copying done");
     }
     else{

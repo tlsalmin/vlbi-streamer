@@ -50,6 +50,7 @@
 
 #define FULL_COPY_ON_PEEK
 #define MBITS_PER_DRIVE 500
+#define TOTAL_MAX_DRIVER_IN_USE 20
 
 #define UDPMON_SEQNUM_BYTES 8
 //#define DUMMYSOCKET
@@ -502,7 +503,9 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
   SETONE(st->onenano);
 #endif
   ZEROTIME(st->req);
+  pthread_spin_lock(spec_ops->opt->augmentlock);
   st->head_loaded = spec_ops->opt->fileholders;
+  pthread_spin_unlock(spec_ops->opt->augmentlock);
 }
 /*
  * Sending handler for an UDP-stream
@@ -556,8 +559,8 @@ void * udp_sender(void *streamo){
   struct sender_tracking st;
 
   if(spec_ops->opt->wait_nanoseconds == 0){
-    max_buffers_in_use = spec_ops->opt->n_threads;
-    D("No wait set, so setting to use all available buffers");
+    max_buffers_in_use = MIN(TOTAL_MAX_DRIVER_IN_USE, spec_ops->opt->n_threads);
+    D("No wait set, so setting to use %d buffers",, max_buffers_in_use);
   }
   else
   {
