@@ -276,7 +276,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 	D("mmapped to hugepages");
       }
 #else
-      sbuf->shmid = shmget(sbuf->bufnum+511, 2048, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE);
+      sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE);
       if(sbuf->shmid <0){
 	E("Shmget failed");
 	perror("shmget");
