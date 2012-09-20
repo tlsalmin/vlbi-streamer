@@ -264,7 +264,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
       //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
       //assert(hog_memory%sysconf(_SC_PAGESIZE) == 0);
 #ifdef MMAP_NOT_SHMGET
-      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, -1,0);
+      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB, -1,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
@@ -276,7 +276,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 	D("mmapped to hugepages");
       }
 #else
-      sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE);
+      sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE|SHM_W|SHM_R);
       if(sbuf->shmid <0){
 	E("Shmget failed");
 	perror("shmget");
@@ -286,7 +286,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
       if((long)sbuf->buffer == (long)-1){
 	E("shmat failed");
 	perror("shmat");
-
+	return -1;
       }
 #endif
       

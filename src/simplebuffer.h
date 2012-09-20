@@ -1,6 +1,7 @@
 #ifndef SIMPLEBUF_H
 #define SIMPLEBUF_H
 #include "streamer.h"
+#define MMAP_NOT_SHMGET
 struct simplebuf{
   struct opt_s *opt;
   int diff;
