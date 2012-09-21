@@ -41,6 +41,7 @@ install-data-hook:
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vbs_daemon
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/init_hugepages
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/init_hugepages
+	rm -f /etc/init.d/vbs_daemon
 	ln -s ${bindir}/vbs_daemon /etc/init.d/vbs_daemon
 
 ## Set the default command-line flags for the C preprocessor to the value
