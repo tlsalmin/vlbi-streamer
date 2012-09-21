@@ -1,3 +1,25 @@
+/*
+ * udpstream.c -- UDP packet receiver and sender for vlbi-streamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -39,6 +61,9 @@
 #include "resourcetree.h"
 #include "timer.h"
 #include "confighelper.h"
+
+extern FILE* logfile;
+
 #define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
 
 #define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
@@ -1363,7 +1388,7 @@ void* udp_receiver(void *streamo)
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
-  fprintf(stdout, "UDP_STREAMER: Closing streamer thread\n");
+  LOG("UDP_STREAMER: Closing streamer thread\n");
   spec_ops->running = 0;
   free(resq);
   pthread_exit(NULL);

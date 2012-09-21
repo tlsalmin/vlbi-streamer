@@ -29,6 +29,7 @@ install-data-hook:
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_shutdown
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_daemon
 	sed -i 's:PIDFILE=.*:PIDFILE=$(rundir)/vlbistreamer.pid:' $(bindir)/vbs_daemon
+	sed -i 's:DAEMON=.*:DAEMON=$(bindir)/vlbistreamer:' $(bindir)/vbs_daemon
 	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_daemon
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_logscript
 	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_logscript

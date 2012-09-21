@@ -1,3 +1,25 @@
+/*
+ * server.c -- Main thread and schedule manager for vlbistreamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
 #include <sys/inotify.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +29,7 @@
 #include <libconfig.h>
 #include <string.h> /* MEMSET */
 #include <poll.h>
+#include <signal.h>
 
 #include "config.h"
 #include "streamer.h"
@@ -20,6 +43,10 @@
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
 #define IDSTRING_LENGTH 24
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
+
+static volatile int running = 0;
+extern FILE *logfile;
+
 
 struct scheduled_event{
   struct opt_s * opt;
@@ -38,7 +65,6 @@ struct schedule{
   struct opt_s * default_opt;
   int n_scheduled;
   int n_running;
-  int running;
 };
 inline void zero_sched(struct schedule *sched){
   /*
@@ -356,17 +382,8 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     CHECK_CFG("remove shutdown command");
     err = config_write_file(&cfg, STATEFILE);
     CHECK_CFG("Wrote config");
-    sched->running = 0;
+    running = 0;
   
-    struct listed_entity * temp = sched->br.busylist;
-    struct scheduled_event *ev;
-    while(temp != NULL){
-      ev = (struct scheduled_event*)temp->entity;
-      ev->shutdown_thread(ev->opt);
-      //temp = temp->next;
-      temp = temp->child;
-      D("Threads shut down");
-    }
 
     config_destroy(&cfg);
     D("Shutdown finished");
@@ -548,16 +565,55 @@ int check_finished(struct schedule* sched){
   }
   return 0;
 }
+/*
+static void hdl (int sig)
+{
+  (void)sig;
+  LOG("Signalled for shutdown");
+  running = 0;
+}
+*/
+static void hdl (int sig, siginfo_t *siginfo, void *context)
+{
+	printf ("Sending PID: %ld, UID: %ld\n",
+			(long)siginfo->si_pid, (long)siginfo->si_uid);
+	LOG("Signal received");
+	running = 0;
+}
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
+#ifdef LOG_TO_FILE
+  fprintf(stdout, "Logging to %s", LOGFILE);
+  logfile = fopen(LOGFILE, "a+");
+  if(logfile == NULL)
+    fprintf(stdout, "Couldn't open logfile for writing");
+  fprintf(logfile, "ohcomeon");
+#endif
+
 
   struct stats* tempstats = NULL;//, stats_temp;
   TIMERTYPE *temptime = NULL;
 
   struct schedule *sched = malloc(sizeof(struct schedule));
   CHECK_ERR_NONNULL(sched, "Sched malloc");
-  
+
+  /* Copied from http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show */
+  struct sigaction act;
+
+  memset (&act, '\0', sizeof(act));
+
+  /* Use the sa_sigaction field because the handles has two additional parameters */
+  act.sa_sigaction = &hdl;
+
+  /* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
+  act.sa_flags = SA_SIGINFO;
+
+  if (sigaction(SIGTERM, &act, NULL) < 0) {
+    perror ("sigaction");
+    return 1;
+  }
+
   /* Set the branch as mutex free */
   sched->br.mutex_free = 1;
   //memset((void*)&sched, 0,sizeof(struct schedule));
@@ -578,7 +634,7 @@ int main(int argc, char **argv)
 
   LOG("Running in daemon mode\n");
 
-//stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
+  //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
   sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
   sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
@@ -608,7 +664,7 @@ int main(int argc, char **argv)
   /* Make the inotify nonblocking for simpler loop 			*/
   //int flags = fcntl(i_fd, F_GETFL, 0);
   //fcntl(i_fd, F_SETFL, flags |O_NONBLOCK);
-  
+
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
   struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));
@@ -617,7 +673,8 @@ int main(int argc, char **argv)
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;
 
-  sched->running = 1;
+  //sched->running = 1;
+  running = 1;
 
   /* Initial check before normal loop */
   LOG("Checking initial schedule\n");
@@ -632,9 +689,14 @@ int main(int argc, char **argv)
     LOG("----------------------------------------\n");
     temptime = (TIMERTYPE*)malloc(sizeof(TIMERTYPE));
   }
+  LOG("Forking\n");
+  err=fork();
+  if (err<0) exit(1); /* fork error */
+  if (err>0) exit(0); /* parent exits */
+  /* child (daemon) continues */
 
   LOG("Running..\n");
-  while(sched->running == 1)
+  while(running == 1)
   {
     err = start_scheduled(sched);
     CHECK_ERR("Start scheduled");
@@ -642,7 +704,7 @@ int main(int argc, char **argv)
     err = poll(pfd, 1, 1000);
     if(err < 0){
       perror("Poll");
-      sched->running = 0;
+      running = 0;
     }
     else if(err >0)
     {
@@ -687,11 +749,25 @@ int main(int argc, char **argv)
       print_br_stats(sched->default_opt->diskbranch);
 
       LOG("----------------------------------------\n");
-      fflush(stdout);
     }
 
+#ifdef LOG_TO_FILE
+    fflush(logfile);
+#else
     fflush(stdout);
+#endif
   }
+
+  struct listed_entity * temp = sched->br.busylist;
+  struct scheduled_event *ev;
+  while(temp != NULL){
+    ev = (struct scheduled_event*)temp->entity;
+    ev->shutdown_thread(ev->opt);
+    //temp = temp->next;
+    temp = temp->child;
+    D("Threads shut down");
+  }
+
   if(sched->default_opt->optbits & VERBOSE){
     free(tempstats);
     free(temptime);
@@ -715,5 +791,9 @@ int main(int argc, char **argv)
   //free(sched->default_opt);
   free(sched);
   D("Schedule freed");
+
+#ifdef LOG_TO_FILE
+  fclose(logfile);
+#endif
   return 0;
 }

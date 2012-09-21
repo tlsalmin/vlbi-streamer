@@ -1,3 +1,26 @@
+/*
+ * streamer.c -- Single process manager for vlbistreamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -59,6 +82,8 @@
 /* This should be more configurable */
 extern char *optarg;
 extern int optind, optopt;
+
+FILE* logfile;
 
 
 void udpstreamer_stats(void* opts, void* statsi){
@@ -1131,7 +1156,7 @@ int main(int argc, char **argv)
     STREAMER_ERROR_EXIT;
   }
 
-  printf("STREAMER: In main, starting receiver thread \n");
+  LOG("STREAMER: In main, starting receiver thread \n");
 
 #ifdef PRIORITY_SETTINGS
   param.sched_priority = MAX_PRIO_FOR_PTHREAD;

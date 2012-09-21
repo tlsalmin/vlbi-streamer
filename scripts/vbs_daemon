@@ -5,60 +5,162 @@
 # Required-Start:	$remote_fs $syslog
 # Required-Stop:	$remote_fs $syslog
 # Default-Start:	2 3 4 5
-# Default-Stop:		
+# Default-Stop:      0 1 6
 # Short-Description:	VLBI data streamering server
 ### END INIT INFO
 
-#Should be changed by install script
+# Author: Tomi Salminen <tlsalmin@gmail.com>
+
+#Should be changed by install script on target bin
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
+DESC="Vlbistreamer packet streaming service"
+NAME=vlbistreamer
 LOGFILE=vlbistreamer.log
-PIDFILE=vlbistreamer.pid
-BINDIR=src
+BINDIR=/usr/local/bin
 USER=oper
-#GROUP=oper
+GROUP=oper
 TIMEOUT=5
 
-check_if_running() {
-  if [ -n "$(ps -A |grep -i vlbistreamer)" ]
-  then
-    return 1
+DAEMON=/usr/local/bin/vlbistreamer
+DAEMON_ARGS=""
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/vbs_daemon
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Read configuration variable file if it is present
+#[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+# and status_of_proc is working.
+. /lib/lsb/init-functions
+
+# Function that starts the daemon/service
+#
+do_start()
+{
+  # Return
+  #   0 if daemon has been started
+  #   1 if daemon was already running
+  #   2 if daemon could not be started
+  if [ -n "$(ps -A | grep -v grep|grep -i vlbistreamer)" ] ; then
+    echo "vlbistreamer already running"
+    return 1;
   else
-    return 0
+    #sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
+    #if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
+    if start-stop-daemon --start --pidfile $PIDFILE --user ${USER} --group ${GROUP} --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+      echo "Vlbistreamer started"
+      return 0
+    else
+      echo "Error in vlbistreamer start"
+      return 2
+    fi
   fi
 }
+do_stop()
+{
+  if [ -n "`ps -A -o cmd | grep -v grep|grep -i $DAEMON`" ] ; then
+    #start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+    vbs_shutdown
+    #sudo -u $USER $BINDIR/vbs_shutdown &>> $LOGFILE
+    while [ -n "$(ps -A -o cmd | grep -v grep|grep -i $DAEMON)" -a "$TIMEOUT" -gt "0" ]
+    do
+      sleep 1
+      TIMEOUT=$(($TIMEOUT-1))
+    done
+    #if start-stop-daemon --stop --pidfile $PIDFILE --name vlbistreamer --exec $BINDIR/vbs_logscript -- stop ; then
+    if [ -z "$(ps -A -o cmd | grep -v grep|grep -i $DAEMON)" ] ; then
+      echo "Vlbistreamer stopped"
+      RETVAL=0
+    else
+      echo "error in vlbistreamer stop"
+      RETVAL=2
+    fi
+  else
+    echo "vlbistreamer not running"
+    RETVAL=1
+  fi
+  rm -f $PIDFILE
+  return "$RETVAL"
+}
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+  #
+  # If the daemon can reload its configuration without
+  # restarting (for example, when it is sent a SIGHUP),
+  # then implement that here.
+  #
+  #NOT IMPLEMENTED
+  start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+  return 0
+}
+
 case "$1" in
   start)
-    if [ -n "$(ps -A | grep -v grep|grep -i vlbistreamer)" ] ; then
-      echo "vlbistreamer already running"
-      exit 1;
-    else
-      sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
-      if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
-	#if start-stop-daemon --start --pidfile $PIDFILE --user ${USER} --group ${GROUP} --background --name vlbistreamer  --exec $BINDIR/vbs_logscript -- start ; then
-	echo "Vlbistreamer started"
-      else
-	echo "Error in vlbistreamer start"
-      fi
-    fi
-    ;;
+	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
   stop)
-    if [ -n "`ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer`" ] ; then
-      sudo -u $USER $BINDIR/vbs_shutdown &>> $LOGFILE
-      while [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" -a "$TIMEOUT" -gt "0" ]
-      do
-	sleep 1
-	TIMEOUT=$(($TIMEOUT-1))
-      done
-      #if start-stop-daemon --stop --pidfile $PIDFILE --name vlbistreamer --exec $BINDIR/vbs_logscript -- stop ; then
-      if [ -z "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
-	echo "Vlbistreamer stopped"
-      else
-	echo "error in vlbistreamer stop"
-      fi
-    else
-      echo "vlbistreamer not running"
-      exit 1;
-    fi
-    ;;
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       ;;
+  #reload|force-reload)
+	#
+	# If do_reload() is not implemented then leave this commented out
+	# and leave 'force-reload' as an alias for 'restart'.
+	#
+	#log_daemon_msg "Reloading $DESC" "$NAME"
+	#do_reload
+	#log_end_msg $?
+	#;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
 esac
+
+:
 
 exit 0

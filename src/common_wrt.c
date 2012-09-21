@@ -1,3 +1,25 @@
+/*
+ * common_wrt.c -- Common IO functions for vlbi-streamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -17,6 +39,8 @@
 #include "common_wrt.h"
 #include "confighelper.h"
 #define ERR_IN_INIT free(dirname);return -1
+
+extern FILE* logfile;
 
 //int common_open_new_file(void * recco, void *opti,unsigned long seq, unsigned long sbuf_still_running){
 int common_getid(struct recording_entity*re){

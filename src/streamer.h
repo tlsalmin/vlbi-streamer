@@ -1,3 +1,25 @@
+/*
+ * streamer.h -- Header file for single process manager for vlbistreamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
 #ifndef STREAMER
 #define STREAMER
  	
@@ -115,6 +137,7 @@
 //#define WRITE_WHOLE_BUFFER
 //
 //#define ROOTDIRS "/mnt/disk"
+#define LOG_TO_FILE
 #define INITIAL_N_FILES B(7)
 
 #define SIMPLE_BUFCACL
@@ -140,12 +163,27 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   //#define MADVISE_INSTEAD_OF_O_DIRECT
 
   /* Send stuff to log file if daemon mode defined 	*/
+#ifdef LOG_TO_FILE
+
+#define LOG(...) fprintf(logfile, __VA_ARGS__)
+#define LOGERR(...) fprintf(logfile, __VA_ARGS__)
+#define D(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(logfile,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+
+
+#else
+
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
     do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
     do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+
+#endif
+
 
 #define DEBUG_OUTPUT_2 0
 #define DD(str, ...) if(DEBUG_OUTPUT_2)D(str, __VA_ARGS__)
@@ -259,7 +297,6 @@ struct opt_s
   //pthread_mutex_t cumlock;
   char *device_name;
   char *cfgfile;
-  char *logfile;
   int diskids;
 
   /* Make this a spinlock, since augmenting this struct is fast		*/

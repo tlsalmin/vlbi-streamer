@@ -1,3 +1,25 @@
+/*
+ * simplebuffer.c -- A simple buffer implementation for vlbi-streamer
+ *
+ * Written by Tomi Salminen (tlsalmin@gmail.com)
+ * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
+ * All rights reserved
+ * This file is part of vlbi-streamer.
+ *
+ * vlbi-streamer is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * vlbi-streamer is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ */
 #include <stdio.h>
 #include <malloc.h>
 #include <sys/uio.h>
@@ -18,6 +40,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #endif
+
+extern FILE* logfile;
 
 #define HAVE_ASSERT 1
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
@@ -264,7 +288,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
       //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
       //assert(hog_memory%sysconf(_SC_PAGESIZE) == 0);
 #ifdef MMAP_NOT_SHMGET
-      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB, -1,0);
+      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
