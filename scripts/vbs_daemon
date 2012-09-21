@@ -21,6 +21,7 @@ USER=oper
 GROUP=oper
 TIMEOUT=5
 
+CFGFILE=/usr/local/etc/vlbistreamer.conf
 DAEMON=/usr/local/bin/vlbistreamer
 DAEMON_ARGS=""
 PIDFILE=/var/run/$NAME.pid
@@ -54,6 +55,15 @@ do_start()
   else
     #sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
     #if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
+    echo "Checking if hugepages are in use.."
+    if [ "$(cat $CFGFILE |egrep -v "^#" |grep use_hugepage |cut -d' ' -f3)" == "1;" ] 
+    then
+      if [ "$(cat /proc/sys/vm/nr_hugepages)" == "0" ]
+      then
+	echo "Initializing hugepages"
+	init_hugepages
+      fi
+    fi
     if start-stop-daemon --start --pidfile $PIDFILE --user ${USER} --group ${GROUP} --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
       echo "Vlbistreamer started"
       return 0
@@ -66,6 +76,7 @@ do_start()
 do_stop()
 {
   if [ -n "`ps -A -o cmd | grep -v grep|grep -i $DAEMON`" ] ; then
+    #TODO: Proper pid stuff etc.
     #start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
     vbs_shutdown
     #sudo -u $USER $BINDIR/vbs_shutdown &>> $LOGFILE

@@ -34,12 +34,14 @@ install-data-hook:
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_logscript
 	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_logscript
 	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/init_hugepages
+	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/vbs_daemon
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_volumes
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_volumes
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vbs_daemon
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vbs_daemon
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/init_hugepages
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/init_hugepages
+	ln -s ${bindir}/vbs_daemon /etc/init.d/vbs_daemon
 
 ## Set the default command-line flags for the C preprocessor to the value
 ## obtained from pkg-config via PKG_CHECK_MODULES in configure.ac.  These
