@@ -573,6 +573,9 @@ static void hdl (int sig)
   running = 0;
 }
 */
+//TODO: Fix these. Need to add some pthread_cancel-stuff to kill 
+//malfunctioning threads properly
+/*
 static void hdl (int sig, siginfo_t *siginfo, void *context)
 {
 	printf ("Sending PID: %ld, UID: %ld\n",
@@ -580,6 +583,7 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 	LOG("Signal received");
 	running = 0;
 }
+*/
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
@@ -599,20 +603,22 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(sched, "Sched malloc");
 
   /* Copied from http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show */
+  /*
   struct sigaction act;
 
   memset (&act, '\0', sizeof(act));
 
-  /* Use the sa_sigaction field because the handles has two additional parameters */
+  // Use the sa_sigaction field because the handles has two additional parameters 
   act.sa_sigaction = &hdl;
 
-  /* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
+  // The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. 
   act.sa_flags = SA_SIGINFO;
 
   if (sigaction(SIGTERM, &act, NULL) < 0) {
     perror ("sigaction");
     return 1;
   }
+    */
 
   /* Set the branch as mutex free */
   sched->br.mutex_free = 1;
