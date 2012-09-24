@@ -64,7 +64,7 @@ do_start()
 	init_hugepages
       fi
     fi
-    if start-stop-daemon --start --pidfile $PIDFILE --user ${USER} --group ${GROUP} --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+    if start-stop-daemon --start --pidfile ${PIDFILE}--user ${USER} --group ${GROUP} --background --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
       echo "Vlbistreamer started"
       return 0
     else

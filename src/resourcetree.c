@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "config.h"
 #include "resourcetree.h"
 #include "common_wrt.h"
 #include "streamer.h"

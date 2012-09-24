@@ -127,9 +127,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
 	return EACCES;
       }
       else{
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "COMMON_WRT: File doesn't exist. Creating it\n");
-#endif
+	D("COMMON_WRT: File doesn't exist. Creating it");
 	flags |= O_CREAT;
 	err = 0;
       }
@@ -557,6 +555,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	    pthread_spin_unlock(opt->augmentlock);
 	  }
 	  else{
+	    fh = opt->fileholders;
 	    for(j=0;j<temp;j++){
 	      //ASSERT(fh->next != NULL);
 	      fh = fh->next;

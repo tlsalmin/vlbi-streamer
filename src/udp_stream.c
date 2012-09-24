@@ -135,9 +135,7 @@ int udps_bind_port(struct udpopts * spec_ops){
   spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
   //TODO: check if IF binding helps
   if(spec_ops->opt->optbits & READMODE){
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "Connecting to %s\n", spec_ops->opt->hostname);
-#endif
+    D("Connecting to %s",, spec_ops->opt->hostname);
     spec_ops->sin->sin_addr.s_addr = spec_ops->opt->serverip;
     spec_ops->sinsize = sizeof(struct sockaddr_in);
 
@@ -748,9 +746,9 @@ void * udp_sender(void *streamo){
       wait = nanodiff(&(spec_ops->opt->wait_last_sent), &st.now);
 #if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
-      fprintf(stdout, "%ld %ld ",spec_ops->total_captured_packets, wait);
+      D("%ld %ld ",,spec_ops->total_captured_packets, wait);
 #else
-      fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
+      D("UDP_STREAMER: %ld ns has passed since last send\n",, wait);
 #endif
 #endif
       //wait = spec_ops->opt->wait_nanoseconds - wait;
@@ -859,7 +857,7 @@ void* udp_rxring(void *streamo)
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
-  fprintf(stdout, "PKT OFFSET %lu tpacket_offset %lu\n", PKT_OFFSET, sizeof(struct tpacket_hdr));
+  D("PKT OFFSET %lu tpacket_offset %lu",, PKT_OFFSET, sizeof(struct tpacket_hdr));
 
   pfd.fd = spec_ops->fd;
   pfd.revents = 0;
@@ -921,7 +919,7 @@ void* udp_rxring(void *streamo)
 	((*spec_ops->opt->cumul))++;
       }
 #ifdef SHOW_PACKET_METADATA
-      fprintf(stdout, "Metadata for %ld packet: status: %lu, len: %u, snaplen: %u, MAC: %hd, net: %hd, sec %u, usec: %u\n", j, hdr->tp_status, hdr->tp_len, hdr->tp_snaplen, hdr->tp_mac, hdr->tp_net, hdr->tp_sec, hdr->tp_usec);
+      D("Metadata for %ld packet: status: %lu, len: %u, snaplen: %u, MAC: %hd, net: %hd, sec %u, usec: %u\n",, j, hdr->tp_status, hdr->tp_len, hdr->tp_snaplen, hdr->tp_mac, hdr->tp_net, hdr->tp_sec, hdr->tp_usec);
 #endif
 
       hdr->tp_status = TP_STATUS_KERNEL;
@@ -1267,9 +1265,7 @@ void* udp_receiver(void *streamo)
     resq->before = NULL;
   }
 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Starting stream capture\n");
-#endif
+  LOG("UDP_STREAMER: Starting stream capture\n");
   while(spec_ops->running){
 
     if(resq->i == spec_ops->opt->buf_num_elems){
@@ -1303,7 +1299,7 @@ void* udp_receiver(void *streamo)
     err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
     if(err < 0){
       if(err == EINTR)
-	fprintf(stdout, "UDP_STREAMER: Main thread has shutdown socket\n");
+	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
       else{
 	perror("RECV error");
 	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
@@ -1431,9 +1427,9 @@ int close_udp_streamer(void *opt_own, void *stats){
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "UDP_STREAMER: Closed\n");
-#endif
+//#if(DEBUG_OUTPUT)
+  LOG("UDP_STREAMER: Closed\n");
+//#endif
   //stats->packet_index = spec_ops->packet_index;
   //spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);

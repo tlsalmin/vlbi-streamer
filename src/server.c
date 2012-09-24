@@ -583,7 +583,7 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
-#ifdef LOG_TO_FILE
+#if(LOG_TO_FILE)
   fprintf(stdout, "Logging to %s", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
   if(logfile == NULL)
@@ -689,11 +689,15 @@ int main(int argc, char **argv)
     LOG("----------------------------------------\n");
     temptime = (TIMERTYPE*)malloc(sizeof(TIMERTYPE));
   }
+  /*
+#if(LOG_TO_FILE)
   LOG("Forking\n");
   err=fork();
-  if (err<0) exit(1); /* fork error */
-  if (err>0) exit(0); /* parent exits */
-  /* child (daemon) continues */
+  if (err<0) exit(1); // fork error 
+  if (err>0) exit(0); // parent exits 
+  // child (daemon) continues 
+#endif
+*/
 
   LOG("Running..\n");
   while(running == 1)
@@ -751,7 +755,7 @@ int main(int argc, char **argv)
       LOG("----------------------------------------\n");
     }
 
-#ifdef LOG_TO_FILE
+#if(LOG_TO_FILE)
     fflush(logfile);
 #else
     fflush(stdout);
@@ -792,7 +796,7 @@ int main(int argc, char **argv)
   free(sched);
   D("Schedule freed");
 
-#ifdef LOG_TO_FILE
+#if(LOG_TO_FILE)
   fclose(logfile);
 #endif
   return 0;

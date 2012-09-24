@@ -13,7 +13,7 @@ OPTIONS:
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
       -u 		Use hugepages
-      -e START_TIME	start time at START_TIME (time since epoch or date +%s)
+      -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
 EOF
@@ -67,8 +67,19 @@ do
       shift
       ;;
     -e)
+      DATDATE=$(date -d"$2" +%s 2> /dev/null)
+      if [ "$?" -ne 0 ]
+      then
+	DATDATE=$(date -d"@${2}" +%s 2> /dev/null)
+	if [ "$?" -ne 0 ]
+	then
+	  echo "Error in setting startup date"
+	  usage
+	  exit 1
+	fi
+      fi
       EXTRAOPS="$EXTRAOPS
-      starting_time = $(($2))L;"
+      starting_time = ${DATDATE}L;"
       shift
       ;;
     -v)

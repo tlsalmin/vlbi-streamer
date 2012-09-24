@@ -62,7 +62,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
     if(ret <=0){
       if(ret == 0 && (ioi->opt->optbits & READMODE)){
 #if(DEBUG_OUTPUT)
-	fprintf(stdout, "DEFWRITER: End of file!\n");
+	D("DEFWRITER: End of file!");
 #endif
 	total_w += count;
 	ioi->bytes_exchanged += count;

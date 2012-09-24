@@ -31,6 +31,26 @@
 #  define END_C_DECLS
 #endif /* __cplusplus */
 
+#if(LOG_TO_FILE)
+
+#define LOG(...) fprintf(logfile, __VA_ARGS__)
+#define LOGERR(...) fprintf(logfile, __VA_ARGS__)
+#define D(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(logfile,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+
+
+#else
+
+#define LOG(...) fprintf(stdout, __VA_ARGS__)
+#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
+#define D(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+
+#endif
 
 
 //Rate as in GB/s
@@ -137,7 +157,7 @@
 //#define WRITE_WHOLE_BUFFER
 //
 //#define ROOTDIRS "/mnt/disk"
-#define LOG_TO_FILE
+//#define LOG_TO_FILE
 #define INITIAL_N_FILES B(7)
 
 #define SIMPLE_BUFCACL
@@ -163,26 +183,6 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   //#define MADVISE_INSTEAD_OF_O_DIRECT
 
   /* Send stuff to log file if daemon mode defined 	*/
-#ifdef LOG_TO_FILE
-
-#define LOG(...) fprintf(logfile, __VA_ARGS__)
-#define LOGERR(...) fprintf(logfile, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(logfile,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
-
-
-#else
-
-#define LOG(...) fprintf(stdout, __VA_ARGS__)
-#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
-
-#endif
 
 
 #define DEBUG_OUTPUT_2 0
@@ -373,9 +373,7 @@ struct opt_s
 #ifdef TUNE_AFFINITY
   cpu_set_t cpuset;
 #endif
-#if(DAEMON)
   int status;
-#endif
   struct streamer_entity * streamer_ent;
 };
 int parse_options(int argc, char **argv, struct opt_s* opt);

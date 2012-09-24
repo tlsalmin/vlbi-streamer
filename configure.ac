@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.3.5], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.4.0], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
@@ -68,6 +68,16 @@ AS_IF([test "x$enable_debug" != "xno"], [
 		     ], AC_DEFINE(DEBUG_OUTPUT, 0, [Print debug_output to stdout]))
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
 
+AC_MSG_CHECKING([--enable-logtofile argument])
+AC_ARG_ENABLE(logtofile,
+	      [  --enable-logtofile         Enable logging to file.],
+    [enable_logtofile=$enableval],
+    [enable_logtofile="yes"])
+AC_MSG_RESULT($enable_logtofile)
+AS_IF([test "x$enable_logtofile" != "xno"], [
+       AC_DEFINE(LOG_TO_FILE, 1, [log to file ])
+       ], AC_DEFINE(LOG_TO_FILE, 0, [log to file]))
+AM_CONDITIONAL([LOG_TO_FILE], [test "${enable_logtofile}" = "yes"])
 
 AC_MSG_CHECKING([--enable-daemon argument])
 AC_ARG_ENABLE(daemon,

@@ -48,6 +48,7 @@ do
 done
 CFGFILE=/usr/local/etc/vlbistreamer.conf
 SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
+#LOGFILE=/usr/local/var/log/vlbistreamer.log
 PARSELONG=3
 PARSENORMAL=2
 PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c -$PARSELONG"`
@@ -70,6 +71,7 @@ METHODS=(def aio splice)
 EXTRA_PARAMS="$*"
 DEFAULT_PARAMS="-A $MAXMEM -s $PORT -d $DRIVES"
 TEMPLOG=thistemplogsurelyshouldntbeoverwritten
+#TEMPLOG=$LOGFILE
 
 $VLBIPREFIX vbs_clearschedule
 echo "Cleaning up leftovers from previous test"
@@ -79,7 +81,7 @@ $VLBIPREFIX "vbs_delete testfor_${i}"
 done
 
 echo "setting up daemon mode"
-$VLBIPREFIX ./configure --enable-user=oper &> /dev/null
+$VLBIPREFIX ./configure --enable-user=oper --enable-logtofile=no &> /dev/null
 $VLBIPREFIX make &> /dev/null
 
 if [ $? -ne "0" ]
@@ -94,6 +96,8 @@ then
   DEFAULT_PARAMS="$DEFAULT_PARAMS -u "
 fi
 
+#echo "Emptying old log"
+#echo " " > $LOGFILE
 
 echo "Testing sending with nonexisting files"
 for i in "${METHODS[@]}"
@@ -143,7 +147,9 @@ do
 
 
   STATLOG=${TARGETFOLDER}/statlog
+  #echo " " > $LOGFILE
   MAINLOG=${TARGETFOLDER}/mainlog
+  #MAINLOG=$LOGFILE
   RECNAME=testfor_${i}
   #$VBS_START -w $i &> ${TEMPLOG}${i} &
   $VBS_START -w $i &> $MAINLOG &
@@ -158,7 +164,7 @@ do
   SENTPACKAGES=`cat udpmonlog | tail -n 1| awk '{print $2}'|head -c -2`
   $UDPEND
   RECVPACKAGES=`cat $MAINLOG | grep Packets:| awk '{print $2}'|head -c -1`
-  
+
   if [ "$SENTPACKAGES" -ne "$RECVPACKAGES" ]
   then
     echo "Mismatch in received/sent files. received $(($SENTPACKAGES-$RECVPACKAGES)) less than sent"
@@ -184,9 +190,9 @@ do
 
   end_streamer
 
-  scripts/parse_logs $MAINLOG
-  scripts/plot_parsed ${MAINLOG}.parsed -d -n -b -r -f $TARGETFOLDER &> /dev/null
-  scripts/plot_parsed $STATLOG -c -m -f $TARGETFOLDER &> /dev/null
+  $VLBIPREFIX scripts/parse_logs $MAINLOG
+  $VLBIPREFIX scripts/plot_parsed ${MAINLOG}.parsed -d -n -b -r -f $TARGETFOLDER &> /dev/null
+  $VLBIPREFIX scripts/plot_parsed $STATLOG -c -m -f $TARGETFOLDER &> /dev/null
   sleep 1
   #rm ${TEMPLOG}${i}.parsed
   #rm ${TEMPLOG}${i}
