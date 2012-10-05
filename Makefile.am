@@ -2,13 +2,14 @@
 ## make time. The ${ACLOCAL_FLAGS} variable is picked up from the environment
 ## to provide a way for the user to supply additional arguments.
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
+EXTRA_DIST=vlbistreamer.conf vlbistreamer.log schedule
 cfgdir = $(sysconfdir)/
 cfg_DATA = vlbistreamer.conf
 rundir = $(localstatedir)/opt/vlbistreamer
 run_DATA = schedule
 logdir = $(localstatedir)/log
 log_DATA = vlbistreamer.log
-bin_SCRIPTS = scripts/*
+dist_bin_SCRIPTS = scripts/*
 
 install-data-hook:
 	chown -R @USER@:@GROUP@ $(rundir)
