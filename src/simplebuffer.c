@@ -47,7 +47,7 @@ extern FILE* logfile;
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
-#define DO_W_STUFF_IN_FIXED_BLOCKS
+//#define DO_W_STUFF_IN_FIXED_BLOCKS
 
 int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0;
@@ -447,7 +447,11 @@ int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
   //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
+#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   unsigned long limit = sbuf->opt->do_w_stuff_every;
+#else
+  unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+#endif
 
   unsigned long count = sbuf->diff * sbuf->opt->packet_size;
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
@@ -455,10 +459,8 @@ int simple_write_bytes(struct buffer_entity *be){
   ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
   ASSERT(count != 0);
 
-#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   if(count > limit)
     count = limit;
-#endif
   if (limit != count){
     D("Only need to finish transaction");
     return simple_end_transaction(be);

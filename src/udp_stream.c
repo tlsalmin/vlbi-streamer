@@ -1297,6 +1297,7 @@ void* udp_receiver(void *streamo)
       }
     }
     err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
+    //err = spec_ops->opt->packet_size;
     if(err < 0){
       if(err == EINTR)
 	LOG("UDP_STREAMER: Main thread has shutdown socket\n");

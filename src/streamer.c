@@ -442,19 +442,20 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->device_name = strdup(optarg);
 	break;
       case 'c':
-	//opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
 	//CHECK_ERR_NONNULL(opt->cfgfile, "Cfgfile malloc");
-	opt->cfgfile = strdup(optarg);
+	//opt->cfgfile = strdup(optarg);
+	sprintf(opt->cfgfile, "%s", optarg);
 //#if(!DAEMON)
-	LOG("Path for cfgfile specified. All command line options before this argument wmight be ignored\n");
+	LOG("Path for cfgfile specified. All command line options before this argument might be ignored\n");
 	ret = read_full_cfg(opt);
 	if(ret != 0){
 	  E("Error parsing cfg file. Exiting");
 	  free(opt->cfgfile);
 	  return -1;
 	}
-	free(opt->cfgfile);
-	opt->cfgfile = NULL;
+	//free(opt->cfgfile);
+	//opt->cfgfile = NULL;
 //#endif
 	break;
       case 'v':
@@ -766,9 +767,7 @@ int init_rbufs(struct opt_s *opt){
     E("Error setting schedparam for pthread attr: %s",,strerror(err));
 #endif
 
-#if(DEBUG_OUTPUT)
-  LOG("STREAMER: Initializing threads\n");
-#endif
+  D("Initializing buffer threads");
 
   for(i=0;i<opt->n_threads;i++){
 
@@ -1329,6 +1328,7 @@ int main(int argc, char **argv)
 #endif
 
 #if(DAEMON)
+  D("Streamer thread exiting");
   pthread_exit(NULL);
 #else
   close_opts(opt);

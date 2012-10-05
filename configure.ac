@@ -7,7 +7,10 @@ AC_INIT([vlbi-streamer], [0.4.1], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
+#AM_PATH_CHECK([0.9.8],[],[AC_MSG_ERROR([check is missing])])
 AC_PROG_CC
+#AC_PROG_LIBTOOL
+#AM_PROG_CC_C_O
 
 #Options
 
@@ -130,6 +133,16 @@ AC_MSG_RESULT($group)
 GROUP=$group
 AC_SUBST(GROUP)
 
+#AM_PATH_CHECK(,[have_check="yes"],
+ #AC_MSG_WARN([Check not found; cannot run unit tests])
+ #[have_check="no"])
+#AM_CONDITIONAL(HAVE_CHECK, test x"$have_check" = "xyes")
+#PKG_CHECK_MODULES(CHECK, [check >= 0.9.8],,[AC_MSG_RESULT([no, testing is disabled])]) 
+#AM_CONDITIONAL(HAVE_CHECK, [test "x$CHECK_LIBS" != "x"])
+
+AC_SUBST(CHECK_CFLAGS)
+AC_SUBST(CHECK_LIBS)
+
 AC_ARG_VAR([ROOTDIRS], [Prefix for disks organized as prefix<n>.
                          Default = "/mnt/disk" >= disks are /mnt/disk0..n])
 AS_IF([test "x$ROOTDIRS" = x], [ROOTDIRS="/mnt/disk"])
@@ -174,7 +187,7 @@ AC_SUBST(ADD_LIBS)
 # Checks for header files.
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h malloc.h netdb.h netinet/in.h stddef.h stdlib.h string.h sys/ioctl.h sys/socket.h unistd.h libconfig.h])
 
-# Checks for typedefs, structures, and compiler characteristics.
+# Chec#ks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
@@ -184,8 +197,10 @@ AC_FUNC_MALLOC
 AC_FUNC_MMAP
 AC_CHECK_FUNCS([ftruncate gethostbyname memset munmap socket strdup strerror])
 
-AM_INIT_AUTOMAKE
+#AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign parallel-tests color-tests])
 
 #AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADER([src/config.h])
-AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile)
+#AM_CONFIG_HEADER([utests/config.h])
+AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile utests/Makefile)

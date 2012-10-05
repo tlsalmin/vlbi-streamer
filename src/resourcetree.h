@@ -78,6 +78,8 @@ struct entity_list_branch
   /* On non-free branch					*/
   pthread_cond_t busysignal;
 };
+/*Add to end or until compare gives 1 */
+void add_to_next(struct listed_entity **root, struct listed_entity *toadd, int (*compare)(void*,void*));
 /* Initial add */
 void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en);
 /* Set this entity into the free to use list		*/

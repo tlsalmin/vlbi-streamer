@@ -44,10 +44,13 @@ install-data-hook:
 	rm -f /etc/init.d/vbs_daemon
 	ln -s ${bindir}/vbs_daemon /etc/init.d/vbs_daemon
 
+uninstall-hook:
+	rm /etc/init.d/vbs_daemon
+
 ## Set the default command-line flags for the C preprocessor to the value
 ## obtained from pkg-config via PKG_CHECK_MODULES in configure.ac.  These
 ## flags are passed to the compiler for both C and C++, in addition to the
 ## language-specific options.
 #AM_CPPFLAGS = $(PTHREAD_LIBS) $(LIBAIO_LIBS)
 
-SUBDIRS = src seqsrc
+SUBDIRS = src seqsrc . utests

@@ -66,6 +66,9 @@ struct schedule{
   int n_scheduled;
   int n_running;
 };
+
+struct schedule *sched;
+
 inline void zero_sched(struct schedule *sched){
   /*
   memset(sched,0,sizeof(sched));
@@ -575,15 +578,15 @@ static void hdl (int sig)
 */
 //TODO: Fix these. Need to add some pthread_cancel-stuff to kill 
 //malfunctioning threads properly
-/*
 static void hdl (int sig, siginfo_t *siginfo, void *context)
 {
-	printf ("Sending PID: %ld, UID: %ld\n",
+  (void)sig;
+  (void)context;
+	LOG("Sending PID: %ld, UID: %ld\n",
 			(long)siginfo->si_pid, (long)siginfo->si_uid);
 	LOG("Signal received");
 	running = 0;
 }
-*/
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
@@ -599,11 +602,10 @@ int main(int argc, char **argv)
   struct stats* tempstats = NULL;//, stats_temp;
   TIMERTYPE *temptime = NULL;
 
-  struct schedule *sched = malloc(sizeof(struct schedule));
+  sched = malloc(sizeof(struct schedule));
   CHECK_ERR_NONNULL(sched, "Sched malloc");
 
   /* Copied from http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show */
-  /*
   struct sigaction act;
 
   memset (&act, '\0', sizeof(act));
@@ -618,7 +620,6 @@ int main(int argc, char **argv)
     perror ("sigaction");
     return 1;
   }
-    */
 
   /* Set the branch as mutex free */
   sched->br.mutex_free = 1;
@@ -638,18 +639,24 @@ int main(int argc, char **argv)
   /* overrides defaults and command line arguments override config file	*/
   clear_and_default(sched->default_opt,1);
 
+  err = parse_options(argc,argv,sched->default_opt);
+  CHECK_ERR("parse options");
+
   LOG("Running in daemon mode\n");
 
   //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
-  sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
-  sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
-  //sched->default_opt->cfgfile = CFGFILE;
-  err = read_full_cfg(sched->default_opt);
-  CHECK_ERR("Load default cfg");
-  LOG("Read config from %s\n", sched->default_opt->cfgfile);
+  if(sched->default_opt->cfgfile == NULL){
+    sched->default_opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
+    CHECK_ERR_NONNULL(sched->default_opt->cfgfile, "cfgfile malloc");
+    sprintf(sched->default_opt->cfgfile, "%s", CFGFILE);
+    //sched->default_opt->cfgfile = CFGFILE;
+    err = read_full_cfg(sched->default_opt);
+    CHECK_ERR("Load default cfg");
+    LOG("Read config from %s\n", sched->default_opt->cfgfile);
 
-  parse_options(argc,argv,sched->default_opt);
+    err = parse_options(argc,argv,sched->default_opt);
+    CHECK_ERR("parse options");
+  }
 
   /* Start memory buffers */
   LOG("Prepping recpoints and membuffers..");
@@ -697,8 +704,8 @@ int main(int argc, char **argv)
   }
   /*
 #if(LOG_TO_FILE)
-  LOG("Forking\n");
-  err=fork();
+LOG("Forking\n");
+err=fork();
   if (err<0) exit(1); // fork error 
   if (err>0) exit(0); // parent exits 
   // child (daemon) continues 
@@ -771,12 +778,25 @@ int main(int argc, char **argv)
   struct listed_entity * temp = sched->br.busylist;
   struct scheduled_event *ev;
   while(temp != NULL){
-    ev = (struct scheduled_event*)temp->entity;
-    ev->shutdown_thread(ev->opt);
-    //temp = temp->next;
+    struct listed_entity* temp2 = temp;
     temp = temp->child;
-    D("Threads shut down");
+    ev = (struct scheduled_event*)temp2->entity;
+    if(ev->opt->optbits & VERBOSE)
+      free(ev->stats);
+    remove_from_branch(&sched->br,temp2, MUTEX_FREE);
+    //ev = (struct scheduled_event*)temp->entity;
+    //ev->shutdown_thread(ev->opt);
+    //err = free_and_close(ev);
+    /*
+    if(ev->pt != 0){
+      D("Joining thread");
+      pthread_join(ev->pt, NULL);
+    }
+    */
+    //temp = temp->next;
+    //temp = temp->child;
   }
+  D("Threads shut down");
 
   if(sched->default_opt->optbits & VERBOSE){
     free(tempstats);
