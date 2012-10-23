@@ -12,6 +12,8 @@ OPTIONS: to plot:
   -n 		network speeds
   -b 		network buffers
   -r		recpoints
+  -c		CPU usage
+  -m 		Used virtual memory
   -f <folder> 	Alternate folder to save plots as images
 EOF
 }
@@ -109,7 +111,7 @@ EOF
       set xlabel "Time(s)"
       set ylabel "N"
       $EOUT
-      plot "$FILE" using 1:4 with line title "Free", "$FILE" using 1:5 with line title "Busy", "$FILE" using 1:6 with line title "Loaded"
+      plot "$FILE" using 1:4 with line title "Free mem" lt rgb "green", "$FILE" using 1:5 with line title "Busy mem" lt rgb "red", "$FILE" using 1:6 with line title "Loaded mem" lt rgb "blue","$FILE" using 1:7 with line title "Free rec", "$FILE" using 1:8 with line title "Busy rec"
 EOF
       ;;
     CPU)

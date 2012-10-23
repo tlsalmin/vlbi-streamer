@@ -1,4 +1,4 @@
-bin_PROGRAMS = vlbistreamer
+bin_PROGRAMS = vlbistreamer groupsend
 #vlbistreamer_SOURCES = fanout.h fanout.c common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h ringbuf.c ringbuf.h defwriter.h defwriter.c sendfile_streamer.h sendfile_streamer.c splicewriter.h splicewriter.c
 vlbistreamer_SOURCES = common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h defwriter.h defwriter.c splicewriter.h splicewriter.c simplebuffer.h simplebuffer.c fanout.h fanout.c resourcetree.h resourcetree.c confighelper.h confighelper.c timer.h timer.c timekeeper.h timekeeper.c
 if DAEMON
@@ -9,6 +9,8 @@ if HAVE_LIBAIO
 endif
 AM_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLOCALSTATEDIR='"$(localstatedir)"'
 vlbistreamer_LDADD = $(ADD_LIBS)
+groupsend_SOURCES = vlbistreamer_SOURCES groupsend.c
+groupsend_LDADD = $(ADD_LIBS)
 
 #vlbistreamer_CFLAGS = $(AM_CFLAGS)
 #lib_LTLIBRARIES = libtests.la
