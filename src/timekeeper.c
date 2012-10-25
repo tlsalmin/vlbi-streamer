@@ -34,13 +34,16 @@ int init_timekeeper(){
   timelock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t));
   pthread_spin_init(timelock, PTHREAD_PROCESS_SHARED);
   root = NULL;
+  return 0;
 }
 struct interrupt_action* add_action(void (*action), void* param, int mikroseconds){
   (void)action;
   (void)param;
   (void)mikroseconds;
+  return NULL;
 }
 int remove_action(struct interrupt_action* ia){
   (void)ia;
+  return 1;
 }
 

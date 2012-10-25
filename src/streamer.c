@@ -59,6 +59,7 @@
 //#define UGLY_FIX_ON_RBUFTHREAD_EXIT
 //TODO: Search these
 #define MAX_PRIO_FOR_PTHREAD 4
+#define RECEIVE_THREAD_PRIO 3
 #define MIN_PRIO_FOR_PTHREAD 1
 #if(DAEMON)
 #define STREAMER_CHECK_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);pthread_exit(NULL);}else{D(mes);}}while(0)
@@ -74,7 +75,7 @@
 #define STREAMER_ERROR_EXIT return -1
 #endif
 
-#ifdef PRIORITY_SETTINGS
+#if(PPRIORITY)
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
 #else
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
@@ -84,7 +85,6 @@ extern char *optarg;
 extern int optind, optopt;
 
 FILE* logfile;
-
 
 void udpstreamer_stats(void* opts, void* statsi){
   struct opt_s* opt = (struct opt_s*) opts;
@@ -725,8 +725,8 @@ int init_rbufs(struct opt_s *opt){
   err = CALC_BUF_SIZE(opt);
   CHECK_ERR("calc bufsize");
   D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets",, opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
-#ifdef PRIORITY_SETTINGS
-  memset(&opt->param, 0, sizeof(param));
+#if(PPRIORITY)
+  memset(&opt->param, 0, sizeof(opt->param));
   err = pthread_attr_init(&opt->pta);
   if(err != 0){
     E("Pthread attr initialization: %s",,strerror(err));
@@ -750,7 +750,7 @@ int init_rbufs(struct opt_s *opt){
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
 
-#ifdef PRIORITY_SETTINGS
+#if(PPRIORITY)
   err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
     E("Error getting schedparam for pthread attr: %s",,strerror(err));
@@ -758,12 +758,12 @@ int init_rbufs(struct opt_s *opt){
     D("Schedparam set to %d, Trying to set to minimun %d",, opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
 
   err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
-  if(err != 1)
+  if(err != 0)
     E("Error setting schedtype for pthread attr: %s",,strerror(err));
 
   opt->param.sched_priority = MIN_PRIO_FOR_PTHREAD;
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
-  if(rc != 0)
+  if(err != 0)
     E("Error setting schedparam for pthread attr: %s",,strerror(err));
 #endif
 
@@ -775,7 +775,7 @@ int init_rbufs(struct opt_s *opt){
     CHECK_ERR("sbuf init");
 
     D("Starting buffer thread");
-#ifdef PRIORITY_SETTINGS
+#if(PPRIORITY)
     err = pthread_create(&(opt->rbuf_pthreads[i]), &(opt->pta), (opt->bes[i]).write_loop,(void*)&(opt->bes[i]));
 #else
     err = pthread_create(&(opt->rbuf_pthreads[i]), NULL, opt->bes[i].write_loop,(void*)&(opt->bes[i]));
@@ -850,7 +850,7 @@ int close_opts(struct opt_s *opt){
   if(opt->filename != NULL)
     free(opt->filename);
   config_destroy(&(opt->cfg));
-#ifdef PRIORITY_SETTINGS
+#if(PPRIORITY)
   pthread_attr_destroy(&(opt->pta));
 #endif
   if(opt->liveother != NULL){
@@ -1157,12 +1157,15 @@ int main(int argc, char **argv)
 
   LOG("STREAMER: In main, starting receiver thread \n");
 
-#ifdef PRIORITY_SETTINGS
-  param.sched_priority = MAX_PRIO_FOR_PTHREAD;
+#if(PPRIORITY)
+  if(opt->optbits & READMODE)
+    opt->param.sched_priority = MAX_PRIO_FOR_PTHREAD;
+  else
+    opt->param.sched_priority = RECEIVE_THREAD_PRIO;
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
     E("Error setting schedparam for pthread attr: %s, to %d",, strerror(err), MAX_PRIO_FOR_PTHREAD);
-  err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent.start, (void*)opt->streamer_ent);
+  err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
 #else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
 #endif

@@ -81,8 +81,9 @@ extern FILE* logfile;
 //#define DUMMYSOCKET
 #define BAUD_LIMITING
 #define SLEEP_ON_BUFFERS_TO_LOAD
+#define RATE_LIMITING_FROM_SOCKETSIZE
 /* Using this until solved properly */
-#define UGLY_BUSYLOOP_ON_TIMER
+//#define UGLY_BUSYLOOP_ON_TIMER
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame

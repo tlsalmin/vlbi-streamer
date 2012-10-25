@@ -40,6 +40,7 @@
 #define STARTPORT 2222
 #define PACKET_SIZE	8888
 #define TARGET_IP "192.168.0.3"
+extern FILE* logfile;
 
 int main(int argc, char** argv){
   (void)argc;
@@ -98,11 +99,11 @@ int main(int argc, char** argv){
 
 
   SETNANOS(sleep,400*1000);
-  while(err == 0){
+  while(err >= 0){
     for(i=0;i<STREAMS;i++){
       err = sendto(sockets[i], buf,PACKET_SIZE, 0, &sin[i],sizeof(struct sockaddr_in));
     }
-    if(err != 0)
+    if(err < 0)
       perror("hur");
   }
 

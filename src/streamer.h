@@ -366,7 +366,7 @@ struct opt_s
   pthread_t *rbuf_pthreads;
   struct buffer_entity * bes;
   struct recording_entity *recs;
-#ifdef PRIORITY_SETTINGS
+#if(PPRIORITY)
   pthread_attr_t        pta;
   struct sched_param    param;
 #endif

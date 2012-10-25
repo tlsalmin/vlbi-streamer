@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.4.2], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.4.4], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
@@ -100,9 +100,18 @@ AC_ARG_ENABLE(spinlock,
     [enable_spinlock="no"])
 AC_MSG_RESULT($enable_spinlock)
 AS_IF([test "x$enable_spinlock" != "xno"], [
-		     AC_DEFINE(SPINLOCK, 1, [Compile as daemon])
-		     ], AC_DEFINE(SPINLOCK, 0, [Compile as daemon]))
-#AM_CONDITIONAL([DAEMON], [test "${enable_daemon}" = "yes"])
+		     AC_DEFINE(SPINLOCK, 1, [Compile with spinlock])
+		     ], AC_DEFINE(SPINLOCK, 0, [Compile without spinlock]))
+
+AC_MSG_CHECKING([--enable-ppriority argument])
+AC_ARG_ENABLE(ppriority,
+    [  --enable-ppriority         Enable pthread priority setting (default: No).],
+    [enable_ppriority=$enableval],
+    [enable_ppriority="no"])
+AC_MSG_RESULT($enable_ppriority)
+AS_IF([test "x$enable_ppriority" != "xno"], [
+		     AC_DEFINE(PPRIORITY, 1, [Compile with pthread priority])
+		     ], AC_DEFINE(PPRIORITY, 0, [Compile without pthread priority]))
 
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,
