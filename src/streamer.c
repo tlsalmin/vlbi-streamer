@@ -218,9 +218,9 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
     D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
   }
   opt->buf_division = B(3);
-  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= 512*MEG)
+  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= MAXFILESIZE*MEG)
     opt->buf_division  >>= 1;
-  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= 256*MEG)
+  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= MINFILESIZE*MEG)
     opt->buf_division  <<= 1;
   opt->buf_num_elems = (BLOCK_ALIGN*opt->buf_division);
   opt->do_w_stuff_every = (BLOCK_ALIGN*opt->packet_size);
