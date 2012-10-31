@@ -21,6 +21,10 @@
   }\
 read_count = be32toh(read_count);
 */
+void usage(){
+  O("Usage: check_mark5b -f <file> (-n if networked packets)\n");
+  exit(-1);
+}
 #define MULPLYTEN
 int main(int argc, char ** argv){
   int fd,err;
@@ -45,9 +49,9 @@ int main(int argc, char ** argv){
   int VLBABCD_timecodeword2;
   int CRCC;
   char c;
+  int isauto=0;
 
-  while ( (c = getopt(argc, argv, "nf:")) != -1) {
-    O("Got option hur");
+  while ( (c = getopt(argc, argv, "anf:")) != -1) {
         //int this_option_optind = optind ? optind : 1;
         switch (c) {
 	  case 'n':
@@ -65,9 +69,14 @@ int main(int argc, char ** argv){
 	      exit(-1);
 	    }
 	    break;
+	  case 'a':
+	    isauto=1;
+	    break;
+
 
 	  default:
-	    printf ("?? getopt returned character code 0%o ??\n", c);
+	    usage();
+	    break;
 	}
   }
   /*
@@ -126,12 +135,13 @@ int main(int argc, char ** argv){
 
     //fprintf(stdout, "---------------------------------------------------------------------------\n");
     fprintf(stdout, "syncword: %5X | userspecified: %6d | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
-#ifndef PORTABLE
-    system ("/bin/stty raw");
-#endif
     //fprintf(stdout, "| vdif_version: %2d | log2_channels: %4d | frame_length %14d |\n", vdif_version, log2_channels, frame_length);
     //fprintf(stdout, "| data_type: %8s | bits_per_sample: %6d | thread_id: %6d | station_id %8d |\n", DATATYPEPRINT(data_type), bits_per_sample, thread_id, station_id);
 
+    if(isauto == 0){
+#ifndef PORTABLE
+    system ("/bin/stty raw");
+#endif
     dachar = getchar();
     switch(dachar)
     {
@@ -168,6 +178,13 @@ int main(int argc, char ** argv){
 #ifndef PORTABLE
     system ("/bin/stty cooked");
 #endif
+    }
+    else{
+      count++;
+      if (count == fsize/framesize -1)
+	break;
+
+    }
   }
 
   err = munmap(mmapfile, fsize);
