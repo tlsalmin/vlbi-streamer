@@ -726,8 +726,8 @@ int init_rbufs(struct opt_s *opt){
   CHECK_ERR("calc bufsize");
   D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets",, opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
 #if(PPRIORITY)
-  memset(&opt->param, 0, sizeof(opt->param));
-  err = pthread_attr_init(&opt->pta);
+  //memset(&opt->param, 0, sizeof(opt->param));
+  //err = pthread_attr_init(&opt->pta);
   if(err != 0){
     E("Pthread attr initialization: %s",,strerror(err));
     return -1;
@@ -765,6 +765,9 @@ int init_rbufs(struct opt_s *opt){
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
     E("Error setting schedparam for pthread attr: %s",,strerror(err));
+  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
+  if(err != 0)
+    E("Error Setting inheritance");
 #endif
 
   D("Initializing buffer threads");
@@ -1158,6 +1161,7 @@ int main(int argc, char **argv)
   LOG("STREAMER: In main, starting receiver thread \n");
 
 #if(PPRIORITY)
+  
   if(opt->optbits & READMODE)
     opt->param.sched_priority = MAX_PRIO_FOR_PTHREAD;
   else
@@ -1165,6 +1169,12 @@ int main(int argc, char **argv)
   err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
   if(err != 0)
     E("Error setting schedparam for pthread attr: %s, to %d",, strerror(err), MAX_PRIO_FOR_PTHREAD);
+  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
+  if(err != 0)
+    E("Error Setting sched policy to SCHED_FIFO");
+  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
+  if(err != 0)
+    E("Error Setting inheritance");
   err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
 #else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);

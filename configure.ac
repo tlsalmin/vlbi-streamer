@@ -124,6 +124,17 @@ AS_IF([test "x$enable_senddebug" != "xno"], [
 		     ], AC_DEFINE(SEND_DEBUG, 0, [Print senddebug_output to stdout]))
 AM_CONDITIONAL([SEND_DEBUG], [test "${enable_senddebug}" = "yes"])
 
+AC_MSG_CHECKING([--enable-writegranuality argument])
+AC_ARG_ENABLE(writegranuality,
+    [  --enable-writegranuality         Enable write granuality (default: yes) Recommended no on large raids.],
+    [enable_writegranuality=$enableval],
+    [enable_writegranuality="yes"])
+AC_MSG_RESULT($enable_writegranuality)
+AS_IF([test "x$enable_writegranuality" != "xno"], [
+		     AC_DEFINE(WRITE_GRANUALITY, 1, [Use granuality in write])
+		     ], AC_DEFINE(WRITE_GRANUALITY, 0, [Use granuality in write]))
+AM_CONDITIONAL([WRITE_GRANUALITY], [test "${enable_writegranuality}" = "yes"])
+
 AC_MSG_CHECKING([--user argument])
 AC_ARG_ENABLE(user,
     [  --enable-user         Set the user.(default oper)],
@@ -132,6 +143,24 @@ AC_ARG_ENABLE(user,
 AC_MSG_RESULT($user)
 USER=$user
 AC_SUBST(USER)
+
+AC_MSG_CHECKING([--minsize argument])
+AC_ARG_ENABLE(minsize,
+	      [  --enable-minsize         Set the minimum size of the files used.(default 256)],
+    [minsize=$enableval],
+    [minsize=256])
+AC_MSG_RESULT($minsize)
+MINSIZE=$minsize
+AC_SUBST(MINSIZE)
+
+AC_MSG_CHECKING([--maxsize argument])
+AC_ARG_ENABLE(maxsize,
+	      [  --enable-maxsize         Set the maximum size of the files used.(default 512)],
+    [maxsize=$enableval],
+    [maxsize=512])
+AC_MSG_RESULT($maxsize)
+MAXSIZE=$maxsize
+AC_SUBST(MAXSIZE)
 
 AC_MSG_CHECKING([--group argument])
 AC_ARG_ENABLE(group,

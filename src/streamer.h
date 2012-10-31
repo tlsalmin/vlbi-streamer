@@ -176,6 +176,10 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   /* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
 
+#define MAX_PRIO_FOR_PTHREAD 4
+#define RECEIVE_THREAD_PRIO 3
+#define MIN_PRIO_FOR_PTHREAD 1
+
   /* Default packet size */
 #define DEF_BUF_ELEM_SIZE 8192
   //#define BUF_ELEM_SIZE 32768

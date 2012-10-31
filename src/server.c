@@ -271,7 +271,34 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
     ev->stats = (struct stats*)malloc(sizeof(struct stats));
     init_stats(ev->stats);
   }
+  #if(PPRIORITY)
+  memset(&(ev->opt->param), 0, sizeof(ev->opt->param));
+  err = pthread_attr_init(&(ev->opt->pta));
+
+  err = pthread_attr_getschedparam(&(ev->opt->pta), &(ev->opt->param));
+  if(err != 0)
+    E("Error getting schedparam for pthread attr: %s",,strerror(err));
+  else
+    D("Schedparam set to %d, Trying to set to minimun %d",, ev->opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
+
+  err = pthread_attr_setschedpolicy(&(ev->opt->pta), SCHED_FIFO);
+  if(err != 0)
+    E("Error setting schedtype for pthread attr: %s",,strerror(err));
+
+  ev->opt->param.sched_priority = MIN_PRIO_FOR_PTHREAD;
+  err = pthread_attr_setschedparam(&(ev->opt->pta), &(ev->opt->param));
+  if(err != 0)
+    E("Error setting schedparam for pthread attr: %s",,strerror(err));
+  err = pthread_attr_setinheritsched(&(ev->opt->pta), PTHREAD_INHERIT_SCHED);
+  if(err != 0)
+    E("Error Setting inheritance");
+#endif
+
+#if(PPRIORITY)
+  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
+#else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
+#endif
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
   return 0;

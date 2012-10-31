@@ -90,7 +90,7 @@ extern FILE* logfile;
 #define PKT_OFFSET      (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + \
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define BIND_WITH_PF_PACKET
-#define PLOTTABLE_SEND_DEBUG 1
+#define PLOTTABLE_SEND_DEBUG 0
 //#define SHOW_PACKET_METADATA;
 
 struct sender_tracking{
@@ -785,10 +785,10 @@ void * udp_sender(void *streamo){
 #else
 	//err = nanosleep(&req,&rem);
 	err = SLEEP_NANOS(st.req);
-	GETTIME(st.now);
 	//err = usleep(1);
 #endif /*UGLY_BUSYLOOP_ON_TIMER */
 #if(SEND_DEBUG)
+	GETTIME(st.now);
 #if(PLOTTABLE_SEND_DEBUG)
 	fprintf(stdout, "%ld\n", nanodiff(&st.reference, &st.now));
 #else
