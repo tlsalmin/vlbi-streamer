@@ -113,6 +113,24 @@ AS_IF([test "x$enable_ppriority" != "xno"], [
 		     AC_DEFINE(PPRIORITY, 1, [Compile with pthread priority])
 		     ], AC_DEFINE(PPRIORITY, 0, [Compile without pthread priority]))
 
+AC_MSG_CHECKING([--enable-minfilesize argument])
+AC_ARG_ENABLE(minfilesize,
+	      [  --enable-minfilesize         Set min file size (default: 256).],
+    [enable_minfilesize=$enableval],
+    [enable_minfilesize=256])
+AC_MSG_RESULT($enable_minfilesize)
+AS_IF([test "x$MINFILESIZE" = x], [MINFILESIZE=256])
+AC_DEFINE_UNQUOTED(MINFILESIZE, ${MINFILESIZE}, [Minimum file size])
+
+AC_MSG_CHECKING([--enable-maxfilesize argument])
+AC_ARG_ENABLE(maxfilesize,
+	      [  --enable-maxfilesize         Set max file size (default: 256).],
+    [enable_maxfilesize=$enableval],
+    [enable_maxfilesize=256])
+AC_MSG_RESULT($enable_maxfilesize)
+AS_IF([test "x$MAXFILESIZE" = x], [MAXFILESIZE=512])
+AC_DEFINE_UNQUOTED(MAXFILESIZE, ${MAXFILESIZE}, [Minimum file size])
+
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,
     [  --enable-senddebug         Enable senddebug output.],
