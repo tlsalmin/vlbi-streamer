@@ -127,14 +127,14 @@ int main(int argc, char ** argv){
 #endif
     GRAB_4_BYTES
 #ifdef MULPLYTEN
-      VLBABCD_timecodeword2 = m5getmyysecs(read_count);
+      VLBABCD_timecodeword2 = m5getmyysecs((unsigned int)read_count);
 #else
     VLBABCD_timecodeword2 = (read_count & get_mask(16,31)) >> 16;
 #endif
     CRCC = read_count & get_mask(0,15);
 
     //fprintf(stdout, "---------------------------------------------------------------------------\n");
-    fprintf(stdout, "syncword: %5X | userspecified: %6d | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
+    fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
     //fprintf(stdout, "| vdif_version: %2d | log2_channels: %4d | frame_length %14d |\n", vdif_version, log2_channels, frame_length);
     //fprintf(stdout, "| data_type: %8s | bits_per_sample: %6d | thread_id: %6d | station_id %8d |\n", DATATYPEPRINT(data_type), bits_per_sample, thread_id, station_id);
 

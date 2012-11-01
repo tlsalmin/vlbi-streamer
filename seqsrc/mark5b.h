@@ -1,5 +1,6 @@
 #include "common.h"
 //#define MARK5BISDERP
+#define USERSPECCHARLENGTH 4
 int m5getMJD(int theword){
   int returnable = 0;
 #ifdef MARK5BISDERP
@@ -48,11 +49,11 @@ int m5getsecs(int theword){
 #endif
   return returnable;
 }
-int m5getmyysecs(int theword){
-  int returnable = 0;
-  returnable += ((theword & get_mask(28,31)) >> 28)*10000;
-  returnable += ((theword & get_mask(24,27)) >> 24)*1000;
-  returnable += ((theword & get_mask(20,23)) >> 20)*100;
-  returnable += ((theword & get_mask(16,19) >> 16))*10;
-  return returnable;
+long m5getmyysecs(unsigned int theword){
+  unsigned int returnable = 0;
+  returnable += ((theword & get_mask(28,31)) >> 28)*100000;
+  returnable += ((theword & get_mask(24,27)) >> 24)*10000;
+  returnable += ((theword & get_mask(20,23)) >> 20)*1000;
+  returnable += ((theword & get_mask(16,19) >> 16))*100;
+  return (int)returnable;
 }
