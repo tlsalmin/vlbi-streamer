@@ -1,5 +1,6 @@
 #define O(...) fprintf(stdout, __VA_ARGS__)
 #define MARK5SIZE 10016
+#define VDIFSIZE 8224
 #define MARK5NETSIZE 10032
 #define MARK5OFFSET 8
 #define BOLPRINT(x) (x)?"true":"false"

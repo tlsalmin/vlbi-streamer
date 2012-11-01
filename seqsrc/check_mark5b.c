@@ -182,7 +182,7 @@ int main(int argc, char ** argv){
     else{
       count++;
       if (count == fsize/framesize -1)
-	break;
+	running = 0;
 
     }
   }
