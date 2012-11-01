@@ -325,7 +325,9 @@ int start_scheduled(struct schedule *sched){
 	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, -tdif);
 	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
 	//remove_recording(ev_temp,&(sched->scheduled_head));
-	remove_from_branch(&sched->br, le, MUTEX_FREE);
+	struct listed_entity* temp = le;
+	le = le->child;
+	remove_from_branch(&sched->br, temp, MUTEX_FREE);
 	continue;
       }
       LOG("Starting event %s\n", ev->opt->filename);

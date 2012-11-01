@@ -58,17 +58,24 @@ cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
 
 # get end times
 #cat $SNP | grep data_valid=off -1 | grep ! | sed -n -e 's/[!.]/ /gp'|sed -n -e 's/[:.]/ /gp' > ./endtimes
-if [ -e $EXTRAOUT ]
-then
+#if [ ! -e $EXTRAOUT ]
+#then
   echo "Emptying old file $EXTRAOUT"
   echo "#!/bin/bash" > $EXTRAOUT
-fi
+#fi
 
 
 #echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'
 NEWFILE=`echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'`
 rm $NEWFILE
 cp $SNP $NEWFILE
+
+BIGBADA=""
+UNCORKED=0
+#if [ ! -z "$REMOTER" ]
+#then
+  #echo $REMOTER \" \\ >> $EXTRAOUT
+#fi
 
 I=1
 LC=`wc -l scans | awk '{print $1}'`
@@ -78,7 +85,7 @@ do
   SARRAY=(`tail -n +$I ./starttimes | head -1`)
 
   #Use time from EPOCH as start time, since its nice to use in C
-  STARTEPOCH=`date -d "01/01/${SARRAY[0]} + ${SARRAY[1]} days ${SARRAY[2]}" +%s `
+  STARTEPOCH=`date -u -d "01/01/${SARRAY[0]} + ${SARRAY[1]} days ${SARRAY[2]}" +%s `
   #Duration is straight in the scan name.
   dur=${RARRAY[4]}
   #Trying to comform with http://vlbi.org/filename/
@@ -92,10 +99,26 @@ do
   #echo $EXPNAME $STARTEPOCH $dur
   if [ ! -z "$REMOTER" ]
   then
-    echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
+    if [ "$UNCORKED" == "0" ]
+    then
+      UNCORKED=1
+      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH"
+    else
+      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH"
+    fi
+    #echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
+    #echo \;${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH\\>> $EXTRAOUT
+
   else
     echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH >> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes
+
+if [ ! -z "$REMOTER" ]
+then
+  #echo \" >> $EXTRAOUT
+  echo $REMOTER \""$BIGBADA\"" >> $EXTRAOUT
+fi
+
 chmod +x $EXTRAOUT
