@@ -97,11 +97,13 @@
 
 /* Global stuff */
 //#define CHECK_SEQUENCE 		B(12)
+#define WILL_GET_SOCKET		B(12)
 #define ASYNC_WRITE		B(13)
 #define READMODE		B(14)
 #define USE_HUGEPAGE		B(15)
 
 //#define WAIT_BETWEEN		B(16)
+#define WILL_GIVE_SOCKET	B(16)
 #define VERBOSE			B(17)
 #define MOUNTPOINT_VERBOSE	B(18)
 #define SIMPLE_BUFFER		B(19)
@@ -109,13 +111,13 @@
 #define USE_RX_RING		B(20)
 #define LIVE_SENDING		B(21)
 #define LIVE_RECEIVING		B(22)
-/* Empty B(21) B(22) B(23)	*/
 
 #define LOCKER_DATATYPE		0x0f000000
 #define	DATATYPE_UNKNOWN	B(24) 
 #define	DATATYPE_VDIF		B(25) 
 #define	DATATYPE_MARK5B		B(26) 
 #define DATATYPE_UDPMON		B(27)
+
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -176,9 +178,9 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   /* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
 
-#define MAX_PRIO_FOR_PTHREAD 4
+#define MAX_PRIO_FOR_PTHREAD 1
 #define RECEIVE_THREAD_PRIO 3
-#define MIN_PRIO_FOR_PTHREAD 1
+#define MIN_PRIO_FOR_PTHREAD 4
 
   /* Default packet size */
 #define DEF_BUF_ELEM_SIZE 8192
