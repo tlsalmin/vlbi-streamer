@@ -10,4 +10,4 @@ do
   rm  -rf ${i}/$1
 done
 
-echo $(date --rfc-3339=seconds) "Removed $i from drives" | tee $LOGFILE
+echo $(date --rfc-3339=seconds) "Removed $i from drives" | tee -a  $LOGFILE

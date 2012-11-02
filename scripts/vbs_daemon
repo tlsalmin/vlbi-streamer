@@ -55,20 +55,20 @@ do_start()
   else
     #sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
     #if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
-    echo $(date --rfc-3339=seconds) "Checking if hugepages are in use.." | tee $LOGFILE
+    echo $(date --rfc-3339=seconds) "Checking if hugepages are in use.." | tee -a  $LOGFILE
     if [ "$(cat $CFGFILE |egrep -v "^#" |grep use_hugepage |cut -d' ' -f3)" == "1;" ] 
     then
       if [ "$(cat /proc/sys/vm/nr_hugepages)" == "0" ]
       then
-	echo $(date --rfc-3339=seconds) "Initializing hugepages" | tee $LOGFILE
+	echo $(date --rfc-3339=seconds) "Initializing hugepages" | tee -a  $LOGFILE
 	init_hugepages
       fi
     fi
     if start-stop-daemon --start --pidfile ${PIDFILE}--user ${USER} --group ${GROUP} --background --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
-      echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee $LOGFILE
+      echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE
       return 0
     else
-      echo $(date --rfc-3339=seconds) "Error in vlbistreamer start" |tee $LOGFILE
+      echo $(date --rfc-3339=seconds) "Error in vlbistreamer start" |tee -a  $LOGFILE
       return 2
     fi
   fi
@@ -87,10 +87,10 @@ do_stop()
     done
     #if start-stop-daemon --stop --pidfile $PIDFILE --name vlbistreamer --exec $BINDIR/vbs_logscript -- stop ; then
     if [ -z "$(ps -A -o cmd | grep -v grep|grep -i $DAEMON)" ] ; then
-      echo $(date --rfc-3339=seconds) "Vlbistreamer stopped" | tee $LOGFILE
+      echo $(date --rfc-3339=seconds) "Vlbistreamer stopped" | tee -a  $LOGFILE
       RETVAL=0
     else
-      echo $(date --rfc-3339=seconds) "error in vlbistreamer stop" | tee $LOGFILE
+      echo $(date --rfc-3339=seconds) "error in vlbistreamer stop" | tee -a  $LOGFILE
       RETVAL=2
     fi
   else

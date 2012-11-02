@@ -3,4 +3,4 @@ SCHEDULE=temp/vlbischedule
 LOGFILE=temp/vlbistreamer.log
 
 echo "" > $SCHEDULE
-echo $(date --rfc-3339=seconds) "Manually cleared schedule" | tee $LOGFILE
+echo $(date --rfc-3339=seconds) "Manually cleared schedule" | tee -a  $LOGFILE

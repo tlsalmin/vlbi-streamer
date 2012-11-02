@@ -9,7 +9,7 @@ OPTIONS:
       -i INTERFACE	Which interface to bind to(Not required)
       -n IP		Simultaneously send stream to IP
       -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
-      -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)(Only UDPMON supporteed atm.)
+      -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)(Only UDPMON supportee -a d atm.)
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
       -u 		Use hugepages
@@ -73,7 +73,7 @@ do
 	DATDATE=$(date -d"@${2}" +%s 2> /dev/null)
 	if [ "$?" -ne 0 ]
 	then
-	  echo $(date --rfc-3339=seconds) "Error in setting startup date " | tee $LOGFILE
+	  echo $(date --rfc-3339=seconds) "Error in setting startup date " | tee -a  $LOGFILE
 	  usage
 	  exit 1
 	fi
@@ -107,7 +107,7 @@ do
       rate = $2;"
       shift
       ;;
-    -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" | tee $LOGFILE ;;
+    -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" | tee -a  $LOGFILE ;;
   *) eval "arg_$n=$1";n=$(($n+1));;
 esac
 shift
@@ -126,7 +126,7 @@ then
   do
     RECNAME=${YE_OLDE}_${kk}
     kk=$(($kk+1))
-    echo $(date --rfc-3339=seconds) "Recording already exists! Renaming to $RECNAME" | tee $LOGFILE
+    echo $(date --rfc-3339=seconds) "Recording already exists! Renaming to $RECNAME" | tee -a  $LOGFILE
     match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
   done
 fi
@@ -138,7 +138,7 @@ then
   if [ $? -ne 0 ]
   then
     usage
-    echo $(date --rfc-3339=seconds) "Couldnt resolve hostname $DUR" | tee $LOGFILE
+    echo $(date --rfc-3339=seconds) "Couldnt resolve hostname $DUR" | tee -a  $LOGFILE
     exit 1
   fi
 
@@ -168,6 +168,10 @@ echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
   $EXTRAOPS
 };
 " >> $SCHEDULE
+if [ -z "${DATDATE}"]
+then
+  DATDATE=$(date +%s)
+fi
 if [ "$record" == "1" ]
 then
   echo "`date --rfc-3339=seconds`: Added recording named $RECNAME to record for $DUR s starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " >> $LOGFILE
