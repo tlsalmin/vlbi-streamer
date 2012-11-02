@@ -1,3 +1,5 @@
+#ifndef MARK5B_H
+#define MARK5B_H
 #include "common.h"
 //#define MARK5BISDERP
 #define USERSPECCHARLENGTH 4
@@ -25,3 +27,4 @@ long m5getmyysecs(unsigned int theword){
   returnable += ((theword & get_mask(16,19) >> 16))*100;
   return (int)returnable;
 }
+#endif

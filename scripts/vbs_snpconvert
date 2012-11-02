@@ -15,7 +15,10 @@ EOF
 }
 #Go through params
 VLBIHOST=ara.vlbi
-VBS_QUEUE=vbs_record
+VBS_QUEUE="vbs_queue -m r"
+TMPSCANSFILE=./tempscansforvlbistreamer
+TMPSTARTSFILE=./tempstarttimesforvlbistreamer
+TMPENDTIMES=./tempendtimesforvlbistreamer
 n=1
 while [ $# -gt 0 ]
 do
@@ -50,11 +53,37 @@ I=1
 echo "Snap file: $SNP"
 
 # get scan names, convert "," to space
-sed -n -e '/scan_name=/s/scan_name=//p' $SNP | sed -n -e 's/,/ /gp' > ./scans
+#sed -n -e '/scan_name=/s/scan_name=//pj $SNP | sed -n -e 's/,/ /gp' > $TMPSCANSFILE
+#sed '/scan_name=/s/scan_name=//p' $SNP  > $TMPSCANSFILE
+grep 'scan_name=' $SNP | cut -d'=' -f2 > $TMPSCANSFILE
 
 # get start times
 # sed -n -e '/preob/,/!/p' $SNP | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
-cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
+#cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > $TMPSTARTSFILE
+
+#Clear old
+cat /dev/null > $TMPSTARTSFILE
+
+#LC=`wc -l $TMPSCANSFILE | awk '{print $1}'`
+#I=0
+#while [ $I -le $LC ]
+while read line
+do
+  sed -n '/'$line'/,/data_valid=on/p' $SNP | tac |grep ! | head -n 1 |sed -e  's/[!.]/ /gp' |head -n1 >> $TMPSTARTSFILE
+done < $TMPSCANSFILE
+
+cat /dev/null > $TMPENDTIMES
+
+while read line
+do
+  sed -n '/'$line'/,/data_valid=off/p' $SNP | tac |grep ! | head -n 1 |sed -e  's/[!.]/ /gp' |head -n1 >> $TMPENDTIMES
+done < $TMPSCANSFILE
+
+# get end times
+#cat $SNP | grep data_valid=off -1 | grep ! | sed -n -e 's/[!.]/ /gp'|sed -n -e 's/[:.]/ /gp' > ./endtimes
+
+#Now remove em commas.
+sed -i 's/,/ /g' $TMPSCANSFILE
 
 # get end times
 #cat $SNP | grep data_valid=off -1 | grep ! | sed -n -e 's/[!.]/ /gp'|sed -n -e 's/[:.]/ /gp' > ./endtimes
@@ -67,7 +96,10 @@ cat $SNP | grep disk_pos -1 | grep ! | sed -n -e 's/[!.]/ /gp' > ./starttimes
 
 #echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'
 NEWFILE=`echo $SNP|sed 's/\(.*\)\.snp/\1vbs\.snp/'`
-rm $NEWFILE
+#if [ -e $NEWFILE ]
+#then
+  #rm $NEWFILE
+#fi
 cp $SNP $NEWFILE
 
 BIGBADA=""
@@ -78,16 +110,20 @@ UNCORKED=0
 #fi
 
 I=1
-LC=`wc -l scans | awk '{print $1}'`
+LC=`wc -l $TMPSCANSFILE | awk '{print $1}'`
 while [ $I -le $LC ]
 do
-  RARRAY=(`tail -n +$I ./scans | head -1`)
-  SARRAY=(`tail -n +$I ./starttimes | head -1`)
+  RARRAY=(`tail -n +$I $TMPSCANSFILE | head -1`)
+  SARRAY=(`tail -n +$I $TMPSTARTSFILE | head -1`)
+  EARRAY=(`tail -n +$I $TMPENDTIMES | head -1`)
 
   #Use time from EPOCH as start time, since its nice to use in C
   STARTEPOCH=`date -u -d "01/01/${SARRAY[0]} + ${SARRAY[1]} days ${SARRAY[2]}" +%s `
+  ENDEPOCH=`date -u -d "01/01/${EARRAY[0]} + ${EARRAY[1]} days ${EARRAY[2]}" +%s `
   #Duration is straight in the scan name.
-  dur=${RARRAY[4]}
+  #Id wish!
+  #dur=${RARRAY[4]}
+  dur=$((ENDEPOCH - STARTEPOCH))
   #Trying to comform with http://vlbi.org/filename/
   EXPNAME=${RARRAY[1]}_${RARRAY[2]}_${RARRAY[0]}
 
@@ -97,20 +133,26 @@ do
   sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
+  if [ "$((I % 4))" == "0" ]
+  then
+    DOTHEDOT="; printf \".\""
+  else
+    DOTHEDOT=""
+  fi
   if [ ! -z "$REMOTER" ]
   then
     if [ "$UNCORKED" == "0" ]
     then
       UNCORKED=1
-      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH"
+      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT"
     else
-      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH"
+      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT"
     fi
     #echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
     #echo \;${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH\\>> $EXTRAOUT
 
   else
-    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH >> $EXTRAOUT
+    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT >> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes
@@ -118,7 +160,11 @@ done < starttimes
 if [ ! -z "$REMOTER" ]
 then
   #echo \" >> $EXTRAOUT
-  echo $REMOTER \""$BIGBADA\"" >> $EXTRAOUT
+  echo $REMOTER \""$BIGBADA ; printf \"Done!\n\" \"" >> $EXTRAOUT
+else
+  echo "printf \"Done!\n\"" >> $EXTRAOUT
+
 fi
 
 chmod +x $EXTRAOUT
+#rm $TMPSCANSFILE $TMPSTARTSFILE $TMPENDTIMES

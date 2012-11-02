@@ -17,7 +17,7 @@ then
   echo ""
   usage
   echo ""
-  echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE
+  echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME"
 else
   echo "Streaming added OK"
 fi

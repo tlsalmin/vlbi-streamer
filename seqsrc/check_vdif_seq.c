@@ -7,7 +7,9 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <string.h>
+
 #include "common.h"
+
 #ifdef GRAB_4_BYTES
 #undef GRAB_4_BYTES
 #endif

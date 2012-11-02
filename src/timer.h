@@ -49,6 +49,6 @@ long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
 void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);
 void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add);
 //void specadd(struct timespec * to, struct timespec *from);
-int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event);
+long get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event);
 unsigned long get_min_sleeptime();
 #endif /* TIMER_H */

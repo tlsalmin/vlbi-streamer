@@ -124,9 +124,9 @@ AC_DEFINE_UNQUOTED(MINFILESIZE, ${MINFILESIZE}, [Minimum file size])
 
 AC_MSG_CHECKING([--enable-maxfilesize argument])
 AC_ARG_ENABLE(maxfilesize,
-	      [  --enable-maxfilesize         Set max file size (default: 256).],
+	      [  --enable-maxfilesize         Set max file size (default: 512).],
     [enable_maxfilesize=$enableval],
-    [enable_maxfilesize=256])
+    [enable_maxfilesize=512])
 AC_MSG_RESULT($enable_maxfilesize)
 AS_IF([test "x$MAXFILESIZE" = x], [MAXFILESIZE=512])
 AC_DEFINE_UNQUOTED(MAXFILESIZE, ${MAXFILESIZE}, [Minimum file size])

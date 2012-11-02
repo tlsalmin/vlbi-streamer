@@ -73,7 +73,7 @@ do
 	DATDATE=$(date -d"@${2}" +%s 2> /dev/null)
 	if [ "$?" -ne 0 ]
 	then
-	  echo "Error in setting startup date"
+	  echo $(date --rfc-3339=seconds) "Error in setting startup date " | tee $LOGFILE
 	  usage
 	  exit 1
 	fi
@@ -107,7 +107,7 @@ do
       rate = $2;"
       shift
       ;;
-    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
+    -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" | tee $LOGFILE ;;
   *) eval "arg_$n=$1";n=$(($n+1));;
 esac
 shift
@@ -126,7 +126,7 @@ then
   do
     RECNAME=${YE_OLDE}_${kk}
     kk=$(($kk+1))
-    echo "Recording already exists! Renaming to $RECNAME"
+    echo $(date --rfc-3339=seconds) "Recording already exists! Renaming to $RECNAME" | tee $LOGFILE
     match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
   done
 fi
@@ -138,27 +138,24 @@ then
   if [ $? -ne 0 ]
   then
     usage
-    echo "Couldnt resolve hostname $DUR"
-    echo "Couldnt resolve hostname $DUR" >> $LOGFILE
+    echo $(date --rfc-3339=seconds) "Couldnt resolve hostname $DUR" | tee $LOGFILE
     exit 1
   fi
 
   DUR=`getent ahosts $arg_2 | head -1 |awk '{print $1}' | uniq`
   CONFSTART="hostname = \"$DUR\";
   record = 0;"
-  echo "`date`: Added streaming named $RECNAME to send to $DUR" >> $LOGFILE
 else
   DUR=$arg_2
   CONFSTART="time = $(($DUR))L;
   record = 1;"
-  echo "`date`: Added recording named $RECNAME to record for $DUR s" >> $LOGFILE
 fi
 
 if [ -z "$RECNAME" ] || [ -z "$DUR" ]
 then
-  echo "Record name or destination/duration missing"
+  echo $(date --rfc-3339=seconds) "Record name or destination/duration missing"
   usage
-  echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE
+  echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" >> $LOGFILE
   exit  1
 fi
 
@@ -171,5 +168,11 @@ echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
   $EXTRAOPS
 };
 " >> $SCHEDULE
+if [ "$record" == "1" ]
+then
+  echo "`date --rfc-3339=seconds`: Added recording named $RECNAME to record for $DUR s starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " >> $LOGFILE
+else
+  echo "`date --rfc-3339=seconds`: Added streaming named $RECNAME to send to $DUR" starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) >> $LOGFILE
+fi
 #TODO: What date format people want?
 exit 0

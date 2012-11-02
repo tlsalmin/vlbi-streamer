@@ -305,7 +305,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
 }
 int start_scheduled(struct schedule *sched){
   int err=0;
-  int tdif;
+  long tdif;
   TIMERTYPE time_now;
   GETTIME(time_now);
   struct scheduled_event * ev;
@@ -322,7 +322,7 @@ int start_scheduled(struct schedule *sched){
       //ev = ev->next;
       /* Removes old stuff. IF tv_sec is 0, should start immediately */
       if(ev->opt->starting_time.tv_sec != 0 && (!(ev->opt->optbits & READMODE) && (tdif < -((long)ev->opt->time)))){
-	LOG("Removing clearly too old recording request %s, which should have started %d seconds ago\n", ev->opt->filename, -tdif);
+	LOG("Removing clearly too old recording request %s, which should have started %ld seconds ago\n", ev->opt->filename, -tdif);
 	LOG("Start time %lu\n", ev->opt->starting_time.tv_sec);
 	//remove_recording(ev_temp,&(sched->scheduled_head));
 	struct listed_entity* temp = le;
@@ -624,7 +624,6 @@ int main(int argc, char **argv)
   logfile = fopen(LOGFILE, "a+");
   if(logfile == NULL)
     fprintf(stdout, "Couldn't open logfile for writing");
-  fprintf(logfile, "ohcomeon");
 #endif
 
 

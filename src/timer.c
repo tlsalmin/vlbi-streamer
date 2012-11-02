@@ -72,8 +72,8 @@ void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
 #endif
     }
 }
-int get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
-  int diff = 0;
+long get_sec_diff(TIMERTYPE *timenow, TIMERTYPE* event){
+  long diff = 0;
   /* Straight second diff */
   diff += event->tv_sec - timenow->tv_sec;
 #ifdef TIMERTYPE_GETTIMEOFDAY

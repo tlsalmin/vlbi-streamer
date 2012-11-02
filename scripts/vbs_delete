@@ -9,3 +9,5 @@ for i in /mnt/disk*
 do
   rm  -rf ${i}/$1
 done
+
+echo $(date --rfc-3339=seconds) "Removed $i from drives" | tee $LOGFILE

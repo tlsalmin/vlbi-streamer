@@ -23,9 +23,9 @@ do
   done < /proc/$DA_PID/net/udp
   if [ -z $OUTF ]
   then
-    echo time: `date +%s` ploss: $PLOSS
+    echo time: `date -u +%s` ploss: $PLOSS
   else
-    echo time: `date +%s` ploss: $PLOSS > $OUTF
+    echo time: `date -u +%s` ploss: $PLOSS > $OUTF
   fi
   sleep 1
   DA_PID=`ps -A |grep -i $PROGRM | awk '{print $1}'`

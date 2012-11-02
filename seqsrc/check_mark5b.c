@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/mman.h>
-//#include "common.h"
+#include "common.h"
 #include "mark5b.h"
 #define GRAB_4_BYTES \
   memcpy(&read_count, target, 4);\
@@ -28,35 +28,42 @@ void usage(){
 //#define MULPLYTEN
 int main(int argc, char ** argv){
   int fd,err;
+  //struct common_control_element * cce = (struct common_control_element*)malloc(sizeof(common_control_element));
+//  count = 0;
   long count = 0;
   long fsize;
   int dachar;
   void* mmapfile = NULL;
   void* target;
-  int read_count;
+  unsigned int read_count;
   int pagesize = getpagesize();
   struct stat st;
   int running = 1;
   int offset = 0;
   int framesize = MARK5SIZE;
+  int hexmode=0;
 
   int syncword;
   int userspecified;
+  int hexoffset=0;
   int tvg;
   int framenum;
   int VLBABCD_timecodeword1J;
   int VLBABCD_timecodeword1S;
   int VLBABCD_timecodeword2;
+  int seek = 0;
   int CRCC;
   char c;
   int isauto=0;
+  int netmode=0;
 
-  while ( (c = getopt(argc, argv, "anf:")) != -1) {
+  while ( (c = getopt(argc, argv, "anf:s")) != -1) {
         //int this_option_optind = optind ? optind : 1;
         switch (c) {
 	  case 'n':
 	    framesize = MARK5NETSIZE;
 	    offset = MARK5OFFSET;
+	    netmode=1;
 	    break;
 	  case 'f':
 	    if(stat(optarg, &st) != 0){
@@ -72,8 +79,8 @@ int main(int argc, char ** argv){
 	  case 'a':
 	    isauto=1;
 	    break;
-
-
+	  case 's':
+	    seek = 1;
 	  default:
 	    usage();
 	    break;
@@ -104,11 +111,23 @@ int main(int argc, char ** argv){
   mmapfile = mmap(NULL, fsize, PROT_READ, MAP_PRIVATE, fd, 0);
   if(((long)mmapfile) == -1)
     perror("mmap file");
+
+  /* Check if we started at half frame */
+  target = mmapfile+offset;
+  GRAB_4_BYTES
+  if(read_count != 0xABADDEED){
+    O("Adding 5016 offset, since recording started at midway of a mark5b frame");
+    offset+=5016;
+  }
   while(running){
 
-    target = mmapfile + framesize*count + offset;
+    if(hexmode && netmode)
+      target = mmapfile + framesize*count + 5016+ hexoffset*16;
+    else
+      target = mmapfile + framesize*count + offset + hexoffset*16;
+    if(hexmode == 0){
     GRAB_4_BYTES
-      syncword = read_count;
+    syncword = read_count;
 
     GRAB_4_BYTES
       userspecified = (read_count & get_mask(16,31)) >> 16;
@@ -118,12 +137,13 @@ int main(int argc, char ** argv){
     GRAB_4_BYTES
 #ifdef MULPLYTEN
       //read_count = be32toh(read_count);
-      VLBABCD_timecodeword1J = m5getMJD(read_count);
+    VLBABCD_timecodeword1J = m5getMJD(read_count);
     VLBABCD_timecodeword1S= m5getsecs((unsigned int)read_count);
     //VLBABCD_timecodeword1S = read_count & get_mask(0,20);
 #else
     VLBABCD_timecodeword1J = (read_count & get_mask(20,31)) >> 20;
     VLBABCD_timecodeword1S = read_count & get_mask(0,20);
+    O("%X\n", VLBABCD_timecodeword1S);
 #endif
     GRAB_4_BYTES
 #ifdef MULPLYTEN
@@ -139,6 +159,17 @@ int main(int argc, char ** argv){
 #else
     fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6X mjd| timecordword1S: %6X s | timecodeword2: 0.%6X s | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
 #endif
+    }
+    else{
+      fprintf(stdout, "\t%X ", *((int32_t*)target));
+      target+=4;
+      fprintf(stdout, "\t%X ", *((int32_t*)target));
+      target+=4;
+      fprintf(stdout, "\t%X ", *((int32_t*)target));
+      target+=4;
+      fprintf(stdout, "\t%X \n", *((int32_t*)target));
+      //fprintf(stdout, "\t%X %X %X %X\n", *((int16_t*)target), *((int16_t*)(target+4)), *((int16_t*)(target+8)), *((int16_t*)(target+12)));
+    }
     //fprintf(stdout, "| vdif_version: %2d | log2_channels: %4d | frame_length %14d |\n", vdif_version, log2_channels, frame_length);
     //fprintf(stdout, "| data_type: %8s | bits_per_sample: %6d | thread_id: %6d | station_id %8d |\n", DATATYPEPRINT(data_type), bits_per_sample, thread_id, station_id);
 
@@ -153,30 +184,74 @@ int main(int argc, char ** argv){
 	running = 0;
 	break;
       case (int)'h': 
+	if(hexmode){
+	  if(hexoffset>0)
+	    hexoffset--;
+	}
+	else{
 	if(count>0)
 	  count--;
+	}
 	break;
       case (int)'k': 
+	if(hexmode){
+	  if(hexoffset>JUMPSIZE)
+	    hexoffset-=JUMPSIZE;
+	}
+	else{
 	if(count>JUMPSIZE)
 	  count-=JUMPSIZE;
 	else
 	  count = 0;
+	}
 	break;
       case (int)'j': 
+	if(hexmode){
+	  if(hexoffset<(framesize/16-JUMPSIZE))
+	    hexoffset+=JUMPSIZE;
+	  else
+	    hexoffset = (framesize/16)-1;
+	}
+	else{
 	if((count) <(fsize/framesize - JUMPSIZE))
 	  count+=JUMPSIZE;
 	else
 	  count = fsize/framesize -1;
+	}
 	break;
       case (int)'G': 
+	if(hexmode){
+	  hexoffset = (framesize/16)-1;
+	}
+	else{
 	count = fsize/framesize -1;
+	}
 	break;
       case (int)'g': 
+	if(hexmode){
+	  hexoffset = 0;
+	}
+	else{
 	count = 0;
+	}
+	break;
+      case (int)'H': 
+	target = mmapfile + framesize*count + offset;
+	fprintf(stdout, " %10X %5X %5X %10X --> ", *((unsigned int*)target), *((short unsigned int*)(target+4)),*((short unsigned int*)(target+6) ) ^ B(15), *((unsigned int*)(target+8)));
+	break;
+      case 'b':
+	hexmode ^= 1;
+	hexoffset = 0;
 	break;
       case (int)'l': 
+	if(hexmode){
+	  if(hexoffset < (framesize/16 -1 ))
+	    hexoffset++;
+	}
+	else{
 	if((count) <(fsize/framesize - 1))
 	  count++;
+	}
 	break;
     }
 #ifndef PORTABLE

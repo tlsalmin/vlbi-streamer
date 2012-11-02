@@ -18,7 +18,7 @@ then
   echo ""
   usage
   echo ""
-  echo "Errors in parameters of recording $RECNAME" >> $LOGFILE
+  echo $(date --rfc-3339=seconds) "Errors in parameters of recording $RECNAME"
 else
   echo "Recording added OK"
 fi
