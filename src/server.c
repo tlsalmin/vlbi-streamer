@@ -37,6 +37,7 @@
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
+/* Not actually used heh.. */
 #define MAX_SCHEDULED 512
 #define MAX_RUNNING 4
 #define SECS_TO_START_IN_ADVANCE 1

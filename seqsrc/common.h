@@ -14,6 +14,8 @@
 #define B(x) (1 << x)
 #define HEXMODE B(0)
 
+unsigned int get_mask(int start, int end);
+
 struct common_control_element{
   int fd;
   long count;
@@ -28,7 +30,6 @@ struct common_control_element{
   int optbits;
 };
 
-unsigned int get_mask(int start, int end);
 
 int keyboardinput(struct common_control_element * cce);
 //#define GRAB_4_AND_SHIFT(pointer,offset) *((int*)((pointer & get_mask(offset,offset+4)) >> offset))

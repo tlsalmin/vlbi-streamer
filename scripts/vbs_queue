@@ -168,11 +168,11 @@ echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
   $EXTRAOPS
 };
 " >> $SCHEDULE
-if [ -z "${DATDATE}"]
+if [ -z "${DATDATE}" ]
 then
   DATDATE=$(date +%s)
 fi
-if [ "$record" == "1" ]
+if [ "$RECORD" == "1" ]
 then
   echo "`date --rfc-3339=seconds`: Added recording named $RECNAME to record for $DUR s starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " >> $LOGFILE
 else

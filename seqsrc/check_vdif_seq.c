@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include <string.h>
 
-#include "common.h"
+#include "commonffu.h"
 
 #ifdef GRAB_4_BYTES
 #undef GRAB_4_BYTES
@@ -19,7 +19,7 @@
   read_count = be32toh(read_count);
 
 void usage(){
-  O("Usage: check_mark5b -f <file> (-s vdifsize(default 8224))(-a for no navigation, just spam))\n");
+  O("Usage: check_vdif_seq -f <file> (-s vdifsize(default 8224))(-a for no navigation, just spam))\n");
   exit(-1);
 }
 
