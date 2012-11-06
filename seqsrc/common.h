@@ -13,8 +13,10 @@
 #define SHIFTCHAR(x) ((((x) & 0x08) >> 3) | (((x) & 0x04) >> 1) | (((x) & 0x02) << 1) | (((x) & 0x01) << 3))
 #define B(x) (1 << x)
 #define HEXMODE B(0)
+#define NETMODE B(1)
+#define ISAUTO	B(2)
+#define SEEKIT 	B(3)
 
-unsigned int get_mask(int start, int end);
 
 struct common_control_element{
   int fd;
@@ -28,8 +30,12 @@ struct common_control_element{
   void *target;
   int read_count;
   int optbits;
+  struct stat st;
 };
 
+unsigned int get_mask(int start, int end);
+
+int getopts(int argc, char **argv, struct common_control_element * cce);
 
 int keyboardinput(struct common_control_element * cce);
 //#define GRAB_4_AND_SHIFT(pointer,offset) *((int*)((pointer & get_mask(offset,offset+4)) >> offset))

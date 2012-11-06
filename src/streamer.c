@@ -423,6 +423,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 
   //opt->cumul = NULL;
 #if(!DAEMON)
+  opt->optbits |= GET_A_FILENAME_AS_ARG;
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
@@ -432,8 +433,13 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 }
 int parse_options(int argc, char **argv, struct opt_s* opt){
   int ret;
-
+  /*
+#ifdef USE_FOR_DISK2FILE
+  while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:q:ur:a:vVI:A:W:xc:o:"))!= -1){
+#else
+*/
   while((ret = getopt(argc, argv, "d:i:t:s:n:m:w:p:q:ur:a:vVI:A:W:xc:"))!= -1){
+//#endif
     switch (ret){
       case 'i':
 	opt->device_name = strdup(optarg);
@@ -575,6 +581,18 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	break;
+	/*
+#ifdef USE_FOR_DISK2FILE
+      case 'o':
+	opt->out_filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	CHECK_ERR_NONNULL(opt->filename, "filename malloc");
+	if(strcpy(opt->filename, argv[0]) == NULL){
+	  E("strcpy filename");
+	  return -1;
+	}
+	break;
+#endif
+*/
       case 'm':
 	if (!strcmp(optarg, "r")){
 	  opt->optbits &= ~READMODE;
@@ -666,15 +684,15 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
      opt->n_threads = opt->n_drives +2;
      */
 
-#if(!DAEMON)
-  opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  CHECK_ERR_NONNULL(opt->filename, "filename malloc");
-  if(strcpy(opt->filename, argv[0]) == NULL){
-    E("strcpy filename");
-    return -1;
+  if(opt->optbits & GET_A_FILENAME_AS_ARG){
+    opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+    CHECK_ERR_NONNULL(opt->filename, "filename malloc");
+    if(strcpy(opt->filename, argv[0]) == NULL){
+      E("strcpy filename");
+      return -1;
+    }
+    //opt->filename = argv[0];
   }
-  //opt->filename = argv[0];
-#endif
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
 #if(!DAEMON)
   if(opt->optbits & READMODE){

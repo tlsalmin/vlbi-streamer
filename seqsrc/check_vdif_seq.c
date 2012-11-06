@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 #include <string.h>
 
-#include "commonffu.h"
+#include "common.h"
 
 #ifdef GRAB_4_BYTES
 #undef GRAB_4_BYTES

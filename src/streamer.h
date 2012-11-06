@@ -118,6 +118,7 @@
 #define	DATATYPE_MARK5B		B(26) 
 #define DATATYPE_UDPMON		B(27)
 
+#define GET_A_FILENAME_AS_ARG	B(28)
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -294,6 +295,11 @@ void zero_fileholder(struct fileholder* fh);
 struct opt_s
 {
   char *filename;
+/*
+#ifdef USE_FOR_DISK2FILE
+  char *out_filename;
+#endif
+*/
 
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/

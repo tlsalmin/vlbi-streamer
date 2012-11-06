@@ -87,8 +87,17 @@ do
       verbose = 1;"
       ;;
     -n)
+      getent ahosts $2 &> /dev/null
+      if [ $? -ne 0 ]
+      then
+	usage
+	echo $(date --rfc-3339=seconds) "Couldnt resolve hostname $2" | tee -a  $LOGFILE
+	exit 1
+      fi
+
+      EXTRAHOSTNAME=`getent ahosts $2 | head -1 |awk '{print $1}' | uniq`
       EXTRAOPS="$EXTRAOPS
-      hostname = \"$2\";"
+      hostname = \"$EXTRAHOSTNAME\";"
       ;;
     -x)
       EXTRAOPS="$EXTRAOPS

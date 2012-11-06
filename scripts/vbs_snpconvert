@@ -19,6 +19,7 @@ VBS_QUEUE="vbs_queue -m r"
 TMPSCANSFILE=./tempscansforvlbistreamer
 TMPSTARTSFILE=./tempstarttimesforvlbistreamer
 TMPENDTIMES=./tempendtimesforvlbistreamer
+EXTRAOPS=""
 n=1
 while [ $# -gt 0 ]
 do
@@ -28,8 +29,21 @@ do
       REMOTER="ssh $VLBIHOST"
       shift
       ;;
-    -*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
-  *) eval "arg_$n=$1";n=$(($n+1));;
+    -*)
+      echo "Adding switch $1 to extra ops"
+      EXTRAOPS="$EXTRAOPS $1"
+      ;;
+    *)
+      if [ "$(echo $1|cut -d '.' -f2)" == "snp" ]
+      then
+	echo "Target file $1"
+	eval "arg_$n=$1";n=$(($n+1))
+      else
+	echo "Adding parameter $1 to extra ops"
+	EXTRAOPS="$EXTRAOPS $1"
+      fi
+      ;;
+    #-*) echo "Unknown argument $1";usage;exit 1; echo "Errors in parameters of streaming $RECNAME" >> $LOGFILE;;
 esac
 shift
 done
@@ -49,8 +63,6 @@ fi
 #REMOTER="ssh $VLBIHOST"
 I=1
 #SNAMEVAR=scan_name
-
-echo "Snap file: $SNP"
 
 # get scan names, convert "," to space
 #sed -n -e '/scan_name=/s/scan_name=//pj $SNP | sed -n -e 's/,/ /gp' > $TMPSCANSFILE
@@ -118,8 +130,9 @@ do
   EARRAY=(`tail -n +$I $TMPENDTIMES | head -1`)
 
   #Use time from EPOCH as start time, since its nice to use in C
-  STARTEPOCH=`date -u -d "01/01/${SARRAY[0]} + ${SARRAY[1]} days ${SARRAY[2]}" +%s `
-  ENDEPOCH=`date -u -d "01/01/${EARRAY[0]} + ${EARRAY[1]} days ${EARRAY[2]}" +%s `
+  #Aggh so +x days we need to negate one as we start from day 1
+  STARTEPOCH=`date -u -d "01/01/${SARRAY[0]} + $((${SARRAY[1]}-1)) days ${SARRAY[2]}" +%s `
+  ENDEPOCH=`date -u -d "01/01/${EARRAY[0]} + $((${EARRAY[1]} -1)) days ${EARRAY[2]}" +%s `
   #Duration is straight in the scan name.
   #Id wish!
   #dur=${RARRAY[4]}
@@ -130,7 +143,7 @@ do
   LINEOFSCAN=`grep "scan_name=${RARRAY[0]}" $NEWFILE -n| sed  's/\([0-9]*\).*/\1/'`
   #Adding $I to $LINEOFSCAN here because augmenting the file changes the
   #result each time. Don't know why thought..
-  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"" $NEWFILE
+  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\" $EXTRAOPS" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
   if [ "$((I % 4))" == "0" ]
@@ -144,15 +157,15 @@ do
     if [ "$UNCORKED" == "0" ]
     then
       UNCORKED=1
-      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT"
+      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT"
     else
-      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT"
+      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT"
     fi
     #echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
     #echo \;${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH\\>> $EXTRAOUT
 
   else
-    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $DOTHEDOT >> $EXTRAOUT
+    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT >> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes

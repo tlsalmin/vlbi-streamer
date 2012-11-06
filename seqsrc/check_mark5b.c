@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include "common.h"
 #include "mark5b.h"
+//#define BEITONNET
 #define GRAB_4_BYTES \
   memcpy(&read_count, target, 4);\
   target+=4;
@@ -121,9 +122,12 @@ int main(int argc, char ** argv){
   }
   while(running){
 
-    if(hexmode && netmode)
-      target = mmapfile + framesize*count + 5016+ hexoffset*16;
+    /*
+    if(hexmode && netmode){
+      target = mmapfile + framesize*count + 5016 + hexoffset*16;
+    }
     else
+    */
       target = mmapfile + framesize*count + offset + hexoffset*16;
     if(hexmode == 0){
     GRAB_4_BYTES
@@ -161,13 +165,33 @@ int main(int argc, char ** argv){
 #endif
     }
     else{
-      fprintf(stdout, "\t%X ", *((int32_t*)target));
+#ifdef BEITONNET
+      if(netmode)
+	fprintf(stdout, "\t%X ", be32toh(*((int32_t*)target)));
+      else
+#endif
+	fprintf(stdout, "\t%X ", *((int32_t*)target));
       target+=4;
-      fprintf(stdout, "\t%X ", *((int32_t*)target));
+#ifdef BEITONNET
+      if(netmode)
+	fprintf(stdout, "\t%X ", be32toh(*((int32_t*)target)));
+      else
+#endif
+	fprintf(stdout, "\t%X ", *((int32_t*)target));
       target+=4;
-      fprintf(stdout, "\t%X ", *((int32_t*)target));
+#ifdef BEITONNET
+      if(netmode)
+	fprintf(stdout, "\t%X ", be32toh(*((int32_t*)target)));
+      else
+#endif
+	fprintf(stdout, "\t%X ", *((int32_t*)target));
       target+=4;
-      fprintf(stdout, "\t%X \n", *((int32_t*)target));
+#ifdef BEITONNET
+      if(netmode)
+	fprintf(stdout, "\t%X \n", be32toh(*((int32_t*)target)));
+      else
+#endif
+	fprintf(stdout, "\t%X \n", *((int32_t*)target));
       //fprintf(stdout, "\t%X %X %X %X\n", *((int16_t*)target), *((int16_t*)(target+4)), *((int16_t*)(target+8)), *((int16_t*)(target+12)));
     }
     //fprintf(stdout, "| vdif_version: %2d | log2_channels: %4d | frame_length %14d |\n", vdif_version, log2_channels, frame_length);
@@ -175,12 +199,12 @@ int main(int argc, char ** argv){
 
     if(isauto == 0){
 #ifndef PORTABLE
-    system ("/bin/stty raw");
+      system ("/bin/stty raw");
 #endif
-    dachar = getchar();
-    switch(dachar)
-    {
-      case (int)'q': 
+      dachar = getchar();
+      switch(dachar)
+      {
+	case (int)'q': 
 	running = 0;
 	break;
       case (int)'h': 
