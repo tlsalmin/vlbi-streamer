@@ -20,6 +20,7 @@ TMPSCANSFILE=./tempscansforvlbistreamer
 TMPSTARTSFILE=./tempstarttimesforvlbistreamer
 TMPENDTIMES=./tempendtimesforvlbistreamer
 EXTRAOPS=""
+EXECUTE=0
 n=1
 while [ $# -gt 0 ]
 do
@@ -27,6 +28,10 @@ do
     -h) 
       VLBIHOST=$2
       REMOTER="ssh $VLBIHOST"
+      shift
+      ;;
+    -X) 
+      EXECUTE=1
       shift
       ;;
     -*)
@@ -176,8 +181,20 @@ then
   echo $REMOTER \""$BIGBADA ; printf \"Done!\n\" \"" >> $EXTRAOUT
 else
   echo "printf \"Done!\n\"" >> $EXTRAOUT
-
 fi
 
 chmod +x $EXTRAOUT
-#rm $TMPSCANSFILE $TMPSTARTSFILE $TMPENDTIMES
+
+if [ "$EXECUTE" == "1" ]
+then
+  echo "Running scheduling script!"
+  sh $EXTRAOUT
+  if [ "$?" == "0" ]
+  then
+    rm $EXTRAOUT
+  else
+    echo "Error in running $EXTRAOUT!"
+  fi
+fi
+
+rm $TMPSCANSFILE $TMPSTARTSFILE $TMPENDTIMES

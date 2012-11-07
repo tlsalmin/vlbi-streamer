@@ -1,0 +1,61 @@
+#!/bin/bash
+ROOTDIRS=/mnt/disk
+if [ -z "$1" ]
+then
+  echo "Usage $0 <recording name>"
+  exit -1
+fi
+
+n=0
+while [ $# -gt 0 ]
+do
+  case $1 in 
+    *)
+      FOUND=0
+      for i in ${ROOTDIRS}*
+      do
+	#echo $i
+	if [ -d "${i}/${!1}" ]
+	then
+	  FOUND=1
+	  break
+	fi
+      done
+      if [ "$FOUND" == "1" ]
+      then
+	eval "arg_$n=$1";n=$(($n+1))
+      else
+	echo "$1 Not found on drives. Aborting."
+	exit -1
+      fi
+      ;;
+  esac
+  shift
+done
+
+list=""
+for i in $(seq 0 $n)
+do
+  #echo "$i"
+  hur=arg_$i
+  list="$list ${!hur}"
+done
+
+echo "Removing: $list"
+
+
+for i in $(seq 0 $i)
+do
+  hur=arg_$i
+  for j in ${ROOTDIRS}*
+  do
+    #Doing this with an empty string would be nasty
+    if [ ! -z "${!hur}" ]
+    then
+      #echo ${!hur}
+      rm  -rf ${j}/${!hur}
+    fi
+  done
+done
+
+echo $(date --rfc-3339=seconds) "Removed $list from drives" | tee -a  $LOGFILE

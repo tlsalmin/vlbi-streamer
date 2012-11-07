@@ -146,8 +146,8 @@ int main(int argc, char ** argv){
     //VLBABCD_timecodeword1S = read_count & get_mask(0,20);
 #else
     VLBABCD_timecodeword1J = (read_count & get_mask(20,31)) >> 20;
-    VLBABCD_timecodeword1S = read_count & get_mask(0,20);
-    O("%X\n", VLBABCD_timecodeword1S);
+    VLBABCD_timecodeword1S = read_count & get_mask(0,19);
+    //O("%X\n", VLBABCD_timecodeword1S);
 #endif
     GRAB_4_BYTES
 #ifdef MULPLYTEN
