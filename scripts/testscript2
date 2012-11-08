@@ -21,6 +21,8 @@ done
 $VLBIPREFIX vbs_clearschedule
 }
 
+REMOTESENDER="ara.vlbi.metsahovi.fi"
+LOCALRECEIVER="watt.vlbi.mestahovi.fi"
 TESTTIME=30
 WAIT=20
 while [ $# -gt 0 ]
@@ -53,13 +55,13 @@ PARSELONG=3
 PARSENORMAL=2
 PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c -$PARSELONG"`
 PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
-TARGET="192.168.0.1"
-OTARGET="192.168.0.3"
+TARGET="10.8.8.134"
+OTARGET="10.8.8.14"
 VBS_START="$VLBIPREFIX src/vlbistreamer"
 VBS_SEND="$VLBIPREFIX vbs_send"
 VBS_RECV="$VLBIPREFIX vbs_record"
 DRIVES=`$VLBIPREFIX "cat $CFGFILE |grep n_drives |cut -d ' ' -f3 |head -c -$PARSENORMAL"`
-UDPPRE="cd /home/kharn/sshfs/watt.vlbi.metsahovi.fi/home/oper"
+UDPPRE="cd /home/kharn/sshfs/${REMOTESENDER}/home/oper"
 UDPBIN="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_send"
 UDPRECV="/home/oper/src/udpmon_extra-1.3.1.VLBI/udpmon_recv"
 UDPEND="cd -"
