@@ -1328,9 +1328,7 @@ int main(int argc, char **argv)
   }
   else
     D("Streamer thread exit OK");
-#if(DEBUG_OUTPUT)
   LOG("STREAMER: Threads finished. Getting stats\n");
-#endif
 
   if(opt->optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */

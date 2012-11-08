@@ -61,17 +61,13 @@
 #include "resourcetree.h"
 #include "timer.h"
 #include "confighelper.h"
+#include "common_filehandling.h"
 
 extern FILE* logfile;
 
 #define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
 
 #define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
-
-#define AUGMENTLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(opt->augmentlock);}}while(0)
-
-#define AUGMENTUNLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(opt->augmentlock);}}while(0)
-
 
 #define FULL_COPY_ON_PEEK
 #define MBITS_PER_DRIVE 500
@@ -93,22 +89,6 @@ extern FILE* logfile;
 #define PLOTTABLE_SEND_DEBUG 0
 //#define SHOW_PACKET_METADATA;
 
-struct sender_tracking{
-  //unsigned long files_loaded;
-  struct fileholder* head_loaded;
-  //unsigned long files_sent;
-  unsigned long files_skipped;
-  unsigned long packets_loaded;
-  unsigned long packets_sent;
-  TIMERTYPE now;
-#if(SEND_DEBUG)
-  TIMERTYPE reference;
-#endif
-#ifdef UGLY_BUSYLOOP_ON_TIMER
-  TIMERTYPE onenano;
-#endif
-  TIMERTYPE req;
-};
 #define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
 
 //Gatherer specific options
@@ -437,100 +417,6 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 
   return 0;
 }
-//inline int start_loading(struct opt_s * opt, unsigned long *packets_left, unsigned long *fileat, struct buffer_entity * be, unsigned long* files_skipped){
-inline int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
-{
-  AUGMENTLOCK;
-  unsigned long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
-  D("Total packets is: %lu, packets loaded is %lu",, *opt->total_packets, st->packets_loaded);
-  /* Add spinlocks here so broken recers get info set here before use */
-  //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
-  while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
-    D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->head_loaded->id);
-    st->head_loaded = st->head_loaded->next;
-    //st->files_loaded++;
-    st->files_skipped++;
-    //spec_ops->files_sent++;
-    /* If last file is missing, we might hit negative on left_to_send 	*/
-    /*
-    if((*opt->total_packets - st->packets_sent) < (unsigned long)opt->buf_num_elems){
-      st->packets_loaded=*opt->total_packets;
-      st->packets_sent += nuf;
-    }
-    else{
-    */
-      st->packets_sent += nuf;
-      st->packets_loaded+= nuf;
-    //}
-    /* Special case where last file is missing */
-    if(st->head_loaded->next == NULL)
-      return 0;
-    else
-      st->head_loaded = st->head_loaded->next;
-    /*
-    if(st->files_loaded == *opt->cumul)
-      return 0;
-      */
-  }
-  if(st->head_loaded->status & FH_INMEM){
-    struct buffer_entity *tempen;
-    AUGMENTUNLOCK;
-    if((tempen = get_lingering(opt->membranch, opt, st->head_loaded, 0)) != NULL){
-      D("Found lingering file!");
-      if(be != NULL){
-	D("Had a ready buffer, but found lingering. Setting old to free");
-	set_free(opt->membranch, be->self);
-      }
-      be = tempen;
-      st->packets_loaded+=nuf;
-      st->head_loaded = st->head_loaded->next;
-      return 0;
-    }
-    else
-      D("Didn't find lingering file");
-  }
-  else
-    AUGMENTUNLOCK;
-
-  /* TODO: Not checking if FH_ONDISK is set */
-  D("Requested a load start on file %lu",, st->head_loaded->id);
-  assert(st->head_loaded->status & FH_ONDISK);
-  if (be == NULL){
-    be = get_free(opt->membranch, opt, ((void*)(st->head_loaded)), NULL);
-    CHECK_ERR_NONNULL(be, "Get loadable");
-  }
-  /* Reacquiring just updates the file number we want */
-  else
-    //be->acquire((void*)be, opt, st->head_loaded->id,0);
-    be->acquire((void*)be, opt, st->head_loaded);
-  CHECK_AND_EXIT(be);
-  D("Setting seqnum %lu to load %lu packets",,st->head_loaded->id, nuf);
-  LOCK(be->headlock);
-  //D("HUR");
-  int * inc = be->get_inc(be);
-  *inc = nuf;
-  st->packets_loaded+=nuf;
-  be->set_ready(be);
-  pthread_cond_signal(be->iosignal);
-  UNLOCK(be->headlock);
-  D("Loading request complete for id %lu",, st->head_loaded->id);
-
-  st->head_loaded = st->head_loaded->next;
-  return 0;
-}
-void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
-  memset(st, 0,sizeof(struct sender_tracking));
-  st->packets_sent = st->packets_loaded = 0;//spec_ops->opt->total_packets;
-#ifdef UGLY_BUSYLOOP_ON_TIMER
-  //TIMERTYPE onenano;
-  ZEROTIME(st->onenano);
-  SETONE(st->onenano);
-#endif
-  ZEROTIME(st->req);
-  pthread_spin_lock(spec_ops->opt->augmentlock);
-  st->head_loaded = spec_ops->opt->fileholders;
-  pthread_spin_unlock(spec_ops->opt->augmentlock);
-}
 /*
  * Sending handler for an UDP-stream
  *
@@ -540,37 +426,12 @@ void init_sender_tracking(struct udpopts *spec_ops, struct sender_tracking *st){
  * the logic and lead to high probability of bugs
  *
  */
-inline int should_i_be_running(struct udpopts *spec_ops, struct sender_tracking *st){
-  /* TODO: Proper checking for live sending/receiving */
-  //unsigned long cumulpeek;
-  if(!spec_ops->running)
-    return 0;
-  /*
-  SAUGMENTLOCK;
-  cumulpeek = *(spec_ops->opt->cumul);
-  SAUGMENTUNLOCK;
-  */
-  /* Check if the receiver is still running */
-  if(spec_ops->opt->optbits & LIVE_SENDING && spec_ops->opt->liveother != NULL){
-    if(spec_ops->opt->liveother->status & STATUS_RUNNING)
-      return 1;
-  }
-  /* If we still have files */
-  if(spec_ops->opt->fileholders != NULL){
-    return 1;
-  }
-  /* If there's still packets to be sent */
-  if(*(spec_ops->opt->total_packets) > st->packets_sent)
-    return 1;
-  
-  return 0;
-}
 void * udp_sender(void *streamo){
   int err = 0;
   void* buf;
   int i=0;
   int *inc;
-  int max_buffers_in_use=0;
+  //int max_buffers_in_use=0;
   unsigned long cumulpeek;
   unsigned long packetpeek;
   //int active_buffers;
@@ -582,19 +443,19 @@ void * udp_sender(void *streamo){
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   struct sender_tracking st;
 
+  init_sender_tracking(spec_ops->opt, &st);
+
   if(spec_ops->opt->wait_nanoseconds == 0){
-    max_buffers_in_use = MIN(TOTAL_MAX_DRIVER_IN_USE, spec_ops->opt->n_threads);
-    D("No wait set, so setting to use %d buffers",, max_buffers_in_use);
+    st.allocated_to_load = MIN(TOTAL_MAX_DRIVER_IN_USE, spec_ops->opt->n_threads);
+    D("No wait set, so setting to use %d buffers",, st.allocated_to_load);
   }
   else
   {
     long rate = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size*8;
     /* Add one as n loading for speed and one is being sent over the network */
-    max_buffers_in_use = rate/(MBITS_PER_DRIVE*MILLION) + 1;
-    D("rate as %d ns. Setting to use max %d buffers",, spec_ops->opt->wait_nanoseconds, max_buffers_in_use);
+    st.allocated_to_load = rate/(MBITS_PER_DRIVE*MILLION) + 1;
+    D("rate as %d ns. Setting to use max %d buffers",, spec_ops->opt->wait_nanoseconds, st.allocated_to_load);
   }
-
-  init_sender_tracking(spec_ops, &st);
 
   /* Init minimun sleeptime. On the test machine the minimum time 	*/
   /* Slept with nanosleep or usleep seems to be 55microseconds		*/
@@ -611,29 +472,10 @@ void * udp_sender(void *streamo){
   /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
   //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
   SAUGMENTLOCK;
-  cumulpeek = (*spec_ops->opt->cumul);
   packetpeek = (*spec_ops->opt->total_packets);
-  SAUGMENTUNLOCK;
-  int loadup = MIN((unsigned int)max_buffers_in_use, cumulpeek);
-  loadup = MIN(loadup, spec_ops->opt->n_threads);
+  SAUGMENTLOCK;
 
-  /* Check if theres empties right at the start */
-  /* Added && for files might be skipped in start_loading */
-  for(i=0;i<loadup && st.head_loaded != NULL;i++){
-    /* When running in sendmode, the buffers are first getted 	*/
-    /* and then signalled to start loading packets from the hd 	*/
-    /* A ready loaded buffer is getted by running get_loaded	*/
-    /* With a matching sequence number				*/
-    err = start_loading(spec_ops->opt, NULL, &st);
-    CHECK_ERRP("Start loading");
-    /*
-    SAUGMENTLOCK;
-    cumulpeek = (*spec_ops->opt->cumul);
-    packetpeek = (*spec_ops->opt->total_packets);
-    SAUGMENTUNLOCK;
-    */
-    /* TODO: loadup might cut short if we're sending a recording that has just started */
-  }
+  err = loadup_n(spec_ops->opt, &st);
 
   /* Data won't be instantaneous so get min_sleep here! */
   unsigned long minsleep = get_min_sleeptime();
@@ -666,7 +508,7 @@ void * udp_sender(void *streamo){
   i=0;
   GETTIME(spec_ops->opt->wait_last_sent);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
-  while(should_i_be_running(spec_ops, &st) == 1){
+  while(should_i_be_running(spec_ops->opt, &st) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
     if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       //st.files_sent++;
@@ -684,6 +526,12 @@ void * udp_sender(void *streamo){
 	D("Still files to be loaded. Loading %lu",, st.head_loaded->id);
 	/* start_loading increments files_loaded */
 	err = start_loading(spec_ops->opt, se->be, &st);
+	CHECK_ERRP("Loading file");
+	if(st.allocated_to_load > 0 && st.head_loaded != NULL){
+	  err = start_loading(spec_ops->opt, NULL, &st);
+	  CHECK_ERRP("Loading more files");
+	}
+	  
       }
       else{
 	D("Loaded enough files. Setting memorybuf to free");
@@ -820,7 +668,8 @@ void * udp_sender(void *streamo){
     if(err < 0){
       perror("Send packet");
       shutdown(spec_ops->fd, SHUT_RDWR);
-      pthread_exit(NULL);
+      //pthread_exit(NULL);
+      UDPS_EXIT;
       //TODO: How to handle error case? Either shut down all threads or keep on trying
       //pthread_exit(NULL);
       //break;

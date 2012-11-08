@@ -661,8 +661,8 @@ int write_buffer(struct buffer_entity *be){
     /* Might have closed recer already 	*/
     if(be->recer != NULL)
       set_free(sbuf->opt->diskbranch, be->recer->self);
-    sbuf->ready_to_act = 0;
     be->recer = NULL;
+    sbuf->ready_to_act = 0;
 
     if(sbuf->opt->optbits & READMODE){
       D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fh->id);

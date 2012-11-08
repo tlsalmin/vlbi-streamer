@@ -34,6 +34,7 @@
 #include "config.h"
 #include "streamer.h"
 #include "confighelper.h"
+//#define TERM_SIGNAL_HANDLING
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
@@ -538,8 +539,10 @@ int check_schedule(struct schedule *sched){
   while((le = get_from_all(&sched->br, NULL, NULL, CHECK_BY_NOTFOUND, 1)) != NULL){
     temp = (struct scheduled_event*)le->entity;
     LOG("Recording %s removed from schedule\n", temp->opt->filename);
-    if(temp->opt->status == STATUS_RUNNING)
+    if(temp->opt->status == STATUS_RUNNING){
       sched->n_running--;
+      temp->opt->status = STATUS_CANCELLED;
+    }
     else
       sched->n_scheduled--;
 
@@ -606,6 +609,7 @@ static void hdl (int sig)
   running = 0;
 }
 */
+#ifdef TERM_SIGNAL_HANDLING
 //TODO: Fix these. Need to add some pthread_cancel-stuff to kill 
 //malfunctioning threads properly
 static void hdl (int sig, siginfo_t *siginfo, void *context)
@@ -617,6 +621,7 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 	LOG("Signal received");
 	running = 0;
 }
+#endif
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
@@ -634,6 +639,7 @@ int main(int argc, char **argv)
   sched = malloc(sizeof(struct schedule));
   CHECK_ERR_NONNULL(sched, "Sched malloc");
 
+#ifdef TERM_SIGNAL_HANDLING
   /* Copied from http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show */
   struct sigaction act;
 
@@ -649,6 +655,7 @@ int main(int argc, char **argv)
     perror ("sigaction");
     return 1;
   }
+#endif
 
   /* Set the branch as mutex free */
   sched->br.mutex_free = 1;

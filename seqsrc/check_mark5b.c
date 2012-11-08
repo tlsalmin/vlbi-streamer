@@ -28,7 +28,7 @@ void usage(){
 }
 //#define MULPLYTEN
 int main(int argc, char ** argv){
-  int fd,err;
+  int fd=-1,err;
   //struct common_control_element * cce = (struct common_control_element*)malloc(sizeof(common_control_element));
 //  count = 0;
   long count = 0;
