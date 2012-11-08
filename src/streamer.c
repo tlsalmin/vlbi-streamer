@@ -1214,9 +1214,9 @@ int main(int argc, char **argv)
   CPU_ZERO(&cpuset);
 #endif
 
-#if(DAEMON)
+///#if(DAEMON)
   opt->status = STATUS_RUNNING;
-#endif
+//#endif
 
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
@@ -1249,7 +1249,7 @@ int main(int argc, char **argv)
       sleeptodo= 1;
     else
       sleeptodo = opt->time;
-    while(sleeptodo >0 && opt->streamer_ent->is_running(opt->streamer_ent)){
+    while(sleeptodo >0 && (opt->status & STATUS_RUNNING)){
       sleep(1);
       //memset(stats_now, 0,sizeof(struct stats));
       init_stats(stats_now);
@@ -1315,7 +1315,8 @@ int main(int argc, char **argv)
   {
     if(!(opt->optbits & READMODE)){
       int sleepleft = opt->time;
-      while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
+      //while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
+      while(sleepleft > 0 && (opt->status & STATUS_RUNNING)){
 	sleep(1);
 	sleepleft-=1;
       }

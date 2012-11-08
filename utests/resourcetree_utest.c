@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "../src/streamer.h"
 #include "../src/resourcetree.h"
+#include "../src/common_filehandling.h"
 #include "resourcetree.h"
 #define ENTITIES 200
 #define ENT_TYPE_INT 0

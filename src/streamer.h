@@ -470,7 +470,7 @@ struct streamer_entity
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct streamer_entity *se);
 #endif
-  int (*is_running)(struct streamer_entity *se);
+  //int (*is_running)(struct streamer_entity *se);
   unsigned long (*get_max_packets)(struct streamer_entity *se);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;

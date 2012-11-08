@@ -65,6 +65,7 @@ struct udpopts
   struct sockaddr_in *sin;
   struct sockaddr_in *sin_send;
   size_t sinsize;
+  int wrongsizeerrors;
 
   struct fileholder* last;
   //void* (*calc_bufpos)(void*,struct streamer_entity*,struct resq_info *);

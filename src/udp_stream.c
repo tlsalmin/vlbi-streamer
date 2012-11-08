@@ -63,6 +63,8 @@
 #include "confighelper.h"
 #include "common_filehandling.h"
 
+#define WRONGSIZELIMITBEFOREEXIT 20
+
 extern FILE* logfile;
 
 #define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
@@ -89,7 +91,8 @@ extern FILE* logfile;
 #define PLOTTABLE_SEND_DEBUG 0
 //#define SHOW_PACKET_METADATA;
 
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
+//#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;pthread_exit(NULL);}while(0)
 
 //Gatherer specific options
 int phandler_sequence(struct streamer_entity * se, void * buffer){
@@ -347,7 +350,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   int err;
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
-  spec_ops->running = 1;
+  //spec_ops->running = 1;
   se->opt = (void*)spec_ops;
 
   spec_ops->opt = opt;
@@ -720,7 +723,7 @@ void* udp_rxring(void *streamo)
   inc = se->be->get_inc(se->be);
   CHECK_AND_EXIT(se->be);
 
-  while(spec_ops->running){
+  while(spec_ops->opt->status & STATUS_RUNNING){
     if(!(hdr->tp_status  & TP_STATUS_USER)){
       //D("Polling pfd");
       err = poll(&pfd, 1, timeout);
@@ -787,7 +790,8 @@ void* udp_rxring(void *streamo)
   }
   D("Saved %lu files",, (*spec_ops->opt->cumul));
   D("Exiting mmap polling");
-  spec_ops->running = 0;
+  //spec_ops->running = 0;
+  spec_ops->opt->status = STATUS_STOPPED;
 
   pthread_exit(NULL);
 }
@@ -1085,6 +1089,7 @@ void* udp_receiver(void *streamo)
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
 
+  spec_ops->wrongsizeerrors = 0;
   spec_ops->total_captured_bytes = 0;
   *spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
@@ -1116,7 +1121,7 @@ void* udp_receiver(void *streamo)
   }
 
   LOG("UDP_STREAMER: Starting stream capture\n");
-  while(spec_ops->running){
+  while(spec_ops->opt->status & STATUS_RUNNING){
 
     if(resq->i == spec_ops->opt->buf_num_elems){
       D("Buffer filled, Getting another");
@@ -1127,7 +1132,8 @@ void* udp_receiver(void *streamo)
 	err = jump_to_next_buf(se, resq);
 	if(err < 0){
 	  E("Error in jump to next");
-	  spec_ops->running = 0;
+	  //spec_ops->running = 0;
+	  spec_ops->opt->status = STATUS_ERROR;
 	  break;
 	}
       }
@@ -1159,17 +1165,25 @@ void* udp_receiver(void *streamo)
 	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %d,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
 	}
       }
-      spec_ops->running = 0;
+      //spec_ops->running = 0;
+      spec_ops->opt->status = STATUS_ERROR;
       break;
     }
     else if((long unsigned)err != spec_ops->opt->packet_size){
-      if(spec_ops->running == 1){
+      if(spec_ops->opt->status & STATUS_RUNNING){
 	E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
 	spec_ops->incomplete++;
+	spec_ops->wrongsizeerrors++;
+	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
+	  E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
+	  spec_ops->opt->status = STATUS_ERROR;
+	  break;
+	}
+
       }
     }
     /* Success! */
-    else if(spec_ops->running==1){
+    else if(spec_ops->opt->status & STATUS_RUNNING){
       if(spec_ops->opt->hostname != NULL){
 	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
 	if(senderr <0 ){
@@ -1236,7 +1250,8 @@ void* udp_receiver(void *streamo)
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
   LOG("UDP_STREAMER: Closing streamer thread\n");
-  spec_ops->running = 0;
+  //spec_ops->running = 0;
+  spec_ops->opt->status = STATUS_STOPPED;
   free(resq);
   pthread_exit(NULL);
 
@@ -1295,7 +1310,8 @@ int close_udp_streamer(void *opt_own, void *stats){
 }
 void udps_stop(struct streamer_entity *se){
   D("Stopping loop");
-  ((struct udpopts *)se->opt)->running = 0;
+  //((struct udpopts *)se->opt)->running = 0;
+  ((struct opt_s*)((struct udpopts *)se->opt)->opt)->status = STATUS_STOPPED;
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){
@@ -1307,9 +1323,6 @@ int udps_is_blocked(struct streamer_entity *se){
    return ((struct opts*)(se->opt))->max_num_packets;
    }
    */
-int udps_is_running(struct streamer_entity *se){
-  return ((struct udpopts*)se->opt)->running;
-}
 void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
   (void)opt;
@@ -1317,7 +1330,6 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
   se->close = close_udp_streamer;
   se->get_stats = get_udp_stats;
   se->close_socket = udps_close_socket;
-  se->is_running = udps_is_running;
   //se->get_max_packets = udps_get_max_packets;
 }
 
