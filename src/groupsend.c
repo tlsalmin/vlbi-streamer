@@ -40,7 +40,9 @@
 #define STARTPORT 2222
 #define PACKET_SIZE	8888
 #define TARGET_IP "192.168.0.3"
+#if(LOG_TO_FILE)
 extern FILE* logfile;
+#endif
 
 int main(int argc, char** argv){
   (void)argc;

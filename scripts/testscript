@@ -12,9 +12,16 @@ METHODS=(def aio splice)
 #VERBOSE=" > /dev/null"
 EXTRA_PARAMS=$*
 DEFAULT_PARAMS="-I $MINMEM -A $MAXMEM -s $PORT -d $DRIVES"
+
+NRHUGE=`cat /proc/sys/vm/nr_hugepages | head -c -1`
+if [ "$NRHUGE" -ne "0" ]
+then
+  DEFAULT_PARAMS="$DEFAULT_PARAMS -u "
+fi
+
 WAIT=40
 echo "setting up non-daemon mode"
-./configure --enable-daemon=no &> /dev/null
+./configure --enable-daemon=no --enable-logtofile=no &> /dev/null
 make &> /dev/null
 
 if [ $? -ne 0 ]

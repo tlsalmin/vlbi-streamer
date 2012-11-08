@@ -1304,8 +1304,11 @@ int main(int argc, char **argv)
     free(stats_now);
     free(stats_prev);
   }
-  if(!(opt->optbits & READMODE))
+  if(!(opt->optbits & READMODE)){
+    if(!(opt->optbits & VERBOSE))
+      sleep(opt->time);
     shutdown_thread(opt);
+  }
   /* If we're capturing, time the threads and run them down after we're done */
   else
 #endif /* DAEMON */
