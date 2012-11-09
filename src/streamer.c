@@ -35,6 +35,7 @@
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
 #include <time.h>
+#include <sched.h>
 #include "config.h"
 #include "streamer.h"
 #include "fanout.h"
@@ -47,6 +48,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
+#include "disk2file.h"
 #include "simplebuffer.h"
 #include "resourcetree.h"
 #include "confighelper.h"
@@ -740,14 +742,6 @@ int init_rbufs(struct opt_s *opt){
   err = CALC_BUF_SIZE(opt);
   CHECK_ERR("calc bufsize");
   D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets",, opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
-#if(PPRIORITY)
-  //memset(&opt->param, 0, sizeof(opt->param));
-  //err = pthread_attr_init(&opt->pta);
-  if(err != 0){
-    E("Pthread attr initialization: %s",,strerror(err));
-    return -1;
-  }
-#endif
 #ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
   D("Polled %ld processors",,processors);
@@ -766,23 +760,7 @@ int init_rbufs(struct opt_s *opt){
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
 
 #if(PPRIORITY)
-  err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error getting schedparam for pthread attr: %s",,strerror(err));
-  else
-    D("Schedparam set to %d, Trying to set to minimun %d",, opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
-
-  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
-  if(err != 0)
-    E("Error setting schedtype for pthread attr: %s",,strerror(err));
-
-  opt->param.sched_priority = MIN_PRIO_FOR_PTHREAD;
-  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error setting schedparam for pthread attr: %s",,strerror(err));
-  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
-  if(err != 0)
-    E("Error Setting inheritance");
+  err = prep_priority(opt, MIN_PRIO_FOR_PTHREAD);
 #endif
 
   D("Initializing buffer threads");
@@ -942,6 +920,119 @@ void arrange_by_id(struct opt_s* opt){
     LOG("\n");
   }
 }
+#if(PPRIORITY)
+int prep_priority(struct opt_s * opt, int priority){
+
+  int err; 
+  int minprio,maxprio;
+
+  minprio = sched_get_priority_min(SCHED_FIFO);
+  maxprio = sched_get_priority_max(SCHED_FIFO);
+
+  int realprio = priority;
+
+  if(priority == MAX_PRIO_FOR_PTHREAD)
+    realprio = maxprio;
+  else if (priority == MIN_PRIO_FOR_PTHREAD)
+    realprio = minprio;
+
+
+  D("Min prio: %d, max prio: %d",, minprio, maxprio);
+
+  memset(&(opt->param), 0, sizeof(struct sched_param));
+
+  err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
+  if(err != 0)
+    E("Error getting schedparam for pthread attr: %s",,strerror(err));
+  else
+    D("Schedparam set to %d, Trying to set to minimun %d",, opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
+
+  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
+  if(err != 0)
+    E("Error setting schedtype for pthread attr: %s",,strerror(err));
+
+  opt->param.sched_priority = realprio;
+  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
+  if(err != 0)
+    E("Error setting schedparam for pthread attr: %s",,strerror(err));
+  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
+  if(err != 0)
+    E("Error Setting inheritance");
+
+  return 0;
+}
+#endif
+int prep_filenames(struct opt_s *opt){
+  int i;
+  D("preparing filenames");
+  if(opt->optbits & READMODE){
+    for(i=0;i<opt->n_drives;i++){
+      opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
+      if(opt->filenames[i] == NULL){
+	return -1;
+	//STREAMER_ERROR_EXIT;
+      }
+      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
+      sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
+    }
+  }
+  D("filenames prepared");
+  return 0;
+}
+int prep_streamer(struct opt_s* opt){
+  int err;
+  D("Initializing streamer thread");
+  /* Format the capturing thread */
+  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
+  switch(opt->optbits & LOCKER_CAPTURE)
+  {
+    case CAPTURE_W_UDPSTREAM:
+      if(opt->optbits & READMODE)
+	err = udps_init_udp_sender(opt, opt->streamer_ent);
+      else
+	err = udps_init_udp_receiver(opt, opt->streamer_ent);
+#if(DAEMON)
+      opt->get_stats = udpstreamer_stats;
+#endif
+      break;
+    case CAPTURE_W_FANOUT:
+      err = fanout_init_fanout(opt, opt->streamer_ent);
+      break;
+    case CAPTURE_W_SPLICER:
+      //err = sendfile_init_writer(&opt, &(streamer_ent));
+      break;
+    case CAPTURE_W_DISK2FILE:
+      err = d2f_init(opt, opt->streamer_ent);
+      break;
+    default:
+      LOG("DUR %X\n", opt->optbits);
+      break;
+
+  }
+  if(err != 0){
+    LOGERR("Error in thread init\n");
+    free(opt->streamer_ent);
+    opt->streamer_ent = NULL;
+    return -1;
+  }
+  return 0;
+}
+int prep_hostname(struct opt_s* opt){
+  if(opt->optbits & READMODE || opt->hostname != NULL){
+    struct hostent *hostptr;
+
+    hostptr = gethostbyname(opt->hostname);
+    if(hostptr == NULL){
+      perror("Hostname");
+      //STREAMER_ERROR_EXIT;
+      return -1;
+    }
+    memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
+
+    D("Resolved hostname");
+  }
+  return 0;
+}
 int init_recp(struct opt_s *opt){
   int err, i;
   opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
@@ -1012,9 +1103,7 @@ int main(int argc, char **argv)
 #endif
 {
   int err = 0;
-#if(!DAEMON)
-  int i;
-#endif
+  pthread_t streamer_pthread;
 #ifdef HAVE_LRT
   struct timespec start_t;
 #endif
@@ -1031,74 +1120,25 @@ int main(int argc, char **argv)
   err = parse_options(argc,argv,opt);
   if(err != 0)
     STREAMER_ERROR_EXIT;
-#endif //DAEMON
 
+  err = prep_filenames(opt);
+  if(err != 0)
+    STREAMER_ERROR_EXIT;
 
-  pthread_t streamer_pthread;
-#if(!DAEMON)
-  D("preparing filenames");
-  if(opt->optbits & READMODE){
-    for(i=0;i<opt->n_drives;i++){
-      opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-      if(opt->filenames[i] == NULL){
-	STREAMER_ERROR_EXIT;
-      }
-      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
-      sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
-    }
-  }
-  D("filenames prepared");
-#endif
-  /*
-     switch(opt.capture_type){
-     case CAPTURE_W_FANOUT:
-     n_threads = THREADS;
-     break;
-     case CAPTURE_W_UDPSTREAM:
-     n_threads = UDP_STREAM_THREADS;
-     break;
-     }
-     */
-  //struct streamer_entity threads[opt.n_threads];
-  //struct streamer_entity streamer_ent;
-
-
-  //pthread_attr_t attr;
-
-  /* Handle hostname etc */
-  /* TODO: Whats the best way that accepts any format? */
-  if(opt->optbits & READMODE || opt->hostname != NULL){
-    struct hostent *hostptr;
-
-    hostptr = gethostbyname(opt->hostname);
-    if(hostptr == NULL){
-      perror("Hostname");
-      STREAMER_ERROR_EXIT;
-    }
-    memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
-
-    D("Resolved hostname");
-  }
-
-#if(!DAEMON)
   err = init_branches(opt);
   CHECK_ERR("init branches");
   err = init_recp(opt);
   CHECK_ERR("init recpoints");
-#endif
 
 #ifdef HAVE_LIBCONFIG_H
-#if(!DAEMON)
   err = init_cfg(opt);
   //TODO: cfg destruction
   if(err != 0){
     E("Error in cfg init");
     STREAMER_ERROR_EXIT;
   }
-#endif
-#endif
+#endif //HAVE_LIBCONFIG_H
 
-#if(!DAEMON)
   err = init_rbufs(opt);
   CHECK_ERR("init rbufs");
 #endif //DAEMON
@@ -1118,58 +1158,18 @@ int main(int argc, char **argv)
       pthread_spin_unlock(opt->augmentlock);
     }
   }
-#endif
+#endif //HAVE_LIBCONFIG_H
 
-#if(DAEMON)
-  /*
-  opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
-  if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
-    E("Spin init");
+  /* Handle hostname etc */
+  /* TODO: Whats the best way that accepts any format? */
+  err = prep_hostname(opt);
+  if(err != 0){
     STREAMER_ERROR_EXIT;
   }
-  */
-#endif
-  /* Now we have all the object data, so we can calc our buffer sizes	*/
-  /* If we're using the rx-ring, reserve space for it here */
-  /*
-     if(opt.optbits & USE_RX_RING){
-     int flags = MAP_ANONYMOUS|MAP_SHARED;
-     if(opt.optbits & USE_HUGEPAGE)
-     flags |= MAP_HUGETLB;
-     opt.buffer = mmap(NULL, ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size)*opt.n_threads, PROT_READ|PROT_WRITE , flags, 0,0);
-     }
-     */
+  
 
-
-
-  /* Format the capturing thread */
-  opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));
-  switch(opt->optbits & LOCKER_CAPTURE)
-  {
-    case CAPTURE_W_UDPSTREAM:
-      if(opt->optbits & READMODE)
-	err = udps_init_udp_sender(opt, opt->streamer_ent);
-      else
-	err = udps_init_udp_receiver(opt, opt->streamer_ent);
-#if(DAEMON)
-      opt->get_stats = udpstreamer_stats;
-#endif
-      break;
-    case CAPTURE_W_FANOUT:
-      err = fanout_init_fanout(opt, opt->streamer_ent);
-      break;
-    case CAPTURE_W_SPLICER:
-      //err = sendfile_init_writer(&opt, &(streamer_ent));
-      break;
-    default:
-      LOG("DUR %X\n", opt->optbits);
-      break;
-
-  }
+  err = prep_streamer(opt);
   if(err != 0){
-    LOGERR("Error in thread init\n");
-    free(opt->streamer_ent);
-    opt->streamer_ent = NULL;
     STREAMER_ERROR_EXIT;
   }
 
@@ -1177,6 +1177,9 @@ int main(int argc, char **argv)
 
 #if(PPRIORITY)
   
+  err = prep_priority(opt, MAX_PRIO_FOR_PTHREAD);
+  /* TODO: err Not used */
+  /*
   if(opt->optbits & READMODE)
     opt->param.sched_priority = MAX_PRIO_FOR_PTHREAD;
   else
@@ -1190,14 +1193,20 @@ int main(int argc, char **argv)
   err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
   if(err != 0)
     E("Error Setting inheritance");
+    */
   err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
 #else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
 #endif
+
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
+  ///#if(DAEMON)
+  opt->status = STATUS_RUNNING;
+  //#endif
+
 #ifdef TUNE_AFFINITY
   /* Put the capture on the first core */
   CPU_SET(0,&(opt->cpuset));
@@ -1213,10 +1222,6 @@ int main(int argc, char **argv)
   }
   CPU_ZERO(&cpuset);
 #endif
-
-///#if(DAEMON)
-  opt->status = STATUS_RUNNING;
-//#endif
 
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT

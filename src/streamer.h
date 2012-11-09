@@ -23,6 +23,7 @@
 #ifndef STREAMER
 #define STREAMER
  	
+
 #ifdef __cplusplus
 #  define BEGIN_C_DECLS extern "C" {
 #  define END_C_DECLS   }
@@ -86,7 +87,7 @@
 #define CAPTURE_W_FANOUT 	B(8)
 #define CAPTURE_W_UDPSTREAM 	B(9)
 #define CAPTURE_W_SPLICER 	B(10)
-#define CAPTURE_W_TODO 		B(11)
+#define CAPTURE_W_DISK2FILE	B(11)
 
 /* How fanout works */
 /*
@@ -152,8 +153,6 @@
 /* Idea for seqnuming: Have a buf first number, which grounds 	*/
 /* frame. If get_spot is negative, it belongs to the previous	*/
 /* buffer. If larger than buf, belongs to the next		*/
-
-
 
 //Moved to HAVE_HUGEPAGES
 //#define HAVE_HUGEPAGES
@@ -494,6 +493,10 @@ void arrange_by_id(struct opt_s* opt);
 int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);
 void shutdown_thread(struct opt_s *opt);
+int prep_filenames(struct opt_s * opt);
+int prep_hostname(struct opt_s * opt);
+int prep_priority(struct opt_s * opt, int priority);
+int prep_streamer(struct opt_s * opt);
 #if(DAEMON)
 void* vlbistreamer(void *opti);
 #endif
