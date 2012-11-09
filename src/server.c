@@ -219,8 +219,11 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
 }
 */
 int start_event(struct scheduled_event *ev, struct schedule* sched){
-  int err, i;
+  int err;
 
+  err = prep_filenames(ev->opt);
+  CHECK_ERR("Prep filenames");
+  /*
   D("preparing filenames");
   if(ev->opt->optbits & READMODE){
     for(i=0;i<ev->opt->n_drives;i++){
@@ -234,6 +237,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
     }
   }
   D("filenames prepared");
+  */
 
   err = init_cfg(ev->opt);
   if(err != 0){
@@ -274,9 +278,10 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
     init_stats(ev->stats);
   }
   #if(PPRIORITY)
-  memset(&(ev->opt->param), 0, sizeof(ev->opt->param));
   err = pthread_attr_init(&(ev->opt->pta));
 
+  err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
+  /*
   err = pthread_attr_getschedparam(&(ev->opt->pta), &(ev->opt->param));
   if(err != 0)
     E("Error getting schedparam for pthread attr: %s",,strerror(err));
@@ -294,6 +299,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
   err = pthread_attr_setinheritsched(&(ev->opt->pta), PTHREAD_INHERIT_SCHED);
   if(err != 0)
     E("Error Setting inheritance");
+    */
 #endif
 
 #if(PPRIORITY)
