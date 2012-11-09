@@ -94,7 +94,7 @@ int loadup_n(struct opt_s *opt, struct sender_tracking * st){
   int cumulpeek = (*opt->cumul);
   //packetpeek = (*opt->total_packets);
   AUGMENTUNLOCK;
-  unsigned int loadup = MIN((unsigned int)st->allocated_to_load, cumulpeek);
+  int loadup = MIN(st->allocated_to_load, cumulpeek);
   loadup = MIN(loadup, opt->n_threads);
 
   /* Check if theres empties right at the start */

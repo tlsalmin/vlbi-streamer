@@ -980,7 +980,7 @@ int prep_filenames(struct opt_s *opt){
   return 0;
 }
 int prep_streamer(struct opt_s* opt){
-  int err;
+  int err = 0;
   D("Initializing streamer thread");
   /* Format the capturing thread */
   opt->streamer_ent = (struct streamer_entity*)malloc(sizeof(struct streamer_entity));

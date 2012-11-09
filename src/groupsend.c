@@ -36,13 +36,22 @@
 #include "timer.h"
 #include "streamer.h"
 
+/*
+#define LOG(...) fprintf(stdout, __VA_ARGS__)
+#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
+#define O(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+    */
+
+//#define O(...) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__);
+#define O(...) fprintf(stdout, __VA_ARGS__)
+
 #define STREAMS 32
 #define STARTPORT 2222
 #define PACKET_SIZE	8888
 #define TARGET_IP "192.168.0.3"
-#if(LOG_TO_FILE)
-extern FILE* logfile;
-#endif
 
 int main(int argc, char** argv){
   (void)argc;
@@ -57,21 +66,21 @@ int main(int argc, char** argv){
   TIMERTYPE now,sleep;
   ZEROTIME(now);
   ZEROTIME(sleep);
-  D("Zeroed sleep\n");
+  O("Zeroed sleep\n");
   /*
-  D("Doing the double sndbuf-loop");
+  O("Doing the double sndbuf-loop");
   int def = PACKET_SIZE;
   
   while(err == 0){
-    //D("RCVBUF size is %d",,def);
+    //O("RCVBUF size is %d",,def);
     def  = def << 1;
     err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
     if(err == 0){
-      D("Trying SNDBUF size %d",, def);
+      O("Trying SNDBUF size %d",, def);
     }
     err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
     if(defcheck != (def << 1)){
-      D("Limit reached. Final size is %d Bytes",,defcheck);
+      O("Limit reached. Final size is %d Bytes",,defcheck);
       break;
     }
     }
@@ -84,9 +93,9 @@ int main(int argc, char** argv){
     exit(-1);
   }
 
-  D("Resolved hostname");
+  O("Resolved hostname");
 
-  D("Setting up streams\n");
+  O("Setting up streams\n");
   for(i=0;i<STREAMS;i++){
     sockets[i] = socket(AF_INET, SOCK_DGRAM, 0);
     memset(&(sin[i]), 0, sizeof(struct sockaddr_in));   
@@ -94,9 +103,9 @@ int main(int argc, char** argv){
     sin[i].sin_port = htons(STARTPORT+i);    
     memcpy(&(sin[i].sin_addr.s_addr), (char *)hostptr->h_addr, sizeof(sin[i].sin_addr.s_addr));
   }
-  D("Streams done\n");
+  O("Streams done\n");
 
-  D("Getting clock\n");
+  O("Getting clock\n");
   GETTIME(now);
 
 
@@ -118,6 +127,6 @@ int main(int argc, char** argv){
   free(sockets);
   free(sin);
 
-  D("Exit OK\n");
+  O("Exit OK\n");
   return 0;
 }
