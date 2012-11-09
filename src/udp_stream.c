@@ -457,7 +457,7 @@ void * udp_sender(void *streamo){
     long rate = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size*8;
     /* Add one as n loading for speed and one is being sent over the network */
     st.allocated_to_load = rate/(MBITS_PER_DRIVE*MILLION) + 1;
-    D("rate as %d ns. Setting to use max %d buffers",, spec_ops->opt->wait_nanoseconds, st.allocated_to_load);
+    LOG("rate as %d ns. Setting to use max %d buffers\n", spec_ops->opt->wait_nanoseconds, st.allocated_to_load);
   }
 
   /* Init minimun sleeptime. On the test machine the minimum time 	*/
