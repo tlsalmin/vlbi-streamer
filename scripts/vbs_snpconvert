@@ -148,29 +148,30 @@ do
   LINEOFSCAN=`grep "scan_name=${RARRAY[0]}" $NEWFILE -n| sed  's/\([0-9]*\).*/\1/'`
   #Adding $I to $LINEOFSCAN here because augmenting the file changes the
   #result each time. Don't know why thought..
-  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\" $EXTRAOPS" $NEWFILE
+  #sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\" $EXTRAOPS" $NEWFILE
+  sed -i "$LINEOFSCAN a sy=$REMOTER \"$VBS_QUEUE $EXPNAME $dur $EXTRAOPS\"" $NEWFILE
   
   #echo $EXPNAME $STARTEPOCH $dur
   if [ "$((I % 4))" == "0" ]
   then
-    DOTHEDOT="; printf \".\""
+    DOTHEDOT="; printf \".\" ;"
   else
-    DOTHEDOT=""
+    DOTHEDOT=";"
   fi
   if [ ! -z "$REMOTER" ]
   then
     if [ "$UNCORKED" == "0" ]
     then
       UNCORKED=1
-      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT"
+      BIGBADA="${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT "
     else
-      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT"
+      BIGBADA="$BIGBADA ; ${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT "
     fi
     #echo "$REMOTER \"$VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH\"">> $EXTRAOUT
     #echo \;${VBS_QUEUE} $EXPNAME $dur -e $STARTEPOCH\\>> $EXTRAOUT
 
   else
-    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT >> $EXTRAOUT
+    echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT  >> $EXTRAOUT
   fi
   I=$(($I+1))
 done < starttimes

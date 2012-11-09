@@ -67,9 +67,9 @@ do
       shift
       ;;
     -e)
-      DATDATE=$(date -d"$2" +%s 2> /dev/null)
-      if [ "$?" -ne 0 ]
-      then
+      #DATDATE=$(date -d"$2" +%s 2> /dev/null)
+      #if [ "$?" -ne 0 ]
+      #then
 	DATDATE=$(date -d"@${2}" +%s 2> /dev/null)
 	if [ "$?" -ne 0 ]
 	then
@@ -77,7 +77,7 @@ do
 	  usage
 	  exit 1
 	fi
-      fi
+      #fi
       EXTRAOPS="$EXTRAOPS
       starting_time = ${DATDATE}L;"
       shift

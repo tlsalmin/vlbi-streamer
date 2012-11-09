@@ -17,6 +17,7 @@ DESC="Vlbistreamer packet streaming service"
 NAME=vlbistreamer
 LOGFILE=vlbistreamer.log
 BINDIR=/usr/local/bin
+PPRIORITY=no
 USER=oper
 GROUP=oper
 TIMEOUT=5
@@ -35,6 +36,13 @@ SCRIPTNAME=/etc/init.d/vbs_daemon
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
+
+PPSTRING=""
+if [ "$PPRIORITY" == "yes" ]
+then
+  PPSTRING=" -I real-time:4 "
+fi
+
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.2-14) to ensure that this file is present
@@ -64,7 +72,7 @@ do_start()
 	init_hugepages
       fi
     fi
-    if start-stop-daemon --start --pidfile ${PIDFILE}--user ${USER} --group ${GROUP} --background --name $NAME --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+    if start-stop-daemon --start --pidfile ${PIDFILE}--user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
       echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE
       return 0
     else

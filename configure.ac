@@ -112,6 +112,8 @@ AC_MSG_RESULT($enable_ppriority)
 AS_IF([test "x$enable_ppriority" != "xno"], [
 		     AC_DEFINE(PPRIORITY, 1, [Compile with pthread priority])
 		     ], AC_DEFINE(PPRIORITY, 0, [Compile without pthread priority]))
+PPRIORITY=$enable_ppriority
+AC_SUBST(PPRIORITY)
 
 AC_MSG_CHECKING([--enable-minfilesize argument])
 AC_ARG_ENABLE(minfilesize,
