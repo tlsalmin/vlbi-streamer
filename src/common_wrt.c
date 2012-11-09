@@ -609,7 +609,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;
 }
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
 /*
  * Find hugetlbfs easily (usually /mnt/huge)
  * stolen from: http://lwn.net/Articles/375096/

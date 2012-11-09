@@ -34,8 +34,11 @@ struct simplebuf{
   void* buffer;
   int async_writes_submitted;
   int running;
+#if(HAVE_HUGEPAGES)
+  int huge_fd;
 #ifndef MMAP_NOT_SHMGET
   int shmid;
+#endif
 #endif
   struct fileholder* fh;
   struct fileholder* fh_def;

@@ -454,9 +454,9 @@ void * udp_sender(void *streamo){
   }
   else
   {
-    long rate = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size*8;
+    long rate_in_bytes = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size;
     /* Add one as n loading for speed and one is being sent over the network */
-    st.allocated_to_load = rate/(MBITS_PER_DRIVE*MILLION) + 1;
+    st.allocated_to_load = MIN(TOTAL_MAX_DRIVER_IN_USE, rate_in_bytes/(MBITS_PER_DRIVE*MILLION) + 1);
     LOG("rate as %d ns. Setting to use max %d buffers\n", spec_ops->opt->wait_nanoseconds, st.allocated_to_load);
   }
 

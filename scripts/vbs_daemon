@@ -72,7 +72,12 @@ do_start()
 	init_hugepages
       fi
     fi
-    if start-stop-daemon --start --pidfile ${PIDFILE} -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+    if start-stop-daemon --start --make-pidfile --pidfile ${PIDFILE} -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+      if [ "$PPRIORITY" == "yes" ]
+      then
+	#TODO: This is not the correct way
+	chrt -p 60  -f $(ps -A |grep -i vlbistreamer |cut -d ' ' -f1)
+      fi
       echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE
       return 0
     else

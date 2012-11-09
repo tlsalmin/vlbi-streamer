@@ -29,13 +29,14 @@
 #include <fcntl.h>
 #include "config.h"
 #include <string.h> /* For preheat */
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
 #include <sys/mman.h>
 #endif
 #include "resourcetree.h"
 #include "simplebuffer.h"
 #include "streamer.h"
 #include "assert.h"
+#include "common_wrt.h"
 #ifndef MMAP_NOT_SHMGET
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -265,30 +266,29 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
     unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
     D("Trying to hog %lu MB of memory",,hog_memory/MEG);
     /* TODO: Make a check for available number of hugepages */
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       /* Init fd for hugetlbfs					*/
       /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
-      /*
 
-	 char hugefs[FILENAME_MAX];
-	 find_hugetlbfs(hugefs, FILENAME_MAX);
+      char hugefs[FILENAME_MAX];
+      find_hugetlbfs(hugefs, FILENAME_MAX);
 
-	 sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
+      sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
 #if(DEBUG_OUTPUT)
-fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
+      fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
 #endif
 
-common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
+      common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
       //sbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
-      */
 
       /* TODO: Check other flags aswell				*/
       /* TODO: Not sure if shared needed as threads share id 	*/
       //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
       //assert(hog_memory%sysconf(_SC_PAGESIZE) == 0);
 #ifdef MMAP_NOT_SHMGET
-      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
+      //sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
+      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE, sbuf->huge_fd,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
@@ -313,7 +313,7 @@ common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
 	return -1;
       }
 #endif
-      
+
     }
     else
 #endif /* HAVE_HUGEPAGES */
@@ -357,7 +357,7 @@ int sbuf_close(struct buffer_entity* be, void *stats){
      be->recer->close(be->recer, stats);
      */
   if(!(sbuf->optbits & USE_RX_RING)){
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
       /*

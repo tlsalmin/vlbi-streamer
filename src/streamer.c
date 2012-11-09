@@ -263,7 +263,7 @@ static void usage(char *binary){
       "-q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,none)\n"
       "-r RATE		Expected network rate in Mb/s. \n"
       "-s SOCKET	Socket number(Default: 2222)\n"
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
       "-u 		Use hugepages\n"
 #endif
       "-v 		Verbose. Print stats on all transfers\n"
@@ -547,7 +547,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	opt->packet_size = atoi(optarg);
 	break;
       case 'u':
-#ifdef HAVE_HUGEPAGES
+#if(HAVE_HUGEPAGES)
 	opt->optbits |= USE_HUGEPAGE;
 #endif
 	break;
@@ -760,7 +760,7 @@ int init_rbufs(struct opt_s *opt){
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
 
 #if(PPRIORITY)
-  err = prep_priority(opt, MIN_PRIO_FOR_PTHREAD);
+  err = prep_priority(opt, RBUF_PRIO);
 #endif
 
   D("Initializing buffer threads");
@@ -935,6 +935,10 @@ int prep_priority(struct opt_s * opt, int priority){
     realprio = maxprio;
   else if (priority == MIN_PRIO_FOR_PTHREAD)
     realprio = minprio;
+  else if (priority == RBUF_PRIO)
+    realprio = (minprio + maxprio)/2;
+  else
+    realprio = (minprio + maxprio)/2;
 
 
   D("Min prio: %d, max prio: %d",, minprio, maxprio);

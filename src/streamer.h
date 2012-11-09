@@ -179,6 +179,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define INDEXING_LENGTH 8
 
 #define MAX_PRIO_FOR_PTHREAD 1
+#define RBUF_PRIO	2
 #define RECEIVE_THREAD_PRIO 3
 #define MIN_PRIO_FOR_PTHREAD 4
 
