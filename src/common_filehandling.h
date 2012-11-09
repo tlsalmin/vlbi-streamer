@@ -1,0 +1,28 @@
+#include "streamer.h"
+
+#define AUGMENTLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(opt->augmentlock);}}while(0)
+
+#define AUGMENTUNLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(opt->augmentlock);}}while(0)
+
+struct sender_tracking{
+  //unsigned long files_loaded;
+  struct fileholder* head_loaded;
+  int allocated_to_load;
+  //unsigned long files_sent;
+  unsigned long files_skipped;
+  unsigned long packets_loaded;
+  unsigned long packets_sent;
+  TIMERTYPE now;
+#if(SEND_DEBUG)
+  TIMERTYPE reference;
+#endif
+#ifdef UGLY_BUSYLOOP_ON_TIMER
+  TIMERTYPE onenano;
+#endif
+  TIMERTYPE req;
+};
+
+void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st);
+int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st);
+inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
+int loadup_n(struct opt_s *opt, struct sender_tracking * st);
