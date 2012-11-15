@@ -1,0 +1,82 @@
+#!/bin/bash
+usage()
+{
+cat << EOF
+OPTIONS:
+      -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
+      -f OFFSET		Strip offset amount of bytes from header of each packet
+EOF
+}
+SCHEDULE=temp/vlbischedule
+LOGFILE=temp/vlbistreamer.log
+EXTRAOPS="#Schedule extra parameters"
+EXTRAOPS="$EXTRAOPS
+  capture = \"disk2file\";"
+CHECK_FOR_EXISTENCE=1
+n=1
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -e)
+      #DATDATE=$(date -d"$2" +%s 2> /dev/null)
+      #if [ "$?" -ne 0 ]
+      #then
+      CHECK_FOR_EXISTENCE=0
+	DATDATE=$(date -d"@${2}" +%s 2> /dev/null)
+	if [ "$?" -ne 0 ]
+	then
+	  echo $(date --rfc-3339=seconds) "Error in setting startup date " | tee -a  $LOGFILE
+	  usage
+	  exit 1
+	fi
+      #fi
+      EXTRAOPS="$EXTRAOPS
+      starting_time = ${DATDATE}L;"
+      shift
+      ;;
+    -f)
+      EXTRAOPS="$EXTRAOPS
+      offset = ${2};"
+      shift
+      ;;
+    -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" | tee -a  $LOGFILE ;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
+done
+
+RECNAME=$arg_1
+DISK2FILEOUTPUT=$arg_2
+
+if [ -z "$DISK2FILEOUTPUT" ] || [ -z "$RECNAME" ]
+then
+    echo $(date --rfc-3339=seconds) "ERROR: No output or recname specified"
+  usage
+  exit -1
+fi
+
+if [ "$CHECK_FOR_EXISTENCE" == "1" ]
+then
+  match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
+  if [ ! -n "$match" ]
+  then
+    echo $(date --rfc-3339=seconds) "ERROR: No recording $RECNAME found"
+    exit -1
+  fi
+fi
+CONFSTART=""
+
+echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
+{
+  filename = \"$RECNAME\";
+  disk2fileoutput = \"$DISK2FILEOUTPUT\"; 
+  $EXTRAOPS
+};
+" >> $SCHEDULE
+if [ -z "${DATDATE}" ]
+then
+  DATDATE=$(date +%s)
+fi
+echo "`date --rfc-3339=seconds`: Added disk2file for $RECNAME to record to $DISK2FILEOUTPUT starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " | tee -a $LOGFILE
+#TODO: What date format people want?
+exit 0
