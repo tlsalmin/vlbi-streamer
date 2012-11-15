@@ -220,6 +220,14 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  opt->optbits |= REC_DUMMY|WRITER_DUMMY;
 	  opt->optbits &= ~ASYNC_WRITE;
 	}
+	else if (!strcmp(config_setting_get_string(setting), "writev")){
+	  /*
+	     opt->rec_type = REC_DEF;
+	     opt->async = 0;
+	     */
+	  opt->optbits |= REC_DEF;
+	  opt->optbits &= ~ASYNC_WRITE;
+	}
 	else {
 	  LOGERR("Unknown mode type [%s]\n", config_setting_get_string(setting));
 	  return -1;
@@ -245,6 +253,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case CAPTURE_W_SPLICER:
 	    err = config_setting_set_string(setting, "sendfile");
 	    break;
+	  case CAPTURE_W_DISK2FILE:
+	    err = config_setting_set_string(setting, "sendfile");
+	    break;
 	  default:
 	    E("Unknown capture");
 	    return -1;
@@ -264,6 +275,11 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "disk2file")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_DISK2FILE;
+	  opt->optbits |= READMODE;
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));
@@ -331,6 +347,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     /* Could have done these with concatenation .. */
       CFG_FULL_UINT64((*opt->cumul),"cumul")
       CFG_FULL_STR(device_name)
+      CFG_FULL_STR(disk2fileoutput)
       CFG_FULL_UINT64(opt->optbits, "optbits")
       CFG_FULL_UINT64(opt->time, "time")
       CFG_FULL_INT(opt->port, "port")
@@ -338,6 +355,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       CFG_FULL_UINT64(opt->maxmem, "maxmem")
       CFG_FULL_INT(opt->n_threads, "n_threads")
       CFG_FULL_INT(opt->n_drives, "n_drives")
+      CFG_FULL_INT(opt->offset, "offset")
       CFG_FULL_INT(opt->rate, "rate")
       CFG_FULL_UINT64(opt->do_w_stuff_every, "do_w_stuff_every")
       CFG_FULL_INT(opt->wait_nanoseconds, "wait_nanoseconds")
@@ -355,6 +373,13 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     opt->buf_num_elems = filesize/opt->packet_size;
     opt->do_w_stuff_every = filesize/((unsigned long)opt->buf_division);
   }
+  /*
+  if(opt->disk2fileoutput != NULL){
+    opt->optbits &= ~LOCKER_CAPTURE;
+    opt->optbits |= CAPTURE_W_DISK2FILE;
+    opt->optbits |= READMODE;
+  }
+  */
 
   return 0;
 }

@@ -49,9 +49,9 @@
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
 #include "disk2file.h"
-#include "simplebuffer.h"
 #include "resourcetree.h"
 #include "confighelper.h"
+#include "simplebuffer.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
@@ -179,7 +179,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
   }
   else{
     if(opt->optbits & USE_RX_RING){
-      D("The 16 aligned restriction of RX-ring resulted in %d MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
+      D("The 16 aligned restriction of RX-ring resulted in %ld MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
     }
 
     /*
@@ -361,8 +361,10 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 int clear_pointers(struct opt_s* opt){
   opt->filename = NULL;
   opt->device_name = NULL;
+  opt->hostname = NULL;
   opt->cfgfile = NULL;
   opt->cumul = NULL;
+  opt->disk2fileoutput = NULL;
   opt->augmentlock = NULL;
   return 0;
 }
@@ -372,6 +374,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
+  opt->hostname = NULL;
   opt->streamer_ent = NULL;
   for(i=0;i<MAX_OPEN_FILES;i++){
     opt->filenames[i] = NULL;
@@ -697,7 +700,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   }
   //opt->points = (struct rec_point *)calloc(opt->n_drives, sizeof(struct rec_point));
 #if(!DAEMON)
-  if(opt->optbits & READMODE){
+  if(opt->optbits & READMODE && !( opt->optbits & CAPTURE_W_DISK2FILE )){
     opt->hostname = (char*)malloc(sizeof(char)*IP_LENGTH);
     if(strcpy(opt->hostname, argv[1]) == NULL){
       E("strcpy hostname");
@@ -839,6 +842,8 @@ int close_opts(struct opt_s *opt){
 	free(opt->filenames[i]);
     }
   }
+  if(opt->disk2fileoutput != NULL)
+    free(opt->disk2fileoutput);
   if(opt->streamer_ent != NULL)
     free(opt->streamer_ent);
   if(opt->hostname != NULL)
@@ -1010,7 +1015,7 @@ int prep_streamer(struct opt_s* opt){
       err = d2f_init(opt, opt->streamer_ent);
       break;
     default:
-      LOG("DUR %X\n", opt->optbits);
+      LOG("ERROR: Missing capture bit or two set! %lX\n", opt->optbits);
       break;
 
   }
@@ -1023,19 +1028,21 @@ int prep_streamer(struct opt_s* opt){
   return 0;
 }
 int prep_hostname(struct opt_s* opt){
-  if(opt->optbits & READMODE || opt->hostname != NULL){
-    struct hostent *hostptr;
-
-    hostptr = gethostbyname(opt->hostname);
-    if(hostptr == NULL){
-      perror("Hostname");
-      //STREAMER_ERROR_EXIT;
-      return -1;
-    }
-    memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
-
-    D("Resolved hostname");
+  if(opt->hostname == NULL){
+    E("Hostname is null!");
+    return -1;
   }
+  struct hostent *hostptr;
+
+  hostptr = gethostbyname(opt->hostname);
+  if(hostptr == NULL){
+    perror("Hostname");
+    //STREAMER_ERROR_EXIT;
+    return -1;
+  }
+  memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
+
+  D("Resolved hostname");
   return 0;
 }
 int init_recp(struct opt_s *opt){
@@ -1167,9 +1174,11 @@ int main(int argc, char **argv)
 
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
-  err = prep_hostname(opt);
-  if(err != 0){
-    STREAMER_ERROR_EXIT;
+  if(opt->hostname != NULL){
+    err = prep_hostname(opt);
+    if(err != 0){
+      STREAMER_ERROR_EXIT;
+    }
   }
   
 
@@ -1358,10 +1367,10 @@ int main(int argc, char **argv)
 #endif
   }
 
-  D("Blocking until owned buffers are released");
+  LOG("Blocking until owned buffers are released\n");
   block_until_free(opt->membranch, opt);
 #if(DAEMON)
-  D("Buffers finished");
+  LOG("Buffers finished\n");
   opt->status = STATUS_FINISHED;
 #else
   close_streamer(opt);

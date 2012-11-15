@@ -72,8 +72,6 @@ extern FILE* logfile;
 #define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
 
 #define FULL_COPY_ON_PEEK
-#define MBITS_PER_DRIVE 500
-#define TOTAL_MAX_DRIVER_IN_USE 20
 
 #define UDPMON_SEQNUM_BYTES 8
 //#define DUMMYSOCKET
@@ -435,10 +433,10 @@ void * udp_sender(void *streamo){
   int i=0;
   int *inc;
   //int max_buffers_in_use=0;
-  unsigned long cumulpeek;
-  unsigned long packetpeek;
+  //unsigned long cumulpeek;
+  //unsigned long packetpeek;
   //int active_buffers;
-  struct fileholder* tempfh;
+  //struct fileholder* tempfh;
   /* If theres a wait_nanoseconds, it determines the amount of buffers	*/
   /* we have in use at any time						*/
   //int besindex;
@@ -448,17 +446,7 @@ void * udp_sender(void *streamo){
 
   init_sender_tracking(spec_ops->opt, &st);
 
-  if(spec_ops->opt->wait_nanoseconds == 0){
-    st.allocated_to_load = MIN(TOTAL_MAX_DRIVER_IN_USE, spec_ops->opt->n_threads);
-    D("No wait set, so setting to use %d buffers",, st.allocated_to_load);
-  }
-  else
-  {
-    long rate_in_bytes = (BILLION/((long)spec_ops->opt->wait_nanoseconds))*spec_ops->opt->packet_size;
-    /* Add one as n loading for speed and one is being sent over the network */
-    st.allocated_to_load = MIN(TOTAL_MAX_DRIVER_IN_USE, rate_in_bytes/(MBITS_PER_DRIVE*MILLION) + 1);
-    LOG("rate as %d ns. Setting to use max %d buffers\n", spec_ops->opt->wait_nanoseconds, st.allocated_to_load);
-  }
+  throttling_count(spec_ops->opt, &st);
 
   /* Init minimun sleeptime. On the test machine the minimum time 	*/
   /* Slept with nanosleep or usleep seems to be 55microseconds		*/
@@ -475,7 +463,7 @@ void * udp_sender(void *streamo){
   /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
   //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
   SAUGMENTLOCK;
-  packetpeek = (*spec_ops->opt->total_packets);
+  st.packetpeek = (*spec_ops->opt->total_packets);
   SAUGMENTLOCK;
 
   err = loadup_n(spec_ops->opt, &st);
@@ -513,69 +501,15 @@ void * udp_sender(void *streamo){
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops->opt, &st) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
-    if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
-      //st.files_sent++;
-      D("Buffer empty for: %lu",, spec_ops->opt->fileholders->id);
-      SAUGMENTLOCK;
-      tempfh = spec_ops->opt->fileholders;
-      spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
-      free(tempfh);
-      /* Check for missing file here so we can keep simplebuffer simple 	*/
-      cumulpeek = (*spec_ops->opt->cumul);
-      packetpeek = (*spec_ops->opt->total_packets);
-      SAUGMENTUNLOCK;
-      //if(st.files_loaded < cumulpeek){
-      if(st.head_loaded != NULL){
-	D("Still files to be loaded. Loading %lu",, st.head_loaded->id);
-	/* start_loading increments files_loaded */
-	err = start_loading(spec_ops->opt, se->be, &st);
-	CHECK_ERRP("Loading file");
-	if(st.allocated_to_load > 0 && st.head_loaded != NULL){
-	  err = start_loading(spec_ops->opt, NULL, &st);
-	  CHECK_ERRP("Loading more files");
-	}
-	  
+    if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - st.packetpeek == 0)){
+      err = jump_to_next_file(spec_ops->opt, se, &st);
+      if(err == ALL_DONE)
+	UDPS_EXIT;
+      else if (err < 0){
+	E("Error in getting buffer");
+	UDPS_EXIT;
       }
-      else{
-	D("Loaded enough files. Setting memorybuf to free");
-	set_free(spec_ops->opt->membranch, se->be->self);
-      }
-
-      /*
-	 while(st.files_sent < spec_ops->opt->cumul && spec_ops->opt->fileholders[st.files_sent] == -1)
-	 st.files_sent++;
-	 */
-      se->be = NULL;
-      while(se->be == NULL){
-	SAUGMENTLOCK;
-	cumulpeek = (*spec_ops->opt->cumul);
-	SAUGMENTUNLOCK;
-	//if(st.files_sent < cumulpeek){
-	if(spec_ops->opt->fileholders != NULL){
-	  D("Getting new loaded for file %lu",, spec_ops->opt->fileholders->id);
-	  if(spec_ops->opt->fileholders != NULL && spec_ops->opt->fileholders->status == FH_MISSING){
-	    D("Skipping a file, fileholder set to -1 for file %lu",, st.head_loaded->id);
-	    SAUGMENTLOCK;
-	    tempfh = spec_ops->opt->fileholders;
-	    spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
-	    free(tempfh);
-	    SAUGMENTUNLOCK;
-	  }
-	  else
-	  {
-	    se->be = get_loaded(spec_ops->opt->membranch, spec_ops->opt->fileholders->id, spec_ops->opt);
-	    buf = se->be->simple_get_writebuf(se->be, &inc);
-	    D("Got loaded file %lu to send.",, spec_ops->opt->fileholders->id);
-	  //CHECK_AND_EXIT(se->be);
-	  }
-	}
-	else{
-	  //E("Shouldn't be here since all packets have been sent!");
-	  D("All files sent! Time to wrap it up");
-	  //set_free(spec_ops->opt->membranch, se->be->self);
-	  UDPS_EXIT;
-	}
-      }
+      buf = se->be->simple_get_writebuf(se->be, &inc);
       i=0;
     }
 #ifdef HAVE_RATELIMITER

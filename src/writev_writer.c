@@ -1,15 +1,24 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+#include <stdlib.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#include <fcntl.h>
+/* FOR IOV_MAX */
+#include <limits.h>
+
 #include "streamer.h"
 #include "common_wrt.h"
+#include "defwriter.h"
 
-struct extra_parameters{
-  struct iovec * iov;
-};
 
 extern FILE* logfile;
 
-int writev_init(struct opt_s * opt, struct recording_e *re){
+int writev_init(struct opt_s * opt, struct recording_entity *re){
   int ret;
-  struct extra_parameters * ep;
+  //struct extra_parameters * ep;
 
   ret = common_w_init(opt,re);
   if(ret!=0){
@@ -21,38 +30,64 @@ int writev_init(struct opt_s * opt, struct recording_e *re){
 
   D("Preparing iovecs");
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
-  ioi->extra_param = (void*) malloc(sizeof(struct extra_parameters));
+  ioi->extra_param = (void*)malloc(sizeof(struct iovec)*IOV_MAX); 
   CHECK_ERR_NONNULL(ioi->extra_param, "Malloc extra params");
-  ep = (struct extra_parameters *) ioi->extra_param;
+  //ep = (struct extra_parameters *) ioi->extra_param;
 
-  ioi->extra_param->iov = NULL;
-  ioi->extra_param->iov = (struct iovec*)malloc(sizeof(struct iovec)*opt->buf_num_elems);
-  CHECK_ERR_NONNULL(ioi->extra_param->iov, "Malloc iov");
   
   return 0;
 }
 int writev_get_w_fflags(){
-    return  O_WRONLY|O_NOATIME;
+    return  O_WRONLY|O_NOATIME|O_DIRECT;
     //return  O_WRONLY|O_NOATIME|O_NONBLOCK;
     //return  O_WRONLY|O_DIRECT|O_NOATIME;
 }
 int writev_get_r_fflags(){
-    return  O_RDONLY|O_NOATIME;
+    return  O_RDONLY|O_NOATIME|O_DIRECT;
     //return  O_RDONLY|O_DIRECT|O_NOATIME;
 }
-long aiow_write(struct recording_entity * re, void * start, size_t count){
-  int n_vecs;
+long writev_write(struct recording_entity * re, void * start, size_t count){
+  /* Just make me long.. */
+  int n_vecs, i, total_i;
+  long err;
   struct common_io_info * ioi = (struct common_io_info * )re->opt;
-  struct extra_parameters * ep = (struct extra_parameters*)ioi->extra_param;
+  struct iovec * iov = (struct iovec*)ioi->extra_param;
+  /* No point in doing a scatter read */
+  if(ioi->opt->optbits & READMODE)
+    return def_write(re,start,count);
 
-  n_vecs = 
+  total_i=0;
+  n_vecs = count/ioi->opt->packet_size;
+  while(total_i < n_vecs){
+    for(i=0;i<MIN(IOV_MAX, n_vecs-total_i);i++){
+      iov[i].iov_base = start + ((long)i)*ioi->opt->packet_size + ((long)ioi->opt->offset);
+      iov[i].iov_len = ioi->opt->packet_size - ioi->opt->offset;
+    }
+    err = (long)writev(ioi->fd, iov, i);
+    if(err < 0){
+      perror("WRITEV: Error on write");
+      E("Tried to write %d vecs for %ld bytes",, i, count);
+      return err;
+    }
+    start += i*ioi->opt->packet_size;
+    total_i += i;
+  }
+#if(DAEMON)
+  if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
+    E("spinlock lock");
+  ioi->opt->bytes_exchanged += err;
+  if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
+    E("Spinlock unlock");
+#endif
+
+  return err;
 }
-int aiow_close(struct recording_entity * re, void * stats){
+
+int writev_close(struct recording_entity * re, void * stats){
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct extra_parameters *ep = (struct extra_parameters*)ioi->extra_param;
 
-  free(ep->iov);
-  free(ep);
+  free(((struct iovec*)ep));
   common_close(re,stats);
 
   return 0;

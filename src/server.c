@@ -467,6 +467,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
   se->idstring = (char*)malloc(sizeof(char)*24);
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
   //strcpy(opt->filename, config_setting_name(root));
@@ -480,6 +481,12 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     E("Broken schedule config. Not scheduling %s",, se->idstring);
     free_and_close(se);
     return 0;
+  }
+
+  /* Wont need disk2file output if CAPTURE_W_DISK2FILE set */
+  if (!(opt->optbits & CAPTURE_W_DISK2FILE)){
+    free(opt->disk2fileoutput);
+    opt->disk2fileoutput = NULL;
   }
 
   /* Null here, set in initializer. */
@@ -634,8 +641,10 @@ int main(int argc, char **argv)
 #if(LOG_TO_FILE)
   fprintf(stdout, "Logging to %s", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
-  if(logfile == NULL)
-    fprintf(stdout, "Couldn't open logfile for writing");
+  if(logfile == NULL){
+    fprintf(stdout, "Couldn't open logfile %s for writing", LOGFILE);
+    exit(-1);
+  }
 #endif
 
 

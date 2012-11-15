@@ -6,7 +6,9 @@ int d2f_init( struct opt_s *opt, struct streamer_entity *se);
 
 struct d2fopts_s{
   struct opt_s *opt;
-  struct iover* offsets;
+  //int strip_bytes;
   unsigned long missing;
-}
+  unsigned long written;
+  int fd;
+};
 #endif

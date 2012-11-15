@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "common_filehandling.h"
 
@@ -157,3 +158,84 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st){
   
   return 0;
 }
+void throttling_count(struct opt_s* opt, struct sender_tracking * st)
+{
+  if(opt->wait_nanoseconds == 0){
+    st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, opt->n_threads);
+    D("No wait set, so setting to use %d buffers",, st->allocated_to_load);
+  }
+  else
+  {
+    long rate_in_bytes = (BILLION/((long)opt->wait_nanoseconds))*opt->packet_size;
+    /* Add one as n loading for speed and one is being sent over the network */
+    st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, rate_in_bytes/(MBITS_PER_DRIVE*MILLION) + 1);
+    D("rate as %d ns. Setting to use max %d buffers",, opt->wait_nanoseconds, st->allocated_to_load);
+  }
+}
+int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st){
+  struct fileholder * tempfh;
+  int err;
+  long cumulpeek; //= (*opt->cumul);
+  //st->files_sent++;
+  D("Buffer empty for: %lu",, opt->fileholders->id);
+  AUGMENTLOCK;
+  tempfh = opt->fileholders;
+  opt->fileholders = opt->fileholders->next;
+  free(tempfh);
+  st->packetpeek = *(opt->total_packets);
+  /* Check for missing file here so we can keep simplebuffer simple 	*/
+  //packetpeek = (*opt->total_packets);
+  AUGMENTUNLOCK;
+  //if(st->files_loaded < cumulpeek){
+  if(st->head_loaded != NULL){
+    D("Still files to be loaded. Loading %lu",, st->head_loaded->id);
+    /* start_loading increments files_loaded */
+    err = start_loading(opt, se->be, st);
+    CHECK_ERR("Loading file");
+    if(st->allocated_to_load > 0 && st->head_loaded != NULL){
+      err = start_loading(opt, NULL, st);
+      CHECK_ERR("Loading more files");
+    }
+  }
+  else{
+    D("Loaded enough files. Setting memorybuf to free");
+    set_free(opt->membranch, se->be->self);
+  }
+
+  /*
+     while(st->files_sent < opt->cumul && opt->fileholders[st->files_sent] == -1)
+     st->files_sent++;
+     */
+  se->be = NULL;
+  while(se->be == NULL){
+    AUGMENTLOCK;
+    cumulpeek = (*opt->cumul);
+    AUGMENTUNLOCK;
+    //if(st->files_sent < cumulpeek){
+    if(opt->fileholders != NULL){
+      D("Getting new loaded for file %lu",, opt->fileholders->id);
+      if(opt->fileholders != NULL && opt->fileholders->status == FH_MISSING){
+	D("Skipping a file, fileholder set to -1 for file %lu",, st->head_loaded->id);
+	AUGMENTLOCK;
+	tempfh = opt->fileholders;
+	opt->fileholders = opt->fileholders->next;
+	free(tempfh);
+	AUGMENTUNLOCK;
+      }
+      else
+      {
+	se->be = get_loaded(opt->membranch, opt->fileholders->id, opt);
+	//buf = se->be->simple_get_writebuf(se->be, &inc);
+	D("Got loaded file %lu to send.",, opt->fileholders->id);
+	//CHECK_AND_EXIT(se->be);
+      }
+    }
+    else{
+      //E("Shouldn't be here since all packets have been sent!");
+      D("All files sent! Time to wrap it up");
+      //set_free(opt->membranch, se->be->self);
+      return ALL_DONE;
+    }
+  }
+  return 0;
+  }
