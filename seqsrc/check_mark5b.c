@@ -117,8 +117,15 @@ int main(int argc, char ** argv){
   target = mmapfile+offset;
   GRAB_4_BYTES
   if(read_count != 0xABADDEED){
+    if(netmode == 0)
+    {
+    O("Adding 5008 offset, since recording started at midway of a mark5b frame");
+    offset+=5008;
+    }
+    else{
     O("Adding 5016 offset, since recording started at midway of a mark5b frame");
     offset+=5016;
+    }
   }
   while(running){
 
@@ -128,7 +135,7 @@ int main(int argc, char ** argv){
     }
     else
     */
-      target = mmapfile + framesize*count + offset + hexoffset*16;
+    target = mmapfile + framesize*count + offset + hexoffset*16;
     if(hexmode == 0){
     GRAB_4_BYTES
     syncword = read_count;
@@ -258,6 +265,78 @@ int main(int argc, char ** argv){
 	else{
 	count = 0;
 	}
+	break;
+      case (int)'s':
+#ifndef PORTABLE
+    system ("/bin/stty cooked");
+#endif
+	char* tempstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	char* temp = NULL;
+	int seconds;
+	int tempfd;
+	long end;
+	int timecode2;
+	//long last;
+	int framenum2;
+	long framesinsecond;
+	/* VLBABCD_timecodeword1S  is our start time */
+
+	fprintf(stdout, "Seconds:");
+	temp = fgets(tempstring, FILENAME_MAX, stdin);
+	if(temp == NULL){
+	  O("Error in getting seconds");
+	  free(tempstring);
+	  break;
+	}
+	temp = NULL;
+	seconds = atoi(tempstring);
+
+	fprintf(stdout, "Outputfile:");
+	temp = fgets(tempstring, FILENAME_MAX, stdin);
+	if(temp == NULL){
+	  O("Error in getting seconds");
+	  free(tempstring);
+	  break;
+	}
+
+	tempfd = open(tempstring, O_WRONLY|O_CREAT);
+	if(fd == -1){
+	  O("Error opening file %s\n", tempstring);
+	  break;
+	  //exit(-1);
+	}
+
+	/* TODO: Refactor to function blabla */
+	timecode2 = VLBABCD_timecodeword1S;
+	end = count;
+	framenum2 = framenum;
+	//while(timecode2 == VLBABCD_timecodeword1S){
+	while(framenum2 != 0){
+	  target = mmapfile + framesize*end + offset + hexoffset*16;
+	  GRAB_4_BYTES
+	  GRAB_4_BYTES
+	  framenum2 = read_count & get_mask(0,14);
+	  GRAB_4_BYTES
+	  timecode2 = read_count & get_mask(0,19);
+	  end++;
+	}
+	O("Got to next second: %X, frame %d", timecode2, framenum2);
+	target = mmapfile + framesize*(end-2) + offset + hexoffset*16;
+	GRAB_4_BYTES
+	GRAB_4_BYTES
+	framesinsecond = (read_count & get_mask(0,14)) +1;
+	GRAB_4_BYTES
+	timecode2 = read_count & get_mask(0,19);
+
+	target = mmapfile + framesize*count + offset + hexoffset*16;
+	O("Writing %i seconds, with %ld frames in a second with %i framesize\n", seconds, framesinsecond, framesize);
+
+	err = write(tempfd,target, seconds*framesinsecond*framesize);
+	if(err <0)
+	  O("Error in write\n");
+
+	close(tempfd);
+	free(tempstring);
 	break;
       case (int)'H': 
 	target = mmapfile + framesize*count + offset;

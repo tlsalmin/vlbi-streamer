@@ -231,12 +231,14 @@ int handle_error(struct recording_entity *re, int errornum){
     E("Writer broken");
   /* Done in close */
   ioi->opt->hd_failures++;
-  err = re->close(re, NULL);
-  remove_from_branch(ioi->opt->diskbranch, re->self,0);
-  CHECK_ERR("Close faulty recer");
   if(ioi->opt->optbits & READMODE){
     remove_specific_from_fileholders(ioi->opt, ioi->id);
   }
+  remove_from_branch(ioi->opt->diskbranch, re->self,0);
+  err = re->close(re, NULL);
+  CHECK_ERR("Close faulty recer");
+  /* TODO:  Need to solve this free-stuff! */
+  //free(re);
   //be->recer->close(be->recer,NULL);
   D("Closed recer");
 

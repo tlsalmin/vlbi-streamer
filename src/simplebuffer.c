@@ -391,7 +391,9 @@ void close_recer(struct buffer_entity *be, int errornum){
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
   be->recer->handle_error(be->recer, errornum);
   if(sbuf->opt->optbits & READMODE){
+    /*
     remove_specific_from_fileholders(sbuf->opt, sbuf->fh->diskid);
+    */
     set_free(sbuf->opt->membranch, be->self);
     sbuf->ready_to_act = 0;
   }
