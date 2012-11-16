@@ -59,12 +59,12 @@ int main(int argc, char ** argv){
   void *filem, *files;
   int maxmatch = MAXMATCH;
   char c;
-  int fds, fdm, cores = DEFAULT_CORES;
+  int fds, fdm;
   struct stat st;
   int beit = 0;
 
 
-  while ( (c = getopt(argc, argv, "t:c:m:s:ba:")) != -1) {
+  while ( (c = getopt(argc, argv, "t:m:s:ba:")) != -1) {
     //int this_option_optind = optind ? optind : 1;
     switch (c) {
       case 'a':
@@ -119,8 +119,8 @@ int main(int argc, char ** argv){
 	  exit(-1);
 	}
 	break;
-      case 'c':
-	cores = atoi(optarg);
+      //case 'c':
+	//cores = atoi(optarg);
 	break;
       default:
 	usage();
@@ -131,6 +131,7 @@ int main(int argc, char ** argv){
     O("missing files\n");
     usage();
   }
+  (void)type;
   packetsm = filesizem/framesize;
   packetss = filesizes/framesize;
 

@@ -175,7 +175,7 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st){
   struct fileholder * tempfh;
   int err;
-  long cumulpeek; //= (*opt->cumul);
+  //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
   D("Buffer empty for: %lu",, opt->fileholders->id);
   AUGMENTLOCK;
@@ -208,9 +208,9 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
      */
   se->be = NULL;
   while(se->be == NULL){
-    AUGMENTLOCK;
-    cumulpeek = (*opt->cumul);
-    AUGMENTUNLOCK;
+    //AUGMENTLOCK;
+    //cumulpeek = (*opt->cumul);
+    //AUGMENTUNLOCK;
     //if(st->files_sent < cumulpeek){
     if(opt->fileholders != NULL){
       D("Getting new loaded for file %lu",, opt->fileholders->id);

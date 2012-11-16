@@ -52,13 +52,13 @@ int main(int argc, char ** argv){
   int VLBABCD_timecodeword1J;
   int VLBABCD_timecodeword1S;
   int VLBABCD_timecodeword2;
-  int seek = 0;
+  //int seek = 0;
   int CRCC;
   char c;
   int isauto=0;
   int netmode=0;
 
-  while ( (c = getopt(argc, argv, "anf:s")) != -1) {
+  while ( (c = getopt(argc, argv, "anf:")) != -1) {
         //int this_option_optind = optind ? optind : 1;
         switch (c) {
 	  case 'n':
@@ -80,8 +80,8 @@ int main(int argc, char ** argv){
 	  case 'a':
 	    isauto=1;
 	    break;
-	  case 's':
-	    seek = 1;
+	  //case 's':
+	    //seek = 1;
 	  default:
 	    usage();
 	    break;
