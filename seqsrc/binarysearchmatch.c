@@ -30,28 +30,12 @@ int framesize;
 int offset;
 
 void usage(){
-  O("Usage: binarysearch -m <file1> -s <file2> -t <type> (mark5b, mark5bnet, vdif) -c <cores> -b(do be32toh to master)");
+  O("Usage: binarysearch -m <file1> -s <file2> -t <type> (mark5b, mark5bnet, vdif) -c <cores> -b(do be32toh to master), -a <maxmatching bytes> -b (flip endian on matcher)");
   exit(-1);
 }
 int read_file_to_mem(long no_packets,  int fd, void* mempoint){
-  //int pipes[2];
   void* tempframe = malloc(framesize);
-  //O("Doing the pipe\n");
-  //err = pipe(pipes);
   long i;
-  //int tempi;
-  /*
-  for(i=0;i<no_packets;i+=IOV_MAX){
-    for(tempi=0;tempi<MIN(no_packets-i,IOV_MAX);tempi++){
-      iov[tempi].iov_base = mempoint + (i+tempi)*(PAYLOAD) + offset;
-      iov[tempi].iov_len = PAYLOAD;
-    }
-    if(readv(fd, iov, tempi) < 0 ){
-      O("Error in read\n");
-      return -1;
-    }
-  }
-  */
   for(i=0;i<no_packets;i++)
   {
     read(fd, tempframe, framesize);
@@ -78,7 +62,6 @@ int main(int argc, char ** argv){
   int fds, fdm, cores = DEFAULT_CORES;
   struct stat st;
   int beit = 0;
-  //struct iovec * iov = malloc(sizeof(struct iovec)*IOV_MAX);
 
 
   while ( (c = getopt(argc, argv, "t:c:m:s:ba:")) != -1) {
@@ -159,28 +142,10 @@ int main(int argc, char ** argv){
   err =  read_file_to_mem(packetsm, fdm, filem);
   if(err != 0)
     exit(-1);
-    /*
-  for(i=0;i<packetsm;i+=IOV_MAX){
-    for(tempi=0;tempi<MIN(packetsm-i,IOV_MAX);tempi++){
-      iov[tempi].iov_base = filem + (i+tempi)*(PAYLOAD);
-      iov[tempi].iov_len = PAYLOAD;
-    }
-    readv(fdm, iov, tempi);
-  }
-  */
   O("Reading slave file to mem\n");
   err =  read_file_to_mem(packetss, fds, files);
   if(err != 0)
     exit(-1);
-    /*
-  for(i=0;i<packetss;i+=IOV_MAX){
-    for(tempi=0;tempi<MIN(packetss-i,IOV_MAX);tempi++){
-      iov[tempi].iov_base = files + (i+tempi)*(PAYLOAD);
-      iov[tempi].iov_len = PAYLOAD;
-    }
-    readv(fdm, iov, tempi);
-  }
-  */
   O("Done reading files to mem\n");
   
   O("Preview of first line of master:\n");
