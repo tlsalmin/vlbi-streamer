@@ -15,11 +15,13 @@
 #include <sys/mman.h>
 #include <sys/uio.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include "common.h"
 #include "mark5b.h"
 
 #define PAYLOAD (framesize-offset)
+#define MAXMATCH 512
 
 #define MIN(x,y) (x < y ? x : y)
 #define DEFAULT_CORES 6
@@ -53,7 +55,7 @@ int read_file_to_mem(long no_packets,  int fd, void* mempoint){
   for(i=0;i<no_packets;i++)
   {
     read(fd, tempframe, framesize);
-    memcpy(mempoint, tempframe+offset, PAYLOAD);
+    memcpy(mempoint+i*PAYLOAD, tempframe+offset, PAYLOAD);
   }
   return 0;
 }
@@ -63,6 +65,7 @@ int main(int argc, char ** argv){
   long filesizem=0;
   long filesizes=0;
   long packetsm,packetss;
+  int i;
   void* needle;
   int bytelengthofmatch = 4;
   /*
@@ -70,6 +73,7 @@ int main(int argc, char ** argv){
   int framesize=0;
   */
   void *filem, *files;
+  int maxmatch = MAXMATCH;
   char c;
   int fds, fdm, cores = DEFAULT_CORES;
   struct stat st;
@@ -77,9 +81,12 @@ int main(int argc, char ** argv){
   //struct iovec * iov = malloc(sizeof(struct iovec)*IOV_MAX);
 
 
-  while ( (c = getopt(argc, argv, "t:c:m:s:b")) != -1) {
+  while ( (c = getopt(argc, argv, "t:c:m:s:ba:")) != -1) {
     //int this_option_optind = optind ? optind : 1;
     switch (c) {
+      case 'a':
+	maxmatch = atoi(optarg);
+	break;
       case 't':
 	if (!strcmp(optarg, "mark5b")){
 	  //opt->capture_type = CAPTURE_W_FANOUT;
@@ -182,23 +189,51 @@ int main(int argc, char ** argv){
   O("%x\t%x\t%x\t%x\n", *((int32_t*)files), *((int32_t*)(files+4)), *((int32_t*)(files+8)), *((int32_t*)(files+12)));
 
   int running = 1;
+  void* realneedle;
+  //uint32_t temppi;
+  if(beit == 0){
+    realneedle = files;
+  }
+  else{
+    realneedle= malloc(maxmatch);
+    for(i=0;i*4<maxmatch;i++){
+      //temppi = *((uint32_t*)(files+i*4));
+      
+      *((uint32_t*)(realneedle+i*4)) = be32toh(*((uint32_t*)(files+i*4)));
+    }
+  }
   while(running){
-    needle = memmem(filem, filesizem-offset*packetsm, files, bytelengthofmatch);
+    needle = memmem(filem, filesizem-offset*packetsm, realneedle, bytelengthofmatch);
     if (needle != NULL){
-      O("Found %d length needle in haystack at %ld!\n", bytelengthofmatch, (needle-filem));
+      O("Found %d length needle from slave in haystack  master at %ld!\n", bytelengthofmatch, (needle-filem));
       bytelengthofmatch += 4;
+      if(bytelengthofmatch > maxmatch)
+	running=0;
     }
     else
       running=0;
 
   }
   bytelengthofmatch = 4;
+  if(beit == 0){
+    realneedle = filem;
+  }
+  else{
+    realneedle= malloc(maxmatch);
+    for(i=0;i*4<maxmatch;i++){
+      //temppi = *((uint32_t*)(files+i*4));
+      
+      *((uint32_t*)(realneedle+i*4)) = be32toh(*((uint32_t*)(filem+i*4)));
+    }
+  }
   running = 1;
   while(running){
-    needle = memmem(files, filesizes-offset*packetss, filem, bytelengthofmatch);
+    needle = memmem(files, filesizes-offset*packetss, realneedle, bytelengthofmatch);
     if (needle != NULL){
-      O("Found %d length needle in haystack at %ld!\n", bytelengthofmatch, (needle-files));
+      O("Found %d length needle from master in haystack of slave at %ld!\n", bytelengthofmatch, (needle-files));
       bytelengthofmatch += 4;
+      if(bytelengthofmatch > maxmatch)
+	running=0;
     }
     else
       running=0;
@@ -206,6 +241,8 @@ int main(int argc, char ** argv){
   }
 
   //free(iov);
+  if(beit == 1)
+    free(realneedle);
 
   close(fds);
   close(fdm);
