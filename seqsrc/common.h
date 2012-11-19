@@ -18,6 +18,10 @@
 #define ISAUTO	B(2)
 #define SEEKIT 	B(3)
 
+#define MIN(x,y) (x < y ? x : y)
+#define MEG			B(20)
+#define GIG			B(30)
+
 #define TYPE_MARK5B 0
 #define TYPE_MARK5BNET 1
 #define TYPE_VDIF 2
