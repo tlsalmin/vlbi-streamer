@@ -21,7 +21,7 @@
 #include "mark5b.h"
 
 #define PAYLOAD (framesize-offset)
-#define MAXMATCH 512
+#define MAXMATCH 1024
 
 #define DEFAULT_CORES 6
 #define MINMEM 2l
@@ -32,6 +32,7 @@ int offset;
 long filesizem;
 int extraiterations;
 long filesizes;
+int keepgoing;
 int maxmatch;
 long read_num_packets_per_iteration;
 
@@ -79,20 +80,35 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
 
     running = 1;
     //uint32_t temppi;
+    int reported=0;
     O("Loaded iteration for up to packet %ld. Starting match searching\n", j);
     while(running){
       needle = memmem(haystack, (reallyread*(framesize-offset)), needle_prim+addtoneedle, bytelengthofmatch);
       if (needle != NULL){
 	long target = ((long)needle-(long)haystack)/(framesize-offset);
 	target = (framesize*j + target*framesize)/MEG;
-	O("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
+	if(reported == 0){
+	  O("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
+	  reported =1;
+	}
 	if(bytelengthofmatch > matchlength)
 	  matchlength = bytelengthofmatch;
 	bytelengthofmatch += 4;
-	if(bytelengthofmatch > (maxmatch-addtoneedle))
+	if(bytelengthofmatch > (maxmatch-addtoneedle)){
 	  running=0;
+	  O("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
+	  //TODO: Eww..
+	  if(keepgoing==0){
+	    keepgoing= -1;
+	    break;
+	  }
+	}
       }
       else{
+	if(reported == 1){
+	  O("Matching stopped after %d\n", bytelengthofmatch);
+	  reported =0;
+	}
 	if(extraiterations){
 	  if(addtoneedle == 0)
 	  //if(addtoneedle < maxmatch-4)
@@ -103,12 +119,20 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
 	  else
 	    running = 0;
 	}
-	else
+	else{
+	  O("Abandon hope at %d length match\n", bytelengthofmatch);
 	  running=0;
+	}
       }
     }
     /* We wouldn't want a match to break if its on the edge of a packet */
     /* So we wind back one packet */
+
+    if(keepgoing==-1){
+      keepgoing=0;
+      break;
+    }
+
 
     j-=1;
     lseek(fd, -framesize, SEEK_CUR);
@@ -144,6 +168,7 @@ int main(int argc, char ** argv){
   extraiterations = 0;
   void* realneedlem;
   void* realneedles;
+  keepgoing=0;
   void *filem, *files;
   long packetsm,packetss;
   read_num_packets_per_iteration=0;
@@ -193,6 +218,9 @@ int main(int argc, char ** argv){
 	break;
       case 'x':
 	extraiterations =1;
+	break;
+      case 'k':
+	keepgoing=1;
 	break;
       case 'b':
 	beit = 1;
@@ -264,9 +292,9 @@ int main(int argc, char ** argv){
 
   void* tempframe = malloc(framesize);
   O("Reading needles\n");
-  read(fdm, tempframe, maxmatch);
+  read(fdm, tempframe, framesize);
   memcpy(realneedlem, tempframe+offset, maxmatch);
-  read(fds, tempframe, maxmatch);
+  read(fds, tempframe, framesize);
   memcpy(realneedles, tempframe+offset, maxmatch);
 
   lseek(fdm, 0, SEEK_SET);
