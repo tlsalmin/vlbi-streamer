@@ -88,7 +88,7 @@ void* disk2file(void * streamo)
   int err =0;
   //struct opt_s * writeopt;
   void* buf;
-  int* inc;
+  long* inc;
   unsigned int i, total_i;
   if(opt->offset != 0)
     LOG("Starting disk2file procedure. Stripping %i bytes from header\n", opt->offset);

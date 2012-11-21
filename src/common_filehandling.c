@@ -76,8 +76,13 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   D("Setting seqnum %lu to load %lu packets",,st->head_loaded->id, nuf);
   LOCK(be->headlock);
   //D("HUR");
-  int * inc = be->get_inc(be);
-  *inc = nuf;
+  long *inc;
+  be->simple_get_writebuf(be, &inc);
+  if(nuf == opt->buf_num_elems)
+    *inc = FILESIZE;
+  else
+    *inc = nuf*opt->packet_size;
+
   st->packets_loaded+=nuf;
   be->set_ready(be);
   pthread_cond_signal(be->iosignal);

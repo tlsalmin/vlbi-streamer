@@ -201,6 +201,17 @@ int calculate_buffer_sizes(struct opt_s *opt){
     return 0;
   }
 }
+int rxring_packetadjustment(struct opt_s * opt){
+  int extra=0;
+  while((opt->packet_size %16)!= 0){
+    if(opt->optbits  &READMODE)
+      E("Shouldn't need this in sending with RX-ring!");
+    opt->packet_size++;
+    extra++;
+  }
+  D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+  return extra;
+}
 int calculate_buffer_sizes_simple(struct opt_s * opt){ 
   /* A very simple buffer size calculator that fixes the filesizes to 	*/
   /* constants according to the packet size. We try to keep the		*/
@@ -208,18 +219,12 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
   /* blockaligned at all times						*/
   int extra= 0;
   if(opt->optbits & USE_RX_RING){
-    while((opt->packet_size %16)!= 0){
-      if(opt->optbits  &READMODE)
-	E("Shouldn't need this in sending with RX-ring!");
-      opt->packet_size++;
-      extra++;
-    }
-    D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+    extra = rxring_packetadjustment(opt);
   }
   opt->buf_division = B(3);
-  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= MAXFILESIZE*MEG)
-    opt->buf_division  >>= 1;
-  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= MINFILESIZE*MEG)
+  //while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= MAXFILESIZE*MEG)
+    //opt->buf_division  >>= 1;
+  while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= FILESIZE*MEG)
     opt->buf_division  <<= 1;
   opt->buf_num_elems = (BLOCK_ALIGN*opt->buf_division);
   opt->do_w_stuff_every = (BLOCK_ALIGN*opt->packet_size);
@@ -230,6 +235,16 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
   opt->n_threads -=1;
 
   return 0;
+}
+int calculate_buffer_sizes_singlefilesize(struct opt_s * opt){ 
+  int extra= 0;
+  if(opt->optbits & USE_RX_RING){
+    extra = rxring_packetadjustment(opt);
+  }
+  opt->buf_num_elems = (FILESIZE)/opt->packet_size;
+  opt->n_threads = (opt->maxmem*GIG)/FILESIZE;
+  return 0;
+
 }
 /*
  * Adapted from http://coding.debuntu.org/c-linux-socket-programming-tcp-simple-http-client

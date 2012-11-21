@@ -90,6 +90,7 @@ inline void zero_schedevnt(struct scheduled_event* ev){
   //ev->next =NULL;
   //ev->father = NULL;
   //ev->child = NULL;
+  ev->stats =NULL;
   ev->pt =0;
   ev->found=0;
 }
@@ -102,7 +103,12 @@ int remove_from_cfgsched(struct scheduled_event *ev){
 
   root = config_root_setting(&cfg);
   err = config_setting_remove(root, ev->idstring);
-  CHECK_CFG("remove closed recording");
+  if(err == CONFIG_FALSE){
+    LOG("Cant remove cfg as its already removed.\n");
+    config_destroy(&cfg);
+    return 0;
+  }
+  //CHECK_CFG("remove closed recording");
   err = config_write_file(&cfg, STATEFILE);
   CHECK_CFG("Wrote config");
   LOG("Updated config file and removed %s\n", ev->opt->filename);
@@ -832,7 +838,8 @@ err=fork();
     struct listed_entity* temp2 = temp;
     temp = temp->child;
     ev = (struct scheduled_event*)temp2->entity;
-    if(ev->opt->optbits & VERBOSE)
+    //if(ev->opt->optbits & VERBOSE)
+    if(ev->stats != NULL)
       free(ev->stats);
     remove_from_branch(&sched->br,temp2, MUTEX_FREE);
     //ev = (struct scheduled_event*)temp->entity;

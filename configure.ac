@@ -115,23 +115,14 @@ AS_IF([test "x$enable_ppriority" != "xno"], [
 PPRIORITY=$enable_ppriority
 AC_SUBST(PPRIORITY)
 
-AC_MSG_CHECKING([--enable-minfilesize argument])
-AC_ARG_ENABLE(minfilesize,
-	      [  --enable-minfilesize         Set min file size (default: 256).],
-    [enable_minfilesize=$enableval],
-    [enable_minfilesize=256])
-AC_MSG_RESULT($enable_minfilesize)
-AS_IF([test "x$MINFILESIZE" = x], [MINFILESIZE=256])
-AC_DEFINE_UNQUOTED(MINFILESIZE, ${MINFILESIZE}, [Minimum file size])
-
-AC_MSG_CHECKING([--enable-maxfilesize argument])
-AC_ARG_ENABLE(maxfilesize,
-	      [  --enable-maxfilesize         Set max file size (default: 512).],
-    [enable_maxfilesize=$enableval],
-    [enable_maxfilesize=512])
-AC_MSG_RESULT($enable_maxfilesize)
-AS_IF([test "x$MAXFILESIZE" = x], [MAXFILESIZE=512])
-AC_DEFINE_UNQUOTED(MAXFILESIZE, ${MAXFILESIZE}, [Minimum file size])
+AC_MSG_CHECKING([--enable-filesizemb argument])
+AC_ARG_ENABLE(filesizemb,
+	      [  --enable-filesizemb         Set file size in MB (default: 512).],
+    [enable_filesizemb=$enableval],
+    [enable_filesizemb=512])
+AC_MSG_RESULT($enable_filesizemb)
+AS_IF([test "x$FILESIZEMB" = x], [FILESIZEMB=512])
+AC_DEFINE_UNQUOTED(FILESIZEMB, ${FILESIZEMB}, [file size])
 
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,

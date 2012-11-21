@@ -54,18 +54,18 @@ int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
-  DD("Checking for ready writes. asyndiff: %d, diff: %d",,sbuf->asyncdiff,sbuf->diff);
+  DD("Checking for ready writes. asyndiff: %d bytes, diff: %d bytes",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
     D("%lu Writes complete on seqnum %lu",, ret/sbuf->opt->packet_size, sbuf->fh->id);
-    unsigned long num_written;
+    //unsigned long num_written;
 
-    num_written = ret/sbuf->opt->packet_size;
+    //num_written = ret/sbuf->opt->packet_size;
 
-    sbuf->asyncdiff-=num_written;
+    sbuf->asyncdiff-=ret;
   }
   else if (ret == AIO_END_OF_FILE){
     //D("End of file on id %lu",, sbuf->file_seqnum);
@@ -92,7 +92,8 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
   if(sbuf->opt->optbits & USE_RX_RING){
     struct rxring_request* rxr = (struct rxring_request*)acq;
     /* This threads responsible area */
-    sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+    //sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+    sbuf->buffer = sbuf->opt->buffer + FILESIZE*((long unsigned)rxr->bufnum);
   }
 
   sbuf->bufoffset = sbuf->buffer;
@@ -145,7 +146,8 @@ int sbuf_release(void* buffo){
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
-  memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
+  //memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
+  memset(buf, 0, FILESIZE);
 }
 /*
    int sbuf_seqnumcheck(void* buffo, int seq){
@@ -263,7 +265,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   CHECK_ERR("iosignal init");
 
   if(!(sbuf->opt->optbits & USE_RX_RING)){
-    unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+    //unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+    unsigned long hog_memory = FILESIZE;
     D("Trying to hog %lu MB of memory",,hog_memory/MEG);
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
@@ -359,7 +362,8 @@ int sbuf_close(struct buffer_entity* be, void *stats){
   if(!(sbuf->optbits & USE_RX_RING)){
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
-      munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+      //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+      munmap(sbuf->buffer, FILESIZE);
       /*
 	 close(sbuf->huge_fd);
 	 char hugefs[FILENAME_MAX];
@@ -406,7 +410,8 @@ int simple_end_transaction(struct buffer_entity *be){
   unsigned long wrote_extra = 0;
   long ret = 0;
 
-  unsigned long count = sbuf->diff*(sbuf->opt->packet_size);
+  //unsigned long count = sbuf->diff*(sbuf->opt->packet_size);
+  unsigned long count = sbuf->diff;
   //void * start = sbuf->buffer + (*tail * sbuf->opt->packet_size);
   while(count % BLOCK_ALIGN != 0){
     count++;
@@ -437,14 +442,16 @@ int simple_end_transaction(struct buffer_entity *be){
   return 0;
 
 }
-void* sbuf_getbuf(struct buffer_entity *be, int ** diff){
+void* sbuf_getbuf(struct buffer_entity *be, long ** diff){
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   *diff = &(sbuf->diff);
   return sbuf->buffer;
 }
+/*
 int* sbuf_getinc(struct buffer_entity *be){
   return &((struct simplebuf*)be->opt)->diff;
 }
+*/
 int simple_write_bytes(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
@@ -452,13 +459,16 @@ int simple_write_bytes(struct buffer_entity *be){
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
   unsigned long limit = sbuf->opt->do_w_stuff_every;
 #else
-  unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+  //unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
+  unsigned long limit = FILESIZE;
 #endif
 
-  unsigned long count = sbuf->diff * sbuf->opt->packet_size;
+  //unsigned long count = sbuf->diff * sbuf->opt->packet_size;
+  unsigned long count = sbuf->diff;
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
-  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+  //ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+FILESIZE);
   ASSERT(count != 0);
 
   if(count > limit)
@@ -472,7 +482,7 @@ int simple_write_bytes(struct buffer_entity *be){
   DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
-    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
+    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d bytes offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
     close_recer(be,ret);
     return -1;
   }
@@ -489,12 +499,14 @@ int simple_write_bytes(struct buffer_entity *be){
     }
     else{
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
-      sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
+      //sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
+      sbuf->diff-=sbuf->opt->do_w_stuff_every;
 #else
       sbuf->diff = 0;
 #endif
       sbuf->bufoffset += count;
-      if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
+      //if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
+      if(sbuf->bufoffset >= sbuf->buffer +FILESIZE)
 	sbuf->bufoffset = sbuf->buffer;
     }
   }
@@ -517,7 +529,7 @@ int sbuf_async_loop(struct buffer_entity *be){
       return -1;
     }
     else{
-      DD("Only checking. Not writing. asyncdiff still %d",,sbuf->asyncdiff);
+      DD("Only checking. Not writing. asyncdiff still %d bytes",,sbuf->asyncdiff);
       err = sbuf_check(be,1);
       CHECK_ERR_QUIET("Async check");
     }
@@ -527,7 +539,7 @@ int sbuf_async_loop(struct buffer_entity *be){
 int sbuf_sync_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int err;
-  DD("Starting write loop for %d elements",, sbuf->diff);
+  DD("Starting write loop for %d bytes",, sbuf->diff);
   while(sbuf->diff > 0){
     err = simple_write_bytes(be);
     CHECK_ERR_QUIET("sync bytes written");
@@ -757,7 +769,7 @@ void *sbuf_simple_write_loop(void *buffo){
     //be->write = sbuf_aio_write;
     //be->get_writebuf = sbuf_get_buf_to_write;
     be->simple_get_writebuf = sbuf_getbuf;
-    be->get_inc = sbuf_getinc;
+    //be->get_inc = sbuf_getinc;
     //be->wait = sbuf_wait;
     be->close = sbuf_close;
     be->write_loop = sbuf_simple_write_loop;

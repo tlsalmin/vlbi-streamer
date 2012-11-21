@@ -401,7 +401,7 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   }
   /* If we're using the simpler buffer calculation, which fixes the 	*/
   /* size of the files, we don't need filesize etc. here anymore	*/
-#ifndef SIMPLE_BUFCACL
+#if !defined(SIMPLE_BUFCACL) && !defined(SIMPLE_BUFCACL_SINGLEFILE)
   setting = config_setting_add(root, "filesize", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add filesize");
   if(opt != NULL){

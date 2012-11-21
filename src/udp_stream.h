@@ -39,7 +39,7 @@ int close_udp_streamer(void *opt,void *stats);
 //int phandler_sequence(struct streamer_entity * se, void * buffer);
 
 struct resq_info{
-  int  *inc_before, *inc;
+  long  *inc_before, *inc;
   void  *buf, *usebuf, *bufstart, *bufstart_before;
   struct buffer_entity * before;
   long current_seq;

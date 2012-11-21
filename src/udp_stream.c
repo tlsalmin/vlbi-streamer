@@ -23,7 +23,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include "config.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -56,6 +55,7 @@
 #include <endian.h>
 
 #include <net/if.h>
+#include "config.h"
 #include "streamer.h"
 #include "udp_stream.h"
 #include "resourcetree.h"
@@ -431,7 +431,7 @@ void * udp_sender(void *streamo){
   int err = 0;
   void* buf;
   int i=0;
-  int *inc;
+  long *inc;
   //int max_buffers_in_use=0;
   //unsigned long cumulpeek;
   //unsigned long packetpeek;
@@ -635,7 +635,7 @@ void* udp_rxring(void *streamo)
   struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   struct pollfd pfd;
   int bufnum = 0;
-  int *inc;
+  long *inc;
 
   struct rxring_request rxr;
 
@@ -654,7 +654,8 @@ void* udp_rxring(void *streamo)
   rxr.id = spec_ops->opt->cumul;
   rxr.bufnum = &bufnum;
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL);
-  inc = se->be->get_inc(se->be);
+  //inc = se->be->get_inc(se->be);
+  se->be->simple_get_writebuf(se->be, &inc);
   CHECK_AND_EXIT(se->be);
 
   while(spec_ops->opt->status & STATUS_RUNNING){
@@ -677,7 +678,9 @@ void* udp_rxring(void *streamo)
       else{
 	spec_ops->total_captured_bytes += hdr->tp_len;
 	(*spec_ops->opt->total_packets)++;
-	(*inc)++;
+	//(*inc)++;
+	//TODO: Should we add s the extra?
+	(*inc)+=hdr->tp_len;
       }
 
       /* A buffer is ready for writing */
@@ -693,7 +696,8 @@ void* udp_rxring(void *streamo)
 
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL);
 	CHECK_AND_EXIT(se->be);
-	inc = se->be->get_inc(se->be);
+	//inc = se->be->get_inc(se->be);
+	se->be->simple_get_writebuf(se->be, &inc);
 
 	if(j==spec_ops->opt->buf_num_elems*(spec_ops->opt->n_threads)){
 	  j=0;
@@ -748,16 +752,22 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   /* gotten all packets				*/
   if(resq->before != NULL){
     D("Previous file still doesn't have all packets. Writing to disk and setting old packets as missing");
-    spec_ops->missing += spec_ops->opt->buf_num_elems - (*(resq->inc_before));
+    //spec_ops->missing += spec_ops->opt->buf_num_elems - (*(resq->inc_before));
+    spec_ops->missing += (FILESIZE-(*(resq->inc_before)))/spec_ops->opt->packet_size;
     /* Write the to disk anyhow, so last packets aren't missed	*/
-    *(resq->inc_before) = spec_ops->opt->buf_num_elems;
+    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
+    *(resq->inc_before) = FILESIZE;
     free_the_buf(resq->before);
     resq->bufstart_before = NULL;
     resq->before = NULL;
     resq->inc_before = NULL;
   }
   /* Check if we have all the packets for this file */
-  if(*(resq->inc) == spec_ops->opt->buf_num_elems){
+  //if(*(resq->inc) == spec_ops->opt->buf_num_elems){
+  /* It looks silly, but inc was migrated to byte offset 		*/
+  /* This setup lets use use arbitrary packet sizes with all buffers	*/
+  if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
+  {
     D("All packets for current file received OK");
     free_the_buf(se->be);
     /* First buffer so *before is null 	*/
@@ -857,7 +867,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 
   if (resq->current_seq == INT64_MAX && resq->seqstart_current== INT64_MAX){
     resq->current_seq = resq->seqstart_current = seqnum;
-    (*(resq->inc))++;
+    //(*(resq->inc))++;
+    (*(resq->inc))+=spec_ops->opt->packet_size;
     resq->i++;
     resq->buf+= spec_ops->opt->packet_size;
     D("Got first packet with seqnum %ld",, seqnum);
@@ -876,7 +887,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   if(seqnum == resq->current_seq+1){
     resq->current_seq++;
 
-    (*(resq->inc))++;
+    //(*(resq->inc))++;
+    (*(resq->inc))+=spec_ops->opt->packet_size;
     resq->i++;
     resq->buf+= spec_ops->opt->packet_size;
 
@@ -889,7 +901,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   else{
     long diff_from_start = seqnum - resq->seqstart_current;
     long diff_to_current = seqnum - (resq->current_seq);
-    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %d,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
+    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %ld,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
     if (diff_to_current < 0){
       D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
       if(diff_from_start < 0){
@@ -908,13 +920,16 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 
 	assert(resq->inc_before != NULL);
 
-	(*(resq->inc_before))++;
+	//(*(resq->inc_before))++;
+	(*(resq->inc_before))+= spec_ops->opt->packet_size;
 
 	/* Copy to the old pos */
 	resq->usebuf = resq->bufstart_before + (spec_ops->opt->buf_num_elems + diff_from_start)*((long)spec_ops->opt->packet_size);
 	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
 
-	if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
+	//if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
+	if(*(resq->inc_before) + spec_ops->opt->packet_size > FILESIZE)
+	{
 	  D("Buffer before is ready. Freeing it");
 	  free_the_buf(resq->before);
 	  resq->bufstart_before = NULL;
@@ -926,7 +941,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       else{
 	D("Packet behind order, but inside this buffer.");
 	//resq->current_seq = seqnum;
-	(*(resq->inc))++;
+	//(*(resq->inc))++;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
 
 	resq->usebuf = (resq->bufstart + ((diff_from_start)*spec_ops->opt->packet_size));
 	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
@@ -967,7 +983,9 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	resq->usebuf = resq->bufstart + (i_from_next_seqstart)*spec_ops->opt->packet_size;
 	memcpy(resq->usebuf, origbuf, spec_ops->opt->packet_size);
 
-	(*(resq->inc))++;
+	//(*(resq->inc))++;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
+	
 	/* Move diff up as thought we'd be receiving normally at the new position 	*/
 	resq->current_seq = seqnum;
 	/* Since i_from_next_seqstart counts also 0 , we need to add 1 here		*/
@@ -978,7 +996,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       }
       else{
 	D("Packet ahead of time but in this buffer!");
-	(*(resq->inc))++;
+	//(*(resq->inc))++;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
 	/* Jump to this position. This way we dont have to keep a bitmap of what we have etc.  */
 
 	//resq->usebuf = resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size;
@@ -1155,7 +1174,8 @@ void* udp_receiver(void *streamo)
       else{
 	/* Ignore datatype and just be happy	*/
 	resq->buf+=spec_ops->opt->packet_size;
-	(*(resq->inc))++;
+	//(*(resq->inc))++;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
 	resq->i++;
 
       }
@@ -1165,7 +1185,8 @@ void* udp_receiver(void *streamo)
   }
   /* Release last used buffer */
   if(resq->before != NULL){
-    *(resq->inc_before) = spec_ops->opt->buf_num_elems;
+    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
+    *(resq->inc_before) = FILESIZE;
     free_the_buf(resq->before);
   }
   if(*(resq->inc) == 0)

@@ -165,10 +165,15 @@
 //
 //#define ROOTDIRS "/mnt/disk"
 //#define LOG_TO_FILE
+//
+#define FILESIZE (FILESIZEMB*MEG)
+
 #define INITIAL_N_FILES B(7)
 
-#define SIMPLE_BUFCACL
-#ifdef SIMPLE_BUFCACL
+#define SIMPLE_BUFCACL_SINGLEFILE
+#ifdef SIMPLE_BUFCACL_SINGLEFILE
+#define CALC_BUF_SIZE(x) calculate_buffer_sizes_singlefilesize(x)
+#elif SIMPLE_BUFCACL
 #define CALC_BUF_SIZE(x) calculate_buffer_sizes_simple(x)
 #else
 define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
@@ -411,8 +416,8 @@ struct buffer_entity
   void* (*get_writebuf)(struct buffer_entity *);
   /* Used to acquire element past the queue line */
   int (*acquire)(void * , void* , void*);
-  void* (*simple_get_writebuf)(struct buffer_entity *, int **);
-  int* (*get_inc)(struct buffer_entity *);
+  void* (*simple_get_writebuf)(struct buffer_entity *, long **);
+  //int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);
   int (*wait)(struct buffer_entity *);
