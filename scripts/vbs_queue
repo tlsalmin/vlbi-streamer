@@ -58,7 +58,7 @@ do
       ;;
     -p)
       EXTRAOPS="$EXTRAOPS
-      packet_size = $(($2));"
+      packet_size = $(($2))L;"
       shift
       ;;
     -s)

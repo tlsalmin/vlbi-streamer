@@ -72,6 +72,13 @@ NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
 
 echo "Setting and creating $NR_HUGE of $HUGESIZE KB pages"
 echo $NR_HUGE > /proc/sys/vm/nr_hugepages
+GOT=`cat /proc/sys/vm/nr_hugepages`
+if [ "$NR_HUGE" != "$GOT" ]
+then
+  echo "Could only reserve $GOT hugepages."
+  echo "Memory is most likely too fragmented. Recomended use:"
+  echo "Set vm.nr_hugepages = $NR_HUGE in to /etc/sysctl.conf"
+fi
 if [ ! -d "/mnt/huge" ]
 then
   mkdir /mnt/huge

@@ -275,6 +275,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
       /* Init fd for hugetlbfs					*/
       /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
 
+      /*
       char hugefs[FILENAME_MAX];
       find_hugetlbfs(hugefs, FILENAME_MAX);
 
@@ -284,6 +285,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
 #endif
 
       common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
+      */
       //sbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
 
       /* TODO: Check other flags aswell				*/
@@ -291,8 +293,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
       //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
       //assert(hog_memory%sysconf(_SC_PAGESIZE) == 0);
 #ifdef MMAP_NOT_SHMGET
-      //sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
-      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE, sbuf->huge_fd,0);
+      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
+      //sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE, sbuf->huge_fd,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
