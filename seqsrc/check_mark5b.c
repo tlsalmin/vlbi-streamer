@@ -206,7 +206,11 @@ int main(int argc, char ** argv){
 
     if(isauto == 0){
 #ifndef PORTABLE
-      system ("/bin/stty raw");
+      err = system ("/bin/stty raw");
+      if(err < 0){
+	O("Err in system");
+	exit(-1);
+      }
 #endif
       dachar = getchar();
       switch(dachar)
@@ -268,7 +272,11 @@ int main(int argc, char ** argv){
 	break;
       case (int)'s':
 #ifndef PORTABLE
-    system ("/bin/stty cooked");
+    err = system ("/bin/stty cooked");
+      if(err < 0){
+	O("Err in system");
+	exit(-1);
+      }
 #endif
 	char* tempstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
 	char* temp = NULL;
@@ -299,7 +307,7 @@ int main(int argc, char ** argv){
 	  break;
 	}
 
-	tempfd = open(tempstring, O_WRONLY|O_CREAT);
+	tempfd = open(tempstring, O_WRONLY|O_CREAT|S_IWUSR,S_IRUSR|S_IWGRP|S_IRGRP);
 	if(fd == -1){
 	  O("Error opening file %s\n", tempstring);
 	  break;
@@ -358,7 +366,11 @@ int main(int argc, char ** argv){
 	break;
     }
 #ifndef PORTABLE
-    system ("/bin/stty cooked");
+    err = system ("/bin/stty cooked");
+      if(err < 0){
+	O("Err in system");
+	exit(-1);
+      }
 #endif
     }
     else{

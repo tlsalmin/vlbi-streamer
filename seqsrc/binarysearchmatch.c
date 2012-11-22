@@ -42,10 +42,15 @@ void usage(){
 }
 int read_file_to_mem(long no_packets,  int fd, void* mempoint){
   void* tempframe = malloc(framesize);
+  int err;
   long i;
   for(i=0;i<no_packets;i++)
   {
-    read(fd, tempframe, framesize);
+    err = read(fd, tempframe, framesize);
+    if(err <0){
+      O("Error in red");
+      return -1;
+    }
     memcpy(mempoint+i*PAYLOAD, tempframe+offset, PAYLOAD);
   }
   return 0;
@@ -292,9 +297,17 @@ int main(int argc, char ** argv){
 
   void* tempframe = malloc(framesize);
   O("Reading needles\n");
-  read(fdm, tempframe, framesize);
+  err = read(fdm, tempframe, framesize);
+  if(err < 0){
+    O("Error in read");
+    exit(-1);
+  }
   memcpy(realneedlem, tempframe+offset, maxmatch);
-  read(fds, tempframe, framesize);
+  err = read(fds, tempframe, framesize);
+  if(err < 0){
+    O("Error in read");
+    exit(-1);
+  }
   memcpy(realneedles, tempframe+offset, maxmatch);
 
   lseek(fdm, 0, SEEK_SET);

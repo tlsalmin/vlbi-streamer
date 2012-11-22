@@ -154,7 +154,11 @@ int main(int argc, char** argv){
     */
     if(isauto == 0){
 #ifndef PORTABLE
-    system ("/bin/stty raw");
+    err = system ("/bin/stty raw");
+    if(err <0){
+      O("Error in system");
+      exit(-1);
+    }
 #endif
     dachar = getchar();
     switch(dachar)
@@ -190,7 +194,11 @@ int main(int argc, char** argv){
 	break;
     }
 #ifndef PORTABLE
-    system ("/bin/stty cooked");
+    err = system ("/bin/stty cooked");
+    if(err <0){
+      O("Error in system");
+      exit(-1);
+    }
 #endif
     }
     else{

@@ -12,7 +12,6 @@ EOF
 HUGESIZE=2048
 #Buffer size in GB
 BUFFERSIZE=12
-G=G
 USER=replaceme
 GROUP=replaceme
 CFGFILE=vlbistreamer.conf
@@ -78,5 +77,5 @@ then
   mkdir /mnt/huge
 fi
 
-$(mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=$BUFFERSIZE$G none /mnt/huge)
+mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=${BUFFERSIZE}G,pagesize=${HUGESIZE}K none /mnt/huge
 exit 0

@@ -22,8 +22,13 @@ unsigned int get_mask(int start, int end){
 
 int keyboardinput(struct common_control_element * cce){
   char dachar;
+  int err;
 #ifndef PORTABLE
-  system ("/bin/stty raw");
+  err = system ("/bin/stty raw");
+  if(err < 0){
+    O("Error in system");
+    return -1;
+  }
 #endif
   dachar = getchar();
   switch(dachar)
@@ -103,7 +108,11 @@ int keyboardinput(struct common_control_element * cce){
       break;
   }
 #ifndef PORTABLE
-  system ("/bin/stty cooked");
+  err = system ("/bin/stty cooked");
+  if(err < 0){
+    O("Error in system");
+    return -1;
+  }
 #endif
   return 0;
 }
