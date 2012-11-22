@@ -217,9 +217,9 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
   /* constants according to the packet size. We try to keep the		*/
   /*filesize between 256 and 512 and must keep it packet- and 		*/
   /* blockaligned at all times						*/
-  int extra= 0;
+  //int extra= 0;
   if(opt->optbits & USE_RX_RING){
-    extra = rxring_packetadjustment(opt);
+    rxring_packetadjustment(opt);
   }
   opt->buf_division = B(3);
   //while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= MAXFILESIZE*MEG)
@@ -237,9 +237,9 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
   return 0;
 }
 int calculate_buffer_sizes_singlefilesize(struct opt_s * opt){ 
-  int extra= 0;
+//int extra= 0;
   if(opt->optbits & USE_RX_RING){
-    extra = rxring_packetadjustment(opt);
+    rxring_packetadjustment(opt);
   }
   opt->buf_num_elems = (FILESIZE)/opt->packet_size;
   opt->n_threads = (opt->maxmem*GIG)/FILESIZE;

@@ -9,7 +9,7 @@ extern FILE* logfile;
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
   AUGMENTLOCK;
-  unsigned long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   D("Total packets is: %lu, packets loaded is %lu",, *opt->total_packets, st->packets_loaded);
   /* Add spinlocks here so broken recers get info set here before use */
   //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){

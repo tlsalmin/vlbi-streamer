@@ -54,7 +54,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
-  DD("Checking for ready writes. asyndiff: %d bytes, diff: %d bytes",,sbuf->asyncdiff,sbuf->diff);
+  DD("Checking for ready writes. asyndiff: %ld bytes, diff: %ld bytes",,sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
@@ -147,6 +147,7 @@ int sbuf_release(void* buffo){
 }
 void preheat_buffer(void* buf, struct opt_s* opt){
   //memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
+  (void)opt;
   memset(buf, 0, FILESIZE);
 }
 /*
@@ -421,7 +422,7 @@ int simple_end_transaction(struct buffer_entity *be){
 
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
-    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%d\n", ret,sbuf->diff);
+    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%ld bytes\n", ret,sbuf->diff);
     close_recer(be,ret);
     return -1;
   }
@@ -482,7 +483,7 @@ int simple_write_bytes(struct buffer_entity *be){
   DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
-    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %d bytes offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
+    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %ld bytes offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
     close_recer(be,ret);
     return -1;
   }
@@ -529,7 +530,7 @@ int sbuf_async_loop(struct buffer_entity *be){
       return -1;
     }
     else{
-      DD("Only checking. Not writing. asyncdiff still %d bytes",,sbuf->asyncdiff);
+      DD("Only checking. Not writing. asyncdiff still %ld bytes",,sbuf->asyncdiff);
       err = sbuf_check(be,1);
       CHECK_ERR_QUIET("Async check");
     }
@@ -539,11 +540,11 @@ int sbuf_async_loop(struct buffer_entity *be){
 int sbuf_sync_loop(struct buffer_entity *be){
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int err;
-  DD("Starting write loop for %d bytes",, sbuf->diff);
+  DD("Starting write loop for %ld bytes",, sbuf->diff);
   while(sbuf->diff > 0){
     err = simple_write_bytes(be);
     CHECK_ERR_QUIET("sync bytes written");
-    DD("Writeloop done. diff:  %d",,sbuf->diff);
+    DD("Writeloop done. diff:  %ld",,sbuf->diff);
   }
   return 0;
 }
@@ -709,7 +710,7 @@ void *sbuf_simple_write_loop(void *buffo){
     }
 
     if(sbuf->diff > 0){
-      D("Blocking writes. Left to write %d",,sbuf->diff);
+      D("Blocking writes. Left to write %ld",,sbuf->diff);
       savedif = sbuf->diff;
       ret = -1;
 
