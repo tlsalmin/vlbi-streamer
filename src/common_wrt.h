@@ -26,6 +26,7 @@
 /* TODO: Remove duplicates */
 struct common_io_info{
   int id;
+  int status;
   //char * filename;
   char * curfilename;
   int fd;

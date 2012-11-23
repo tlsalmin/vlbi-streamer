@@ -133,6 +133,10 @@
 #define STATUS_ERROR		B(4)
 #define STATUS_CANCELLED	B(5)
 
+#define RECSTATUS_OK		B(0)
+#define RECSTATUS_FULL		B(1)
+#define RECSTATUS_ERROR		B(2)
+
 #define BRANCHOP_STOPANDSIGNAL 1
 #define BRANCHOP_GETSTATS 2
 #define BRANCHOP_CLOSERBUF 3
@@ -207,7 +211,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 
 #define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
 #define INIT_ERROR return -1;
-#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}else{D(x);}}while(0)
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return y;}else{D(x);}}while(0)
 #define CHECK_ERR_CUST_QUIET(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
 #define CHECK_ERR_QUIET(x) CHECK_ERR_CUST_QUIET(x,err)

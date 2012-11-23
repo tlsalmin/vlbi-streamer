@@ -1,0 +1,30 @@
+#!/bin/bash
+
+USER=oper
+GROUP=oper
+UID=$(id -u $USER)
+GID=$(getent group $GROUP | cut -d: -f3)
+ROOTDIRS=/mnt/disk
+
+CFGFILE=/usr/local/etc/vlbistreamer.conf
+
+DISKS=$(cat $CFGFILE |grep n_drives |cut -d ' ' -f 3)
+DISKS=${DISKS%?}
+
+which unionfs-fuse
+if [ "$?" == "0" ]
+then
+  UNIONPOINT=/mnt/unionfs
+  if [ ! -d "$UNIONPOINT" ]
+  then
+    echo "Creating mountpoint $UNIONPOINT"
+    mkdir -p $UNIONPOINT
+  fi
+  echo "Mounting unionfs-fuse to $UNIONPOINT"
+  DISKS=$((DISKS-1))
+  unionfs-fuse $(for l in $(seq 0 $DISKS) ; do printf "%s%d" "${ROOTDIRS}" $l ; if [ "$DISKS" != "$l" ] ; then printf "%s" ":" ; fi; done) $UNIONPOINT
+  #chown ${USER}:${GROUP} $UNIONPOINT
+else
+  echo "No unionfs-fuse found on your system!"
+  echo "TODO: binary could vary between systems"
+fi

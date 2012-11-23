@@ -18,8 +18,12 @@ install-data-hook:
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	chown @USER@:@GROUP@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
+	mkdir -p /mnt/unionfs
+	chown @USER@:@GROUP@ /mnt/unionfs
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_ls
+	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_unionfs
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_rm
+	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_volumes
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_queue
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_queue
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_disk2file
@@ -39,8 +43,11 @@ install-data-hook:
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_logscript
 	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_logscript
 	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/init_hugepages
+	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/mount_unionfs
 	sed -i 's:HUGESIZE=.*:HUGESIZE=$(HUGEPAGESIZE):' $(bindir)/init_hugepages
 	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/vbs_daemon
+	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_unionfs
+	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_unionfs
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_volumes
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_volumes
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vbs_daemon

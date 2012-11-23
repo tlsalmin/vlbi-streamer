@@ -7,13 +7,14 @@ usage: mount_volumes <options>
 OPTIONS:
 -f 		Automatically format all non-mounting volumes (Dangerous)
 -a		Ask to format non-mounting volumes
--r		Rearrange all volumes(unmounts already mounted /mnt/disk volumes)
+-r		Rearrange all volumes(unmounts already mounted ${ROOTDIRS} volumes)
 -j		Just mount the volumes, eventhought mounting with mountpoints failed. This is handy if you want to try a different filesystem and mount it fast
 EOF
 }
 PARTED=parted
 MKFS=mkfs.ext4
 TUNE=tune2fs
+FUSE=unionfs-fuse
 #Ripped from Mark6
 #noatime disabled access time recording
 #nodiratime same thing for directories
@@ -25,8 +26,12 @@ MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 #DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 #DRIVES=($(echo sd{a..z} sda{a..j}))
 
+ROOTDIRS=/mnt/disk
+
 USER=oper
 GROUP=oper
+UID=$(id -u oper)
+GID=$(getent group $GROUP | cut -d: -f3)
 FORMAT=0
 ASK=0
 JUSTMOUNT=0
@@ -126,8 +131,8 @@ then
   done
 fi
 
-USED_MOUNTPOINTS=$(mount | grep /mnt/disk| cut -d ' ' -f 3)
-USED_DEVICES=$(mount | grep /mnt/disk| cut -d ' ' -f 3)
+USED_MOUNTPOINTS=$(mount | grep ${ROOTDIRS}| cut -d ' ' -f 3)
+USED_DEVICES=$(mount | grep ${ROOTDIRS}| cut -d ' ' -f 3)
 
 k=0
 for i in "${DRIVES[@]}"
@@ -140,25 +145,25 @@ do
       echo "$i already mounted. Skipping"
       continue
     fi
-    echo $USED_MOUNTPOINTS | grep -o "/mnt/disk$k" &>/dev/null
+    echo $USED_MOUNTPOINTS | grep -o "${ROOTDIRS}$k" &>/dev/null
     while [ "$?" -eq "0" ]
     do
-      echo "/mnt/disk$k already mounted. Skipping"
+      echo "${ROOTDIRS}$k already mounted. Skipping"
       k=$(($k+1))
-      echo $USED_MOUNTPOINTS | grep -o "/mnt/disk$k" &>/dev/null
+      echo $USED_MOUNTPOINTS | grep -o "${ROOTDIRS}$k" &>/dev/null
     done
   else
-    umount /mnt/disk$k
+    umount ${ROOTDIRS}$k
   fi
-  if [ ! -d "/mnt/disk$k" ]; then
-    mkdir /mnt/disk$k
+  if [ ! -d "${ROOTDIRS}$k" ]; then
+    mkdir ${ROOTDIRS}$k
   fi
-  mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk$k
+  mount -o ${MOUNT_OPTS} /dev/${i}1 ${ROOTDIRS}$k
   if [ $? -ne "0" ]; then
     echo "^ Error from $i"
     if [ "$JUSTMOUNT" -eq "1" ]
     then
-      mount /dev/${i}1 /mnt/disk$k
+      mount /dev/${i}1 ${ROOTDIRS}$k
     elif [ "$FORMAT" -eq "1" ]
     then
       if [ "$ASK" -eq "1" ]
@@ -175,14 +180,15 @@ do
       ${TUNE} -o journal_data_writeback /dev/${i}1
       ${TUNE} -O ^has_journal /dev/${i}1
 
-      mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk$k
+      mount -o ${MOUNT_OPTS} /dev/${i}1 ${ROOTDIRS}$k
     else
       echo "-f not set. Not formatting. Skipping $i due to error"
     fi
   fi
-  chown $USER:$GROUP /mnt/disk$k/
-  chmod ug+rw /mnt/disk$k/
+  chown $USER:$GROUP ${ROOTDIRS}$k/
+  chmod ug+rw ${ROOTDIRS}$k/
   k=$((k+1))
 done
+
 
 exit 0

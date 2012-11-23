@@ -9,12 +9,16 @@ OPTIONS:
 EOF
 }
 
-HUGESIZE=2048
+HUGESIZE=$(cat /proc/meminfo | grep Hugepagesize | cut -d ' ' -f 8)
+#Shown in KB
+HUGESIZE=$(($HUGESIZE*1024))
 #Buffer size in GB
 BUFFERSIZE=12
 USER=replaceme
 GROUP=replaceme
 CFGFILE=vlbistreamer.conf
+
+#Ok not using the set hugesize
 
 n=1
 #-------------------------------------------------------------------------------
@@ -69,20 +73,23 @@ fi
 THE_USER_ID=$(id -u $USER)
 
 NR_HUGE=$(((BUFFERSIZE*1024*1024)/HUGESIZE))
-
 echo "Setting and creating $NR_HUGE of $HUGESIZE KB pages"
-echo $NR_HUGE > /proc/sys/vm/nr_hugepages
-GOT=`cat /proc/sys/vm/nr_hugepages`
+HAVE=`cat /proc/sys/vm/nr_hugepages`
 if [ "$NR_HUGE" != "$GOT" ]
 then
-  echo "Could only reserve $GOT hugepages."
-  echo "Memory is most likely too fragmented. Recomended use:"
-  echo "Set vm.nr_hugepages = $NR_HUGE in to /etc/sysctl.conf"
+  echo $NR_HUGE > /proc/sys/vm/nr_hugepages
+  GOT=`cat /proc/sys/vm/nr_hugepages`
+  if [ "$NR_HUGE" != "$GOT" ]
+  then
+    echo "Could only reserve $GOT hugepages."
+    echo "Memory is most likely too fragmented. Recomended use:"
+    echo "Set vm.nr_hugepages = $NR_HUGE in to /etc/sysctl.conf"
+  fi
 fi
 if [ ! -d "/mnt/huge" ]
 then
   mkdir /mnt/huge
 fi
 
-mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=${BUFFERSIZE}G,pagesize=${HUGESIZE}K none /mnt/huge
+mount -t hugetlbfs -o uid=$THE_USER_ID,gid=$THE_GID,mode=0755,size=${BUFFERSIZE}G none /mnt/huge
 exit 0

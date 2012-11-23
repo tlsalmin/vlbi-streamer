@@ -124,14 +124,6 @@ AC_MSG_RESULT($enable_filesizemb)
 AS_IF([test "x$FILESIZEMB" = x], [FILESIZEMB=512])
 AC_DEFINE_UNQUOTED(FILESIZEMB, ${FILESIZEMB}, [file size])
 
-AC_MSG_CHECKING([--enable-hugepagesize argument])
-AC_ARG_ENABLE(hugepagesize,
-	      [  --enable-hugepagesize         Set hugepage size in KB (default: 2048).],
-    [enable_hugepagesize=$enableval],
-    [enable_hugepagesize=512])
-AC_MSG_RESULT($enable_hugepagesize)
-AS_IF([test "x$HUGEPAGESIZE" = x], [HUGEPAGESIZE=2048])
-AC_DEFINE_UNQUOTED(HUGEPAGESIZE, ${HUGEPAGESIZE}, [hugepage size])
 
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,

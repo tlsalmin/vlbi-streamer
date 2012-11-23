@@ -367,18 +367,36 @@ void block_until_free(struct entity_list_branch *br, void* val1){
   /* Get a free entity from the branch			*/
   void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
   {
+    struct listed_entity *temp = NULL;
+    int suitable=0;
     LOCK(&(br->branchlock));
-    while(br->freelist == NULL){
-      if(br->busylist == NULL && br->loadedlist == NULL){
-	D("No entities in list. Returning NULL");
-	UNLOCK(&(br->branchlock));
-	return NULL;
+    while(temp == NULL){
+      temp = br->freelist;
+      //while(br->freelist == NULL){
+      while(temp == NULL)
+      {
+      /* Check if list is empty */
+	if(br->busylist == NULL && br->loadedlist == NULL){
+	  D("No entities in list. Returning NULL");
+	  UNLOCK(&(br->branchlock));
+	  return NULL;
+	}
+	LOG("Failed to get free buffer: Resources might be running out! Sleeping");
+	pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+	/* Check if something was added to freelist */
+	temp = br->freelist;
       }
-      D("Failed to get free buffer. Sleeping");
-      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+      if(temp->check != NULL)
+      {
+	while(temp != NULL && (suitable = temp->check(temp->entity, opt)) != 0){
+	  D("Not fit!");
+	  temp = temp->child;
+	}
+      }
     }
-    struct listed_entity * temp = br->freelist;
-    mutex_free_set_busy(br, br->freelist);
+    //struct listed_entity * temp = br->freelist;
+    //mutex_free_set_busy(br, br->freelist);
+    mutex_free_set_busy(br, temp);
     UNLOCK(&(br->branchlock));
     if(temp->acquire !=NULL){
       D("Running acquire on entity");

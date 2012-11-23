@@ -56,10 +56,11 @@ struct listed_entity
   struct listed_entity* child;
   struct listed_entity* father;
   int (*acquire)(void*,void*,void*);
-  int (*check)(void*, int);
+  int (*check)(void*, void*);
   /* 0 for not this, 1 for identified */
   int (*identify)(void*, void*, void*,int);
   void (*infostring)(void*, char*);
+  void* (*getopt)(void*);
   int (*close)(void*);
   int (*release)(void*);
   void* entity;

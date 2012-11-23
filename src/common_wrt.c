@@ -38,7 +38,7 @@
 //#include "resourcetree.h"
 #include "common_wrt.h"
 #include "confighelper.h"
-#define ERR_IN_INIT free(dirname);return -1
+#define ERR_IN_INIT free(dirname);return err 
 
 extern FILE* logfile;
 
@@ -226,21 +226,25 @@ int handle_error(struct recording_entity *re, int errornum){
     E("Mount point full. Setting to read only");
     //TODO: Augment infra for read only nodes
     //Remember to not remove straight from branch
+    ioi->status = RECSTATUS_FULL;
+    set_free(ioi->opt->diskbranch, re->self);
   }
   else
+  {
     E("Writer broken");
-  /* Done in close */
-  ioi->opt->hd_failures++;
-  if(ioi->opt->optbits & READMODE){
-    remove_specific_from_fileholders(ioi->opt, ioi->id);
+    /* Done in close */
+    ioi->opt->hd_failures++;
+    if(ioi->opt->optbits & READMODE){
+      remove_specific_from_fileholders(ioi->opt, ioi->id);
+    }
+    remove_from_branch(ioi->opt->diskbranch, re->self,0);
+    err = re->close(re, NULL);
+    CHECK_ERR("Close faulty recer");
+    /* TODO:  Need to solve this free-stuff! */
+    //free(re);
+    //be->recer->close(be->recer,NULL);
+    D("Closed recer");
   }
-  remove_from_branch(ioi->opt->diskbranch, re->self,0);
-  err = re->close(re, NULL);
-  CHECK_ERR("Close faulty recer");
-  /* TODO:  Need to solve this free-stuff! */
-  //free(re);
-  //be->recer->close(be->recer,NULL);
-  D("Closed recer");
 
   return err;
 }
@@ -254,6 +258,11 @@ int common_close_dummy(struct recording_entity *re, void *st){
   free((struct common_io_info*)re->opt);
   return 0;
 }
+void* recpoint_getopt(void* red)
+{
+  struct recording_entity* re = (struct recording_entity*) red;
+  return (void*)(((struct common_io_info*)(re->opt))->opt);
+}
 int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   re->write = common_fake_recer_write;
@@ -264,6 +273,7 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   le->entity = (void*)re;
   le->child = NULL;
   le->father = NULL;
+  le->getopt = recpoint_getopt;
   //le->acquire = common_open_new_file;
   //le->release = common_finish_file;
   re->self= le;
@@ -304,13 +314,15 @@ int init_directory(struct recording_entity *re){
   if(ioi->opt->optbits & READMODE){
     struct stat sb;
 
-    if(stat(dirname,&sb) != 0){
+    if((err = stat(dirname,&sb)) != 0){
       perror("Error Opening dir");
       ERR_IN_INIT;
     }
     else if (!S_ISDIR(sb.st_mode)){
       E("%s Not a directory. Not initializing this reader",,dirname);
-      ERR_IN_INIT;
+      free(dirname);
+      return -1;
+      //ERR_IN_INIT;
     }
   }
   else{
@@ -325,8 +337,9 @@ int init_directory(struct recording_entity *re){
       }
       else{
 	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
-	//free(dirname);
-	ERR_IN_INIT;
+	free(dirname);
+	return errno;
+	//ERR_IN_INIT;
       }
     }
   }
@@ -350,6 +363,22 @@ void common_infostring(void * le, char* returnable){
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   sprintf(returnable, "%s%i%s%s%s%lu", "ID: ", ioi->id, " Filename: ", ioi->curfilename, " File seqnum: ", ioi->file_seqnum);
 }
+int check_if_suitable(void * le, void* other)
+{
+  struct opt_s* opt_other = (struct opt_s*)other;
+  struct common_io_info* ioi = (struct common_io_info*)(((struct recording_entity*)le)->opt);
+
+  if(ioi->status & RECSTATUS_ERROR){
+    D("Not returning faulty drive");
+    return -1;
+  }
+  if(!(opt_other->optbits & READMODE) && ioi->status & RECSTATUS_FULL)
+  {
+    D("Not returning full or erronous entity");
+    return -1;
+  }
+  return 0;
+}
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
@@ -362,6 +391,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->opt = opt;
 
   ioi->id = ioi->opt->diskids++;
+  ioi->status = RECSTATUS_OK;
   /*
 #ifndef DAEMON
   err = init_directory(re);
@@ -416,7 +446,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->father = NULL;
   le->acquire = common_open_new_file;
   le->release = common_finish_file;
-  le->check = NULL;
+  le->check = check_if_suitable;
   le->identify = common_identify;
   le->infostring = common_infostring;
   le->close = common_close_and_free;
