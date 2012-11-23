@@ -18,14 +18,20 @@
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+    do { if(IS_DEBUG) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
     do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
 #define VBS_DATA ((struct vbs_state *) fuse_get_context()->private_data)
 
+#define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->status & DEBUG)
+#define DEBUG B(0)
+
+#define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
+
 struct vbs_state{
   char* rootdir;
+  int opts;
 };
  
 void vbs_usage()
@@ -66,7 +72,7 @@ int vbs_getattr(const char *path, struct stat *statbuf)
     if (retstat != 0)
 	retstat = vbs_error("vbs_getattr lstat");
     
-    log_stat(statbuf);
+    //log_stat(statbuf);
     
     return retstat;
 }
@@ -167,17 +173,35 @@ struct fuse_operations vbs_oper = {
 
 int main (int argc, char ** argv){
   struct vbs_state* vbs_data;
+  int fuse_stat;
+
+  struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+
 
   if ((getuid() == 0) || (geteuid() == 0)) {
     fprintf(stderr, "Running vbs_fuse as root opens unnacceptable security holes\n");
     return 1;
   }
+  /* Last two are the opts we want */
+  if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
+    vbs_usage();
+
 
   vbs_data = (struct vbs_state*)malloc(sizeof(struct vbs_state));
   if(vbs_data == NULL){
     E("vbs_data malloc");
     exit(-1);
   }
+
+  vbs_data->rootdir = realpath(argv[argc-2], NULL);
+  argv[argc-2] = argv[argc-1];
+  argv[argc-1] = NULL;
+  argc--;
+
+  vbs_data->opts = 0;
+
+  /* Just setting it manually */
+  vbs_data->opts |= DEBUG_OUTPUT;
 
   LOG("about to call fuse_main\n");
   fuse_stat = fuse_main(argc, argv, &vbs_oper, vbs_data);
