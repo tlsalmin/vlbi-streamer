@@ -418,6 +418,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->packet_size = DEF_BUF_ELEM_SIZE;
   opt->optbits |= DATATYPE_UNKNOWN;
   opt->cumul_found = 0;
+  opt->last_packet = 0;
 
   //opt->optbits |=USE_RX_RING;
   //TODO: Add option for choosing backend
@@ -1268,7 +1269,7 @@ int main(int argc, char **argv)
     stats_prev = (struct stats*)malloc(sizeof(struct stats));
     STREAMER_CHECK_NONNULL(stats_prev, "stats malloc");
     stats_now = (struct stats*)malloc(sizeof(struct stats));
-    STREAMER_CHECK_NONNULL(stats_now, "stats malloc");
+    //STREAMER_CHECK_NONNULL(stats_now, "stats malloc");
     //memset(stats_prev, 0,sizeof(struct stats));
     //memset(stats_now, 0,sizeof(struct stats));
     /* MEmset is doing weird stuff 	*/
@@ -1287,6 +1288,7 @@ int main(int argc, char **argv)
       sleep(1);
       //memset(stats_now, 0,sizeof(struct stats));
       init_stats(stats_now);
+      //print_midstats(tempsched, stats_prev);
 
       opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats_now);
       /* Query and print the stats */
@@ -1336,6 +1338,7 @@ int main(int argc, char **argv)
       fflush(stdout);
     }
     free(stats_now);
+    //free(tempsched);
     free(stats_prev);
   }
   if(!(opt->optbits & READMODE)){
@@ -1343,11 +1346,13 @@ int main(int argc, char **argv)
       sleep(opt->time);
     shutdown_thread(opt);
   }
-  /* If we're capturing, time the threads and run them down after we're done */
+  /* If we're capturing, time the threads and run them down after we're done 	*/
   else
 #endif /* DAEMON */
   {
-    if(!(opt->optbits & READMODE)){
+    /* Check also that last_packet is 0. Else the thread should shut itself 	*/
+    /* down									*/
+    if(!(opt->optbits & READMODE) && opt->last_packet == 0){
       int sleepleft = opt->time;
       //while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
       while(sleepleft > 0 && (opt->status & STATUS_RUNNING)){
@@ -1485,6 +1490,42 @@ void shutdown_thread(struct opt_s *opt){
       udps_close_socket(opt->streamer_ent);
   }
 }
+#if(DAEMON)
+int print_midstats(struct schedule* sched, struct stats* old_stats)
+{
+  TIMERTYPE temptime;
+  struct listed_entity *le= sched->br.busylist;
+  struct stats tempstats;
+  GETTIME(temptime);
+  LOG("Time:\t%lu\n", temptime.tv_sec);
+  while(le != NULL){
+    struct scheduled_event * ev = (struct scheduled_event*)le->entity;
+    if(ev->opt->get_stats != NULL){
+      init_stats(&tempstats);
+      ev->opt->get_stats((void*)ev->opt, (void*)&tempstats);
+      neg_stats(&tempstats, ev->stats);
+      LOG("Event:\t%s\t", ev->opt->filename);
+      LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu\n"
+	  ,BYTES_TO_MBITSPS(tempstats.total_bytes),tempstats.dropped, tempstats.incomplete);
+      add_stats(ev->stats, &tempstats);
+    }
+    le = le->child;
+  }
+  init_stats(&tempstats);
+  oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)&tempstats);
+  neg_stats(&tempstats, old_stats);
+  LOG("HD-Speed:\t%luMB/s\n",BYTES_TO_MBITSPS(tempstats.total_written));
+  add_stats(old_stats, &tempstats);
+
+  LOG("Ringbuffers: ");
+  print_br_stats(sched->default_opt->membranch);
+  LOG("Recpoints: ");
+  print_br_stats(sched->default_opt->diskbranch);
+
+  LOG("----------------------------------------\n");
+  return 0;
+}
+#endif
 /* Generic function which we use after we get the opt	*/
 inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type){
   (void)val2;

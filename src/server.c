@@ -49,26 +49,6 @@
 static volatile int running = 0;
 extern FILE *logfile;
 
-
-struct scheduled_event{
-  struct opt_s * opt;
-  //struct scheduled_event* next;
-  struct stats* stats;
-  char * idstring;
-  void (*shutdown_thread)(struct opt_s*);
-  pthread_t pt;
-  int found;
-};
-/* Just to cut down on number of variables passed to functions		*/
-struct schedule{
-  struct entity_list_branch br;
-  //listed_entity* scheduled_head;
-  //listed_entity* running_head;
-  struct opt_s * default_opt;
-  int n_scheduled;
-  int n_running;
-};
-
 struct schedule *sched;
 
 inline void zero_sched(struct schedule *sched){
@@ -795,34 +775,8 @@ err=fork();
     err = check_finished(sched);
     CHECK_ERR("check finished");
     if(sched->default_opt->optbits & VERBOSE && sched->n_running > 0){
-      struct listed_entity *le= sched->br.busylist;
-      GETTIME(*temptime);
-      LOG("Time:\t%lu\n", temptime->tv_sec);
-      while(le != NULL){
-	struct scheduled_event * ev = (struct scheduled_event*)le->entity;
-	if(ev->opt->get_stats != NULL){
-	  init_stats(tempstats);
-	  ev->opt->get_stats((void*)ev->opt, (void*)tempstats);
-	  neg_stats(tempstats, ev->stats);
-	  LOG("Event:\t%s\t", ev->opt->filename);
-	  LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu\n"
-	      ,BYTES_TO_MBITSPS(tempstats->total_bytes),tempstats->dropped, tempstats->incomplete);
-	  add_stats(ev->stats, tempstats);
-	}
-	le = le->child;
-      }
-      init_stats(tempstats);
-      oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)tempstats);
-      neg_stats(tempstats, stats_full);
-      LOG("HD-Speed:\t%luMB/s\n",BYTES_TO_MBITSPS(tempstats->total_written));
-      add_stats(stats_full, tempstats);
-
-      LOG("Ringbuffers: ");
-      print_br_stats(sched->default_opt->membranch);
-      LOG("Recpoints: ");
-      print_br_stats(sched->default_opt->diskbranch);
-
-      LOG("----------------------------------------\n");
+      err = print_midstats(sched, stats_full);
+      CHECK_ERR("print stats");
     }
 
 #if(LOG_TO_FILE)

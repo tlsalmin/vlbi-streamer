@@ -7,6 +7,7 @@ OPTIONS:
       -c CFGFILE	Load config from cfg-file CFGFILE
       -d DRIVES		Number of drives(Default: 1)
       -i INTERFACE	Which interface to bind to(Not required)
+      -l LAST_PACKET	number of last packet to be received
       -n IP		Simultaneously send stream to IP
       -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
       -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)(Only UDPMON supportee -a d atm.)
@@ -45,6 +46,11 @@ do
     -i)
       EXTRAOPS="$EXTRAOPS
       device_name = \"$2\";"
+      shift
+      ;;
+    -l)
+      EXTRAOPS="$EXTRAOPS
+      last_packet = $2L;"
       shift
       ;;
     -m)

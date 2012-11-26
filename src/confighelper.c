@@ -349,6 +349,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       CFG_FULL_STR(device_name)
       CFG_FULL_STR(disk2fileoutput)
       CFG_FULL_UINT64(opt->optbits, "optbits")
+      CFG_FULL_UINT64(opt->last_packet, "last_packet")
       CFG_FULL_UINT64(opt->time, "time")
       CFG_FULL_INT(opt->port, "port")
       CFG_FULL_UINT64(opt->minmem, "minmem")

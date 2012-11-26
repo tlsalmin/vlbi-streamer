@@ -278,7 +278,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #include "config.h"
 #include "resourcetree.h"
 #include "timer.h"
-  struct stats
+struct stats
 {
   unsigned long total_packets;
   unsigned long total_bytes;
@@ -320,6 +320,7 @@ struct opt_s
   long unsigned *cumul;
   /* Used in read to determine how many we actually found 		*/
   long unsigned cumul_found;
+  long unsigned last_packet;
   //pthread_mutex_t cumlock;
   char *device_name;
   char *cfgfile;
@@ -496,6 +497,25 @@ struct streamer_entity
   //struct entity_list_branch *membranch;
 };
 
+struct scheduled_event{
+  struct opt_s * opt;
+  //struct scheduled_event* next;
+  struct stats* stats;
+  char * idstring;
+  void (*shutdown_thread)(struct opt_s*);
+  pthread_t pt;
+  int found;
+};
+/* Just to cut down on number of variables passed to functions		*/
+struct schedule{
+  struct entity_list_branch br;
+  //listed_entity* scheduled_head;
+  //listed_entity* running_head;
+  struct opt_s * default_opt;
+  int n_scheduled;
+  int n_running;
+};
+
 /* TODO: Doc these */
 int init_rbufs(struct opt_s *opt);
 int close_rbufs(struct opt_s *opt, struct stats* da_stats);
@@ -517,10 +537,11 @@ int prep_hostname(struct opt_s * opt);
 int prep_priority(struct opt_s * opt, int priority);
 int prep_streamer(struct opt_s * opt);
 #if(DAEMON)
+int print_midstats(struct schedule* sched, struct stats* old_stats); 
+#endif
+#if(DAEMON)
 void* vlbistreamer(void *opti);
 #endif
 int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type);
-
-
 
 #endif

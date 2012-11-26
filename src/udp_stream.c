@@ -1119,6 +1119,7 @@ void* udp_receiver(void *streamo)
 	}
       }
       //spec_ops->running = 0;
+      udps_close_socket(se);
       spec_ops->opt->status = STATUS_ERROR;
       break;
     }
@@ -1129,6 +1130,7 @@ void* udp_receiver(void *streamo)
 	spec_ops->wrongsizeerrors++;
 	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
 	  E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
+	  udps_close_socket(se);
 	  spec_ops->opt->status = STATUS_ERROR;
 	  break;
 	}
@@ -1144,7 +1146,7 @@ void* udp_receiver(void *streamo)
 	  E("Send er");
 	}
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
-	  E("Different size");
+	  E("Different size sent onward. NOT HANDLED");
       }
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
@@ -1181,6 +1183,10 @@ void* udp_receiver(void *streamo)
       }
       spec_ops->total_captured_bytes +=(unsigned int) err;
       *spec_ops->opt->total_packets += 1;
+      if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
+	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
+	break;
+      }
     }
   }
   /* Release last used buffer */
