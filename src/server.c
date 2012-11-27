@@ -478,6 +478,10 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   /* Null here, set in initializer. */
   opt->get_stats = NULL;
 
+  /* We might need to calc buf_num_elems again */
+  opt->buf_num_elems = FILESIZE / opt->packet_size;
+  D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
+
   LOG("New request is for session: %s\n", opt->filename);
   D("Opts checked, port is %d",, opt->port);
   //config_init(&(opt->cfg));
@@ -632,6 +636,8 @@ int main(int argc, char **argv)
     exit(-1);
   }
 #endif
+  LOG("Waiting one sec for chrt to kick in");
+  sleep(1);
 
 
   struct stats* tempstats = NULL;//, stats_temp;

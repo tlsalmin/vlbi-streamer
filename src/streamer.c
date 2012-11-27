@@ -949,16 +949,16 @@ int prep_priority(struct opt_s * opt, int priority){
 
   minprio = sched_get_priority_min(SCHED_FIFO);
   maxprio = sched_get_priority_max(SCHED_FIFO);
-  int halfprio = (maxprio+minprio)/2 -10;
+  int halfprio = (maxprio+minprio)/2;
 
   int realprio = priority;
 
   if(priority == MAX_PRIO_FOR_PTHREAD)
-    realprio = halfprio;
+    realprio = maxprio;
   else if (priority == MIN_PRIO_FOR_PTHREAD)
     realprio = minprio;
   else if (priority == RBUF_PRIO)
-    realprio = halfprio -10;
+    realprio = halfprio;
   else
     realprio = halfprio -10;
 

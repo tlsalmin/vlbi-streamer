@@ -10,7 +10,7 @@ endif
 AM_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLOCALSTATEDIR='"$(localstatedir)"'
 vlbistreamer_LDADD = $(ADD_LIBS)
 groupsend_SOURCES = groupsend.c
-groupsend_SOURCES += vlbistreamer_SOURCES
+#groupsend_SOURCES += $(vlbistreamer_SOURCES)
 groupsend_LDADD = $(ADD_LIBS)
 #disk2file_SOURCES = disk2file.c common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h defwriter.h defwriter.c splicewriter.h splicewriter.c simplebuffer.h simplebuffer.c fanout.h fanout.c resourcetree.h resourcetree.c confighelper.h confighelper.c timer.h timer.c timekeeper.h timekeeper.c aiowriter.c aiowriter.h
 #disk2file_CFLAGS = -DUSE_FOR_DISK2FILE

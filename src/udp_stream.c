@@ -430,8 +430,9 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 void * udp_sender(void *streamo){
   int err = 0;
   void* buf;
-  int i=0;
+  //int i=0;
   long *inc;
+  long sentinc = 0;
   //int max_buffers_in_use=0;
   //unsigned long cumulpeek;
   //unsigned long packetpeek;
@@ -496,12 +497,14 @@ void * udp_sender(void *streamo){
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
   D("Starting stream send");
-  i=0;
+  //i=0;
   GETTIME(spec_ops->opt->wait_last_sent);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops->opt, &st) == 1){
     /* Need the OR here, since i wont hit buf_num_elems on the last file */
-    if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - st.packetpeek == 0)){
+    //if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - st.packetpeek == 0)){
+    if(sentinc + spec_ops->opt->packet_size > FILESIZE || (st.packets_sent - st.packetpeek == 0))
+    {
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE)
 	UDPS_EXIT;
@@ -510,7 +513,8 @@ void * udp_sender(void *streamo){
 	UDPS_EXIT;
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
-      i=0;
+      sentinc = 0;
+      //i=0;
     }
 #ifdef HAVE_RATELIMITER
     if(spec_ops->opt->wait_nanoseconds > 0)
@@ -532,16 +536,16 @@ void * udp_sender(void *streamo){
       wait = nanodiff(&(spec_ops->opt->wait_last_sent), &st.now);
 #if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
-      D("%ld %ld ",,spec_ops->total_captured_packets, wait);
+      fprintf(stdout,"%ld %ld \n",spec_ops->total_captured_packets, wait);
 #else
-      D("UDP_STREAMER: %ld ns has passed since last send\n",, wait);
+      fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
 #endif
 #endif
       //wait = spec_ops->opt->wait_nanoseconds - wait;
       ZEROTIME(st.req);
 
       //req.tv_nsec = spec_ops->opt->wait_nanoseconds - wait;
-      SETNANOS(st.req,spec_ops->opt->wait_nanoseconds-wait);
+      SETNANOS(st.req,(spec_ops->opt->wait_nanoseconds-wait));
       if(GETNANOS(st.req) > 0){
 	//int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
 #if(SEND_DEBUG)
@@ -572,14 +576,17 @@ void * udp_sender(void *streamo){
 	err = SLEEP_NANOS(st.req);
 	//err = usleep(1);
 #endif /*UGLY_BUSYLOOP_ON_TIMER */
-#if(SEND_DEBUG)
+
 	GETTIME(st.now);
+
+#if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
 	fprintf(stdout, "%ld\n", nanodiff(&st.reference, &st.now));
 #else
 	fprintf(stdout, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st.reference, &st.now));
 #endif
 #endif
+
       }
       else{
 #if(SEND_DEBUG)
@@ -597,7 +604,7 @@ void * udp_sender(void *streamo){
 #ifdef DUMMYSOCKET
     err = spec_ops->opt->packet_size;
 #else
-    err = sendto(spec_ops->fd, buf, spec_ops->opt->packet_size, 0, spec_ops->sin,spec_ops->sinsize);
+    err = sendto(spec_ops->fd, buf+sentinc, spec_ops->opt->packet_size, 0, spec_ops->sin,spec_ops->sinsize);
 #endif
 
 
@@ -611,12 +618,16 @@ void * udp_sender(void *streamo){
       //pthread_exit(NULL);
       //break;
     }
+    else if((unsigned)err != spec_ops->opt->packet_size){
+      E("Sent only %d, when wanted to send %ld",, err, spec_ops->opt->packet_size);
+    }
     else{
       st.packets_sent++;
       spec_ops->total_captured_bytes +=(unsigned int) err;
       spec_ops->total_captured_packets++;
-      buf += spec_ops->opt->packet_size;
-      i++;
+      //buf += spec_ops->opt->packet_size;
+      sentinc += spec_ops->opt->packet_size;
+      //i++;
     }
   }
   UDPS_EXIT;
@@ -1076,7 +1087,9 @@ void* udp_receiver(void *streamo)
   LOG("UDP_STREAMER: Starting stream capture\n");
   while(spec_ops->opt->status & STATUS_RUNNING){
 
-    if(resq->i == spec_ops->opt->buf_num_elems){
+    //if(resq->i == spec_ops->opt->buf_num_elems)
+    if(*(resq->inc) + spec_ops->opt->packet_size > FILESIZE)
+    {
       D("Buffer filled, Getting another");
 
 

@@ -173,7 +173,7 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
   {
     long rate_in_bytes = (BILLION/((long)opt->wait_nanoseconds))*opt->packet_size;
     /* Add one as n loading for speed and one is being sent over the network */
-    st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, rate_in_bytes/(MBITS_PER_DRIVE*MILLION) + 1);
+    st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, rate_in_bytes/(MBYTES_PER_DRIVE*MILLION) + 1);
     D("rate as %d ns. Setting to use max %d buffers",, opt->wait_nanoseconds, st->allocated_to_load);
   }
 }
@@ -205,6 +205,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   else{
     D("Loaded enough files. Setting memorybuf to free");
     set_free(opt->membranch, se->be->self);
+    st->allocated_to_load++;
   }
 
   /*

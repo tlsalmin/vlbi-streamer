@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include "common.h"
-#include "mark5b.h"
+//#include "mark5b.h"
 //#define BEITONNET
 #define GRAB_4_BYTES \
   memcpy(&read_count, target, 4);\

@@ -21,8 +21,8 @@ done
 $VLBIPREFIX vbs_clearschedule
 }
 
-REMOTESENDER="ara.vlbi.metsahovi.fi"
-LOCALRECEIVER="watt.vlbi.mestahovi.fi"
+REMOTESENDER="watt.vlbi.metsahovi.fi"
+LOCALRECEIVER="ara.vlbi.mestahovi.fi"
 TESTTIME=30
 WAIT=20
 while [ $# -gt 0 ]
@@ -55,8 +55,8 @@ PARSELONG=3
 PARSENORMAL=2
 PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c -$PARSELONG"`
 PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
-TARGET="10.8.8.134"
-OTARGET="10.8.8.14"
+TARGET="192.168.0.1"
+OTARGET="192.168.0.2"
 VBS_START="$VLBIPREFIX src/vlbistreamer"
 VBS_SEND="$VLBIPREFIX vbs_send"
 VBS_RECV="$VLBIPREFIX vbs_record"

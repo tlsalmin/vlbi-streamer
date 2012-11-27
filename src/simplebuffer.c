@@ -60,7 +60,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%lu Writes complete on seqnum %lu",, ret/sbuf->opt->packet_size, sbuf->fh->id);
+    D("%d byte Writes complete on seqnum %lu",, ret, sbuf->fh->id);
     //unsigned long num_written;
 
     //num_written = ret/sbuf->opt->packet_size;
