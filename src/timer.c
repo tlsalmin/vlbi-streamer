@@ -22,10 +22,10 @@
  */
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include "timer.h"
-#define SLEEPCHECK_LOOPTIMES 100
+#define SLEEPCHECK_LOOPTIMES 10000
 
-extern FILE* logfile;
 /*
 void specadd(struct timespec * to, struct timespec *from){
   if(to->tv_nsec + from->tv_nsec >  BILLION){
@@ -40,7 +40,7 @@ void specadd(struct timespec * to, struct timespec *from){
 */
 /* Return the diff of the two timespecs in nanoseconds */
 long nanodiff(TIMERTYPE * start, TIMERTYPE *end){
-  unsigned long temp=0;
+  long temp=0;
   temp += (end->tv_sec-start->tv_sec)*BILLION;
 #ifdef TIMERTYPE_GETTIMEOFDAY
   temp += (end->tv_usec-start->tv_usec)*1000;
@@ -53,14 +53,14 @@ void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add){
 #ifdef TIMERTYPE_GETTIMEOFDAY
   if(datime->tv_usec*1000 + nanos_to_add > BILLION)
 #else
-    if(datime->tv_nsec + nanos_to_add >  BILLION)
+    if(datime->tv_nsec + nanos_to_add >=  BILLION)
 #endif
     {
       datime->tv_sec++;
 #ifdef TIMERTYPE_GETTIMEOFDAY
-      datime->tv_usec += (MILLION-datime->tv_usec)+nanos_to_add/1000;
+      datime->tv_usec = (MILLION-datime->tv_usec)+nanos_to_add/1000;
 #else
-      datime->tv_nsec += (BILLION-datime->tv_nsec)+nanos_to_add;
+      datime->tv_nsec = nanos_to_add - (BILLION-datime->tv_nsec);
 #endif
     }
     else

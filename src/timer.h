@@ -23,6 +23,12 @@
 #ifndef TIMER_H
 #define TIMER_H
 #include <unistd.h>
+#include <time.h>
+
+#ifndef BILLION
+#define BILLION 1E9l
+#endif
+
 #ifdef TIMERTYPE_GETTIMEOFDAY
 #define TIMERTYPE struct timeval 
 #define GETTIME(x) gettimeofday(&x,NULL)
@@ -43,7 +49,7 @@
 #define SETONE(x) x.tv_nsec=1
 #endif
 #define ZEROTIME(x) memset((void*)(&x),0,sizeof(TIMERTYPE))
-#include "streamer.h"
+//#include "streamer.h"
 
 long nanodiff(TIMERTYPE * start, TIMERTYPE *end);
 void nanoadd(TIMERTYPE * datime, unsigned long nanos_to_add);

@@ -628,6 +628,7 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
+  pid_t ourpid;
 #if(LOG_TO_FILE)
   fprintf(stdout, "Logging to %s", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
@@ -636,8 +637,26 @@ int main(int argc, char **argv)
     exit(-1);
   }
 #endif
-  LOG("Waiting one sec for chrt to kick in");
-  sleep(1);
+#if(PPRIORITY)
+  struct sched_param schedp;
+  LOG("Waiting one sec for chrt to kick in\n");
+  ourpid = getpid();
+  err = sched_getparam(getpid(), &schedp);
+  if(err != 0)
+    E("Error in getparam");
+  LOG("Priority before sleep %d\n", schedp.sched_priority);
+  sleep(10);
+  err = sched_getparam(getpid(), &schedp);
+  if(err != 0)
+    E("Error in getparam");
+  LOG("Priority after sleep %d\n", schedp.sched_priority);
+  schedp.sched_priority = 60;
+  sched_setscheduler(getpid(), SCHED_FIFO, &schedp);
+  err = sched_getparam(getpid(), &schedp);
+  if(err != 0)
+    E("Error in getparam");
+  LOG("Priority after setting priority %d\n", schedp.sched_priority);
+#endif
 
 
   struct stats* tempstats = NULL;//, stats_temp;

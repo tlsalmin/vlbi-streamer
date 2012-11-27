@@ -15,20 +15,21 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
   while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
     D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->head_loaded->id);
-    st->head_loaded = st->head_loaded->next;
+
+    //st->head_loaded = st->head_loaded->next;
     //st->files_loaded++;
     st->files_skipped++;
     //spec_ops->files_sent++;
     /* If last file is missing, we might hit negative on left_to_send 	*/
     /*
-    if((*opt->total_packets - st->packets_sent) < (unsigned long)opt->buf_num_elems){
-      st->packets_loaded=*opt->total_packets;
-      st->packets_sent += nuf;
-    }
-    else{
-    */
-      st->packets_sent += nuf;
-      st->packets_loaded+= nuf;
+       if((*opt->total_packets - st->packets_sent) < (unsigned long)opt->buf_num_elems){
+       st->packets_loaded=*opt->total_packets;
+       st->packets_sent += nuf;
+       }
+       else{
+       */
+    st->packets_sent += nuf;
+    st->packets_loaded+= nuf;
     //}
     /* Special case where last file is missing */
     if(st->head_loaded->next == NULL)
@@ -36,9 +37,9 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     else
       st->head_loaded = st->head_loaded->next;
     /*
-    if(st->files_loaded == *opt->cumul)
-      return 0;
-      */
+       if(st->files_loaded == *opt->cumul)
+       return 0;
+       */
   }
   if(st->head_loaded->status & FH_INMEM){
     struct buffer_entity *tempen;
@@ -221,7 +222,8 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     if(opt->fileholders != NULL){
       D("Getting new loaded for file %lu",, opt->fileholders->id);
       if(opt->fileholders != NULL && opt->fileholders->status == FH_MISSING){
-	D("Skipping a file, fileholder set to -1 for file %lu",, st->head_loaded->id);
+	//D("Skipping a file, fileholder set to -1 for file %lu",, st->head_loaded->id);
+	D("Skipping a file, fileholder set to -1 for file %lu",, opt->fileholders->id);
 	AUGMENTLOCK;
 	tempfh = opt->fileholders;
 	opt->fileholders = opt->fileholders->next;

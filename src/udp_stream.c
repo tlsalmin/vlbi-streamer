@@ -471,7 +471,7 @@ void * udp_sender(void *streamo){
 
   /* Data won't be instantaneous so get min_sleep here! */
   unsigned long minsleep = get_min_sleeptime();
-  D("Can sleep max %lu microseconds on average",, minsleep);
+  LOG("Can sleep max %lu microseconds on average\n", minsleep);
 
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
@@ -536,7 +536,7 @@ void * udp_sender(void *streamo){
       wait = nanodiff(&(spec_ops->opt->wait_last_sent), &st.now);
 #if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
-      fprintf(stdout,"%ld %ld \n",spec_ops->total_captured_packets, wait);
+      //fprintf(stdout,"%ld %ld \n",spec_ops->total_captured_packets, wait);
 #else
       fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
 #endif
@@ -586,7 +586,9 @@ void * udp_sender(void *streamo){
 	fprintf(stdout, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st.reference, &st.now));
 #endif
 #endif
+	//COPYTIME(st.now,spec_ops->opt->wait_last_sent);
 
+	nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);	
       }
       else{
 #if(SEND_DEBUG)
@@ -596,8 +598,8 @@ void * udp_sender(void *streamo){
 	fprintf(stdout, "Runaway timer! Resetting\n");
 #endif
 #endif
+	COPYTIME(st.now,spec_ops->opt->wait_last_sent);
       }
-      COPYTIME(st.now,spec_ops->opt->wait_last_sent);
     }
 
 #endif //HAVE_RATELIMITER
