@@ -645,7 +645,7 @@ int main(int argc, char **argv)
   if(err != 0)
     E("Error in getparam");
   LOG("Priority before sleep %d\n", schedp.sched_priority);
-  sleep(10);
+  sleep(2);
   err = sched_getparam(getpid(), &schedp);
   if(err != 0)
     E("Error in getparam");
