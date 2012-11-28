@@ -57,7 +57,8 @@ PACKETSIZE=`$VLBIPREFIX "cat $CFGFILE |grep packet_size |cut -d ' ' -f3 |head -c
 PORT=`$VLBIPREFIX "cat $CFGFILE |grep port |tail -n 1|cut -d ' ' -f3 |head -c -$PARSENORMAL"`
 TARGET="192.168.0.1"
 OTARGET="192.168.0.2"
-VBS_START="$VLBIPREFIX src/vlbistreamer"
+#ah gawd
+VBS_START="$VLBIPREFIX sudo chrt -f -p 60 sudo -u oper src/vlbistreamer"
 VBS_SEND="$VLBIPREFIX vbs_send"
 VBS_RECV="$VLBIPREFIX vbs_record"
 DRIVES=`$VLBIPREFIX "cat $CFGFILE |grep n_drives |cut -d ' ' -f3 |head -c -$PARSENORMAL"`
@@ -83,7 +84,7 @@ $VLBIPREFIX "vbs_delete testfor_${i}"
 done
 
 echo "setting up daemon mode"
-$VLBIPREFIX ./configure --enable-user=oper --enable-logtofile=no &> /dev/null
+$VLBIPREFIX ./configure --enable-user=oper --enable-logtofile=no --enable-ppriority=yes &> /dev/null
 $VLBIPREFIX make &> /dev/null
 
 if [ $? -ne "0" ]
