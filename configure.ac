@@ -121,7 +121,7 @@ AC_ARG_ENABLE(filesizemb,
     [enable_filesizemb=$enableval],
     [enable_filesizemb=512])
 AC_MSG_RESULT($enable_filesizemb)
-AS_IF([test "x$FILESIZEMB" = x], [FILESIZEMB=512])
+AS_IF([test "x$FILESIZEMB" = x], [FILESIZEMB=$enable_filesizemb])
 AC_DEFINE_UNQUOTED(FILESIZEMB, ${FILESIZEMB}, [file size])
 
 

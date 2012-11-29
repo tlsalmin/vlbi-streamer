@@ -11,7 +11,7 @@ EOF
 
 HUGESIZE=$(cat /proc/meminfo | grep Hugepagesize | cut -d ' ' -f 8)
 #Shown in KB
-HUGESIZE=$(($HUGESIZE*1024))
+#HUGESIZE=$(($HUGESIZE*1024))
 #Buffer size in GB
 BUFFERSIZE=12
 USER=replaceme
