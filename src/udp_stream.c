@@ -465,7 +465,7 @@ void * udp_sender(void *streamo){
   //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
   SAUGMENTLOCK;
   st.packetpeek = (*spec_ops->opt->total_packets);
-  SAUGMENTLOCK;
+  SAUGMENTUNLOCK;
 
   err = loadup_n(spec_ops->opt, &st);
 
@@ -484,6 +484,7 @@ void * udp_sender(void *streamo){
   }
   /* TODO: Handle dropped out rec points */
   //if(st.files_sent < (*spec_ops->opt->cumul)){
+  /*
   if(spec_ops->opt->fileholders != NULL){
     SAUGMENTUNLOCK;
     se->be = get_loaded(spec_ops->opt->membranch, spec_ops->opt->fileholders->id, spec_ops->opt);
@@ -492,6 +493,8 @@ void * udp_sender(void *streamo){
     SAUGMENTUNLOCK;
     UDPS_EXIT;
   }
+  */
+  jump_to_next_file(spec_ops->opt, se, &st);
 
   CHECK_AND_EXIT(se->be);
   buf = se->be->simple_get_writebuf(se->be, &inc);
@@ -1094,7 +1097,6 @@ void* udp_receiver(void *streamo)
     {
       D("Buffer filled, Getting another");
 
-
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	D("Jumping to next buffer normally");
 	err = jump_to_next_buf(se, resq);
@@ -1106,6 +1108,7 @@ void* udp_receiver(void *streamo)
 	}
       }
       else{
+	D("Datatype unknown!");
 	resq->i=0;
 	SAUGMENTLOCK;
 	(*spec_ops->opt->cumul)++;

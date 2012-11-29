@@ -628,7 +628,6 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd;
-  pid_t ourpid;
 #if(LOG_TO_FILE)
   fprintf(stdout, "Logging to %s", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
@@ -638,6 +637,7 @@ int main(int argc, char **argv)
   }
 #endif
 #if(PPRIORITY)
+  pid_t ourpid;
   struct sched_param schedp;
   LOG("Waiting one sec for chrt to kick in\n");
   ourpid = getpid();

@@ -63,6 +63,7 @@ struct listed_entity
   void* (*getopt)(void*);
   int (*close)(void*);
   int (*release)(void*);
+  void (*notfreeafterthis)(void*, void*);
   void* entity;
 };
 /* Holds all the listed_entits of a common type		*/

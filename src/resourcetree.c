@@ -317,6 +317,17 @@ void block_until_free(struct entity_list_branch *br, void* val1){
     LOCK(&(br->branchlock));
     D("Checking if %lu is already in the buffers",, fh->id);
     temp = loop_and_check(br->freelist, (void*)&(fh->id), (void*)opt, CHECK_BY_OLDSEQ);
+    if(temp ==NULL && just_check == 0){
+      /* If we really want to get that lingering */
+      temp = loop_and_check(br->busylist, (void*)&(fh->id), (void*)opt, CHECK_BY_OLDSEQ);
+      if(temp != NULL){
+	D("the lingering is still busy. waiting..");
+	pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+	UNLOCK(&(br->branchlock));
+	D("Woke up! Lets review the situation");
+	return get_lingering(br,opt,fhh,just_check);
+      }
+    }
     if(temp !=NULL && just_check == 0){
       D("File %lu found in buffer! Setting to loaded",, fh->id);
       mutex_free_change_branch(&(br->freelist), &(br->loadedlist), temp);

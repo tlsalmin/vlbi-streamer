@@ -573,22 +573,8 @@ struct fileholder* livereceive_new_fileholder(struct opt_s* opt, struct filehold
     while(fh->next != NULL){
       fh=fh->next;
     }
-    /*
-       if(fh->id == sbuf->fh->id-1){
-       D("Found spot to set new fileholder");
-       if (fh->next != NULL){
-       D("Next is not null and has file %lu. Saving it to temp",, fh->next->id);
-       temp = fh->next;
-       }
-       fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-       fh = fh->next;
-       break;
-       }
-       fh_prev = fh;
-       fh = fh->next;
-       */
     fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-    if(fh->id == orig_fh->id+1){
+    if(fh->id == orig_fh->id-1){
       D("Don't need to sort");
       no_need_to_sort = 1;
     }
@@ -648,7 +634,7 @@ int write_buffer(struct buffer_entity *be){
       }
       else{
 	sbuf->fh->diskid = be->recer->getid(be->recer);
-	sbuf->fh->status = FH_INMEM;
+	sbuf->fh->status = FH_INMEM | FH_BUSY;
 	//memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
 	if(sbuf->opt->optbits & LIVE_RECEIVING){
 	  //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
@@ -744,6 +730,7 @@ void *sbuf_simple_write_loop(void *buffo){
 	    if(sbuf->opt->liveother != NULL){
 	      D("Setting FH_ONDISK for file %lu,",, sbuf->fh->id);
 	      pthread_spin_lock(sbuf->opt->liveother->augmentlock);
+	      sbuf->fh->status &= ~FH_BUSY;
 	      sbuf->fh->status |= FH_ONDISK;
 	      pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
 	    }

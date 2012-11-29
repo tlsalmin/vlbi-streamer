@@ -183,22 +183,24 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   int err;
   //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
-  D("Buffer empty for: %lu",, opt->fileholders->id);
-  AUGMENTLOCK;
-  tempfh = opt->fileholders;
-  opt->fileholders = opt->fileholders->next;
-  free(tempfh);
-  st->packetpeek = *(opt->total_packets);
-  /* Check for missing file here so we can keep simplebuffer simple 	*/
-  //packetpeek = (*opt->total_packets);
-  AUGMENTUNLOCK;
-  //if(st->files_loaded < cumulpeek){
+  if(se->be != NULL){
+    D("Buffer empty for: %lu",, opt->fileholders->id);
+    AUGMENTLOCK;
+    tempfh = opt->fileholders;
+    opt->fileholders = opt->fileholders->next;
+    free(tempfh);
+    st->packetpeek = *(opt->total_packets);
+    /* Check for missing file here so we can keep simplebuffer simple 	*/
+    //packetpeek = (*opt->total_packets);
+    AUGMENTUNLOCK;
+    //if(st->files_loaded < cumulpeek){
+  }
   if(st->head_loaded != NULL){
     D("Still files to be loaded. Loading %lu",, st->head_loaded->id);
     /* start_loading increments files_loaded */
     err = start_loading(opt, se->be, st);
     CHECK_ERR("Loading file");
-    if(st->allocated_to_load > 0 && st->head_loaded != NULL){
+    while(st->allocated_to_load > 0 && st->head_loaded != NULL){
       err = start_loading(opt, NULL, st);
       CHECK_ERR("Loading more files");
     }
@@ -221,7 +223,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     //if(st->files_sent < cumulpeek){
     if(opt->fileholders != NULL){
       D("Getting new loaded for file %lu",, opt->fileholders->id);
-      if(opt->fileholders != NULL && opt->fileholders->status == FH_MISSING){
+      if(opt->fileholders->status & FH_MISSING){
 	//D("Skipping a file, fileholder set to -1 for file %lu",, st->head_loaded->id);
 	D("Skipping a file, fileholder set to -1 for file %lu",, opt->fileholders->id);
 	AUGMENTLOCK;
@@ -230,8 +232,28 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 	free(tempfh);
 	AUGMENTUNLOCK;
       }
+      else if (opt->fileholders->status & FH_INMEM){
+	D("File should still be in mem..");
+	if ((se->be = get_lingering(opt->membranch, opt, opt->fileholders, 0)) == NULL){
+	  D("Lingering copy has disappeared! Requesting load on file");
+	  struct fileholder* tempfh = (struct fileholder*)malloc(sizeof(struct fileholder));
+	  memcpy(tempfh, opt->fileholders, sizeof(struct fileholder));
+	  tempfh->next = NULL;
+	  tempfh->status &= ~FH_INMEM;
+	  if(st->head_loaded != NULL){
+	    tempfh->next = st->head_loaded;
+	    st->head_loaded = tempfh;
+	  }
+	  else
+	    st->head_loaded = tempfh;
+	  return jump_to_next_file(opt, se, st);
+	}
+	else
+	  D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
+      }
       else
       {
+	D("File should be waiting for us now or soon with status %d",, opt->fileholders->status);
 	se->be = get_loaded(opt->membranch, opt->fileholders->id, opt);
 	//buf = se->be->simple_get_writebuf(se->be, &inc);
 	D("Got loaded file %lu to send.",, opt->fileholders->id);

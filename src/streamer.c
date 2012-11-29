@@ -905,7 +905,7 @@ void arrange_by_id(struct opt_s* opt){
       fprintf(stdout, ", %lu", fh->id);
       fh = fh->next; 
     }
-    D("Dem indices");
+    LOG("\n");
   }
   fh = opt->fileholders;
   //root = &(opt->fileholders);

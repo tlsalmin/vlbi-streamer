@@ -274,6 +274,7 @@ int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
   le->child = NULL;
   le->father = NULL;
   le->getopt = recpoint_getopt;
+  le->notfreeafterthis = NULL;
   //le->acquire = common_open_new_file;
   //le->release = common_finish_file;
   re->self= le;
