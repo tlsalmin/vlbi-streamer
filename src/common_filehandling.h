@@ -1,14 +1,17 @@
 #include "streamer.h"
+#include "active_file_index.h"
 
 #define ALL_DONE 3123
 
-#define AUGMENTLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(opt->augmentlock);}}while(0)
+//#define AUGMENTLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(opt->augmentlock);}}while(0)
+//#define AUGMENTLOCK FILOCK(opt->fileindex)
 
-#define AUGMENTUNLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(opt->augmentlock);}}while(0)
+//#define AUGMENTUNLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(opt->augmentlock);}}while(0)
+//#define AUGMENTLOCK FILOCK(opt->fileindex)
 
 struct sender_tracking{
   //unsigned long files_loaded;
-  struct fileholder* head_loaded;
+  //struct fileholder* head_loaded;
   int allocated_to_load;
   //unsigned long files_sent;
   unsigned long files_skipped;

@@ -34,6 +34,7 @@
 #include "config.h"
 #include "streamer.h"
 #include "confighelper.h"
+#include "active_file_index.h"
 //#define TERM_SIGNAL_HANDLING
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
@@ -696,6 +697,9 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(ibuff, "ibuff malloc");
   memset(ibuff, 0,sizeof(ibuff));
 
+  err = init_active_file_index();
+  CHECK_ERR("active file index");
+
   /* First load defaults to opts, then check default config file	*/
   /* and lastly check command line arguments. This means config file	*/
   /* overrides defaults and command line arguments override config file	*/
@@ -858,6 +862,9 @@ err=fork();
   //free(sched->default_opt);
   free(sched);
   D("Schedule freed");
+
+  err = close_active_file_index();
+  CHECK_ERR("Close active file index");
 
 #if(LOG_TO_FILE)
   fclose(logfile);

@@ -1,3 +1,5 @@
+#ifndef STREAMER_H
+#define STREAMER_H
 /*
  * streamer.h -- Header file for single process manager for vlbistreamer
  *
@@ -20,8 +22,6 @@
  * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
  * 
  */
-#ifndef STREAMER
-#define STREAMER
  	
 
 #ifdef __cplusplus
@@ -294,18 +294,6 @@ struct rxring_request{
   long unsigned* id;
   int* bufnum;
 };
-struct fileholder
-{
-  long unsigned id;
-  int diskid;
-  int status;
-  struct fileholder* next;
-};
-#define FH_ONDISK	B(0)
-#define FH_MISSING	B(1)
-#define FH_INMEM	B(2)
-#define FH_BUSY		B(3)
-void zero_fileholder(struct fileholder* fh);
 /* All the options for the main thread			*/
 struct opt_s
 {
@@ -326,6 +314,8 @@ struct opt_s
   char *device_name;
   char *cfgfile;
   int diskids;
+  struct file_index * fileindex;
+
 
   /* Make this a spinlock, since augmenting this struct is fast		*/
   pthread_spinlock_t *augmentlock;
@@ -350,8 +340,6 @@ struct opt_s
   /* Used to skip writing of some headers */
   int offset;
   char * disk2fileoutput;
-  //int* fileholders;
-  struct fileholder * fileholders;
   /* Used if RX-ring for receive */
   void* buffer;
 #ifdef HAVE_LIBCONFIG_H
@@ -411,7 +399,6 @@ struct opt_s
 int parse_options(int argc, char **argv, struct opt_s* opt);
 int clear_and_default(struct opt_s* opt, int create_cfg);
 int clear_pointers(struct opt_s* opt);
-int remove_specific_from_fileholders(struct opt_s *opt, unsigned long id);
 struct buffer_entity
 {
   void * opt;

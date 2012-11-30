@@ -75,9 +75,9 @@
 #endif
 
 #if(PPRIORITY)
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
 #else
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} if(opt->optbits & READMODE){ if(opt->fileholders != NULL) free(opt->fileholders); } config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
+#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
 #endif
 /* This should be more configurable */
 extern char *optarg;
@@ -90,27 +90,6 @@ void udpstreamer_stats(void* opts, void* statsi){
   struct stats* stats = (struct stats*)statsi;
   opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats);
   //stats->total_written += opt->bytes_exchanged;
-}
-int remove_specific_from_fileholders(struct opt_s *opt, unsigned long file_num){
-  int recer_num = -1;
-  struct fileholder * fh = opt->fileholders;
-  pthread_spin_lock(opt->augmentlock);
-  while(fh != NULL){
-    if(fh->id == file_num){
-      recer_num = fh->diskid;
-      break;
-    }
-    fh = fh->next;
-  }
-  fh = opt->fileholders;
-  while(fh != NULL){
-    if(fh->diskid == recer_num)
-      fh->status = FH_MISSING;
-    fh = fh->next;
-  }
-
-  pthread_spin_unlock(opt->augmentlock);
-  return 0;
 }
 int calculate_buffer_sizes(struct opt_s *opt){
   /* Calc how many elementes we get into the buffer to fill the minimun */
@@ -837,18 +816,10 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
 
   return 0;
 }
-void zero_fileholder(struct fileholder* fh)
-{
-  memset(fh, 0, sizeof(struct fileholder));
-}
 int close_opts(struct opt_s *opt){
   int i;
   if(opt->device_name != NULL)
     free(opt->device_name);
-  if(opt->optbits & READMODE){
-    if(opt->fileholders != NULL)
-      free(opt->fileholders);
-  }
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
   }
@@ -894,52 +865,6 @@ int close_opts(struct opt_s *opt){
   }
   free(opt);
   return 0;
-}
-void arrange_by_id(struct opt_s* opt){
-  struct fileholder *fh, *temp,*fh2;
-  if(DEBUG_OUTPUT){
-    LOG("Indices before sort:");
-
-    fh = opt->fileholders;
-    while(fh != NULL){
-      fprintf(stdout, ", %lu", fh->id);
-      fh = fh->next; 
-    }
-    LOG("\n");
-  }
-  fh = opt->fileholders;
-  //root = &(opt->fileholders);
-  while(fh != NULL && fh->next != NULL){
-    //if(fh->next->id < fh->id){
-    if(fh->next->id  < fh->id+1){
-      temp = fh->next;
-      fh->next = fh->next->next;
-      if(opt->fileholders->id > temp->id){
-	temp->next = opt->fileholders;
-	opt->fileholders = temp;
-      }
-      else{
-	fh2 =opt->fileholders;
-	/* Shouldn't need this test but meh */
-	while(fh2 != NULL && fh2->next != NULL &&  fh2->next->id < temp->id)
-	  fh2 = fh2->next;
-	temp->next = fh2->next;
-	fh2->next = temp;
-      }
-    }
-    else
-      fh = fh->next;
-  }
-  if(DEBUG_OUTPUT){
-    LOG("\nIndices after sort:");
-    
-    fh = opt->fileholders;
-    while(fh != NULL){
-      fprintf(stdout, ", %lu", fh->id);
-      fh = fh->next;
-    }
-    LOG("\n");
-  }
 }
 #if(PPRIORITY)
 int prep_priority(struct opt_s * opt, int priority){
