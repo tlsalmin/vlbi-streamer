@@ -37,6 +37,7 @@
 #include "streamer.h"
 #include "assert.h"
 #include "common_wrt.h"
+#include "active_file_index.h"
 #ifndef MMAP_NOT_SHMGET
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -50,7 +51,8 @@ extern FILE* logfile;
 #define UGLY_TIMEOUT_FIX
 //#define DO_W_STUFF_IN_FIXED_BLOCKS
 
-int sbuf_check(struct buffer_entity *be, int tout){
+int sbuf_check(struct buffer_entity *be, int tout)
+{
   int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
@@ -60,7 +62,7 @@ int sbuf_check(struct buffer_entity *be, int tout){
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%d byte Writes complete on seqnum %lu",, ret, sbuf->fh->id);
+    D("%d byte Writes complete on seqnum %lu",, ret, sbuf->fileid);
     //unsigned long num_written;
 
     //num_written = ret/sbuf->opt->packet_size;
@@ -69,23 +71,24 @@ int sbuf_check(struct buffer_entity *be, int tout){
   }
   else if (ret == AIO_END_OF_FILE){
     //D("End of file on id %lu",, sbuf->file_seqnum);
-    D("End of file on id %lu",, sbuf->fh->id);
+    D("End of file on id %lu",, sbuf->fileid);
     sbuf->asyncdiff = 0;
   }
   else if (ret == 0){
-    DD("No writes to report on %lu",, sbuf->fh->id);
+    DD("No writes to report on %lu",, sbuf->fileid);
 #ifdef UGLY_TIMEOUT_FIX
     if(tout == 1)
       usleep(1000);
 #endif
   }
   else{
-    E("Error in write check on seqdum %lu",, sbuf->fh->id);
+    E("Error in write check on seqdum %lu",, sbuf->fileid);
     return -1;
   }
   return 0;
 }
-int sbuf_acquire(void* buffo, void *opti,void* acq){
+int sbuf_acquire(void* buffo, void *opti,void* acq)
+{
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   sbuf->opt = (struct opt_s *)opti;
@@ -97,45 +100,19 @@ int sbuf_acquire(void* buffo, void *opti,void* acq){
   }
 
   sbuf->bufoffset = sbuf->buffer;
-  memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
-  /* If we're reading and we've been acquired: we need to load the buffer */
-  if(sbuf->opt->optbits & READMODE){
-    //sbuf->ready_to_act = 1;
 
-  /* This might be a bit inefficient, but they shouldn't 	*/
-  /* be very far from the root 	*/
+  sbuf->fi = sbuf->opt->fi;
+  sbuf->fileid = *((long unsigned*)acq);
 
-    /*
-    struct fileholder* fh = sbuf->opt->fileholders;
-    while(fh != NULL){
-      if(fh->id == seq){
-	sbuf->fh = fh;
-	break;
-      }
-      fh = fh->next;
-    }
-    */
-    sbuf->fh = (struct fileholder*)acq;
-  }
-  else{
-    /* If we used to have a inmem buffer ready for live, set it to no in mem */
-    //sbuf->fh->status &= ~FH_INMEM;
-
-    sbuf->fh = sbuf->fh_def; 
-    zero_fileholder(sbuf->fh);
-    sbuf->fh->id = *((long unsigned*)acq);
-    sbuf->fh->status = FH_BUSY;
-  }
-  //sbuf->file_seqnum = seq;
-
-  //fprintf(stdout, "\n\nDABUF:%lu\n\n", sbuf->buffer);
   return 0;
 }
-int sbuf_release(void* buffo){
+int sbuf_release(void* buffo)
+{
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   if(sbuf->opt->optbits & USE_RX_RING)
     sbuf->buffer = NULL;
+  sbuf->opt = NULL;
 
   //sbuf->opt_old = sbuf->opt;
   //sbuf->file_seqnum_old = sbuf->file_seqnum;
@@ -145,20 +122,14 @@ int sbuf_release(void* buffo){
   //sbuf->file_seqnum = -1;
   return 0;
 }
-void preheat_buffer(void* buf, struct opt_s* opt){
+void preheat_buffer(void* buf, struct opt_s* opt)
+{
   //memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
   (void)opt;
   memset(buf, 0, FILESIZE);
 }
-/*
-   int sbuf_seqnumcheck(void* buffo, int seq){
-   if(((struct simplebuf*)((struct buffer_entity*)buffo)->opt)->file_seqnum == seq)
-    return 1;
-  else
-    return 0;
-}
-*/
-int sbuf_free(void* buffo){
+int sbuf_free(void* buffo)
+{
   /*
   if(buffo != NULL){
     struct buffer_entity * be = (struct buffer_entity*)buffo;
@@ -168,35 +139,34 @@ int sbuf_free(void* buffo){
   (void)buffo;
   return 0;
 }
-int sbuf_identify(void* ent, void* val1, void* val2,int iden_type){
+/* Note as opt goes to null after relase, lingering will not be found 	*/
+/* TODO implement lingering-stuff later					*/
+int sbuf_identify(void* ent, void* val1, void* val2,int iden_type)
+{
   struct buffer_entity *be = (struct buffer_entity*)ent;
   struct simplebuf* sbuf= (struct simplebuf*)be->opt;
+  struct opt_s * opt = (struct opt_s*)val2;
   if(iden_type == CHECK_BY_SEQ){
-    if((struct opt_s*)val2 == sbuf->opt){
+    if(opt == sbuf->opt){
     //if(strcmp(((struct opt_s*)val2)->filename,sbuf->filename_old) == 0){
-      if(sbuf->fh->id == *((unsigned long*)val1)){
+      if(sbuf->fileid == *((unsigned long*)val1)){
 	D("Match!");
 	return 1;
       }
-      else
-      return 0;
     }
-    else
-      return 0;
+    return 0;
   }
   /* Check if we previously had a needed file	*/
   else if (iden_type == CHECK_BY_OLDSEQ){
-    if(strcmp(((struct opt_s*)val2)->filename,sbuf->filename_old) == 0){
-    //if((struct opt_s*)val2 == sbuf->opt){
-      if(sbuf->fh->id == *((unsigned long*)val1)){
+    if(sbuf->fi == opt->fi)
+    {
+      if(sbuf->fileid == *((unsigned long*)val1))
+      {
 	D("Match!");
 	return 1;
       }
-      else
-	return 0;
     }
-    else
-      return 0;
+    return 0;
   }
   return iden_from_opt(sbuf->opt, val1, val2, iden_type);
   //return (const char*)sbuf->opt->filename;
@@ -206,7 +176,8 @@ void* sbuf_getopt(void * sbuffo)
   struct buffer_entity * be = (struct buffer_entity*)sbuffo;
   return (void*)(((struct simplebuf*)be->opt)->opt);
 }
-int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
+int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
+{
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
   struct simplebuf * sbuf = (struct simplebuf*) malloc(sizeof(struct simplebuf));
@@ -218,11 +189,15 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
   sbuf->bufnum = sbuf->opt->bufculum++;
   sbuf->optbits = sbuf->opt->optbits;
 
-  sbuf->filename_old = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  //sbuf->filename_old = (char*)malloc(sizeof(char)*FILENAME_MAX);
   //sbuf->file_seqnum_old = -1;
   
+  sbuf->fi = NULL;
+  sbuf->fileid = -1;
+  /*
   sbuf->fh_def = (struct fileholder*)malloc(sizeof(struct fileholder));
   sbuf->fh = sbuf->fh_def;
+  */
 
   sbuf->opt_default = opt;
 
@@ -354,7 +329,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
   return 0;
 }
-int sbuf_close(struct buffer_entity* be, void *stats){
+int sbuf_close(struct buffer_entity* be, void *stats)
+{
   (void)stats;
 
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
@@ -373,17 +349,6 @@ int sbuf_close(struct buffer_entity* be, void *stats){
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
       munmap(sbuf->buffer, FILESIZE);
-      /*
-	 close(sbuf->huge_fd);
-	 char hugefs[FILENAME_MAX];
-	 find_hugetlbfs(hugefs, FILENAME_MAX);
-
-	 sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
-#if(DEBUG_OUTPUT)
-fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
-#endif
-remove(hugefs);
-*/
     }
     else
 #endif /* HAVE_HUGEPAGES */
@@ -392,15 +357,14 @@ remove(hugefs);
   else
     D("Not freeing mem. Done in main");
   D("Freeing structs");
-  free(sbuf->fh_def);
-  free(sbuf->filename_old);
   free(sbuf);
   //free(be);
   //free(be->recer);
   D("Simplebuf closed");
   return 0;
 }
-void close_recer(struct buffer_entity *be, int errornum){
+void close_recer(struct buffer_entity *be, int errornum)
+{
   struct simplebuf *sbuf = (struct simplebuf *)be->opt;
   be->recer->handle_error(be->recer, errornum);
   if(sbuf->opt->optbits & READMODE){
@@ -413,7 +377,8 @@ void close_recer(struct buffer_entity *be, int errornum){
   //sbuf->file_seqnum = -1;
   be->recer = NULL;
 }
-int simple_end_transaction(struct buffer_entity *be){
+int simple_end_transaction(struct buffer_entity *be)
+{
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   //void *offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*sbuf->opt->packet_size;
   unsigned long wrote_extra = 0;
@@ -451,17 +416,14 @@ int simple_end_transaction(struct buffer_entity *be){
   return 0;
 
 }
-void* sbuf_getbuf(struct buffer_entity *be, long ** diff){
+void* sbuf_getbuf(struct buffer_entity *be, long ** diff)
+{
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   *diff = &(sbuf->diff);
   return sbuf->buffer;
 }
-/*
-int* sbuf_getinc(struct buffer_entity *be){
-  return &((struct simplebuf*)be->opt)->diff;
-}
-*/
-int simple_write_bytes(struct buffer_entity *be){
+int simple_write_bytes(struct buffer_entity *be)
+{
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
   //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
@@ -521,7 +483,8 @@ int simple_write_bytes(struct buffer_entity *be){
   }
   return 0;
 }
-int sbuf_async_loop(struct buffer_entity *be){
+int sbuf_async_loop(struct buffer_entity *be)
+{
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int err;
   sbuf->asyncdiff = sbuf->diff;
@@ -545,7 +508,8 @@ int sbuf_async_loop(struct buffer_entity *be){
   }
   return 0;
 }
-int sbuf_sync_loop(struct buffer_entity *be){
+int sbuf_sync_loop(struct buffer_entity *be)
+{
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int err;
   DD("Starting write loop for %ld bytes",, sbuf->diff);
@@ -556,49 +520,8 @@ int sbuf_sync_loop(struct buffer_entity *be){
   }
   return 0;
 }
-struct fileholder* livereceive_new_fileholder(struct opt_s* opt, struct fileholder *orig_fh){
-  D("We have a live other!");
-  int no_need_to_sort = 0;
-  //struct fileholder * temp = NULL;
-  /* Elegance going down */
-  //struct fileholder * fh_prev = NULL;
-  pthread_spin_lock(opt->augmentlock);
-  struct fileholder* fh = opt->liveother->fileholders;
-  /* Special case with first file */
-  if(fh == NULL){
-    D("Liveothers fileholders not yet started");
-    opt->liveother->fileholders = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
-  }
-  else{
-    while(fh->next != NULL){
-      fh=fh->next;
-    }
-    fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-    if(fh->id == orig_fh->id-1){
-      D("Don't need to sort");
-      no_need_to_sort = 1;
-    }
-    fh = fh->next;
-    /*
-       if (fh == NULL){
-       D("Didn't find spot. Setting it anyway");
-       fh_prev->next = fh = (struct fileholder*)malloc(sizeof(struct fileholder));
-       }
-       */
-  }
-  //zero_fileholder(fh);
-  memcpy(fh, orig_fh, sizeof(struct fileholder));
-
-  /* sbuf->fh_default will keep old safe */
-  //sbuf->fh = fh;
-  fh->next = NULL;
-  if(!no_need_to_sort)
-    arrange_by_id(opt->liveother);
-  D("Fileholder for liveother set");
-  pthread_spin_unlock(opt->augmentlock);
-  return fh;
-}
-int write_buffer(struct buffer_entity *be){
+int write_buffer(struct buffer_entity *be)
+{
   struct simplebuf* sbuf = (struct simplebuf*)be->opt;
   int ret;
 
@@ -608,8 +531,8 @@ int write_buffer(struct buffer_entity *be){
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
       //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
-      D("Getting rec entity id %d for file %lu",, sbuf->fh->diskid, sbuf->fh->id);
-      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fh->id, sbuf->running, sbuf->fh->diskid, &ret);
+      D("Getting rec entity id %d for file %lu",, sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
+      be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fileid, sbuf->running, sbuf->opt->fi->files[sbuf->fileid].diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
       if(ret !=0){
 	E("Specific writer fails on acquired.");
@@ -621,9 +544,10 @@ int write_buffer(struct buffer_entity *be){
 	}
 	return -1;
       }
+      D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
     }
     else{
-      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fh->id)), &ret);
+      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);
       if(ret !=0){
 	E("Error in acquired for random entity");
 	E("Shutting faulty writer down");
@@ -633,18 +557,9 @@ int write_buffer(struct buffer_entity *be){
 	return -1;
       }
       else{
-	sbuf->fh->diskid = be->recer->getid(be->recer);
-	sbuf->fh->status = FH_INMEM | FH_BUSY;
-	//memcpy(sbuf->filename_old, sbuf->opt->filename, sizeof(char)*FILENAME_MAX);
-	if(sbuf->opt->optbits & LIVE_RECEIVING){
-	  //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
-	  //struct fileholder * fh;
-	  if(sbuf->opt->liveother != NULL){
-	    sbuf->fh = livereceive_new_fileholder(sbuf->opt, sbuf->fh);
-	  }
-	  else
-	    E("Live receiving, but liveother NULL");
-	}
+	D("Got recer so updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
+	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
+	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
     }
     CHECK_AND_EXIT(be->recer);
@@ -671,20 +586,11 @@ int write_buffer(struct buffer_entity *be){
     if(be->recer != NULL)
       set_free(sbuf->opt->diskbranch, be->recer->self);
     be->recer = NULL;
-    sbuf->ready_to_act = 0;
-
-    if(sbuf->opt->optbits & READMODE){
-      D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fh->id);
-      set_loaded(sbuf->opt->membranch, be->self);
-    }
-    else{
-      D("Write cycle complete. Setting self to free");
-      set_free(sbuf->opt->membranch, be->self);
-    }
   }
   return ret;
 }
-void *sbuf_simple_write_loop(void *buffo){
+void *sbuf_simple_write_loop(void *buffo)
+{
   D("Starting simple write loop");
   struct buffer_entity * be = (struct buffer_entity *)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
@@ -726,53 +632,61 @@ void *sbuf_simple_write_loop(void *buffo){
 	}
 	/*If everything went great */
 	else{
-	  if (sbuf->opt->optbits & LIVE_RECEIVING){
-	    if(sbuf->opt->liveother != NULL){
-	      D("Setting FH_ONDISK for file %lu,",, sbuf->fh->id);
-	      pthread_spin_lock(sbuf->opt->liveother->augmentlock);
-	      sbuf->fh->status &= ~FH_BUSY;
-	      sbuf->fh->status |= FH_ONDISK;
-	      pthread_spin_unlock(sbuf->opt->liveother->augmentlock);
-	    }
+	  sbuf->ready_to_act = 0;
+
+	  if(sbuf->opt->optbits & READMODE){
+	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_INMEM, ADDTOFILESTATUS);
+	    D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fileid);
+	    set_loaded(sbuf->opt->membranch, be->self);
+	  }
+	  else{
+	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
+	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
+	    set_free(sbuf->opt->membranch, be->self);
+	    D("Write cycle complete. Setting self to free");
+	    set_free(sbuf->opt->membranch, be->self);
 	  }
 	}
       }
     }
-    }
-    D("Finished on id %d",,sbuf->bufnum);
-    pthread_exit(NULL);
   }
-  void sbuf_cancel_writebuf(struct buffer_entity *be){
-    D("Cancelling request for buffer");
-    struct simplebuf *sbuf = be->opt;
-    sbuf->ready_to_act = 0;
-    set_free(sbuf->opt->membranch, be->self);
-  }
+  D("Finished on id %d",,sbuf->bufnum);
+  pthread_exit(NULL);
+}
+void sbuf_cancel_writebuf(struct buffer_entity *be)
+{
+  D("Cancelling request for buffer");
+  struct simplebuf *sbuf = be->opt;
+  sbuf->ready_to_act = 0;
+  set_free(sbuf->opt->membranch, be->self);
+}
+void sbuf_stop_running(struct buffer_entity *be)
+{
+  D("Stopping sbuf thread");
+  ((struct simplebuf*)be->opt)->running = 0;
+  LOCK(be->headlock);
+  pthread_cond_signal(be->iosignal);
+  UNLOCK(be->headlock);
+  D("Stopped and signalled");
+}
+void sbuf_set_ready(struct buffer_entity *be)
+{
+  ((struct simplebuf*)be->opt)->ready_to_act = 1;
+}
+int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
+{
+  be->init = sbuf_init;
+  //be->write = sbuf_aio_write;
+  //be->get_writebuf = sbuf_get_buf_to_write;
+  be->simple_get_writebuf = sbuf_getbuf;
+  //be->get_inc = sbuf_getinc;
+  //be->wait = sbuf_wait;
+  be->close = sbuf_close;
+  be->write_loop = sbuf_simple_write_loop;
+  be->stop = sbuf_stop_running;
+  be->set_ready = sbuf_set_ready;
+  be->acquire = sbuf_acquire;
+  be->cancel_writebuf = sbuf_cancel_writebuf;
 
-  void sbuf_stop_running(struct buffer_entity *be){
-    D("Stopping sbuf thread");
-    ((struct simplebuf*)be->opt)->running = 0;
-    LOCK(be->headlock);
-    pthread_cond_signal(be->iosignal);
-    UNLOCK(be->headlock);
-    D("Stopped and signalled");
-  }
-  void sbuf_set_ready(struct buffer_entity *be){
-    ((struct simplebuf*)be->opt)->ready_to_act = 1;
-  }
-  int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be){
-    be->init = sbuf_init;
-    //be->write = sbuf_aio_write;
-    //be->get_writebuf = sbuf_get_buf_to_write;
-    be->simple_get_writebuf = sbuf_getbuf;
-    //be->get_inc = sbuf_getinc;
-    //be->wait = sbuf_wait;
-    be->close = sbuf_close;
-    be->write_loop = sbuf_simple_write_loop;
-    be->stop = sbuf_stop_running;
-    be->set_ready = sbuf_set_ready;
-    be->acquire = sbuf_acquire;
-    be->cancel_writebuf = sbuf_cancel_writebuf;
-
-    return be->init(opt,be); 
-  }
+  return be->init(opt,be); 
+}

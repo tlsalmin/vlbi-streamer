@@ -359,7 +359,6 @@ int clear_pointers(struct opt_s* opt){
   opt->cfgfile = NULL;
   opt->cumul = NULL;
   opt->disk2fileoutput = NULL;
-  opt->augmentlock = NULL;
   return 0;
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
@@ -373,7 +372,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   for(i=0;i<MAX_OPEN_FILES;i++){
     opt->filenames[i] = NULL;
   }
-  opt->liveother = NULL;
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -841,28 +839,10 @@ int close_opts(struct opt_s *opt){
 #if(PPRIORITY)
   pthread_attr_destroy(&(opt->pta));
 #endif
-  if(opt->liveother != NULL){
-    if(!(opt->liveother->status & STATUS_RUNNING))
-    {
-      /* Not harmful to typecast 					*/
-      /*Without casting it warn about freeing a volatile pointer	*/
-      if(opt->augmentlock != NULL)
-	free((void*)opt->augmentlock);
-      if(opt->cumul != NULL)
-	free(opt->cumul);
-      if(opt->total_packets != NULL)
-	free(opt->total_packets);
-    }
-    opt->liveother->liveother = NULL;
-  }
-  else{
-    if(opt->augmentlock != NULL)
-      free((void*)opt->augmentlock);
-    if(opt->cumul != NULL)
-      free(opt->cumul);
-    if(opt->total_packets != NULL)
-      free(opt->total_packets);
-  }
+  if(opt->cumul != NULL)
+    free(opt->cumul);
+  if(opt->total_packets != NULL)
+    free(opt->total_packets);
   free(opt);
   return 0;
 }
@@ -1105,11 +1085,13 @@ int main(int argc, char **argv)
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, *opt->cumul);
     /* Only if we're sending live, do we need to rearrange these properly */
+    /*
     if(opt->optbits & LIVE_SENDING){
       pthread_spin_lock(opt->augmentlock);
       arrange_by_id(opt);
       pthread_spin_unlock(opt->augmentlock);
     }
+    */
   }
 #endif //HAVE_LIBCONFIG_H
 
@@ -1341,8 +1323,6 @@ int close_streamer(struct opt_s *opt){
 #else
   //oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
   stats_full->total_written = opt->bytes_exchanged;
-  if(pthread_spin_destroy((opt->augmentlock)) != 0)
-    E("pthread spin destroy");
   //free(opt->augmentlock);
 #endif
   D("Printing stats");

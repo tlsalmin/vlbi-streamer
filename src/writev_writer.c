@@ -73,11 +73,11 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
     total_i += i;
   }
 #if(DAEMON)
-  if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
-    E("spinlock lock");
+  //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
+    //E("spinlock lock");
   ioi->opt->bytes_exchanged += err;
-  if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
-    E("Spinlock unlock");
+  //if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
+    //E("Spinlock unlock");
 #endif
 
   return err;

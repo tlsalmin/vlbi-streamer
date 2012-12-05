@@ -5,42 +5,53 @@
 #include "common_filehandling.h"
 
 extern FILE* logfile;
+#define SKIP_LOADED 	1
+#define SKIP_SENT 	2
+inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
+{
+  unsigned long * target;
+  if(lors == SKIP_LOADED)
+    target = &(st->files_loaded);
+  else if(lors == SKIP_SENT)
+    target = &(st->files_sent);
+
+  while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
+    long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+
+    D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
+
+    /* files skipped is just for statistics so don't want to log it twice	*/
+    if(lors == SKIP_SENT)
+      st->files_skipped++;
+    //st->files_loaded++;
+    (*target)++;
+
+    if(lors == SKIP_SENT)
+      st->packets_sent += nuf;
+    else if(lors == SKIP_LOADED)
+      st->packets_loaded+= nuf;
+  }
+}
 
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
-  AUGMENTLOCK;
-  long nuf = MIN((*opt->total_packets - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
-  D("Total packets is: %lu, packets loaded is %lu",, *opt->total_packets, st->packets_loaded);
-  /* Add spinlocks here so broken recers get info set here before use */
-  //while(opt->fileholders[st->files_loaded]  == -1 && st->files_loaded <= *opt->cumul){
-  while(st->head_loaded != NULL && st->head_loaded->status == FH_MISSING){
-    D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->head_loaded->id);
-
-    //st->head_loaded = st->head_loaded->next;
-    //st->files_loaded++;
-    st->files_skipped++;
-    //spec_ops->files_sent++;
-    /* If last file is missing, we might hit negative on left_to_send 	*/
-    /*
-       if((*opt->total_packets - st->packets_sent) < (unsigned long)opt->buf_num_elems){
-       st->packets_loaded=*opt->total_packets;
-       st->packets_sent += nuf;
-       }
-       else{
-       */
-    st->packets_sent += nuf;
-    st->packets_loaded+= nuf;
-    //}
-    /* Special case where last file is missing */
-    if(st->head_loaded->next == NULL)
-      return 0;
-    else
-      st->head_loaded = st->head_loaded->next;
-    /*
-       if(st->files_loaded == *opt->cumul)
-       return 0;
-       */
+  long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
+  FILOCK(opt->fi);
+  skip_missing(opt,st,SKIP_LOADED);
+  if(st->files_loaded == opt->fi->n_files){
+    D("Loaded up to n_files!");
+    FIUNLOCK(opt->fi);
+    return DONTRYLOADNOMORE;
   }
+  if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
+    D("Not on disk so not loading");
+    FIUNLOCK(opt->fi);
+    return DONTRYLOADNOMORE;
+  }
+  FIUNLOCK(opt->fi);
+  /*TODO Lets skip this perf improvement stuff for now */
+  /*
   if(st->head_loaded->status & FH_INMEM){
     struct buffer_entity *tempen;
     AUGMENTUNLOCK;
@@ -61,107 +72,109 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   else
     AUGMENTUNLOCK;
 
+    */
   /* TODO: Not checking if FH_ONDISK is set */
-  D("Requested a load start on file %lu",, st->head_loaded->id);
-  assert(st->head_loaded->status & FH_ONDISK);
+  D("Requested a load start on file %lu",, st->files_loaded);
   if (be == NULL){
-    be = get_free(opt->membranch, opt, ((void*)(st->head_loaded)), NULL);
+    be = get_free(opt->membranch, opt, (void*)(&(st->files_loaded)), NULL);
     st->allocated_to_load--;
-    CHECK_ERR_NONNULL(be, "Get loadable");
   }
   /* Reacquiring just updates the file number we want */
   else
-    //be->acquire((void*)be, opt, st->head_loaded->id,0);
-    be->acquire((void*)be, opt, st->head_loaded);
+  {
+    be->acquire((void*)be, opt, &(st->files_loaded));
+  }
   CHECK_AND_EXIT(be);
-  D("Setting seqnum %lu to load %lu packets",,st->head_loaded->id, nuf);
+
+  st->files_in_loading++;
+  D("Setting seqnum %lu to load %lu packets",,st->files_loaded, nuf);
+
   LOCK(be->headlock);
-  //D("HUR");
   long *inc;
   be->simple_get_writebuf(be, &inc);
+  /* Why the hell did i do this? :D */
+  /*
   if(nuf == opt->buf_num_elems)
     *inc = FILESIZE;
   else
-    *inc = nuf*opt->packet_size;
+  */
+  *inc = nuf*opt->packet_size;
 
-  st->packets_loaded+=nuf;
   be->set_ready(be);
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
-  D("Loading request complete for id %lu",, st->head_loaded->id);
+  D("Loading request complete for id %lu",, st->files_loaded);
 
-  st->head_loaded = st->head_loaded->next;
+  st->packets_loaded+=nuf;
+  st->files_loaded++;
   return 0;
 }
 /* Starts loading st.allocated_to_load and returns */
 /* number loaded */
-int loadup_n(struct opt_s *opt, struct sender_tracking * st){
+int loadup_n(struct opt_s *opt, struct sender_tracking * st)
+{
   int i, err;
-  AUGMENTLOCK;
-  int cumulpeek = (*opt->cumul);
-  //packetpeek = (*opt->total_packets);
-  AUGMENTUNLOCK;
-  int loadup = MIN(st->allocated_to_load, cumulpeek);
-  loadup = MIN(loadup, opt->n_threads);
+  //FILOCK(opt->fi);
+
+  int loadup = MIN(st->allocated_to_load, opt->n_threads);
+  /*
+  for(i=0;i<loadup;i++)
+  {
+    if(FH_STATUS(st->files_loaded) & FH_BUSY)
+  }
+  FIUNLOCK(opt->fi);
+  */
 
   /* Check if theres empties right at the start */
   /* Added && for files might be skipped in start_loading */
-  for(i=0;i<loadup && st->head_loaded != NULL;i++){
+  for(i=0;i<loadup;i++){
     /* When running in sendmode, the buffers are first getted 	*/
     /* and then signalled to start loading packets from the hd 	*/
     /* A ready loaded buffer is getted by running get_loaded	*/
     /* With a matching sequence number				*/
     err = start_loading(opt, NULL, st);
+    if(err == DONTRYLOADNOMORE)
+      break;
     CHECK_ERR("Start loading");
     /*
-    SAUGMENTLOCK;
-    cumulpeek = (*spec_ops->opt->cumul);
-    packetpeek = (*spec_ops->opt->total_packets);
-    SAUGMENTUNLOCK;
-    */
+       SAUGMENTLOCK;
+       cumulpeek = (*spec_ops->opt->cumul);
+       packetpeek = (*spec_ops->opt->total_packets);
+       SAUGMENTUNLOCK;
+       */
     /* TODO: loadup might cut short if we're sending a recording that has just started */
   }
-  return (i-1);
+  return 0;
 }
-void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st){
+void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st)
+{
+  (void)opt;
   memset(st, 0,sizeof(struct sender_tracking));
-  st->packets_sent = st->packets_loaded = 0;//spec_ops->opt->total_packets;
+
 #ifdef UGLY_BUSYLOOP_ON_TIMER
   //TIMERTYPE onenano;
   ZEROTIME(st->onenano);
   SETONE(st->onenano);
 #endif
   ZEROTIME(st->req);
-  AUGMENTLOCK;
-  //pthread_spin_lock(opt->augmentlock);
-  st->head_loaded = opt->fileholders;
-  AUGMENTUNLOCK;
-  //pthread_spin_unlock(opt->augmentlock);
 }
-inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st){
-  /* TODO: Proper checking for live sending/receiving */
-  //unsigned long cumulpeek;
+inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
+{
   //if(!spec_ops->running)
   if(!(opt->status & STATUS_RUNNING))
     return 0;
-  /*
-  SAUGMENTLOCK;
-  cumulpeek = *(spec_ops->opt->cumul);
-  SAUGMENTUNLOCK;
-  */
   /* Check if the receiver is still running */
-  if(opt->optbits & LIVE_SENDING && opt->liveother != NULL){
-    if(opt->liveother->status & STATUS_RUNNING)
-      return 1;
+  if(opt->optbits & READMODE && get_status(opt->fi) & FILESTATUS_RECORDING){
+    return 1;
   }
   /* If we still have files */
-  if(opt->fileholders != NULL){
+  if(st->files_sent != get_n_files(opt->fi)){
     return 1;
   }
   /* If there's still packets to be sent */
-  if(*(opt->total_packets) > st->packets_sent)
+  if(get_n_packets(opt->fi) > st->packets_sent)
     return 1;
-  
+
   return 0;
 }
 void throttling_count(struct opt_s* opt, struct sender_tracking * st)
@@ -178,30 +191,25 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
     D("rate as %d ns. Setting to use max %d buffers",, opt->wait_nanoseconds, st->allocated_to_load);
   }
 }
-int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st){
-  struct fileholder * tempfh;
+int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
+{
   int err;
   //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
   if(se->be != NULL){
-    D("Buffer empty for: %lu",, opt->fileholders->id);
-    AUGMENTLOCK;
-    tempfh = opt->fileholders;
-    opt->fileholders = opt->fileholders->next;
-    free(tempfh);
-    st->packetpeek = *(opt->total_packets);
-    /* Check for missing file here so we can keep simplebuffer simple 	*/
-    //packetpeek = (*opt->total_packets);
-    AUGMENTUNLOCK;
-    //if(st->files_loaded < cumulpeek){
+    D("Buffer empty for: %lu",, st->files_sent);
+    st->files_sent++;
   }
-  if(st->head_loaded != NULL){
-    D("Still files to be loaded. Loading %lu",, st->head_loaded->id);
+  if(st->files_loaded < get_n_files(opt->fi)){
+    D("Still files to be loaded. Loading %lu",, st->files_loaded);
     /* start_loading increments files_loaded */
     err = start_loading(opt, se->be, st);
     CHECK_ERR("Loading file");
-    while(st->allocated_to_load > 0 && st->head_loaded != NULL){
+    while(st->allocated_to_load > 0)
+    {
       err = start_loading(opt, NULL, st);
+      if(err == DONTRYLOADNOMORE)
+	break;
       CHECK_ERR("Loading more files");
     }
   }
@@ -217,55 +225,46 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
      */
   se->be = NULL;
   while(se->be == NULL){
-    //AUGMENTLOCK;
-    //cumulpeek = (*opt->cumul);
-    //AUGMENTUNLOCK;
-    //if(st->files_sent < cumulpeek){
-    if(opt->fileholders != NULL){
-      D("Getting new loaded for file %lu",, opt->fileholders->id);
-      if(opt->fileholders->status & FH_MISSING){
-	//D("Skipping a file, fileholder set to -1 for file %lu",, st->head_loaded->id);
-	D("Skipping a file, fileholder set to -1 for file %lu",, opt->fileholders->id);
-	AUGMENTLOCK;
-	tempfh = opt->fileholders;
-	opt->fileholders = opt->fileholders->next;
-	free(tempfh);
-	AUGMENTUNLOCK;
-      }
-      else if (opt->fileholders->status & FH_INMEM){
-	D("File should still be in mem..");
-	if ((se->be = get_lingering(opt->membranch, opt, opt->fileholders, 0)) == NULL){
-	  D("Lingering copy has disappeared! Requesting load on file");
-	  struct fileholder* tempfh = (struct fileholder*)malloc(sizeof(struct fileholder));
-	  memcpy(tempfh, opt->fileholders, sizeof(struct fileholder));
-	  tempfh->next = NULL;
-	  tempfh->status &= ~FH_INMEM;
-	  if(st->head_loaded != NULL){
-	    tempfh->next = st->head_loaded;
-	    st->head_loaded = tempfh;
-	  }
-	  else
-	    st->head_loaded = tempfh;
-	  return jump_to_next_file(opt, se, st);
+    D("Getting new loaded for file %lu",, st->files_sent);
+    skip_missing(opt,st,SKIP_SENT);
+    /* Skip this optimization for now. TODO: reimplement */
+    /*
+    if (opt->fileholders->status & FH_INMEM){
+      D("File should still be in mem..");
+      if ((se->be = get_lingering(opt->membranch, opt, opt->fileholders, 0)) == NULL){
+	D("Lingering copy has disappeared! Requesting load on file");
+	struct fileholder* tempfh = (struct fileholder*)malloc(sizeof(struct fileholder));
+	memcpy(tempfh, opt->fileholders, sizeof(struct fileholder));
+	tempfh->next = NULL;
+	tempfh->status &= ~FH_INMEM;
+	if(st->head_loaded != NULL){
+	  tempfh->next = st->head_loaded;
+	  st->head_loaded = tempfh;
 	}
 	else
-	  D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
+	  st->head_loaded = tempfh;
+	return jump_to_next_file(opt, se, st);
       }
       else
-      {
-	D("File should be waiting for us now or soon with status %d",, opt->fileholders->status);
-	se->be = get_loaded(opt->membranch, opt->fileholders->id, opt);
-	//buf = se->be->simple_get_writebuf(se->be, &inc);
-	D("Got loaded file %lu to send.",, opt->fileholders->id);
-	//CHECK_AND_EXIT(se->be);
+	D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
+    }
+    else
+    */
+    if(st->files_in_loading > 0)
+    {
+      D("File should be waiting for us now or soon with status %lu",, st->files_sent);
+      se->be = get_loaded(opt->membranch, st->files_sent, opt);
+      //buf = se->be->simple_get_writebuf(se->be, &inc);
+      if(se->be != NULL){
+	D("Got loaded file %lu to send.",, st->files_sent);
+	st->files_in_loading--;
       }
-    }
-    else{
-      //E("Shouldn't be here since all packets have been sent!");
-      D("All files sent! Time to wrap it up");
-      //set_free(opt->membranch, se->be->self);
-      return ALL_DONE;
+      else{
+	E("Couldnt get loaded file");
+	return -1;
+      }
+      //CHECK_AND_EXIT(se->be);
     }
   }
-  return 0;
-  }
+return 0;
+}

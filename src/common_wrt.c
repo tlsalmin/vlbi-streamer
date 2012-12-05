@@ -38,6 +38,7 @@
 //#include "resourcetree.h"
 #include "common_wrt.h"
 #include "confighelper.h"
+#include "active_file_index.h"
 #define ERR_IN_INIT free(dirname);return err 
 
 extern FILE* logfile;
@@ -106,6 +107,7 @@ int common_finish_file(void *recco){
   else
     D("File closed");
   free(ioi->curfilename);
+  ioi->opt = NULL;
   return ret;
 }
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
@@ -235,7 +237,7 @@ int handle_error(struct recording_entity *re, int errornum){
     /* Done in close */
     ioi->opt->hd_failures++;
     if(ioi->opt->optbits & READMODE){
-      remove_specific_from_fileholders(ioi->opt, ioi->id);
+      remove_specific_from_fileholders(ioi->opt->filename, ioi->id);
     }
     remove_from_branch(ioi->opt->diskbranch, re->self,0);
     err = re->close(re, NULL);
@@ -533,15 +535,17 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 
   /* print all the files and directories within directory */
   struct dirent **namelist;
-  int j;
-  struct fileholder* fh;
+  //int j;
   n_files = scandir(dirname, &namelist, NULL, NULL);
   if(n_files <0){
     // could not open directory 
     perror ("Check files");
+    FIUNLOCK(opt->fi);
     retval= EXIT_FAILURE;
   }
   else{
+    FILOCK(opt->fi);
+    struct fileholder* fh = opt->fi->files;
     for(i=0;i<n_files;i++){
       err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);
       /* If we match a data file */
@@ -562,10 +566,10 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  D("Identified %s as %d",,start_of_index,  temp);
 	  /* Update pointer at correct spot */
 	  /* This is a bit slow, but required for supporting live sending */
+	  /*
 	  if(opt->optbits & LIVE_SENDING){
 	    pthread_spin_lock(opt->augmentlock);
-	    fh = opt->fileholders;
-	    /* Need to sort these later.	*/
+	    //fh = opt->fileholders;
 	    if(fh == NULL){
 	      opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));
 	      fh = opt->fileholders;
@@ -593,7 +597,9 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	      //ASSERT(fh->next != NULL);
 	      fh = fh->next;
 	    }
-	  }
+	  */
+	  fh = &(opt->fi->files[temp]);
+	  fh->status &= ~FH_MISSING;
 	  fh->status |= FH_ONDISK;
 	  fh->diskid = ioi->id;
 	  //opt->fileholders[temp] = ioi->id;
@@ -612,6 +618,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
       free(namelist[i]);
     }
     free(namelist);
+    FIUNLOCK(opt->fi);
   }
   //closedir (dir);
   D("Finished reading files in dir");

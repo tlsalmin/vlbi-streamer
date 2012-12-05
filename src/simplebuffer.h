@@ -43,8 +43,10 @@ struct simplebuf{
   int shmid;
 #endif
 #endif
-  struct fileholder* fh;
-  struct fileholder* fh_def;
+  long unsigned fileid;
+  struct file_index*  fi;
+  //struct fileholder* fh;
+  //struct fileholder* fh_def;
   //unsigned long file_seqnum;
   int ready_to_act;
   int bufnum;
@@ -52,7 +54,7 @@ struct simplebuf{
 
   struct opt_s *opt_default;
   //struct opt_s *opt_old;
-  char* filename_old;
+  //char* filename_old;
   //unsigned long file_seqnum_old;
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);

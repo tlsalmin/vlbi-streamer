@@ -14,13 +14,17 @@
 #define FH_BUSY		B(3)
 
 #define FILOCK(x) pthread_mutex_lock(x->augmentlock)
-#define FIUNLOCK pthread_mutex_unlock(x->augmentlock)
+#define FIUNLOCK(x) pthread_mutex_unlock(x->augmentlock)
+
+#define FH_STATUS(ind) opt->fi->files[ind].status
+#define FH_DISKID(ind) opt->fi->files[ind].diskid
 
 #define SETFILESTATUS 		1
 #define ADDTOFILESTATUS 	2
 #define DELFROMFILESTATUS	3
 
 #include "streamer.h"
+
 struct file_index{
   /* Protected by mainlock */
   int status;
@@ -30,7 +34,9 @@ struct file_index{
 
   /* Protected by internal lock */
   struct fileholder *files;
-  int n_files;
+  long unsigned n_packets;
+  long unsigned n_files;
+  long unsigned allocated_files;
   pthread_mutex_t * augmentlock;
   pthread_cond_t * waiting;
 };
@@ -44,11 +50,16 @@ int remove_specific_from_fileholders(char *opt, int id);
 int init_active_file_index();
 int close_file_index(struct file_index* closing);
 int close_active_file_index();
-struct file_index* get_fileindex(char * name);
-int disassociate(struct file_index* dis);
-struct file_index * add_fileindex(char * name, int n_files, int status);
-int update_fileholder_status_wname(char * name, int filenum, int status, int action);
-int update_fileholder_status(struct file_index * fi, int filenum, int status, int action);
+struct file_index* get_fileindex(char * name, int associate);
+int disassociate(struct file_index* dis, int type);
+struct file_index * add_fileindex(char * name, unsigned long n_files, int status);
+int update_fileholder_status_wname(char * name, unsigned long filenum, int status, int action);
+int update_fileholder_status(struct file_index * fi, unsigned long filenum, int status, int action);
 inline void zero_fileholder(struct fileholder* fh);
 int remove_specific_from_fileholders(char* name, int recid);
+/* Thread safe way of getting n_files */
+long unsigned get_n_files(struct file_index* fi);
+long unsigned get_n_packets(struct file_index* fi);
+int add_file(struct file_index* fi, long unsigned id, int diskid, int status);
+int get_status(struct file_index * fi);
 #endif

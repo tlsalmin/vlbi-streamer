@@ -30,6 +30,11 @@
 #define CHECK_BY_SEQ 5
 #define CHECK_BY_FINISHED 6
 #define CHECK_BY_OLDSEQ 7
+
+#define CHECK_LOADED B(1)
+#define CHECK_BUSY B(2)
+#define CHECK_FREE B(3)
+//#define CHECK_ANY_FREE 4
 #if(SPINLOCK)
 #define LOCKTYPE pthread_spinlock_t
 #define LOCK(x) pthread_spin_lock(x)
@@ -90,13 +95,15 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en);
 void set_loaded(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
 void* get_free(struct entity_list_branch *br, void * opt,void *acq, int* acquire_result);
+
 /* Get a file thats still in the memory and is free */
-void* get_lingering(struct entity_list_branch * br, void* opt, void*  fh, int just_check);
+//void* get_lingering(struct entity_list_branch * br, void* opt, void*  fh, int just_check);
 /* Get a specific entity according to seq or bufnum	*/
 void* get_specific(struct entity_list_branch *br, void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result);
 /* Get a loaded buffer according to seq. Block if not found	*/
 void* get_loaded(struct entity_list_branch *br, unsigned long seq, void* opt);
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free);
+struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_check,unsigned long seq,  void* optmatch);
 /* Set this entity as busy in this branch		*/
 void set_busy(struct entity_list_branch *br, struct listed_entity* en);
 /* Do an operation to all members of a branch		*/

@@ -100,27 +100,15 @@ void* disk2file(void * streamo)
 
   throttling_count(opt, &st);
 
-  loadup_n(opt, &st);
+  //loadup_n(opt, &st);
 
   opt->status = STATUS_RUNNING;
 
-  st.packetpeek = *(opt->total_packets);
+  //st.packetpeek = *(opt->total_packets);
 
-  while(opt->fileholders != NULL && opt->fileholders->status == FH_MISSING){
-  //while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= (*spec_ops->opt->cumul)){
-    D("Skipping a file, fileholder set FH_MISSING for file %lu",, st.head_loaded->id);
-    opt->fileholders = opt->fileholders->next;
-    //st.files_sent++;
-  }
+  err = jump_to_next_file(opt, se, &st);
 
-  if(opt->fileholders != NULL){
-    se->be = get_loaded(opt->membranch, opt->fileholders->id, opt);
-  }
-  else{
-    LOG("Fileholders null!\n");
-    D2FEXIT;
-  }
-
+  //TODO: Better err handling 
   if(se->be == NULL){
     E("Coulnt get buffer so exiting");
     D2FEXIT;
@@ -130,9 +118,13 @@ void* disk2file(void * streamo)
 
 
   LOG("D2F running\n");
+
+  long packetpeek = get_n_packets(opt->fi);
+
   while(should_i_be_running(opt, &st) == 1){
-    if(total_i == (unsigned int)opt->buf_num_elems || (st.packets_sent - st.packetpeek == 0)){
+    if(total_i == (unsigned int)opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       err = jump_to_next_file(opt, se, &st);
+      packetpeek = get_n_packets(opt->fi);
       if(err == ALL_DONE){
 	D2FEXIT;
       }
@@ -144,7 +136,7 @@ void* disk2file(void * streamo)
       total_i=0;
       //i=0;
     }
-    unsigned int real_num_packets = MIN((unsigned int)opt->buf_num_elems, (unsigned int)st.packetpeek);
+    unsigned int real_num_packets = MIN((unsigned int)opt->buf_num_elems, (unsigned int)packetpeek);
     while(total_i < real_num_packets)
     {
       for(i=0;i<MIN(real_num_packets-total_i,IOV_MAX);i++){

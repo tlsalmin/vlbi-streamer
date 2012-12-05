@@ -461,52 +461,26 @@ void * udp_sender(void *streamo){
   spec_ops->missing = 0;
   D("Wait between is %d here",, spec_ops->opt->wait_nanoseconds);
 
-  /* This will run into trouble, when loading more packets than hard drives. The later packets can block the needed ones */
-  //int loadup = MIN((unsigned int)spec_ops->opt->n_threads, spec_ops->opt->cumul);
-  SAUGMENTLOCK;
-  st.packetpeek = (*spec_ops->opt->total_packets);
-  SAUGMENTUNLOCK;
+  //void * buf = se->be->simple_get_writebuf(se->be, &inc);
+  D("Getting first loaded buffer for sender");
+  
+  jump_to_next_file(spec_ops->opt, se, &st);
 
-  err = loadup_n(spec_ops->opt, &st);
+  CHECK_AND_EXIT(se->be);
 
   /* Data won't be instantaneous so get min_sleep here! */
   unsigned long minsleep = get_min_sleeptime();
   LOG("Can sleep max %lu microseconds on average\n", minsleep);
 
-  //void * buf = se->be->simple_get_writebuf(se->be, &inc);
-  D("Getting first loaded buffer for sender");
-  SAUGMENTLOCK;
-  while(spec_ops->opt->fileholders != NULL && spec_ops->opt->fileholders->status == FH_MISSING){
-  //while(spec_ops->opt->fileholders[st.files_sent] == -1 && st.files_sent <= (*spec_ops->opt->cumul)){
-    D("Skipping a file, fileholder set to -1 for file %lu",, st.head_loaded->id);
-    spec_ops->opt->fileholders = spec_ops->opt->fileholders->next;
-    //st.files_sent++;
-  }
-  /* TODO: Handle dropped out rec points */
-  //if(st.files_sent < (*spec_ops->opt->cumul)){
-  /*
-  if(spec_ops->opt->fileholders != NULL){
-    SAUGMENTUNLOCK;
-    se->be = get_loaded(spec_ops->opt->membranch, spec_ops->opt->fileholders->id, spec_ops->opt);
-  }
-  else{
-    SAUGMENTUNLOCK;
-    UDPS_EXIT;
-  }
-  */
-  jump_to_next_file(spec_ops->opt, se, &st);
-
-  CHECK_AND_EXIT(se->be);
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
   D("Starting stream send");
   //i=0;
   GETTIME(spec_ops->opt->wait_last_sent);
+  long packetpeek = get_n_packets(spec_ops->opt->fi);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops->opt, &st) == 1){
-    /* Need the OR here, since i wont hit buf_num_elems on the last file */
-    //if(i == spec_ops->opt->buf_num_elems || (st.packets_sent - st.packetpeek == 0)){
-    if(sentinc + spec_ops->opt->packet_size > FILESIZE || (st.packets_sent - st.packetpeek == 0))
+    if(sentinc + spec_ops->opt->packet_size > FILESIZE || (st.packets_sent - packetpeek  == 0))
     {
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE)
@@ -516,6 +490,7 @@ void * udp_sender(void *streamo){
 	UDPS_EXIT;
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
+      packetpeek = get_n_packets(spec_ops->opt->fi);
       sentinc = 0;
       //i=0;
     }
@@ -760,10 +735,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
   resq->i=0;
-  SAUGMENTLOCK;
   (*spec_ops->opt->cumul)++;
-  unsigned long cumulpeek = (*spec_ops->opt->cumul);
-  SAUGMENTUNLOCK;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
   if(resq->before != NULL){
@@ -797,7 +769,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,((void*)&cumulpeek), NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
@@ -1110,15 +1082,12 @@ void* udp_receiver(void *streamo)
       else{
 	D("Datatype unknown!");
 	resq->i=0;
-	SAUGMENTLOCK;
 	(*spec_ops->opt->cumul)++;
-	unsigned long cumulpeek = (*spec_ops->opt->cumul);
-	SAUGMENTUNLOCK;
 
 	free_the_buf(se->be);
 
 	/* Get a new buffer */
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,((void*)&cumulpeek), NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
 	CHECK_AND_EXIT(se->be);
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
       }
@@ -1173,28 +1142,10 @@ void* udp_receiver(void *streamo)
       /* correct sequence from the header		*/
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	/* Calc the position we should have		*/
-	//resq->usebuf = spec_ops->calc_bufpos(resq->buf, se, resq);
 	calc_bufpos_general(resq->buf, se, resq);
-	/*
-	   if(resq->usebuf == NULL){
-	   D("Packet too much out of sequence!");
-	   spec_ops->missing++;
-	   }
-	   else if (resq->usebuf == resq->buf){
-	// Packet in order! 
-	//resq->buf+=spec_ops->opt->packet_size;
-	//(*inc)++;
-	}
-	else{
-	// Packet out of order. Memcopying to place 
-	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
-	}
-	*/
       }
       else{
-	/* Ignore datatype and just be happy	*/
 	resq->buf+=spec_ops->opt->packet_size;
-	//(*(resq->inc))++;
 	(*(resq->inc))+=spec_ops->opt->packet_size;
 	resq->i++;
 
@@ -1217,9 +1168,7 @@ void* udp_receiver(void *streamo)
     se->be->cancel_writebuf(se->be);
   else{
     se->be->set_ready(se->be);
-    SAUGMENTLOCK;
     (*spec_ops->opt->cumul)++;
-    SAUGMENTUNLOCK;
   }
   LOCK(se->be->headlock);
   pthread_cond_signal(se->be->iosignal);

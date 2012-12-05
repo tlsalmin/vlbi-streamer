@@ -205,7 +205,9 @@ inline void change_sched_branch(struct scheduled_event **from, struct scheduled_
     add_to_end(to, ev);
 }
 */
-int start_event(struct scheduled_event *ev, struct schedule* sched){
+//int start_event(struct scheduled_event *ev, struct schedule* sched){
+int start_event(struct scheduled_event *ev)
+{
   int err;
 
   err = prep_filenames(ev->opt);
@@ -226,10 +228,12 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
   D("filenames prepared");
   */
 
+
   err = init_cfg(ev->opt);
   if(err != 0){
     // Recording might be going live!
-    struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
+    //struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
+    /*
     if(live != NULL){
       D("Frack it! We'll do it live!");
       if(pthread_spin_destroy((ev->opt->augmentlock)) != 0)
@@ -258,6 +262,7 @@ int start_event(struct scheduled_event *ev, struct schedule* sched){
       E("Error in cfg init");
       return -1 ;
     }
+    */
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -327,7 +332,8 @@ int start_scheduled(struct schedule *sched){
       }
       LOG("Starting event %s\n", ev->opt->filename);
       sched->n_scheduled--;
-      err = start_event(ev, sched);
+      //err = start_event(ev, sched);
+      err = start_event(ev);
       if(err != 0){
 	E("Something went wrong in recording %s start",, ev->opt->filename);
 	//remove_recording(le,sched->br.freelist);
@@ -443,11 +449,13 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   *opt->cumul = 0;
   opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
   *opt->total_packets = 0;
+  /*
   opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
   if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
     E("Spin init");
     return -1;
   }
+  */
 
 
   config_init(&(opt->cfg));

@@ -67,7 +67,7 @@ struct udpopts
   size_t sinsize;
   int wrongsizeerrors;
 
-  struct fileholder* last;
+  //struct fileholder* last;
   //void* (*calc_bufpos)(void*,struct streamer_entity*,struct resq_info *);
   unsigned long missing;
   unsigned long total_captured_packets;

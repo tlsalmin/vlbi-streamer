@@ -219,6 +219,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define CHECK_ERRP_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);pthread_exit(NULL);}else{D(x);}}while(0)
 #define CHECK_ERRP(x) CHECK_ERRP_CUST(x,err)
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_NONNULL_RN(val) do{if(val==NULL){perror("malloc "#val);E("malloc "#val);return NULL;}else{D("malloc "#val);}}while(0)
 #define SILENT_CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}}while(0)
 #define SILENT_CHECK_ERRP_LTZ(x) do{if(err<0){perror(x);E(x);pthread_exit(NULL);}}while(0)
 #define CHECK_LTZ(x,y) do{if(y<0){perror(x);E(x);return -1;}else{D(x);}}while(0)
@@ -314,14 +315,14 @@ struct opt_s
   char *device_name;
   char *cfgfile;
   int diskids;
-  struct file_index * fileindex;
+  struct file_index * fi;
 
 
   /* Make this a spinlock, since augmenting this struct is fast		*/
-  pthread_spinlock_t *augmentlock;
+  //pthread_spinlock_t *augmentlock;
   //unsigned long n_files;
   //struct fileblocks *fbs;
-  struct opt_s* liveother;
+  //struct opt_s* liveother;
   unsigned long optbits;
   int root_pid;
   int hd_failures;

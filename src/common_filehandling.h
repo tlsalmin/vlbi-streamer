@@ -13,11 +13,14 @@ struct sender_tracking{
   //unsigned long files_loaded;
   //struct fileholder* head_loaded;
   int allocated_to_load;
-  //unsigned long files_sent;
+  //struct file_index* fi;
+  unsigned long files_sent;
   unsigned long files_skipped;
+  unsigned long files_loaded;
   unsigned long packets_loaded;
   unsigned long packets_sent;
-  unsigned long packetpeek;
+  unsigned long files_in_loading;
+  //unsigned long packetpeek;
   TIMERTYPE now;
 #if(SEND_DEBUG)
   TIMERTYPE reference;
@@ -27,6 +30,7 @@ struct sender_tracking{
 #endif
   TIMERTYPE req;
 };
+#define DONTRYLOADNOMORE 	B(2) 
 
 void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st);
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st);

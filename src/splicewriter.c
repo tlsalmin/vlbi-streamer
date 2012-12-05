@@ -274,11 +274,11 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
 
   ioi->bytes_exchanged += total_w;
 #if(DAEMON)
-  if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
-    E("augmentlock");
+  //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
+    //E("augmentlock");
   ioi->opt->bytes_exchanged += total_w;
-  if(pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
-    E("augmentlock");
+  //if(pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
+    //E("augmentlock");
 #endif
   //ioi->opt->bytes_exchanged += total_w;
   return total_w;

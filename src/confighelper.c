@@ -26,6 +26,7 @@
 #include "streamer.h"
 #include "resourcetree.h"
 #include "confighelper.h"
+#include "active_file_index.h"
 #include "config.h"
 
 extern FILE* logfile;
@@ -496,7 +497,7 @@ int write_full_cfg(struct opt_s *opt){
 int init_cfg(struct opt_s *opt){
   config_setting_t *root;
   int err=0;
-  int retval=-1;
+  int retval=0;
   int i;
   D("Initializing CFG");
 
@@ -518,34 +519,26 @@ int init_cfg(struct opt_s *opt){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
 	  D("Getting opts from first config, cumul is %lu",, *opt->cumul);
-	  //opt->fileholders = (int*)malloc(sizeof(int)*(*opt->cumul));
-	  //CHECK_ERR_NONNULL(opt->fileholders, "fileholders malloc");
-	  //memset(opt->fileholders, -1,sizeof(int)*(opt->cumul));
+
 	  int j;
-	  struct fileholder* fh_orig = NULL;
-	  /*
-	  opt->fileholders = (struct fileholder*)malloc(sizeof(struct fileholder));
-	  zero_fileholder(opt->fileholders);
-	  opt->fileholders->status = FH_MISSING;
-	  opt->fileholders->id = 0;
-	  */
-
-	  struct fileholder * fh = NULL;
-	  struct fileholder * fh_prev = NULL;
-
-	  for(j=0;(unsigned)j<(*opt->cumul);j++){
-	    fh = (struct fileholder*)malloc(sizeof(struct fileholder));
-	    if(fh_orig ==NULL)
-	      fh_orig = fh;
-	    if(fh_prev != NULL)
-	      fh_prev->next = fh;
-	    //fh->next = (struct fileholder*)malloc(sizeof(struct fileholder));
-	    zero_fileholder(fh);
-	    fh->id = j;
-	    fh->status = FH_MISSING;
-	    fh_prev = fh;
+	  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING);
+	  if(opt->fi == NULL){
+	    E("File index add");
+	    retval = -1;
 	  }
-	  opt->fileholders = fh_orig;
+
+
+	  FILOCK(opt->fi);
+	  opt->fi->n_packets = *(opt->total_packets);
+	  struct fileholder * fh = opt->fi->files;
+
+	  for(j=0;(unsigned)j<opt->fi->n_files;j++){
+	    fh->diskid = -1;
+	    fh->status = FH_MISSING;
+	    fh++;
+	  }
+	  FIUNLOCK(opt->fi);
+	  //opt->fileholders = fh_orig;
 	  /* This might differ from cfg nowadays */
 	  opt->buf_num_elems = FILESIZE / opt->packet_size;
 	  D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
@@ -562,12 +555,18 @@ int init_cfg(struct opt_s *opt){
     }
     if(found == 0){
       E("No config file found! This means no recording with said name found");
-      retval= -1;
+      if(get_fileindex(opt->filename, 0) != NULL)
+      {
+	D("Live recording exists. Returning OK");
+	retval = 0;
+      }
+      else
+	retval= -1;
       //return -1;
     }
     else{
       LOG("Config file reading finished\n");
-      retval =0;
+      //retval =0;
     }
     free(path);
     //config_destroy(&opt->cfg);
@@ -580,7 +579,13 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(root, "Get root");
     stub_rec_cfg(root, NULL);
     */
-    retval = 0;
+    opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING);
+    if(opt->fi == NULL){
+      E("opt-fi init"); 
+      retval = -1;
+    }
+    else
+      retval = 0;
   }
   D("CFG init done");
   return retval;
