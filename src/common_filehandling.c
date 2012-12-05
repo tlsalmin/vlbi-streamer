@@ -39,7 +39,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
   FILOCK(opt->fi);
   skip_missing(opt,st,SKIP_LOADED);
-  if(st->files_loaded == opt->fi->n_files){
+  if(st->files_loaded > opt->fi->n_files){
     D("Loaded up to n_files!");
     FIUNLOCK(opt->fi);
     return DONTRYLOADNOMORE;

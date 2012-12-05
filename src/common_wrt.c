@@ -540,7 +540,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   if(n_files <0){
     // could not open directory 
     perror ("Check files");
-    FIUNLOCK(opt->fi);
+    //FIUNLOCK(opt->fi);
     retval= EXIT_FAILURE;
   }
   else{
