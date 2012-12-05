@@ -3,6 +3,9 @@
 #include <string.h>
 
 #include "active_file_index.h"
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 struct file_index * files;
 pthread_spinlock_t * mainlock;
@@ -27,8 +30,8 @@ int close_file_index(struct file_index* closing)
   }
   FILOCK(closing);
   free(closing->files);
-  pthread_cond_destroy(closing->waiting);
-  pthread_mutex_destroy(closing->augmentlock);
+  pthread_cond_destroy(&(closing->waiting));
+  pthread_mutex_destroy(&(closing->augmentlock));
   FIUNLOCK(closing);
   MAINLOCK;
   temp = files;
@@ -134,7 +137,6 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   MAINLOCK;
   if((new = get_fileindex_mutex_free(name,1)) != NULL){
     D("File %s  already exists in index",, name);
-    new->associations++;
     MAINUNLOCK;
     return new;
   }
@@ -149,19 +151,24 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   else
   {
     new->next = (struct file_index*)malloc(sizeof(struct file_index));
+    CHECK_ERR_NONNULL_RN(new->next);
     new = new->next;
   }
   memset(new, 0, sizeof(struct file_index));
+  /*
   new->augmentlock = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t*));
   CHECK_ERR_NONNULL_RN(new->augmentlock);
   new->waiting = (pthread_cond_t*)malloc(sizeof(pthread_cond_t*));
   CHECK_ERR_NONNULL_RN(new->waiting);
-  pthread_mutex_init(new->augmentlock, NULL);
-  pthread_cond_init(new->waiting, NULL);
+  */
+  pthread_mutex_init(&(new->augmentlock), NULL);
+  //new->augmentlock = PTHREAD_MUTEX_INITIALIZER;
+  pthread_cond_init(&(new->waiting), NULL);
+  //new->waiting = PTHREAD_COND_INITIALIZER;
   FILOCK(new);
   MAINUNLOCK;
 
-  new->filename = (char*)malloc(sizeof(char)*12);
+  new->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL_RN(new->filename);
   strcpy(new->filename,name);
   /* 0 means its a new recording and we don't know how many we're setting yet */

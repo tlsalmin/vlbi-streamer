@@ -13,8 +13,8 @@
 #define FH_INMEM	B(2)
 #define FH_BUSY		B(3)
 
-#define FILOCK(x) pthread_mutex_lock(x->augmentlock)
-#define FIUNLOCK(x) pthread_mutex_unlock(x->augmentlock)
+#define FILOCK(x) pthread_mutex_lock(&(x->augmentlock))
+#define FIUNLOCK(x) pthread_mutex_unlock(&(x->augmentlock))
 
 #define FH_STATUS(ind) opt->fi->files[ind].status
 #define FH_DISKID(ind) opt->fi->files[ind].diskid
@@ -37,8 +37,8 @@ struct file_index{
   long unsigned n_packets;
   long unsigned n_files;
   long unsigned allocated_files;
-  pthread_mutex_t * augmentlock;
-  pthread_cond_t * waiting;
+  pthread_mutex_t  augmentlock;
+  pthread_cond_t  waiting;
 };
 struct fileholder
 {
