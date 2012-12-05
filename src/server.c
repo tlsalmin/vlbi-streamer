@@ -47,6 +47,9 @@
 #define IDSTRING_LENGTH 24
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
 
+#define POLLINTERVAL 100
+#define STATTIME 1000
+
 static volatile int running = 0;
 extern FILE *logfile;
 
@@ -136,6 +139,10 @@ int free_and_close(void *le){
   if(err !=0)
     E("Removing cfg entry from sched");
   free(ev->idstring);
+  if(ev->opt->optbits & READMODE)
+    disassociate(ev->opt->fi, FILESTATUS_SENDING);
+  else
+    disassociate(ev->opt->fi, FILESTATUS_RECORDING);
   close_opts(ev->opt);
   free(ev);
   return 0;
@@ -636,7 +643,7 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 #endif
 int main(int argc, char **argv)
 {
-  int err,i_fd,w_fd;
+  int err,i_fd,w_fd,counter;
 #if(LOG_TO_FILE)
   fprintf(stdout, "Logging to %s", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
@@ -761,6 +768,7 @@ int main(int argc, char **argv)
   pfd->events = POLLIN|POLLERR;
 
   //sched->running = 1;
+  counter = 0;
   running = 1;
 
   /* Initial check before normal loop */
@@ -790,9 +798,11 @@ err=fork();
   while(running == 1)
   {
     err = start_scheduled(sched);
-    CHECK_ERR("Start scheduled");
+    //CHECK_ERR("Start scheduled");
+    if(err != 0)
+      running = 0;
     /* Check for changes 						*/
-    err = poll(pfd, 1, 1000);
+    err = poll(pfd, 1, POLLINTERVAL);
     if(err < 0){
       perror("Poll");
       running = 0;
@@ -805,13 +815,20 @@ err=fork();
       /* There's really just one sort of event. Adding or removing	*/
       /* a scheduled recording					*/
       err = check_schedule(sched);
-      CHECK_ERR("Checked schedule");
+      if(err != 0)
+	running = 0;
+      //CHECK_ERR("Checked schedule");
     }
-    else
-      D("Nothing happened on schedule file");
+    else{
+      //D("Nothing happened on schedule file");
+    }
+    counter += POLLINTERVAL;
     err = check_finished(sched);
-    CHECK_ERR("check finished");
-    if(sched->default_opt->optbits & VERBOSE && sched->n_running > 0){
+    if (err != 0)
+      running = 0;
+    //CHECK_ERR("check finished");
+    if(sched->default_opt->optbits & VERBOSE && sched->n_running > 0 && (counter % STATTIME ==0)){
+      counter =0 ;
       err = print_midstats(sched, stats_full);
       CHECK_ERR("print stats");
     }

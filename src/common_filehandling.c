@@ -226,7 +226,9 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   se->be = NULL;
   while(se->be == NULL){
     D("Getting new loaded for file %lu",, st->files_sent);
+    FILOCK(opt->fi);
     skip_missing(opt,st,SKIP_SENT);
+    FIUNLOCK(opt->fi);
     /* Skip this optimization for now. TODO: reimplement */
     /*
     if (opt->fileholders->status & FH_INMEM){
@@ -264,6 +266,10 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 	return -1;
       }
       //CHECK_AND_EXIT(se->be);
+    }
+    else{
+      E("No files in loading so shouldn't get here");
+      return -1;
     }
   }
 return 0;

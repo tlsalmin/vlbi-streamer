@@ -642,7 +642,6 @@ void *sbuf_simple_write_loop(void *buffo)
 	  else{
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
-	    set_free(sbuf->opt->membranch, be->self);
 	    D("Write cycle complete. Setting self to free");
 	    set_free(sbuf->opt->membranch, be->self);
 	  }

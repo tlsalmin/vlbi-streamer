@@ -454,6 +454,7 @@ void * udp_sender(void *streamo){
   /* This means we can sleep only sleep multiples of it and then	*/
   /* do the rest in a busyloop						*/
   long wait= 0;
+  se->be = NULL;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
   spec_ops->out_of_order = 0;

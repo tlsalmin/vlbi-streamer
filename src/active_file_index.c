@@ -8,15 +8,15 @@
 #endif
 
 struct file_index * files;
-pthread_spinlock_t * mainlock;
+pthread_spinlock_t mainlock;
 
-#define MAINLOCK do { if(pthread_spin_lock(mainlock) != 0) { perror("pthreadspin");} } while(0)
-#define MAINUNLOCK do { if(pthread_spin_unlock(mainlock) != 0) { perror("pthreadspin");} } while(0)
+#define MAINLOCK do { if(pthread_spin_lock(&mainlock) != 0) { perror("pthreadspin");} } while(0)
+#define MAINUNLOCK do { if(pthread_spin_unlock(&mainlock) != 0) { perror("pthreadspin");} } while(0)
 
 int init_active_file_index()
 {
-  mainlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t*));
-  pthread_spin_init(mainlock, PTHREAD_PROCESS_SHARED);
+  //mainlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t*));
+  pthread_spin_init(&mainlock, PTHREAD_PROCESS_SHARED);
   files = NULL;//(struct file_index*)malloc(sizeof(struct file_index)*INITIAL_SIZE);
   //CHECK_ERR_NONNULL(files, "Files malloc");
   //memset(files,0,sizeof(struct file_index)*INITIAL_SIZE);
@@ -28,11 +28,11 @@ int close_file_index(struct file_index* closing)
   if(closing->associations != 0){
     E("Closing file which still has associations: %s!",, closing->filename);
   }
-  FILOCK(closing);
+  //FILOCK(closing);
   free(closing->files);
+  //FIUNLOCK(closing);
   pthread_cond_destroy(&(closing->waiting));
   pthread_mutex_destroy(&(closing->augmentlock));
-  FIUNLOCK(closing);
   MAINLOCK;
   temp = files;
   if(temp == closing){
@@ -53,8 +53,10 @@ int close_file_index(struct file_index* closing)
     if(closing->next != NULL)
       temp->next = closing->next;
   }
+  free(closing->filename);
+  free(closing);
   MAINUNLOCK;
-  pthread_spin_destroy(mainlock);
+  //pthread_spin_destroy(mainlock);
   //free(mainlock);
   return 0;
 }
@@ -87,7 +89,7 @@ int add_file(struct file_index* fi, long unsigned id, int diskid, int status)
 }
 int close_active_file_index()
 {
-  MAINLOCK;
+  //MAINLOCK;
   struct file_index* temp = files;
   struct file_index* temp2;
   while(temp != NULL){
@@ -96,8 +98,9 @@ int close_active_file_index()
     close_file_index(temp2);
   }
   files = NULL;
-  MAINUNLOCK;
-  pthread_spin_destroy(mainlock);
+  //MAINUNLOCK;
+  pthread_spin_destroy(&mainlock);
+  //free(mainlock);
   return 0;
 }
 struct file_index* get_fileindex_mutex_free(char * name, int associate)
@@ -177,8 +180,9 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
     new->allocated_files = INITIAL_SIZE;
   }
   else
-    new->allocated_files = new->n_files = n_files;
-  new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files));
+    new->allocated_files = new->n_files = (n_files-1);
+  /* +1 because indices start from 0 */
+  new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files+1));
   CHECK_ERR_NONNULL_RN(new->files);
   new->associations = 1;
   new->status = status;
