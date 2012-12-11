@@ -48,6 +48,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
+#include "writev_writer.h"
 #include "disk2file.h"
 #include "resourcetree.h"
 #include "confighelper.h"
@@ -991,6 +992,9 @@ int init_recp(struct opt_s *opt){
 	break;
       case REC_SPLICER:
 	err = splice_init_splice(opt, &(opt->recs[i]));
+	break;
+      case REC_WRITEV:
+	err = writev_init_rec_entity(opt, &(opt->recs[i]));
 	break;
       default:
 	err = -1;

@@ -160,35 +160,35 @@ void* disk2file(void * streamo)
 
 
   D2FEXIT;
-  }
-  void disk2filestop(struct streamer_entity *se){
-    D("Stopping loop");
-    ((struct opt_s*)((struct d2fopts_s *)se->opt)->opt)->status = STATUS_STOPPED;
+}
+void disk2filestop(struct streamer_entity *se){
+  D("Stopping loop");
+  ((struct opt_s*)((struct d2fopts_s *)se->opt)->opt)->status = STATUS_STOPPED;
 
-  }
-  void d2f_init_default_functions(struct opt_s *opt, struct streamer_entity *se)
-  {
-    (void)opt;
-    se->init = d2f_init_disk2file;
-    se->close = d2f_close;
-    se->get_stats = d2f_get_stats;
-    se->close_socket = d2f_close_file;
-    se->start = disk2file;
-    se->stop = disk2filestop;
-    //se->is_running = udps_is_running;
-    //se->get_max_packets = udps_get_max_packets;
-  }
-  int d2f_init( struct opt_s *opt, struct streamer_entity *se)
-  {
+}
+void d2f_init_default_functions(struct opt_s *opt, struct streamer_entity *se)
+{
+  (void)opt;
+  se->init = d2f_init_disk2file;
+  se->close = d2f_close;
+  se->get_stats = d2f_get_stats;
+  se->close_socket = d2f_close_file;
+  se->start = disk2file;
+  se->stop = disk2filestop;
+  //se->is_running = udps_is_running;
+  //se->get_max_packets = udps_get_max_packets;
+}
+int d2f_init( struct opt_s *opt, struct streamer_entity *se)
+{
 
-    d2f_init_default_functions(opt,se);
-    /*
-       if(opt->optbits & USE_RX_RING)
-       se->start = udp_rxring;
-       else
-       se->start = udp_receiver;
-       se->stop = udps_stop;
-       */
+  d2f_init_default_functions(opt,se);
+  /*
+     if(opt->optbits & USE_RX_RING)
+     se->start = udp_rxring;
+     else
+     se->start = udp_receiver;
+     se->stop = udps_stop;
+     */
 
-    return se->init(opt, se);
-  }
+  return se->init(opt, se);
+}

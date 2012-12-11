@@ -68,9 +68,9 @@
 
 extern FILE* logfile;
 
-#define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
+//#define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
 
-#define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
+//#define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
 
 #define FULL_COPY_ON_PEEK
 
@@ -586,7 +586,7 @@ void * udp_sender(void *streamo){
 #ifdef DUMMYSOCKET
     err = spec_ops->opt->packet_size;
 #else
-    err = sendto(spec_ops->fd, buf+sentinc, spec_ops->opt->packet_size, 0, spec_ops->sin,spec_ops->sinsize);
+    err = sendto(spec_ops->fd, (buf+sentinc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->sin,spec_ops->sinsize);
 #endif
 
 

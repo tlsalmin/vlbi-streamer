@@ -12,6 +12,7 @@
 #include "streamer.h"
 #include "common_wrt.h"
 #include "defwriter.h"
+#include "writev_writer.h"
 
 
 extern FILE* logfile;
@@ -38,7 +39,7 @@ int writev_init(struct opt_s * opt, struct recording_entity *re){
   return 0;
 }
 int writev_get_w_fflags(){
-    return  O_WRONLY|O_NOATIME|O_DIRECT;
+    return  O_WRONLY|O_NOATIME;
     //return  O_WRONLY|O_NOATIME|O_NONBLOCK;
     //return  O_WRONLY|O_DIRECT|O_NOATIME;
 }
@@ -75,12 +76,14 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
 #if(DAEMON)
   //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
     //E("spinlock lock");
-  ioi->opt->bytes_exchanged += err;
+  ioi->opt->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
   //if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
     //E("Spinlock unlock");
 #endif
+  fdatasync(ioi->fd);
 
-  return err;
+  /* Returning count since simplebuffer sdhouln't think about these things */
+  return count;
 }
 
 int writev_close(struct recording_entity * re, void * stats){
@@ -95,6 +98,7 @@ int writev_close(struct recording_entity * re, void * stats){
 }
 int writev_init_rec_entity(struct opt_s * opt, struct recording_entity * re){
 
+  D("Initializing a writev recpoint");
   common_init_common_functions(opt,re);
   re->init = writev_init;
   re->write = writev_write;

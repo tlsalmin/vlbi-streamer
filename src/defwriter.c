@@ -113,7 +113,7 @@ int def_get_w_fflags(){
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
   return O_WRONLY|O_NOATIME;
 #else
-  return O_WRONLY|O_DIRECT|O_NOATIME;
+  return O_WRONLY|O_DIRECT|O_NOATIME|O_SYNC;
 #endif
   //return O_WRONLY|O_NOATIME;
 }
@@ -121,7 +121,7 @@ int def_get_r_fflags(){
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
   return O_WRONLY|O_NOATIME;
 #else
-  return O_RDONLY|O_DIRECT|O_NOATIME;
+  return O_RDONLY|O_DIRECT|O_NOATIME|O_SYNC;
 #endif
 }
 

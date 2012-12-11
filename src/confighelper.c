@@ -173,6 +173,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case REC_AIO:
 	    err = config_setting_set_string(setting, "aio");
 	    break;
+	  case REC_WRITEV:
+	    err = config_setting_set_string(setting, "writev");
+	    break;
 	  case REC_SPLICER:
 	    err = config_setting_set_string(setting, "splice");
 	    break;
@@ -226,7 +229,8 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	     opt->rec_type = REC_DEF;
 	     opt->async = 0;
 	     */
-	  opt->optbits |= REC_DEF;
+	  opt->optbits &= ~LOCKER_WRITER;
+	  opt->optbits |= REC_WRITEV;
 	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else {
@@ -392,7 +396,10 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   setting = config_setting_add(root, "packet_size", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add packet_size");
   if(opt != NULL){
-    err = config_setting_set_int64(setting, opt->packet_size);
+    if(opt->optbits & READMODE)
+      err = config_setting_set_int64(setting, opt->packet_size);
+    else
+      err = config_setting_set_int64(setting, opt->packet_size-opt->offset);
     CHECK_CFG("set packet size");
   }
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);

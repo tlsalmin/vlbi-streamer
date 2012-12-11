@@ -7,6 +7,7 @@ OPTIONS:
       -c CFGFILE	Load config from cfg-file CFGFILE
       -d DRIVES		Number of drives(Default: 1)
       -i INTERFACE	Which interface to bind to(Not required)
+      -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
       -n IP		Simultaneously send stream to IP
       -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
@@ -46,6 +47,11 @@ do
     -i)
       EXTRAOPS="$EXTRAOPS
       device_name = \"$2\";"
+      shift
+      ;;
+    -f)
+      EXTRAOPS="$EXTRAOPS
+      offset = ${2};"
       shift
       ;;
     -l)
