@@ -98,7 +98,13 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     *inc = FILESIZE;
   else
   */
-  *inc = nuf*opt->packet_size;
+  if(nuf == opt->buf_num_elems){
+    *inc = FILESIZE;
+  }
+  else{
+    D("Loading incomplete file so setting inc not to whole file");
+    *inc = nuf*opt->packet_size;
+  }
 
   be->set_ready(be);
   pthread_cond_signal(be->iosignal);

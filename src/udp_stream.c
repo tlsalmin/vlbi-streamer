@@ -64,6 +64,7 @@
 #include "common_filehandling.h"
 
 #define WRONGSIZELIMITBEFOREEXIT 20
+#define FORCE_WRITE_TO_FILESIZE
 
 extern FILE* logfile;
 
@@ -758,6 +759,9 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
   {
     D("All packets for current file received OK");
+#ifdef FORCE_WRITE_TO_FILESIZE
+    *(resq->inc) = FILESIZE;
+#endif
     free_the_buf(se->be);
     /* First buffer so *before is null 	*/
     resq->bufstart_before = NULL;
@@ -1084,9 +1088,11 @@ void* udp_receiver(void *streamo)
 	D("Datatype unknown!");
 	resq->i=0;
 	(*spec_ops->opt->cumul)++;
+#ifdef FORCE_WRITE_TO_FILESIZE
+	(*resq->inc) = FILESIZE;
+#endif
 
 	free_the_buf(se->be);
-
 	/* Get a new buffer */
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
 	CHECK_AND_EXIT(se->be);

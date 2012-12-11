@@ -49,7 +49,7 @@ extern FILE* logfile;
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
-//#define DO_W_STUFF_IN_FIXED_BLOCKS
+#define DO_W_STUFF_IN_FIXED_BLOCKS
 
 int sbuf_check(struct buffer_entity *be, int tout)
 {
@@ -442,10 +442,11 @@ int simple_write_bytes(struct buffer_entity *be)
   ASSERT(sbuf->bufoffset + count <= sbuf->buffer+FILESIZE);
   ASSERT(count != 0);
 
-  if(count > limit)
+  if(count > limit){
     count = limit;
+  }
   if (limit != count){
-    D("Only need to finish transaction");
+    D("Only need to finish transaction. limit %lu, count %lu",, limit, count);
     return simple_end_transaction(be);
   }
   ASSERT(count % 4096 == 0);
@@ -477,8 +478,8 @@ int simple_write_bytes(struct buffer_entity *be)
 #endif
       sbuf->bufoffset += count;
       //if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
-      if(sbuf->bufoffset >= sbuf->buffer +FILESIZE)
-	sbuf->bufoffset = sbuf->buffer;
+      //if(sbuf->bufoffset >= sbuf->buffer +FILESIZE)
+	//sbuf->bufoffset = sbuf->buffer;
     }
   }
   return 0;
