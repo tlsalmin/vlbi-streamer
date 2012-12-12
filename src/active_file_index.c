@@ -15,11 +15,8 @@ pthread_spinlock_t mainlock;
 
 int init_active_file_index()
 {
-  //mainlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t*));
   pthread_spin_init(&mainlock, PTHREAD_PROCESS_SHARED);
-  files = NULL;//(struct file_index*)malloc(sizeof(struct file_index)*INITIAL_SIZE);
-  //CHECK_ERR_NONNULL(files, "Files malloc");
-  //memset(files,0,sizeof(struct file_index)*INITIAL_SIZE);
+  files = NULL;
   return 0;
 }
 int close_file_index(struct file_index* closing)

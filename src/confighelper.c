@@ -398,9 +398,16 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   if(opt != NULL){
     if(opt->optbits & READMODE)
       err = config_setting_set_int64(setting, opt->packet_size);
-    else
+    else{
       err = config_setting_set_int64(setting, opt->packet_size-opt->offset);
+    }
     CHECK_CFG("set packet size");
+  }
+  setting = config_setting_add(root, "offset_onwrite", CONFIG_TYPE_INT);
+  CHECK_ERR_NONNULL(setting, "add offset");
+  if(opt != NULL){
+    err = config_setting_set_int(setting, opt->offset);
+    CHECK_CFG("set offset");
   }
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");

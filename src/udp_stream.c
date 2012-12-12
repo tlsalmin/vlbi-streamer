@@ -432,8 +432,7 @@ void * udp_sender(void *streamo){
   int err = 0;
   void* buf;
   //int i=0;
-  long *inc;
-  long sentinc = 0;
+  long *inc, sentinc=0,packetcounter=0;
   //int max_buffers_in_use=0;
   //unsigned long cumulpeek;
   //unsigned long packetpeek;
@@ -482,7 +481,7 @@ void * udp_sender(void *streamo){
   long packetpeek = get_n_packets(spec_ops->opt->fi);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops->opt, &st) == 1){
-    if(sentinc + spec_ops->opt->packet_size > FILESIZE || (st.packets_sent - packetpeek  == 0))
+    if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek  == 0))
     {
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE)
@@ -493,6 +492,7 @@ void * udp_sender(void *streamo){
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
       packetpeek = get_n_packets(spec_ops->opt->fi);
+      packetcounter = 0;
       sentinc = 0;
       //i=0;
     }
@@ -609,7 +609,7 @@ void * udp_sender(void *streamo){
       spec_ops->total_captured_packets++;
       //buf += spec_ops->opt->packet_size;
       sentinc += spec_ops->opt->packet_size;
-      //i++;
+      packetcounter++;
     }
   }
   UDPS_EXIT;
@@ -1070,7 +1070,8 @@ void* udp_receiver(void *streamo)
   while(spec_ops->opt->status & STATUS_RUNNING){
 
     //if(resq->i == spec_ops->opt->buf_num_elems)
-    if(*(resq->inc) + spec_ops->opt->packet_size > FILESIZE)
+    //if(*(resq->inc) + spec_ops->opt->packet_size > FILESIZE)
+    if(resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another");
 

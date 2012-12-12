@@ -340,6 +340,9 @@ struct opt_s
 
   /* Used to skip writing of some headers */
   int offset;
+  /* Used when reading a stripped recording. File size will be same	*/
+  /* but it will have less elements					*/
+  int offset_onwrite;
   char * disk2fileoutput;
   /* Used if RX-ring for receive */
   void* buffer;
