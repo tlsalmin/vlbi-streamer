@@ -840,12 +840,15 @@ err=fork();
       err = print_midstats(sched, stats_full);
       CHECK_ERR("print stats");
     }
-
 #if(LOG_TO_FILE)
     fflush(logfile);
 #else
     fflush(stdout);
 #endif
+    if(check_if_alive(sched->default_opt->membranch) != 0){
+      E("Memtree dead! Exiting!");
+      running = 0;
+    }
   }
 
   struct listed_entity * temp = sched->br.busylist;

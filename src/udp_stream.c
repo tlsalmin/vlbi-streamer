@@ -64,7 +64,7 @@
 #include "common_filehandling.h"
 
 #define WRONGSIZELIMITBEFOREEXIT 20
-#define FORCE_WRITE_TO_FILESIZE
+//#define FORCE_WRITE_TO_FILESIZE
 
 extern FILE* logfile;
 
@@ -736,14 +736,17 @@ inline void free_the_buf(struct buffer_entity * be){
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  resq->i=0;
   (*spec_ops->opt->cumul)++;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
   if(resq->before != NULL){
     D("Previous file still doesn't have all packets. Writing to disk and setting old packets as missing");
     //spec_ops->missing += spec_ops->opt->buf_num_elems - (*(resq->inc_before));
+    /* Now heres a problem. We have to write the whole thing since	*/
+    /* we don't know whats missing at this point. TODO: Fix when doing	*/
+    /* fillpattern f4lz							*/
     spec_ops->missing += (FILESIZE-(*(resq->inc_before)))/spec_ops->opt->packet_size;
+    //spec_ops->missing += 
     /* Write the to disk anyhow, so last packets aren't missed	*/
     //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
     *(resq->inc_before) = FILESIZE;
@@ -756,7 +759,8 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   //if(*(resq->inc) == spec_ops->opt->buf_num_elems){
   /* It looks silly, but inc was migrated to byte offset 		*/
   /* This setup lets use use arbitrary packet sizes with all buffers	*/
-  if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
+  //if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
+  if((resq->i) == spec_ops->opt->buf_num_elems)
   {
     D("All packets for current file received OK");
 #ifdef FORCE_WRITE_TO_FILESIZE
@@ -774,6 +778,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->bufstart_before = resq->bufstart;
     resq->inc_before = resq->inc;
   }
+  resq->i=0;
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);

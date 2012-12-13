@@ -77,15 +77,15 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
 	perror("DEFWRITER: Error on write/read");
-	E("DEFWRITER: Error happened on %s with count: %lu fd: %d error: %ld\n",, ioi->curfilename,  count,ioi->fd, ret);
-	return errno;
+	E("Error happened on %s with count: %lu fd: %d error: %ld\n",, ioi->curfilename,  count,ioi->fd, ret);
+	return ret;
 	//return -1;
       }
     }
     else{
       DD("Write done for %ld\n",, ret);
       if((unsigned long)ret < count)
-	fprintf(stderr, "DEFWRITER: Write wrote only %ld out of %lu\n", ret, count);
+	E(" Write wrote only %ld out of %lu",, ret, count);
       total_w += ret;
       count -= ret;
       ioi->bytes_exchanged += ret;

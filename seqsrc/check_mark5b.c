@@ -24,6 +24,7 @@ read_count = be32toh(read_count);
 */
 void usage(){
   O("Usage: check_mark5b -f <file> (-n if networked packets)\n");
+  O("-a to spew out everything in automode");
   exit(-1);
 }
 //#define MULPLYTEN

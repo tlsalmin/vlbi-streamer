@@ -122,6 +122,8 @@
 #define DATATYPE_UDPMON		B(31)
 
 #define GET_A_FILENAME_AS_ARG	B(32)
+/* Set only if the writer can actually strip bytes from packets	*/
+#define CAN_STRIP_BYTES		B(33)
 
 #define MEG			B(20)
 #define GIG			B(30)

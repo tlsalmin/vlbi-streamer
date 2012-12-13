@@ -39,12 +39,12 @@ int writev_init(struct opt_s * opt, struct recording_entity *re){
   return 0;
 }
 int writev_get_w_fflags(){
-    return  O_WRONLY|O_NOATIME;
+    return  O_WRONLY|O_NOATIME|O_SYNC;
     //return  O_WRONLY|O_NOATIME|O_NONBLOCK;
     //return  O_WRONLY|O_DIRECT|O_NOATIME;
 }
 int writev_get_r_fflags(){
-    return  O_RDONLY|O_NOATIME|O_DIRECT;
+    return  O_RDONLY|O_NOATIME|O_SYNC;
     //return  O_RDONLY|O_DIRECT|O_NOATIME;
 }
 long writev_write(struct recording_entity * re, void * start, size_t count){
@@ -61,7 +61,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   n_vecs = count/ioi->opt->packet_size;
   while(total_i < n_vecs){
     for(i=0;i<MIN(IOV_MAX, n_vecs-total_i);i++){
-      iov[i].iov_base = start + ((long)i)*ioi->opt->packet_size + ((long)ioi->opt->offset);
+      iov[i].iov_base = start + ((long)(i+total_i))*ioi->opt->packet_size + ((long)ioi->opt->offset);
       iov[i].iov_len = ioi->opt->packet_size - ioi->opt->offset;
     }
     err = (long)writev(ioi->fd, iov, i);
@@ -70,7 +70,9 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
       E("Tried to write %d vecs for %ld bytes",, i, count);
       return err;
     }
-    start += i*ioi->opt->packet_size;
+    else if((unsigned long)err !=  i*(ioi->opt->packet_size - ioi->opt->offset))
+      E("Wrote %ld when should have %ld",, err, (i * (ioi->opt->packet_size - ioi->opt->offset)));
+    //start += i*ioi->opt->packet_size;
     total_i += i;
   }
 #if(DAEMON)

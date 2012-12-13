@@ -386,16 +386,23 @@ int simple_end_transaction(struct buffer_entity *be)
 
   //unsigned long count = sbuf->diff*(sbuf->opt->packet_size);
   unsigned long count = sbuf->diff;
+  unsigned long origcount = count;
   //void * start = sbuf->buffer + (*tail * sbuf->opt->packet_size);
+  if((wrote_extra = count % BLOCK_ALIGN) != 0){
+    wrote_extra = BLOCK_ALIGN -wrote_extra;
+    count += wrote_extra;
+  }
+  /*
   while(count % BLOCK_ALIGN != 0){
     count++;
     wrote_extra++;
   }
-  D("Have to write %lu extra bytes",, wrote_extra);
+    */
+  D("Have to write %lu extra bytes so count is %lu",, wrote_extra, count);
 
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret<0){
-    fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld. Left to write:%ld bytes\n", ret,sbuf->diff);
+    E("Error in Rec entity write: %ld. Left to write:%ld bytes",, ret,sbuf->diff);
     close_recer(be,ret);
     return -1;
   }
@@ -406,12 +413,17 @@ int simple_end_transaction(struct buffer_entity *be)
     //if(sbuf->opt->optbits & ASYNC_WRITE)
     //sbuf->async_writes_submitted++;
     if((unsigned long)ret != count){
-      fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
+      E("Write wrote %ld out of %lu",, ret, count);
       /* TODO: Handle incrementing so we won't lose data */
+      sbuf->diff -=  ret;
+      sbuf->bufoffset += ret;
     }
+    else
+    {
     //increment_amount(sbuf, &(sbuf->hdwriter_head), endi);
-    sbuf->diff = 0;
-    sbuf->bufoffset = sbuf->buffer;
+    sbuf->diff -=  origcount;
+    sbuf->bufoffset += origcount;
+    }
   }
   return 0;
 
@@ -467,7 +479,9 @@ int simple_write_bytes(struct buffer_entity *be)
   }
   else{
     if((unsigned long)ret != count){
-      fprintf(stderr, "RINGBUF_H: Write wrote %ld out of %lu\n", ret, count);
+      E("Write wrote %ld out of %lu\n",, ret, count);
+      sbuf->diff -= ret;
+      sbuf->bufoffset+=ret;
     }
     else{
 #ifdef DO_W_STUFF_IN_FIXED_BLOCKS
@@ -535,7 +549,13 @@ int write_buffer(struct buffer_entity *be)
       D("Getting rec entity id %d for file %lu",, sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fileid, sbuf->running, sbuf->opt->fi->files[sbuf->fileid].diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
-      if(ret !=0){
+      if (be->recer == NULL){
+	E("Didn't get a recer. This is bad, so exiting");
+	sbuf->running = 0;
+	remove_from_branch(sbuf->opt->membranch, be->self, 0);
+	return -1;
+      }
+      else if(ret !=0){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
 	/* Not thread safe atm 			*/
@@ -549,7 +569,13 @@ int write_buffer(struct buffer_entity *be)
     }
     else{
       be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);
-      if(ret !=0){
+      if(be->recer == NULL){
+	E("Didn't get a recer. This is bad so exiting");
+	sbuf->running = 0;
+	remove_from_branch(sbuf->opt->membranch, be->self, 0);
+	return -1;
+      }
+      else if(ret !=0){
 	E("Error in acquired for random entity");
 	E("Shutting faulty writer down");
 	/* TODO: In daemonmode, the remove specific needs to exist also! */
@@ -599,7 +625,7 @@ void *sbuf_simple_write_loop(void *buffo)
   int savedif=0;
   sbuf->running = 1;
   D("Start running");
-  while(sbuf->running){
+  while(sbuf->running == 1){
     /* Checks if we've finished a write and we're holding a writer 	*/
     /* In this case we need to free the writer and ourselves		*/
     while(sbuf->ready_to_act == 0 && sbuf->running == 1){
@@ -616,7 +642,7 @@ void *sbuf_simple_write_loop(void *buffo)
       ret = -1;
 
       //while(ret!= 0 && sbuf->running == 1){
-      while(ret!= 0){
+      while(ret!= 0 && sbuf->running == 1){
 	/* Write failed so set the diff back to old value and rewrite	*/
 	ret = write_buffer(be);
 	if(ret != 0){

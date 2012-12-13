@@ -145,9 +145,19 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
     }
     if(temp->check != NULL)
     {
-      while(temp != NULL && (suitable = temp->check(temp->entity, opt)) != 0){
+      while(temp != NULL && (suitable = temp->check(temp->entity, opt)) != 0)
+      {
 	D("Not fit!");
 	temp = temp->child;
+      }
+      if(temp == NULL){
+	if(br->busylist == NULL && br->loadedlist == NULL){
+	  D("No entities in list. Returning NULL");
+	  UNLOCK(&(br->branchlock));
+	  return NULL;
+	}
+	LOG("Failed to get free or fit buffer. Sleeping");
+	pthread_cond_wait(&(br->busysignal), &(br->branchlock));
       }
     }
   }
@@ -508,4 +518,27 @@ void oper_to_all(struct entity_list_branch *br, int operation,void* param)
   oper_to_list(br,br->busylist,operation, param);
   oper_to_list(br,br->loadedlist,operation, param);
   UNLOCK(&(br->branchlock));
+}
+int check_if_alive(struct entity_list_branch* br)
+{
+  LOCK(&(br->branchlock));
+  if(br->freelist == NULL && br->busylist == NULL && br->loadedlist == NULL){
+    E("Branch dead! Returning error");
+    UNLOCK(&(br->branchlock));
+    return -1;
+  }
+  UNLOCK(&(br->branchlock));
+  return 0;
+}
+int check_if_free(struct entity_list_branch* br)
+{
+  LOCK(&(br->branchlock));
+  if(br->freelist == NULL)
+  {
+    E("Branch dead! Returning error");
+    UNLOCK(&(br->branchlock));
+    return -1;
+  }
+  UNLOCK(&(br->branchlock));
+  return 0;
 }

@@ -116,4 +116,9 @@ struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, vo
 struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, void* val2, int iden_type);
 
 void mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en);
+
+/* Checks if theres anything in the tree */
+int check_if_alive(struct entity_list_branch* br);
+/* Checks if theres anything in the free */
+int check_if_free(struct entity_list_branch* br);
 #endif /* !RESOURCETREE_H */

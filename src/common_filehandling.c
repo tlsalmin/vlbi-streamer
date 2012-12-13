@@ -76,6 +76,10 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   /* TODO: Not checking if FH_ONDISK is set */
   D("Requested a load start on file %lu",, st->files_loaded);
   if (be == NULL){
+    if(check_if_free(opt->membranch) != 0){
+      D("wont loadup since no more free buffers");
+      return DONTRYLOADNOMORE;
+    }
     be = get_free(opt->membranch, opt, (void*)(&(st->files_loaded)), NULL);
     st->allocated_to_load--;
   }
@@ -98,6 +102,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     *inc = FILESIZE;
   else
   */
+  /*
   if(nuf == opt->buf_num_elems){
     *inc = FILESIZE;
   }
@@ -105,6 +110,8 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     D("Loading incomplete file so setting inc not to whole file");
     *inc = nuf*opt->packet_size;
   }
+  */
+  *inc = nuf*(opt->packet_size);
 
   be->set_ready(be);
   pthread_cond_signal(be->iosignal);
