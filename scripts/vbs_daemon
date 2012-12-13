@@ -78,7 +78,8 @@ do_start()
       then
 	#TODO: This is not the correct way
 	sleep 1
-	chrt -f -p $RTPRIO  $(ps -A |grep -i vlbistreamer |cut -d ' ' -f2)
+	#chrt -f -p $RTPRIO  $(ps -A |grep -i vlbistreamer |cut -d ' ' -f2)
+	chrt -f -p $RTPRIO  $(cat $PIDFILE)
       fi
       echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE
       return 0

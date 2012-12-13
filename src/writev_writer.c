@@ -49,7 +49,7 @@ int writev_get_r_fflags(){
 }
 long writev_write(struct recording_entity * re, void * start, size_t count){
   /* Just make me long.. */
-  int n_vecs, i, total_i;
+  long n_vecs, i, total_i;
   long err;
   struct common_io_info * ioi = (struct common_io_info * )re->opt;
   struct iovec * iov = (struct iovec*)ioi->extra_param;
@@ -61,14 +61,14 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   n_vecs = count/ioi->opt->packet_size;
   while(total_i < n_vecs){
     for(i=0;i<MIN(IOV_MAX, n_vecs-total_i);i++){
-      iov[i].iov_base = start + ((long)(i+total_i))*ioi->opt->packet_size + ((long)ioi->opt->offset);
+      iov[i].iov_base = start + (i+total_i)*ioi->opt->packet_size + ioi->opt->offset;
       iov[i].iov_len = ioi->opt->packet_size - ioi->opt->offset;
     }
     err = (long)writev(ioi->fd, iov, i);
     if(err < 0){
       perror("WRITEV: Error on write");
-      E("Tried to write %d vecs for %ld bytes",, i, count);
-      return err;
+      E("Tried to write %ld vecs for %ld bytes",, i, count);
+      return -1;
     }
     else if((unsigned long)err !=  i*(ioi->opt->packet_size - ioi->opt->offset))
       E("Wrote %ld when should have %ld",, err, (i * (ioi->opt->packet_size - ioi->opt->offset)));

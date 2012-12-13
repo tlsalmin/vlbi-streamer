@@ -18,7 +18,6 @@ install-data-hook:
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	chown @USER@:@GROUP@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
-	if [ -d "/mnt/unionfs" ] ; then mkdir -p /mnt/unionfs ; chown @USER@:@GROUP@ /mnt/unionfs; fi
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_ls
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_unionfs
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_rm

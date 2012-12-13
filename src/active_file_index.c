@@ -60,8 +60,10 @@ int close_file_index(struct file_index* closing)
 inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diskid, int status)
 {
   if(id > fi->allocated_files){
-    if(realloc(fi->files, (fi->allocated_files << 1)*sizeof(struct fileholder)) == NULL){
+    void* tempfiles = fi->files;
+    if((fi->files = realloc(fi->files, (fi->allocated_files << 1)*sizeof(struct fileholder))) == NULL){
       E("Realloc failed!");
+      fi->files = tempfiles;
       FIUNLOCK(fi);
       return -1;
     }
@@ -109,6 +111,7 @@ struct file_index* get_fileindex_mutex_free(char * name, int associate)
 	temp->associations++;
       return temp;
     }
+    files = files->next;
   }
   return NULL;
 }
@@ -165,8 +168,8 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   //new->augmentlock = PTHREAD_MUTEX_INITIALIZER;
   pthread_cond_init(&(new->waiting), NULL);
   //new->waiting = PTHREAD_COND_INITIALIZER;
-  FILOCK(new);
   MAINUNLOCK;
+  FILOCK(new);
 
   new->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL_RN(new->filename);

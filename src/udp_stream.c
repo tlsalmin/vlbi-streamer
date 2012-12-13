@@ -1098,10 +1098,12 @@ void* udp_receiver(void *streamo)
 	(*resq->inc) = FILESIZE;
 #endif
 
+	D("Freeing used buffer for file %lu",, *(spec_ops->opt->cumul));
 	free_the_buf(se->be);
 	/* Get a new buffer */
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
 	CHECK_AND_EXIT(se->be);
+	D("Got new free be. Grabbing buffer");
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
       }
     }
@@ -1134,7 +1136,6 @@ void* udp_receiver(void *streamo)
 	  spec_ops->opt->status = STATUS_ERROR;
 	  break;
 	}
-
       }
     }
     /* Success! */

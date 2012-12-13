@@ -61,8 +61,8 @@ int common_open_new_file(void * recco, void *opti,void* acq){
     tempflags = re->get_w_flags();
   ioi->file_seqnum = *((unsigned long*)acq);
 
-  ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
+  //ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  //CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
   sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
 
   D("Opening file %s",,ioi->curfilename);
@@ -106,7 +106,8 @@ int common_finish_file(void *recco){
     E("Error in closing file!");
   else
     D("File closed");
-  free(ioi->curfilename);
+  //free(ioi->curfilename);
+  memset(ioi->curfilename, 0, sizeof(char)*FILENAME_MAX);
   ioi->opt = NULL;
   return ret;
 }
@@ -395,6 +396,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
 
   ioi->id = ioi->opt->diskids++;
   ioi->status = RECSTATUS_OK;
+
+  ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   /*
 #ifndef DAEMON
   err = init_directory(re);
@@ -491,6 +494,7 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
+  free(ioi->curfilename);
   free(ioi);
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "COMMON_WRT: Writer closed\n");

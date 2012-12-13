@@ -23,7 +23,6 @@ then
   echo "Mounting unionfs-fuse to $UNIONPOINT"
   DISKS=$((DISKS-1))
   unionfs-fuse $(for l in $(seq 0 $DISKS) ; do printf "%s%d" "${ROOTDIRS}" $l ; if [ "$DISKS" != "$l" ] ; then printf "%s" ":" ; fi; done) -o allow_other $UNIONPOINT
-  #chown ${USER}:${GROUP} $UNIONPOINT
 else
   echo "No unionfs-fuse found on your system!"
   echo "TODO: binary could vary between systems"
