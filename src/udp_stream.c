@@ -1098,7 +1098,7 @@ void* udp_receiver(void *streamo)
 	(*resq->inc) = FILESIZE;
 #endif
 
-	D("Freeing used buffer for file %lu",, *(spec_ops->opt->cumul));
+	D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
 	free_the_buf(se->be);
 	/* Get a new buffer */
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
@@ -1149,6 +1149,7 @@ void* udp_receiver(void *streamo)
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size sent onward. NOT HANDLED");
       }
+    assert(resq->i < spec_ops->opt->buf_num_elems);
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
@@ -1164,10 +1165,12 @@ void* udp_receiver(void *streamo)
 	resq->i++;
 
       }
+      assert(*resq->inc <= FILESIZE);
       spec_ops->total_captured_bytes +=(unsigned int) err;
       *spec_ops->opt->total_packets += 1;
       if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
 	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
+	spec_ops->opt->status = STATUS_FINISHED;
 	break;
       }
     }

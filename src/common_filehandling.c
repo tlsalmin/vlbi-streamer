@@ -16,7 +16,7 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
     target = &(st->files_sent);
 
   while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
-    long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+    long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
 
     D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
 
@@ -180,13 +180,13 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
   if(opt->optbits & READMODE && get_status(opt->fi) & FILESTATUS_RECORDING){
     return 1;
   }
+  if(get_n_packets(opt->fi) > st->packets_sent)
+    return 1;
   /* If we still have files */
   if(st->files_sent != get_n_files(opt->fi)){
     return 1;
   }
   /* If there's still packets to be sent */
-  if(get_n_packets(opt->fi) > st->packets_sent)
-    return 1;
 
   return 0;
 }
@@ -220,6 +220,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     CHECK_ERR("Loading file");
     while(st->allocated_to_load > 0)
     {
+      D("Loading one more file since allocations are ok");
       err = start_loading(opt, NULL, st);
       if(err == DONTRYLOADNOMORE)
 	break;

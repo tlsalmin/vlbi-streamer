@@ -13,8 +13,8 @@
 #define FH_INMEM	B(2)
 #define FH_BUSY		B(3)
 
-#define FILOCK(x) pthread_mutex_lock(&(x->augmentlock))
-#define FIUNLOCK(x) pthread_mutex_unlock(&(x->augmentlock))
+#define FILOCK(x) do {D("MUTEXNOTE: Locking file mutex"); pthread_mutex_lock(&((x)->augmentlock));} while(0)
+#define FIUNLOCK(x) do {D("MUTEXNOTE: Unlocking file mutex"); pthread_mutex_unlock(&((x)->augmentlock));} while(0)
 
 #define FH_STATUS(ind) opt->fi->files[ind].status
 #define FH_DISKID(ind) opt->fi->files[ind].diskid

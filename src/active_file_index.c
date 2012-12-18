@@ -8,14 +8,17 @@
 #endif
 
 struct file_index * files;
-pthread_spinlock_t mainlock;
+pthread_mutex_t mainlock;
 
-#define MAINLOCK do { if(pthread_spin_lock(&mainlock) != 0) { perror("pthreadspin");} } while(0)
-#define MAINUNLOCK do { if(pthread_spin_unlock(&mainlock) != 0) { perror("pthreadspin");} } while(0)
+#define INITMAINLOCK do { if(pthread_mutex_init(&mainlock, NULL) != 0){perror("active_file_index mainlock init");}} while(0)
+#define MAINLOCK do { if(pthread_mutex_lock(&mainlock) != 0) { perror("active_file_index mainlock");} } while(0)
+#define MAINUNLOCK do { if(pthread_mutex_unlock(&mainlock) != 0) { perror("active_file_index mainlock");} } while(0)
+#define CLOSEMAINLOCK do { if(pthread_mutex_destroy(&mainlock) != 0) {perror("active_file_index mainlock close");}} while(0)
 
 int init_active_file_index()
 {
-  pthread_spin_init(&mainlock, PTHREAD_PROCESS_SHARED);
+  //pthread_spin_init(&mainlock, PTHREAD_PROCESS_SHARED);
+  INITMAINLOCK;
   files = NULL;
   return 0;
 }
@@ -98,7 +101,8 @@ int close_active_file_index()
   }
   files = NULL;
   //MAINUNLOCK;
-  pthread_spin_destroy(&mainlock);
+  //pthread_spin_destroy(&mainlock);
+  CLOSEMAINLOCK;
   //free(mainlock);
   return 0;
 }
@@ -187,6 +191,7 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   new->associations = 1;
   new->status = status;
   FIUNLOCK(new);
+  D("File %s added to index",, new->filename);
   return new;
 }
 int disassociate(struct file_index* dis, int type)
@@ -226,6 +231,7 @@ int update_fileholder_status_wname(char * name, unsigned long filenum, int statu
     E("No file with name %s found",, name);
     return -1;
   }
+  D("Got filename for update");
   FILOCK(modding);
   and_action(modding, filenum, status, action);
   FIUNLOCK(modding);
@@ -272,25 +278,32 @@ int remove_specific_from_fileholders(char* name, int recid)
 }
 long unsigned get_n_files(struct file_index* fi)
 {
-  long unsigned ret;
-  FILOCK(fi);
-  ret = fi->n_files;
-  FIUNLOCK(fi);
-  return ret;
+  //long unsigned ret;
+  //FILOCK(fi);
+  //ret = fi->n_files;
+  //FIUNLOCK(fi);
+  //return ret;
+  return __sync_fetch_and_add(&(fi->n_files),0);
 }
 long unsigned get_n_packets(struct file_index* fi)
 {
+  /*
   long unsigned ret;
   FILOCK(fi);
   ret = fi->n_packets;
   FIUNLOCK(fi);
   return ret;
+  */
+  return __sync_fetch_and_add(&(fi->n_packets),0);
 }
 int get_status(struct file_index * fi)
 {
+  /*
   int ret;
   MAINLOCK;
   ret = fi->status;
   MAINUNLOCK;
   return ret;
+  */
+  return __sync_fetch_and_add(&(fi->status),0);
 }

@@ -103,6 +103,7 @@ int sbuf_acquire(void* buffo, void *opti,void* acq)
 
   sbuf->fi = sbuf->opt->fi;
   sbuf->fileid = *((long unsigned*)acq);
+  sbuf->diff = 0;
 
   return 0;
 }
@@ -549,13 +550,7 @@ int write_buffer(struct buffer_entity *be)
       D("Getting rec entity id %d for file %lu",, sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fileid, sbuf->running, sbuf->opt->fi->files[sbuf->fileid].diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
-      if (be->recer == NULL){
-	E("Didn't get a recer. This is bad, so exiting");
-	sbuf->running = 0;
-	remove_from_branch(sbuf->opt->membranch, be->self, 0);
-	return -1;
-      }
-      else if(ret !=0){
+      if (be->recer == NULL || ret !=0){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
 	/* Not thread safe atm 			*/
@@ -589,8 +584,8 @@ int write_buffer(struct buffer_entity *be)
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
     }
-    CHECK_AND_EXIT(be->recer);
-    D("Got rec entity");
+    //CHECK_AND_EXIT(be->recer);
+    //D("Got rec entity");
   }
 
   if(sbuf->opt->optbits & ASYNC_WRITE){
@@ -608,11 +603,12 @@ int write_buffer(struct buffer_entity *be)
 
   /* If we've succesfully written everything: set everything free etc */
   if(sbuf->diff == 0){
-
+    D("Operation complete. Releasing recpoint");
     /* Might have closed recer already 	*/
     if(be->recer != NULL)
       set_free(sbuf->opt->diskbranch, be->recer->self);
     be->recer = NULL;
+    D("Recpoint released");
   }
   return ret;
 }
@@ -637,7 +633,8 @@ void *sbuf_simple_write_loop(void *buffo)
     }
 
     if(sbuf->diff > 0){
-      D("Blocking writes. Left to write %ld",,sbuf->diff);
+      D("Blocking writes. Left to write %ld for file %lu",,sbuf->diff,sbuf->fileid);
+      assert(sbuf->diff <= FILESIZE);
       savedif = sbuf->diff;
       ret = -1;
 
@@ -655,10 +652,12 @@ void *sbuf_simple_write_loop(void *buffo)
 	    sbuf->ready_to_act = 0;
 	    set_free(sbuf->opt->membranch, be->self);
 	    ret=0;
+	    sbuf->diff = 0;
 	  }
 	}
 	/*If everything went great */
 	else{
+	  D("Write/read complete!");
 	  sbuf->ready_to_act = 0;
 
 	  if(sbuf->opt->optbits & READMODE){

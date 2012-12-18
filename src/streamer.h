@@ -151,7 +151,7 @@
 #define MK5B_FRAME_WORDS	2504
 #define MK5B_FRAME_SIZE		(MK5B_FRAME_WORDS * sizeof(uint32_t))
 
-#define MBITS_PER_DRIVE 500
+#define MBITS_PER_DRIVE 1100
 #define MBYTES_PER_DRIVE (MBITS_PER_DRIVE/8)
 #define TOTAL_MAX_DRIVES_IN_USE 20
 
@@ -197,7 +197,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 
 #define MAX_PRIO_FOR_PTHREAD 1
 #define RBUF_PRIO	2
-#define RECEIVE_THREAD_PRIO 3
+#define RECEIVE_THREAD_PRIO MAX_PRIO_FOR_PTHREAD
 #define MIN_PRIO_FOR_PTHREAD 4
 
   /* Default packet size */
