@@ -28,6 +28,11 @@ int close_file_index(struct file_index* closing)
   if(closing->associations != 0){
     E("Closing file which still has associations: %s!",, closing->filename);
   }
+  if(closing == NULL){
+    E("closing is null!");
+    return -1;
+  }
+
   //FILOCK(closing);
   free(closing->files);
   //FIUNLOCK(closing);
@@ -196,6 +201,11 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
 }
 int disassociate(struct file_index* dis, int type)
 {
+  if(dis == NULL)
+  {
+    E("File association is null");
+    return -1;
+  }
   MAINLOCK;
   assert(dis->associations > 0);
   dis->associations--;

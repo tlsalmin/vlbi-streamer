@@ -851,12 +851,16 @@ int close_opts(struct opt_s *opt){
 int prep_priority(struct opt_s * opt, int priority){
 
   int err; 
-  int minprio,maxprio;
+  int realprio;
+  //int minprio,maxprio;
+  struct sched_param schedp;
+  err = sched_getparam(getpid(), &schedp);
 
-  minprio = sched_get_priority_min(SCHED_FIFO);
-  maxprio = sched_get_priority_max(SCHED_FIFO);
-  int halfprio = (maxprio+minprio)/2;
+  //minprio = sched_get_priority_min(SCHED_FIFO);
+  //maxprio = sched_get_priority_max(SCHED_FIFO);
+  //int halfprio = (maxprio+minprio)/2;
 
+  /*
   int realprio = priority;
 
   if(priority == MAX_PRIO_FOR_PTHREAD)
@@ -866,10 +870,15 @@ int prep_priority(struct opt_s * opt, int priority){
   else if (priority == RBUF_PRIO)
     realprio = halfprio;
   else
-    realprio = halfprio -10;
+    realprio = halfprio +10;
 
 
   D("Min prio: %d, max prio: %d",, minprio, maxprio);
+  */
+  realprio = schedp.sched_priority - priority;
+  if(realprio < 0)
+    realprio=0;
+  D("Setting prio to %d",, realprio);
 
   memset(&(opt->param), 0, sizeof(struct sched_param));
 
@@ -1118,7 +1127,10 @@ int main(int argc, char **argv)
 
 #if(PPRIORITY)
   
-  err = prep_priority(opt, MAX_PRIO_FOR_PTHREAD);
+  if(opt->optbits & READMODE)
+    prep_priority(opt, SEND_THREAD_PRIO);
+  else
+    prep_priority(opt, RECEIVE_THREAD_PRIO);
   /* TODO: err Not used */
   /*
   if(opt->optbits & READMODE)

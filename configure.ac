@@ -60,6 +60,19 @@ AS_IF([test "x$enable_libaio" != "xno"], [
 dnl Its a bit silly to define em twice..
 AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
 
+AC_MSG_CHECKING(--enable-gprofile argument)
+AC_ARG_ENABLE(gprofile,
+    [  --enable-gprofile         Include gprofile linking.],
+    [enable_gprofile=$enableval],
+    [enable_gprofile="no"])
+AC_MSG_RESULT($enable_gprofile)
+AS_IF([test "x$enable_gprofile" != "xno"], [
+       ADD_LIBS="$ADD_LIBS -lprofiler"
+       AC_DEFINE(HAVE_GPROFILE, 1, [Compile with added gprofile linking])
+])
+dnl Its a bit silly to define em twice..
+AM_CONDITIONAL([HAVE_GPROFILE], [test "${enable_gprofile}" = "yes"])
+
 AC_MSG_CHECKING([--enable-debug argument])
 AC_ARG_ENABLE(debug,
     [  --enable-debug         Enable debug output.],

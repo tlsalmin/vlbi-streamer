@@ -238,6 +238,8 @@ int start_event(struct scheduled_event *ev)
 
   err = init_cfg(ev->opt);
   if(err != 0){
+    E("Error in cfg init");
+    return -1;
     // Recording might be going live!
     //struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
     /*
@@ -276,7 +278,7 @@ int start_event(struct scheduled_event *ev)
     ev->stats = (struct stats*)malloc(sizeof(struct stats));
     init_stats(ev->stats);
   }
-  #if(PPRIORITY)
+#if(PPRIORITY)
   err = pthread_attr_init(&(ev->opt->pta));
 
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
@@ -299,9 +301,6 @@ int start_event(struct scheduled_event *ev)
   if(err != 0)
     E("Error Setting inheritance");
     */
-#endif
-
-#if(PPRIORITY)
   err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
 #else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
@@ -661,10 +660,10 @@ int main(int argc, char **argv)
   }
 #endif
 #if(PPRIORITY)
-  pid_t ourpid;
+  //pid_t ourpid;
   struct sched_param schedp;
   LOG("Waiting one sec for chrt to kick in\n");
-  ourpid = getpid();
+  //ourpid = getpid();
   err = sched_getparam(getpid(), &schedp);
   if(err != 0)
     E("Error in getparam");
