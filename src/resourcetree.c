@@ -138,7 +138,7 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
 	UNLOCK(&(br->branchlock));
 	return NULL;
       }
-      LOG("Failed to get free buffer: Resources might be running out! Sleeping");
+      //LOG("Failed to get free buffer: Resources might be running out! Sleeping\n");
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
       /* Check if something was added to freelist */
       temp = br->freelist;
@@ -535,7 +535,7 @@ int check_if_free(struct entity_list_branch* br)
   LOCK(&(br->branchlock));
   if(br->freelist == NULL)
   {
-    E("Branch dead! Returning error");
+    D("No frees! Returning error");
     UNLOCK(&(br->branchlock));
     return -1;
   }
