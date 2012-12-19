@@ -25,6 +25,7 @@ int init_active_file_index()
 int close_file_index(struct file_index* closing)
 {
   struct file_index* temp;
+  int notfound=0;
   if(closing->associations != 0){
     E("Closing file which still has associations: %s!",, closing->filename);
   }
@@ -33,14 +34,12 @@ int close_file_index(struct file_index* closing)
     return -1;
   }
 
-  //FILOCK(closing);
-  free(closing->files);
-  //FIUNLOCK(closing);
-  pthread_cond_destroy(&(closing->waiting));
-  pthread_mutex_destroy(&(closing->augmentlock));
   MAINLOCK;
   temp = files;
-  if(temp == closing){
+  if(temp == NULL){
+    E("No files to close in index!");
+  }
+  else if(temp == closing){
     files = closing->next;
   }
   else
@@ -48,21 +47,20 @@ int close_file_index(struct file_index* closing)
     while(temp->next != closing){
       if(temp->next == NULL){
 	E("Closing file not found in file index!");
-	free(closing->filename);
-	free(closing);
-	MAINUNLOCK;
-	return -1;
+	notfound =1;
+	break;
       }
       temp = temp->next;
     }
-    if(closing->next != NULL)
+    if(notfound == 0 && closing->next != NULL)
       temp->next = closing->next;
   }
+  MAINUNLOCK;
+  free(closing->files);
+  pthread_cond_destroy(&(closing->waiting));
+  pthread_mutex_destroy(&(closing->augmentlock));
   free(closing->filename);
   free(closing);
-  MAINUNLOCK;
-  //pthread_spin_destroy(mainlock);
-  //free(mainlock);
   return 0;
 }
 inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diskid, int status)
