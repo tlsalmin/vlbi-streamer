@@ -3,12 +3,11 @@
 #include "../src/resourcetree.h"
 #include "../src/common_filehandling.h"
 #include "resourcetree.h"
+#include "common.h"
 #define ENTITIES 200
 #define ENT_TYPE_INT 0
 #define ENT_TYPE_LONG 1
 
-#define TEST_START(name) fprintf(stdout, "TEST_START: " #name "\n")
-#define TEST_END(name) fprintf(stdout, "TEST_END: " #name "\n")
 
 int sillycompare(void* i1, void *i2){
   if(*((int*)i1) > *((int*)i2))
