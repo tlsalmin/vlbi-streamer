@@ -848,16 +848,30 @@ int close_opts(struct opt_s *opt){
   return 0;
 }
 #if(PPRIORITY)
+#define CASEOF(x) case x:\
+  D(#x);\
+break;
 int prep_priority(struct opt_s * opt, int priority){
 
   int err; 
   int realprio;
-  //int minprio,maxprio;
+  int minprio,maxprio;
+  int scheduler = sched_getscheduler(getpid());
   struct sched_param schedp;
+#if(DEBUG_OUTPUT)
+  switch(scheduler){	
+    CASEOF(SCHED_OTHER)
+    CASEOF(SCHED_BATCH)
+    //CASEOF(SCHED_IDLE)
+    CASEOF(SCHED_FIFO)
+    CASEOF(SCHED_RR)
+  }
+#endif
   err = sched_getparam(getpid(), &schedp);
 
-  //minprio = sched_get_priority_min(SCHED_FIFO);
-  //maxprio = sched_get_priority_max(SCHED_FIFO);
+  minprio = sched_get_priority_min(scheduler);
+  maxprio = sched_get_priority_max(scheduler);
+  D("Min prio: %d, max prio: %d",, minprio, maxprio);
   //int halfprio = (maxprio+minprio)/2;
 
   /*
@@ -873,7 +887,6 @@ int prep_priority(struct opt_s * opt, int priority){
     realprio = halfprio +10;
 
 
-  D("Min prio: %d, max prio: %d",, minprio, maxprio);
   */
   realprio = schedp.sched_priority - priority;
   if(realprio < 0)
@@ -886,9 +899,9 @@ int prep_priority(struct opt_s * opt, int priority){
   if(err != 0)
     E("Error getting schedparam for pthread attr: %s",,strerror(err));
   else
-    D("Schedparam set to %d, Trying to set to minimun %d",, opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
+    D("Schedparam set to %d, Trying to set to %d",, opt->param.sched_priority, realprio);
 
-  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
+  err = pthread_attr_setschedpolicy(&(opt->pta), scheduler);
   if(err != 0)
     E("Error setting schedtype for pthread attr: %s",,strerror(err));
 
