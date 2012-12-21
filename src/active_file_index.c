@@ -75,13 +75,16 @@ inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diski
 {
   if(id > fi->allocated_files){
     void* tempfiles = fi->files;
-    if((fi->files = realloc(fi->files, (fi->allocated_files << 1)*sizeof(struct fileholder))) == NULL){
+    while(fi->allocated_files < id)
+    {
+      fi->allocated_files = fi->allocated_files << 1;
+    }
+    if((fi->files = realloc(fi->files, fi->allocated_files*sizeof(struct fileholder))) == NULL){
       E("Realloc failed!");
       fi->files = tempfiles;
       FIUNLOCK(fi);
       return -1;
     }
-    fi->allocated_files = fi->allocated_files << 1;
   }
   fi->files[id].diskid = diskid;
   fi->files[id].status = status;
@@ -290,10 +293,8 @@ int remove_specific_from_fileholders(char* name, int recid)
   for(i=0;i<modding->n_files;i++){
     if(modding->files[i].diskid == recid){
       modding->files[i].diskid = -1;
-      //if(!(modding->files[i].status & FH_INMEM))
+      modding->files[i].status &= ~FH_ONDISK;
       modding->files[i].status |= FH_MISSING;
-      //else
-      //D("File still in mem so not setting to missing");
     }
   }
   FIUNLOCK(modding);

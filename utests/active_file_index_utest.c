@@ -5,7 +5,7 @@
 #include "../src/config.h"
 #include "string.h"
 
-#define THREADS 1000
+#define THREADS 100
 #define AFILES 10
 #define FILES_PER_AFILE 1000
 
@@ -18,6 +18,7 @@ char ** filenames;
 struct thread_data {
   int thread_id;
   int status;
+  int intid;
   char* filename;
   pthread_t ptd;
 };
@@ -27,6 +28,7 @@ struct thread_data {
 
 void *testfunc(void *tdr)
 {
+  int i;
   struct thread_data* td = (struct thread_data*)tdr;
   struct file_index *fi;
 
@@ -35,7 +37,18 @@ void *testfunc(void *tdr)
   D("Adding file index");
   fi = add_fileindex(td->filename, 0, FILESTATUS_RECORDING);
   THREAD_EXIT_ON_ERROR(fi==NULL);
-  //sleep(2);
+
+  for(i=0;i<FILES_PER_AFILE;i++)
+    THREAD_EXIT_ON_ERROR(add_file(fi,td->intid++, td->intid,FH_ONDISK) != 0);
+
+  td->intid-=FILES_PER_AFILE;
+
+  for(i=0;i<FILES_PER_AFILE;i++)
+    THREAD_EXIT_ON_ERROR(update_fileholder_status_wname(td->filename, td->intid++, FH_INMEM, ADDTOFILESTATUS) != 0);
+
+  td->intid-=FILES_PER_AFILE;
+  for(i=0;i<FILES_PER_AFILE;i++)
+    THREAD_EXIT_ON_ERROR(remove_specific_from_fileholders(td->filename, td->intid++) != 0);
   
   D("Disassociating");
   THREAD_EXIT_ON_ERROR(disassociate(fi, FILESTATUS_RECORDING) != 0);
@@ -61,6 +74,7 @@ int main(void)
     thread_data[i].thread_id = i; 
     thread_data[i].status = THREAD_STATUS_NOT_STARTED; 
     thread_data[i].filename = filenames[i % 10];
+    thread_data[i].intid = i*THREADS;
   }
 
   TEST_START(INIT);
