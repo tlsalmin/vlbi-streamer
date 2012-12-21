@@ -2,8 +2,10 @@
 #include "../src/active_file_index.h"
 #include "common.h"
 #include "../src/streamer.h"
+#include "../src/config.h"
+#include "string.h"
 
-#define THREADS 100
+#define THREADS 1000
 #define AFILES 10
 #define FILES_PER_AFILE 1000
 
@@ -20,12 +22,25 @@ struct thread_data {
   pthread_t ptd;
 };
 
+#define THREAD_EXIT_ON_ERROR(x) do{if(x){E("Fail!"); td->status = THREAD_STATUS_ERROR;pthread_exit(NULL);}}while(0)
+
+
 void *testfunc(void *tdr)
 {
   struct thread_data* td = (struct thread_data*)tdr;
+  struct file_index *fi;
 
+  td->status = THREAD_STATUS_STARTED;
+
+  D("Adding file index");
+  fi = add_fileindex(td->filename, 0, FILESTATUS_RECORDING);
+  THREAD_EXIT_ON_ERROR(fi==NULL);
+  //sleep(2);
+  
+  D("Disassociating");
+  THREAD_EXIT_ON_ERROR(disassociate(fi, FILESTATUS_RECORDING) != 0);
+  
   td->status = THREAD_STATUS_FINISHED;
-  E("Hello");
   pthread_exit(NULL);
 }
 
@@ -36,8 +51,9 @@ int main(void)
 
   filenames = (char**)malloc(sizeof(char*)*AFILES);
   for(i=0;i<AFILES;i++){
-    filenames[i] = (char*) malloc(sizeof(char)*12);
-    sprintf(filenames[i], "%s%d", "filename", i);
+    filenames[i] = (char*) malloc(sizeof(char)*FILENAME_MAX);
+    memset(filenames[i], 0, sizeof(char)*FILENAME_MAX);
+    sprintf(filenames[i], "%s%d\0", "filename", i%10);
   }
 
   for(i=0;i<THREADS;i++)
@@ -52,18 +68,19 @@ int main(void)
     return -1;
   TEST_END(INIT);
 
+  TEST_START(THREADS_START_TRASHING);
   for(i=0;i<THREADS;i++)
   {
     err = pthread_create(&thread_data[i].ptd, NULL, testfunc, (void*)&thread_data[i]);
     if(err != 0)
-      E("Error in thread init for %ld",, i);
+      E("Error in thread init for %d",, i);
   }
 
   for(i=0;i<THREADS;i++)
   {
     err = pthread_join(thread_data[i].ptd, NULL);
     if(err != 0)
-      E("Error in pthread join for %ld",, i);
+      E("Error in pthread join for %d",, i);
   }
 
   for(i=0;i<THREADS;i++)
@@ -74,7 +91,8 @@ int main(void)
       retval=-1;
     }
   }
-  LOG("Found %ld errors\n", errors);
+  LOG("Found %d errors\n", errors);
+  TEST_END(THREADS_START_TRASHING);
 
   for(i=0;i<AFILES;i++){
     free(filenames[i]);

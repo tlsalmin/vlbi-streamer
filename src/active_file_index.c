@@ -22,7 +22,7 @@ int init_active_file_index()
   files = NULL;
   return 0;
 }
-int close_file_index(struct file_index* closing)
+int close_file_index_mutex_free(struct file_index* closing)
 {
   struct file_index* temp;
   int notfound=0;
@@ -33,11 +33,9 @@ int close_file_index(struct file_index* closing)
     E("closing is null!");
     return -1;
   }
-
-  MAINLOCK;
   temp = files;
   if(temp == NULL){
-    E("No files to close in index!");
+    E("No files in index! Weird but no reason to exit!");
   }
   else if(temp == closing){
     files = closing->next;
@@ -52,15 +50,25 @@ int close_file_index(struct file_index* closing)
       }
       temp = temp->next;
     }
-    if(notfound == 0 && closing->next != NULL)
+    if(notfound == 0)
       temp->next = closing->next;
   }
-  MAINUNLOCK;
   free(closing->files);
   pthread_cond_destroy(&(closing->waiting));
   pthread_mutex_destroy(&(closing->augmentlock));
   free(closing->filename);
   free(closing);
+  return 0;
+}
+int close_file_index(struct file_index* closing)
+{
+
+  MAINLOCK;
+  if (close_file_index_mutex_free(closing) != 0){
+    MAINUNLOCK;
+    return -1;
+  }
+  MAINUNLOCK;
   return 0;
 }
 inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diskid, int status)
@@ -77,10 +85,6 @@ inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diski
   }
   fi->files[id].diskid = diskid;
   fi->files[id].status = status;
-  /*
-  fh->diskid = diskid;
-  fh_>status = status;
-  */
   fi->n_files++;
   return 0;
 }
@@ -111,14 +115,16 @@ int close_active_file_index()
 }
 struct file_index* get_fileindex_mutex_free(char * name, int associate)
 {
+  D("Trying to find %s",, name);
   struct file_index * temp = files;
-  while(files != NULL){
-    if(strcmp(files->filename, name) == 0){
-      if(associate == 1)
+  while(temp != NULL){
+    if(strncmp(temp->filename, name,FILENAME_MAX) == 0){
+      if(associate == 1){
 	temp->associations++;
+      }
       return temp;
     }
-    files = files->next;
+    temp= temp->next;
   }
   return NULL;
 }
@@ -160,6 +166,7 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   }
   else
   {
+    D("Not first file in index");
     new->next = (struct file_index*)malloc(sizeof(struct file_index));
     CHECK_ERR_NONNULL_RN(new->next);
     new = new->next;
@@ -175,12 +182,13 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   //new->augmentlock = PTHREAD_MUTEX_INITIALIZER;
   pthread_cond_init(&(new->waiting), NULL);
   //new->waiting = PTHREAD_COND_INITIALIZER;
-  MAINUNLOCK;
   FILOCK(new);
 
   new->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL_RN(new->filename);
-  strcpy(new->filename,name);
+  strncpy(new->filename,name,FILENAME_MAX);
+  new->associations = 1;
+  MAINUNLOCK;
   /* 0 means its a new recording and we don't know how many we're setting yet */
   if(n_files == 0){
     new->files = 0;
@@ -191,7 +199,6 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   /* +1 because indices start from 0 */
   new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files+1));
   CHECK_ERR_NONNULL_RN(new->files);
-  new->associations = 1;
   new->status = status;
   FIUNLOCK(new);
   D("File %s added to index",, new->filename);
@@ -199,21 +206,29 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
 }
 int disassociate(struct file_index* dis, int type)
 {
+  int err = 0;
   if(dis == NULL)
   {
     E("File association is null");
     return -1;
   }
+  /*Handling associations requires mainlock */
   MAINLOCK;
+  D("Disassociating with %s which has %d associations",, dis->filename, dis->associations);
   assert(dis->associations > 0);
   dis->associations--;
   if(type == FILESTATUS_RECORDING)
     dis->status &= ~FILESTATUS_RECORDING;
   /* Hmm so the other side isn't really relevant ..*/
+  if(dis->associations == 0){
+    D("File has no more associations. Closing it");
+    err = close_file_index_mutex_free(dis);
+  }
+  else{
+    D("Still associations to %s",, dis->filename);
+  }
   MAINUNLOCK;
-  if(dis->associations == 0)
-    return close_file_index(dis);
-  return 0;
+  return err;
 }
 void and_action(struct file_index* fi, unsigned long filenum, int status, int action)
 {
