@@ -1,0 +1,14 @@
+#!/bin/bash
+PID=$(pidof vlbistreamer)
+if [ -z "$PID" ]
+then
+  echo "no vlbistreamer running"
+  exit -1
+fi
+while sleep 1
+do
+  #echo "hur"
+  #arr=( $(top -b |grep vlbistreamer) )
+  #echo ${arr[0]}
+  top -b -p $PID |grep vlbistreamer
+done

@@ -50,13 +50,19 @@ fi
 
 echo "#time utime stime vsize"
 
+DAPID=$(pidof vlbistreamer)
+if [ -z $DAPID ]
+then
+  echo "No more vlbistreamer proc detected"
+  exit 1
+fi
+
 while [ "$TIMESPENT" -le "$TIME" ]
 do
-  DAPID=$(pidof vlbistreamer)
-  if [ -z $DAPID ]
+  if [  ! -f "/proc/$DAPID/stat" ]
   then
-    echo "No more vlbistreamer proc detected"
-    exit 1
+    echo "vlbistreamer not active"
+    exit 0
   fi
   DASTAT=($(cat /proc/$DAPID/stat))
   processors=0
