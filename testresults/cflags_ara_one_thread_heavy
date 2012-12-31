@@ -1,0 +1,1 @@
+CFLAGS=-O2 -mtune=amdfm10 -funroll-all-loops -fprefetch-loop-arrays -ffast-math -flto -msse4a -mabm
