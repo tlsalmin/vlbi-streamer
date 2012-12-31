@@ -85,6 +85,13 @@ int common_open_new_file(void * recco, void *opti,void* acq){
       return err;
     }
   }
+  if(ioi->opt->optbits & READMODE)
+  {
+    struct stat statinfo;
+    err = stat(ioi->curfilename, &statinfo);
+    ioi->filesize = statinfo.st_size;
+    D("Filesize is %lu",, ioi->filesize);
+  }
 
   /* Special for libaio stuff */
   /*
@@ -507,6 +514,10 @@ const char * common_wrt_get_filename(struct recording_entity *re){
 int common_getfd(struct recording_entity *re){
   return ((struct common_io_info*)re->opt)->fd;
 }
+off_t common_getfilesize(void *re)
+{
+  return ((struct common_io_info*)((struct recording_entity*)re)->opt)->filesize;
+}
 int common_check_files(struct recording_entity *re, void* opt_ss){
   int err=0;
   int temp=0;
@@ -649,6 +660,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->check_files = common_check_files;
   re->handle_error = handle_error;
   re->getid = common_getid;
+  re->get_filesize = common_getfilesize;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

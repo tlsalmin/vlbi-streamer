@@ -32,6 +32,7 @@ struct common_io_info{
   int fd;
   long long offset;
   long long bytes_exchanged;
+  off_t filesize;
   //INDEX_FILE_TYPE elem_size;
   int f_flags;
   INDEX_FILE_TYPE * indices;

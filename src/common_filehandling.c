@@ -213,7 +213,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     D("Buffer empty for: %lu",, st->files_sent);
     st->files_sent++;
   }
-  if(st->files_loaded < get_n_files(opt->fi)){
+  if(st->files_loaded <= get_n_files(opt->fi)){
     D("Still files to be loaded. Loading %lu",, st->files_loaded);
     /* start_loading increments files_loaded */
     err = start_loading(opt, se->be, st);
@@ -226,9 +226,10 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 	break;
       CHECK_ERR("Loading more files");
     }
+    D("Wont load anymore. Still allocated: %d",, st->allocated_to_load);
   }
   else{
-    D("Loaded enough files. Setting memorybuf to free");
+    D("Loaded enough files as loaded is %lu. Setting memorybuf to free",, st->files_loaded);
     set_free(opt->membranch, se->be->self);
     st->allocated_to_load++;
   }

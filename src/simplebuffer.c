@@ -49,7 +49,7 @@ extern FILE* logfile;
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
-#define DO_W_STUFF_IN_FIXED_BLOCKS
+//#define DO_W_STUFF_IN_FIXED_BLOCKS
 
 int sbuf_check(struct buffer_entity *be, int tout)
 {
@@ -402,7 +402,12 @@ int simple_end_transaction(struct buffer_entity *be)
   D("Have to write %lu extra bytes so count is %lu",, wrote_extra, count);
 
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
-  if(ret<0){
+  if(ret == EOF)
+  {
+    D("Got end of file");
+    sbuf->diff = 0;
+  }
+  else if(ret<0){
     E("Error in Rec entity write: %ld. Left to write:%ld bytes",, ret,sbuf->diff);
     close_recer(be,ret);
     return -1;
@@ -440,7 +445,7 @@ int simple_write_bytes(struct buffer_entity *be)
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
   //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
-#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
+#if(WRITE_GRANUALITY)
   unsigned long limit = sbuf->opt->do_w_stuff_every;
 #else
   //unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
@@ -466,7 +471,12 @@ int simple_write_bytes(struct buffer_entity *be)
 
   DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
-  if(ret<0){
+  if(ret == EOF)
+  {
+    D("End of file received");
+    sbuf->diff = 0;
+  }
+  else if(ret<0){
     E("RINGBUF: Error in Rec entity write: %ld. Left to write: %ld bytes offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
     close_recer(be,ret);
     return -1;
@@ -485,7 +495,7 @@ int simple_write_bytes(struct buffer_entity *be)
       sbuf->bufoffset+=ret;
     }
     else{
-#ifdef DO_W_STUFF_IN_FIXED_BLOCKS
+#if(WRITE_GRANUALITY)
       //sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
       sbuf->diff-=sbuf->opt->do_w_stuff_every;
 #else
@@ -561,6 +571,12 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
+      off_t rfilesize = be->recer->get_filesize(be->recer);
+      if(sbuf->diff != rfilesize)
+      {
+	D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
+	sbuf->diff = rfilesize;
+      }
     }
     else{
       be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);
@@ -633,7 +649,7 @@ void *sbuf_simple_write_loop(void *buffo)
     }
 
     if(sbuf->diff > 0){
-      D("Blocking writes. Left to write %ld for file %lu",,sbuf->diff,sbuf->fileid);
+      D("Blocking reads/writes. Left to read/write %ld for file %lu",,sbuf->diff,sbuf->fileid);
       assert(sbuf->diff <= FILESIZE);
       savedif = sbuf->diff;
       ret = -1;

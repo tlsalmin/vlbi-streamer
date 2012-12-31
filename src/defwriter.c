@@ -61,10 +61,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       ret = write(ioi->fd, start, count);
     if(ret <=0){
       if(ret == 0 && (ioi->opt->optbits & READMODE)){
-#if(DEBUG_OUTPUT)
 	D("DEFWRITER: End of file!");
-#endif
-	total_w += count;
 	ioi->bytes_exchanged += count;
 #if(DAEMON)
 	//if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
@@ -73,7 +70,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 	//if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
 	  //E("Spinlock unlock");
 #endif
-	return count;
+	return EOF;
       }
       else{
 	perror("DEFWRITER: Error on write/read");

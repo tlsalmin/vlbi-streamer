@@ -29,7 +29,7 @@ int writev_init(struct opt_s * opt, struct recording_entity *re){
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
-  D("Preparing iovecs");
+  D("Preparing iovecs. IOV_MAX is %d",, IOV_MAX);
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
   ioi->extra_param = (void*)malloc(sizeof(struct iovec)*IOV_MAX); 
   CHECK_ERR_NONNULL(ioi->extra_param, "Malloc extra params");
@@ -57,6 +57,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   if(ioi->opt->optbits & READMODE)
     return def_write(re,start,count);
 
+  D("Issued write of %lu from %lu on %s",, count, (long)start, ioi->curfilename);
   total_i=0;
   n_vecs = count/ioi->opt->packet_size;
   while(total_i < n_vecs){
@@ -84,7 +85,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
     //E("Spinlock unlock");
 #endif
   ioi->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
-  //D("Writev wrote %lu",, total_i*(ioi->opt->packet_size- ioi->opt->offset));
+  D("Writev wrote %lu for %s",, total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
   fdatasync(ioi->fd);
 
   /* Returning count since simplebuffer sdhouln't think about these things */
