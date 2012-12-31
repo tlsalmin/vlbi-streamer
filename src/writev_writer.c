@@ -79,9 +79,12 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
     //E("spinlock lock");
   ioi->opt->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
+
   //if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
     //E("Spinlock unlock");
 #endif
+  ioi->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
+  //D("Writev wrote %lu",, total_i*(ioi->opt->packet_size- ioi->opt->offset));
   fdatasync(ioi->fd);
 
   /* Returning count since simplebuffer sdhouln't think about these things */
