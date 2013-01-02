@@ -505,7 +505,7 @@ int simple_write_bytes(struct buffer_entity *be)
     else{
 #if(WRITE_GRANUALITY)
       //sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
-      sbuf->diff-=sbuf->opt->do_w_stuff_every;
+      sbuf->diff-=count;
 #else
       sbuf->diff = 0;
 #endif
