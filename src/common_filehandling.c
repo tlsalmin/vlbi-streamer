@@ -9,12 +9,14 @@ extern FILE* logfile;
 #define SKIP_SENT 	2
 inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
 {
-  unsigned long * target;
+  unsigned long * target = NULL;
   if(lors == SKIP_LOADED)
     target = &(st->files_loaded);
   else if(lors == SKIP_SENT)
     target = &(st->files_sent);
 
+  if(target != NULL)
+  {
   while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
     long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
 
@@ -31,6 +33,9 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
     else if(lors == SKIP_LOADED)
       st->packets_loaded+= nuf;
   }
+  }
+  else
+    E("Weird target");
 }
 
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)

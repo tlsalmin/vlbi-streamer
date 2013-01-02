@@ -49,9 +49,9 @@ int main(int argc, char ** argv){
   int userspecified;
   int hexoffset=0;
   int tvg;
-  int framenum;
+  int framenum=0;
   int VLBABCD_timecodeword1J;
-  int VLBABCD_timecodeword1S;
+  int VLBABCD_timecodeword1S =0;
   int VLBABCD_timecodeword2;
   //int seek = 0;
   int CRCC;

@@ -230,7 +230,7 @@ int common_readcfg(struct recording_entity *re, void *opti){
   return err;
 }
 int handle_error(struct recording_entity *re, int errornum){
-  int err;
+  int err = 0;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   if(errornum == ENOSPC){
     E("Mount point full. Setting to read only");

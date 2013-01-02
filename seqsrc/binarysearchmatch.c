@@ -185,7 +185,7 @@ int main(int argc, char ** argv){
   */
   maxmatch = MAXMATCH;
   char c;
-  int fds, fdm;
+  int fds=0, fdm=0;
   type = TYPE_MARK5B;
   offset = MARK5HEADER;
   framesize = MARK5SIZE;

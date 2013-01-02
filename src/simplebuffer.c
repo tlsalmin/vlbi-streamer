@@ -451,7 +451,7 @@ int simple_write_bytes(struct buffer_entity *be)
   if(sbuf->opt->optbits & REC_WRITEV)
   {
     long temp = (sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size);
-    limit = temp*sbuf->opt->packet_size;
+    limit = temp*(sbuf->opt->packet_size);
   }
   else
     limit = sbuf->opt->do_w_stuff_every;
