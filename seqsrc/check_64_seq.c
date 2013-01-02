@@ -5,7 +5,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <ctype.h>
 #define O(...) fprintf(stdout, "File: %s: ", argv[1]);fprintf(stdout, __VA_ARGS__)
+void usage(char**argv){
+    O("Usage: %s <filename> <byte spacing>\n", argv[0]);
+
+  exit(-1);
+}
 
 int main(int argc, char** argv){
   int fd,i;
@@ -13,34 +19,88 @@ int main(int argc, char** argv){
   long fsize;
   long spacing;
   long read_count;
+  int wordsize=8;
   struct stat st;
+  char* filename = NULL;
+  int index;
+  int bflag=0;
+  char c;
+  while ((c = getopt (argc, argv, "w:b")) != -1)
+    switch (c)
+    {
+      case 'w':
+	wordsize = atoi(optarg);
+	break;
+      case 'b':
+	bflag = 1;
+	break;
+      case '?':
+	if (optopt == 'w')
+	  fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+	else if (isprint (optopt)){
+	  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+	  usage(argv);
+	}
+	else{
+	  fprintf (stderr,
+	      "Unknown option character `\\x%x'.\n",
+	      optopt);
+	  usage(argv);
+	}
+      default:{
+	abort ();
+	      }
+    }
+
+  printf ("wordsize = %d, bflag = %d\n",
+      wordsize, bflag);
+
+  int j =0;
+  for (index = optind; index < argc; index++){
+    printf ("Non-option argument %s\n", argv[index]);
+    if(j == 0){
+      filename = argv[index];
+      O("Filename is %s\n", filename);
+      j++;
+    }
+    else if(j == 1)
+    {
+      spacing = atol(argv[index]);
+      O("Spacing is %ld\n", spacing);
+      j++;
+    }
+  }
+  //return 0;
+  /*
   if(argc < 3){
     O("Usage: %s <filename> <byte spacing>\n", argv[0]);
     exit(-1);
   }
+  */
 
   
-  if(stat(argv[1], &st) != 0){
+  if(stat(filename, &st) != 0){
     O("error in stat\n");
     exit(-1);
   }
 
-  spacing = atol(argv[2]);
+  //spacing = atol(argv[2]);
 
-  fd = open(argv[1], O_RDONLY);
+  fd = open(filename, O_RDONLY);
   if(fd == -1){
-    O("Error opening file %s\n", argv[1]);
+    O("Error opening file %s\n", filename);
     exit(-1);
   }
 
   fsize = st.st_size;
   
 
-  if(read(fd, &count,8) < 0){
+  if(read(fd, &count,wordsize) < 0){
     O("Read error!");
     exit(-1);
   }
-  count = be64toh(count);
+  if(bflag == 0)
+    count = be64toh(count);
   O("first count is %ld\n", count);
   count++;
 
@@ -48,11 +108,12 @@ int main(int argc, char** argv){
 
     lseek(fd, i*spacing, SEEK_SET);
 
-    if(read(fd, &read_count,8) < 0){
+    if(read(fd, &read_count,wordsize) < 0){
       O("Read error!\n");
       break;
     }
-    read_count = be64toh(read_count);
+    if(bflag==0)
+      read_count = be64toh(read_count);
     if(count != read_count){
       fprintf(stdout, "Discrepancy as count is %ld and read_count is %ld\n",count, read_count);
       //count = read_count;
