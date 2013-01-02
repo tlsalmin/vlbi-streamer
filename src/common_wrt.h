@@ -30,7 +30,7 @@ struct common_io_info{
   //char * filename;
   char * curfilename;
   int fd;
-  long long offset;
+  off_t offset;
   long long bytes_exchanged;
   off_t filesize;
   //INDEX_FILE_TYPE elem_size;

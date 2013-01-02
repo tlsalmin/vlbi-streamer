@@ -444,12 +444,20 @@ int simple_write_bytes(struct buffer_entity *be)
 {
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   long ret;
+  unsigned long limit;
   //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
 #if(WRITE_GRANUALITY)
-  unsigned long limit = sbuf->opt->do_w_stuff_every;
+  /* Special case for writev. It needs the limit to be set to a multiplied packet size, or it will split up the offsetted write incorrectly */
+  if(sbuf->opt->optbits & REC_WRITEV)
+  {
+    long temp = (sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size);
+    limit = temp*sbuf->opt->packet_size;
+  }
+  else
+    limit = sbuf->opt->do_w_stuff_every;
 #else
   //unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
-  unsigned long limit = FILESIZE;
+  limit = FILESIZE;
 #endif
 
   //unsigned long count = sbuf->diff * sbuf->opt->packet_size;
@@ -467,7 +475,7 @@ int simple_write_bytes(struct buffer_entity *be)
     D("Only need to finish transaction. limit %lu, count %lu",, limit, count);
     return simple_end_transaction(be);
   }
-  ASSERT(count % 4096 == 0);
+  //ASSERT(count % 4096 == 0);
 
   DD("Starting write with count %lu",,count);
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);

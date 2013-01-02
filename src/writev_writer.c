@@ -57,7 +57,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   if(ioi->opt->optbits & READMODE)
     return def_write(re,start,count);
 
-  D("Issued write of %lu from %lu on %s. offset is %d",, count, (long)start, ioi->curfilename, ioi->opt->offset);
+  D("Issued write of %lu from %lu on %s. offset is %d file offset %ld",, count, (long)start, ioi->curfilename, ioi->opt->offset, ioi->offset);
   total_i=0;
   n_vecs = count/ioi->opt->packet_size;
   while(total_i < n_vecs){
@@ -74,7 +74,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
     else if((unsigned long)err !=  i*(ioi->opt->packet_size - ioi->opt->offset))
       E("Wrote %ld when should have %ld",, err, (i * (ioi->opt->packet_size - ioi->opt->offset)));
     //start += i*ioi->opt->packet_size;
-    ioi->offset += i*(ioi->opt->packet_size- ioi->opt->offset);
+    ioi->offset += i*(ioi->opt->packet_size - ioi->opt->offset);
     total_i += i;
   }
 #if(DAEMON)

@@ -405,47 +405,6 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->status = RECSTATUS_OK;
 
   ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  /*
-#ifndef DAEMON
-  err = init_directory(re);
-  CHECK_ERR("Init directory");
-#endif
-*/
-
-  //ioi->latest_write_num = 0;
-  /*
-  if(ioi->opt->optbits & READMODE){
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "COMMON_WRT: Initializing read point\n");
-    fprintf(stdout, "COMMON_WRT: Getting read flags\n");
-#endif
-    ioi->f_flags = re->get_r_flags();
-    //prealloc_bytes = 0;
-  }
-  else{
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "COMMON_WRT: Initializing write point\n");
-    fprintf(stdout, "COMMON_WRT: Getting write flags and calculating falloc\n");
-#endif
-    //ioi->f_flags = O_WRONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
-    ioi->f_flags = re->get_w_flags();
-
-    //RATE = 10 Gb => RATE = 10*1024*1024*1024/8 bytes/s. Handled on n_threads
-    //for s seconds.
-    //prealloc_bytes = ((unsigned long)opt->rate*opt->time)/(opt->n_threads*8);
-    //Split kb/gb stuff to avoid overflow warning
-    //prealloc_bytes = prealloc_bytes*1024*1024;
-    //set flag FALLOC_FL_KEEP_SIZE to precheck drive for errors
-
-    //prealloc_bytes = opt->max_num_packets* opt->packet_size;
-    //prealloc_bytes=0;
-
-  }
-  */
-  //fprintf(stdout, "wut\n");
-  //ioi->filename = opt->filenames[opt->taken_rpoints++];
-
-
   //TODO: Set offset accordingly if file already exists. Not sure if
   //needed, since data consistency would take a hit anyway
   ioi->offset = 0;
