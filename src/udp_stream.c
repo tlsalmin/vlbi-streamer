@@ -998,12 +998,11 @@ void* udp_receiver(void *streamo)
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
 
-    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+  resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   /* IF we have packet resequencing	*/
   if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN))
   {
     resq->bufstart = resq->buf;
-
     /* Set up preliminaries to -1 so we know to	*/
     /* init this in the calcpos			*/
     resq->current_seq= INT64_MAX;
@@ -1104,6 +1103,23 @@ void* udp_receiver(void *streamo)
       /* correct sequence from the header		*/
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	/* Calc the position we should have		*/
+	/*
+	if(spec_ops->opt->first_packet == NULL)
+	{
+	  err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
+	  if (err != 0)
+	  {
+	    E("First metadata malloc failed!");
+	  }
+	  else{
+	    err = copy_metadata(resq->buf, spec_ops->opt->first_packet, spec_ops->opt);
+	    if(err != 0)
+	    {
+	      E("First metadata copying failed!");
+	    }
+	  }
+	}
+	*/
 	calc_bufpos_general(resq->buf, se, resq);
       }
       else{
@@ -1185,9 +1201,9 @@ int close_udp_streamer(void *opt_own, void *stats){
   //close(spec_ops->fd);
   //close(spec_ops->rp->fd);
 
-//#if(DEBUG_OUTPUT)
+  //#if(DEBUG_OUTPUT)
   LOG("UDP_STREAMER: Closed\n");
-//#endif
+  //#endif
   //stats->packet_index = spec_ops->packet_index;
   //spec_ops->be->close(spec_ops->be, stats);
   //free(spec_ops->be);

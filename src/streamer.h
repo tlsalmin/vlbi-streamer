@@ -111,19 +111,22 @@
 #define SIMPLE_BUFFER		B(23)
 
 #define USE_RX_RING		B(24)
-#define LIVE_SENDING		B(25)
-#define LIVE_RECEIVING		B(26)
-//EMPTY 27
+#define GET_A_FILENAME_AS_ARG	B(25)
+#define CAN_STRIP_BYTES		B(26)
+/* One empty here */
 
-#define LOCKER_DATATYPE		0x00000000f0000000
-#define	DATATYPE_UNKNOWN	B(28) 
-#define	DATATYPE_VDIF		B(29) 
-#define	DATATYPE_MARK5B		B(30) 
-#define DATATYPE_UDPMON		B(31)
+/* 4 empty here */
 
-#define GET_A_FILENAME_AS_ARG	B(32)
 /* Set only if the writer can actually strip bytes from packets	*/
-#define CAN_STRIP_BYTES		B(33)
+
+#define LOCKER_DATATYPE		0x000000ff00000000
+#define	DATATYPE_UNKNOWN	B(32) 
+#define	DATATYPE_VDIF		B(33) 
+#define	DATATYPE_MARK5B		B(34) 
+#define DATATYPE_UDPMON		B(35)
+
+#define	DATATYPE_MARK5BNET	B(36) 
+/* Next three empty */
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -302,12 +305,6 @@ struct rxring_request{
 struct opt_s
 {
   char *filename;
-/*
-#ifdef USE_FOR_DISK2FILE
-  char *out_filename;
-#endif
-*/
-
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
   long unsigned *cumul;
@@ -319,13 +316,6 @@ struct opt_s
   char *cfgfile;
   int diskids;
   struct file_index * fi;
-
-
-  /* Make this a spinlock, since augmenting this struct is fast		*/
-  //pthread_spinlock_t *augmentlock;
-  //unsigned long n_files;
-  //struct fileblocks *fbs;
-  //struct opt_s* liveother;
   unsigned long optbits;
   int root_pid;
   int hd_failures;
@@ -340,6 +330,7 @@ struct opt_s
   int n_drives;
   int bufculum;
   int rate;
+  void * first_packet;
 
   /* Used to skip writing of some headers */
   int offset;

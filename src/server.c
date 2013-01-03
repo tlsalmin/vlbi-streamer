@@ -274,6 +274,14 @@ int start_event(struct scheduled_event *ev)
     */
   }
   ev->opt->status = STATUS_RUNNING;
+  if(!(ev->opt->optbits & VERBOSE))
+  {
+    D("What the hell?!");
+    if(sched->default_opt->optbits & VERBOSE)
+    {
+      D("Oh derp!");
+    }
+  }
   if(ev->opt->optbits & VERBOSE){
     ev->stats = (struct stats*)malloc(sizeof(struct stats));
     init_stats(ev->stats);
