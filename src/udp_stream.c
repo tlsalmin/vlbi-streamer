@@ -760,9 +760,10 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   /* It looks silly, but inc was migrated to byte offset 		*/
   /* This setup lets use use arbitrary packet sizes with all buffers	*/
   //if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
-  if((resq->i) == spec_ops->opt->buf_num_elems)
+  //if((resq->i) == spec_ops->opt->buf_num_elems)
+  if((unsigned long)*(resq->inc) == (spec_ops->opt->buf_num_elems*(spec_ops->opt->packet_size)))
   {
-    D("All packets for current file received OK");
+    D("All packets for current file received OK. rsqinc: %ld, needed: %lu",, *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
 #ifdef FORCE_WRITE_TO_FILESIZE
     *(resq->inc) = FILESIZE;
 #endif
@@ -789,59 +790,6 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   resq->seqstart_current += spec_ops->opt->buf_num_elems;
 
   return 0;
-}
-/*
-void * calc_bufpos_vdif(void* header, struct streamer_entity* se, struct resq_info *resq){
-  (void)header;
-  (void)se;
-  (void)resq;
-  return NULL;
-}
-void * calc_bufpos_mark5b(void* header, struct streamer_entity* se, struct resq_info *resq){
-  (void)header;
-  (void)se;
-  (void)resq;
-  return NULL;
-}
-*/
-#define BITMASK_30 0xfffffff3
-#define BITMASK_24 0xffffff00
-#define RBITMASK_30 0x3fffffff
-#define RBITMASK_24 0x00ffffff
-inline long getseq_vdif(void* header, struct resq_info *resq){
-  long returnable;
-  long second = (long)*((int*)header) & RBITMASK_30;
-  long framenum = (long)*((int*)(header + 4)) & RBITMASK_24;
-  //D("Dat second %lu, dat framenum %lu",, second, framenum);
-  if(resq->starting_second == -1){
-    //D("Got first second as %lu, framenum %lu",, second, framenum);
-    resq->starting_second =  second;
-    return framenum;
-  }
-  if(resq->packets_per_second == -1){
-    if(second == resq->current_seq)
-      return framenum;
-    else{
-      //D("got packets per seconds as %lu",, resq->current_seq);
-      resq->packets_per_second = resq->current_seq;
-      resq->packetsecdif = second - resq->starting_second;
-    }
-  }
-  
-  if(resq->packets_per_second == 0){
-    returnable = (second - resq->starting_second)/resq->packetsecdif;
-  }
-  else
-    returnable =  (second - (long)resq->starting_second)*((long)resq->packets_per_second) + framenum;
-  D("Returning %lu",, returnable);
-  //resq->current_second = second;
-  return returnable;
-}
-inline long getseq_mark5b(void* header){
-  return be64toh(*((long*)header));
-}
-inline long getseq_udpmon(void* header){
-  return be64toh(*((long*)header));
 }
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq){
   /* The seqnum is the first 64bits of the packet 	*/
@@ -1050,11 +998,10 @@ void* udp_receiver(void *streamo)
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
 
+    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   /* IF we have packet resequencing	*/
-  if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
-    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-  else{
-    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN))
+  {
     resq->bufstart = resq->buf;
 
     /* Set up preliminaries to -1 so we know to	*/

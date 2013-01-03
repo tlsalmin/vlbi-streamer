@@ -19,23 +19,27 @@ int main(int argc, char** argv){
   long fsize;
   long spacing;
   long read_count;
+  int readoffset=0;
   int wordsize=8;
   struct stat st;
   char* filename = NULL;
   int index;
   int bflag=0;
   char c;
-  while ((c = getopt (argc, argv, "w:b")) != -1)
+  while ((c = getopt (argc, argv, "w:bo:")) != -1)
     switch (c)
     {
       case 'w':
 	wordsize = atoi(optarg);
 	break;
+      case 'o':
+	readoffset= atoi(optarg);
+	break;
       case 'b':
 	bflag = 1;
 	break;
       case '?':
-	if (optopt == 'w')
+	if (optopt == 'w' || optopt == 'o')
 	  fprintf (stderr, "Option -%c requires an argument.\n", optopt);
 	else if (isprint (optopt)){
 	  fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -95,6 +99,7 @@ int main(int argc, char** argv){
   fsize = st.st_size;
   
 
+  lseek(fd,readoffset,SEEK_SET);
   if(read(fd, &count,wordsize) < 0){
     O("Read error!");
     exit(-1);
@@ -106,7 +111,7 @@ int main(int argc, char** argv){
 
   for(i=1;i*spacing < fsize;i++){
 
-    lseek(fd, i*spacing, SEEK_SET);
+    lseek(fd, i*spacing+readoffset, SEEK_SET);
 
     if(read(fd, &read_count,wordsize) < 0){
       O("Read error!\n");
