@@ -803,8 +803,14 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     case DATATYPE_VDIF:
       seqnum = getseq_vdif(header, resq);
       break;
+    case DATATYPE_MARK5BNET:
+      seqnum = getseq_mark5b_net(header);
+      break;
     case DATATYPE_MARK5B:
-      seqnum = getseq_mark5b(header);
+      //seqnum = getseq_mark5b(header);
+      //TODO!
+      /* Used is in trouble if hes sending plain mark5bs anyway */
+      seqnum = resq->current_seq+1;
       break;
     default:
       E("Invalid datatype set!");
@@ -1103,7 +1109,6 @@ void* udp_receiver(void *streamo)
       /* correct sequence from the header		*/
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	/* Calc the position we should have		*/
-	/*
 	if(spec_ops->opt->first_packet == NULL)
 	{
 	  err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
@@ -1117,9 +1122,9 @@ void* udp_receiver(void *streamo)
 	    {
 	      E("First metadata copying failed!");
 	    }
+	    spec_ops->opt->resqut = resq;
 	  }
 	}
-	*/
 	calc_bufpos_general(resq->buf, se, resq);
       }
       else{
@@ -1160,7 +1165,9 @@ void* udp_receiver(void *streamo)
   LOG("UDP_STREAMER: Closing streamer thread\n");
   //spec_ops->running = 0;
   spec_ops->opt->status = STATUS_STOPPED;
-  free(resq);
+  /* Main thread will free if we have a real datatype */
+  if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
+    free(resq);
   pthread_exit(NULL);
 
 }

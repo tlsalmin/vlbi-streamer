@@ -2,7 +2,7 @@
 #INCLUDES                    = @CHECK_CFLAGS@
 #if HAVE_CHECK
 AUTOMAKE_OPTIONS = parallel-tests
-TESTS = resourcetree active_file_index
+TESTS = resourcetree active_file_index datatypes
 #else
 #TESTS                       =
 #endif
@@ -14,9 +14,11 @@ check_PROGRAMS = $(TESTS)
 #resourcetree_SOURCES = resourcetree_utest.c ../src/resourcetree.h ../src/resourcetree.c ../src/streamer.h
 #resourcetree_SOURCES = resourcetree_utest.c $(top_builddir)/src/resourcetree.h $(top_builddir)/src/resourcetree.h
 resourcetree_SOURCES = resourcetree_utest.c $(top_builddir)/src/resourcetree.h
-resourcetree_LDADD = ../src/splicewriter.o ../src/aiowriter.o ../src/common_wrt.o ../src/defwriter.o ../src/udp_stream.o ../src/timer.o ../src/confighelper.o ../src/fanout.o ../src/simplebuffer.o ../src/resourcetree.o ../src/streamer.o ../src/common_filehandling.o ../src/active_file_index.o ../src/disk2file.o ../src/writev_writer.o $(ADD_LIBS) -lcheck
+resourcetree_LDADD = ../src/splicewriter.o ../src/aiowriter.o ../src/common_wrt.o ../src/defwriter.o ../src/udp_stream.o ../src/timer.o ../src/confighelper.o ../src/fanout.o ../src/simplebuffer.o ../src/resourcetree.o ../src/streamer.o ../src/common_filehandling.o ../src/active_file_index.o ../src/disk2file.o ../src/writev_writer.o ../src/datatypes.o $(ADD_LIBS) -lcheck
 active_file_index_SOURCES = active_file_index_utest.c $(top_builddir)/src/active_file_index.h
-active_file_index_LDADD = ../src/splicewriter.o ../src/aiowriter.o ../src/common_wrt.o ../src/defwriter.o ../src/udp_stream.o ../src/timer.o ../src/confighelper.o ../src/fanout.o ../src/simplebuffer.o ../src/resourcetree.o ../src/streamer.o ../src/common_filehandling.o ../src/active_file_index.o ../src/disk2file.o ../src/writev_writer.o $(ADD_LIBS) -lcheck
+active_file_index_LDADD = ../src/splicewriter.o ../src/aiowriter.o ../src/common_wrt.o ../src/defwriter.o ../src/udp_stream.o ../src/timer.o ../src/confighelper.o ../src/fanout.o ../src/simplebuffer.o ../src/resourcetree.o ../src/streamer.o ../src/common_filehandling.o ../src/active_file_index.o ../src/disk2file.o ../src/writev_writer.o ../src/datatypes.o $(ADD_LIBS) -lcheck
+datatypes_SOURCES = datatypes_utest.c $(top_builddir)/src/datatypes.h
+datatypes_LDADD = ../src/splicewriter.o ../src/aiowriter.o ../src/common_wrt.o ../src/defwriter.o ../src/udp_stream.o ../src/timer.o ../src/confighelper.o ../src/fanout.o ../src/simplebuffer.o ../src/resourcetree.o ../src/streamer.o ../src/common_filehandling.o ../src/active_file_index.o ../src/disk2file.o ../src/writev_writer.o ../src/datatypes.o $(ADD_LIBS) -lcheck
 #resourcetree_CFLAGS = $(INCLUDES)
 #resourcetree_LDADD = $(top_builddir)/src/libtests.la @CHECK_LIBS@
 #resourcetree_LDADD = $(ADD_LIBS)

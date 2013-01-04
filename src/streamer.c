@@ -819,6 +819,8 @@ int close_opts(struct opt_s *opt){
   int i;
   if(opt->first_packet != NULL)
     free(opt->first_packet);
+  if(opt->resqut != NULL)
+    free(opt->resqut);
   if(opt->device_name != NULL)
     free(opt->device_name);
   if(opt->cfgfile != NULL){

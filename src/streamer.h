@@ -331,6 +331,7 @@ struct opt_s
   int bufculum;
   int rate;
   void * first_packet;
+  void * resqut;
 
   /* Used to skip writing of some headers */
   int offset;

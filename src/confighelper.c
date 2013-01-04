@@ -316,6 +316,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case DATATYPE_UDPMON:
 	    err = config_setting_set_string(setting, "udpmon");
 	    break;
+	  case DATATYPE_MARK5BNET:
+	    err = config_setting_set_string(setting, "mark5bnet");
+	    break;
 	  default:
 	    E("Unknown datatype");
 	    return -1;
@@ -325,19 +328,18 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       else{
 	opt->optbits &= ~LOCKER_DATATYPE;
 	if (!strcmp(config_setting_get_string(setting), "unknown")){
-	  //opt->capture_type = CAPTURE_W_FANOUT;
 	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	else if (!strcmp(config_setting_get_string(setting), "vdif")){
-	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
 	  opt->optbits |= DATATYPE_VDIF;
 	}
+	else if (!strcmp(config_setting_get_string(setting), "mark5bnet")){
+	  opt->optbits |= DATATYPE_MARK5BNET;
+	}
 	else if (!strcmp(config_setting_get_string(setting), "mark5b")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= DATATYPE_MARK5B;
 	}
 	else if (!strcmp(config_setting_get_string(setting), "udpmon")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= DATATYPE_UDPMON;
 	}
 	else {
