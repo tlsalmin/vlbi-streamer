@@ -17,7 +17,7 @@
 #define SET_SECOND_FOR_VDIF(target,second) *((uint32_t*)(target)) = second & RBITMASK_30
 
 #define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)(framenum));
-#define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint64_t*)(target)) = (uint64_t)(framenum);
+#define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint32_t*)(target+4)) = (uint32_t)(framenum);
 #define SET_FRAMENUM_FOR_MARK5B(target,framenum) *((uint32_t*)(target)) = (uint32_t)(framenum) & get_mask(0,14);
 #include "streamer.h"
 

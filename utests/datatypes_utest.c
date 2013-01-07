@@ -108,6 +108,14 @@ int testrun()
     E("Unreasonable amount of errors: %d",, *expected_errors);
     return -1;
   }
+  D("Checking fixed area");
+  *expected_errors = 0;
+  err = check_and_fill(testarea,opt,RANDOM_FILE, expected_errors);
+  CHECK_ERR("Check and fill fileid");
+  if(*expected_errors != 0){
+    E("Found errors when shouldn't!");
+    return -1;
+  }
   return 0;
 }
 

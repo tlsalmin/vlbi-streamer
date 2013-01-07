@@ -144,16 +144,20 @@ void * create_initial_header(long fileid, struct opt_s *opt)
       //TODO
       break;
     case DATATYPE_UDPMON:
-      memset(header,0,HSIZE_UDPMON);
-      *hdr = be64toh(getseq_udpmon(opt->first_packet) + opt->buf_num_elems * fileid);
+      //memset(header,0,HSIZE_UDPMON);
+      //*hdr = be64toh(getseq_udpmon(opt->first_packet) + opt->buf_num_elems * fileid);
+      SET_FRAMENUM_FOR_UDPMON(header, getseq_udpmon(opt->first_packet)+(opt->buf_num_elems)*fileid);
       break;
     case DATATYPE_MARK5BNET:
       memset(hdr,0,HSIZE_MARK5BNET);
-      *hdr = getseq_mark5b_net(opt->first_packet) + opt->buf_num_elems * fileid;
+      SET_FRAMENUM_FOR_MARK5BNET(header, getseq_mark5b_net(opt->first_packet)+(opt->buf_num_elems)*fileid);
+      //*hdr = getseq_mark5b_net(opt->first_packet) + opt->buf_num_elems * fileid;
+      /*
       if(*hdr & 0xffffffff00000000){
 	E("Mark5bnet header should have 4 bytes of fillers at start. Must have gone around. %lX",, *hdr);
 	*hdr = *hdr & 0x00000000ffffffff;
       }
+      */
       break;
     default:
       E("Unknown datatype");
@@ -197,10 +201,12 @@ int increment_header(void * modelheader, struct opt_s* opt)
       //memcpy(buffer,modelheader,HSIZE_MARK5B
       break;
     case DATATYPE_UDPMON:
-      *((long*)modelheader) = be64toh(getseq_udpmon(modelheader) + 1 );
+      //*((long*)modelheader) = be64toh(getseq_udpmon(modelheader) + 1 );
+      SET_FRAMENUM_FOR_UDPMON(modelheader,getseq_udpmon(modelheader)+1);
       break;
     case DATATYPE_MARK5BNET:
-      *((long*)modelheader) = be64toh(getseq_mark5b_net(modelheader) + 1 );
+      SET_FRAMENUM_FOR_MARK5BNET(modelheader, getseq_mark5b_net(modelheader)+1);
+      //*((long*)modelheader) = (getseq_mark5b_net(modelheader) + 1 );
       break;
     default:
       E("Unknown datatype");
