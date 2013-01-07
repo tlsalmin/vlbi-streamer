@@ -9,7 +9,7 @@
 #define HSIZE_VDIF 16
 #define HSIZE_MARK5B 16
 #define HSIZE_UDPMON 8
-#define HSIZE_MARK5BNET 8
+#define HSIZE_MARK5BNET 20
 
 #define FRAMENUM_FROM_VDIF(x) (long)(*((uint32_t*)((x)+4)) & RBITMASK_24)
 #define SET_FRAMENUM_FOR_VDIF(target,framenum) *((uint32_t*)(target+4)) = framenum & RBITMASK_24

@@ -38,6 +38,7 @@
 #include "assert.h"
 #include "common_wrt.h"
 #include "active_file_index.h"
+#include "datatypes.h"
 #ifndef MMAP_NOT_SHMGET
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -604,6 +605,10 @@ int write_buffer(struct buffer_entity *be)
       }
       else{
 	D("Got recer so updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
+	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))
+	{
+	  check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL);
+	}
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
