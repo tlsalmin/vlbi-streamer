@@ -16,9 +16,9 @@
 #define SECOND_FROM_VDIF(x) (long)(*((uint32_t*)(x))) & RBITMASK_30;
 #define SET_SECOND_FOR_VDIF(target,second) *((uint32_t*)(target)) = second & RBITMASK_30
 
-#define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)framenum);
-#define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint64_t*)(target)) = (uint64_t)framenum;
-#define SET_FRAMENUM_FOR_MARK5B(target,framenum) *((uint32_t*)(target)) = (uint32_t)framenum & get_mask(0,14);
+#define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)(framenum));
+#define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint64_t*)(target)) = (uint64_t)(framenum);
+#define SET_FRAMENUM_FOR_MARK5B(target,framenum) *((uint32_t*)(target)) = (uint32_t)(framenum) & get_mask(0,14);
 #include "streamer.h"
 
 struct resq_info{
@@ -39,6 +39,7 @@ inline long getseq_mark5b_net(void* header);
 inline long getseq_udpmon(void* header);
 int copy_metadata(void* source, void* target, struct opt_s* opt);
 int init_header(void** target, struct opt_s* opt);
-int check_and_fill(void * buffer, struct opt_s* opt, long fileid);
+int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_errors);
+inline long header_match(void* target, void* match, struct opt_s * opt);
 
 #endif

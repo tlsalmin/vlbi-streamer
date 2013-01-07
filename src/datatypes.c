@@ -33,7 +33,7 @@ inline long getseq_vdif(void* header, struct resq_info *resq){
   //D("Returning %lu",, returnable);
   return returnable;
 }
-int copy_metadata(void* source, void* target, struct opt_s* opt)
+int copy_metadata(void* target, void* source, struct opt_s* opt)
 {
   switch(opt->optbits & LOCKER_DATATYPE)
   {
@@ -197,9 +197,7 @@ int increment_header(void * modelheader, struct opt_s* opt)
       //memcpy(buffer,modelheader,HSIZE_MARK5B
       break;
     case DATATYPE_UDPMON:
-      D("before! %ld",, getseq_udpmon(modelheader));
       *((long*)modelheader) = be64toh(getseq_udpmon(modelheader) + 1 );
-      D("after! %ld",, getseq_udpmon(modelheader));
       break;
     case DATATYPE_MARK5BNET:
       *((long*)modelheader) = be64toh(getseq_mark5b_net(modelheader) + 1 );
@@ -210,10 +208,11 @@ int increment_header(void * modelheader, struct opt_s* opt)
   }
   return 0;
 }
-int check_and_fill(void * buffer, struct opt_s* opt, long fileid)
+int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_errors)
 {
   int i;
   int err;
+  int errors=0;
   long match;
   void* modelheader = create_initial_header(fileid, opt);
   CHECK_ERR_NONNULL(modelheader, "Create modelheader");
@@ -225,11 +224,16 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid)
       D("A hole to fill found!. Match missed by %ld",, match);
       err = fillpattern(buffer, modelheader,opt);
       CHECK_ERR("Fillpattern");
+      errors++;
     }
     err =  increment_header(modelheader,opt);
-    CHECK_ERR("increment header");
+    //CHECK_ERR("increment header");
     buffer += opt->packet_size;
   }
+  /* Expected errors not yet used */
+  if(expected_errors != NULL)
+    *expected_errors = errors;
+  D("Check and fill showed %d holes",, errors);
   return 0;
 }
 
