@@ -34,28 +34,16 @@
 #include "config.h"
 #include "streamer.h"
 #include "confighelper.h"
+#include "server.h"
 #include "active_file_index.h"
 //#define TERM_SIGNAL_HANDLING
-#define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
-#define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
-#define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
-/* Not actually used heh.. */
-#define MAX_SCHEDULED 512
-#define MAX_RUNNING 4
-#define SECS_TO_START_IN_ADVANCE 1
-#define MAX_INOTIFY_EVENTS MAX_SCHEDULED
-#define IDSTRING_LENGTH 24
-#define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
-
-#define POLLINTERVAL 100
-#define STATTIME 1000
 
 static volatile int running = 0;
 extern FILE *logfile;
 
 struct schedule *sched;
 
-inline void zero_sched(struct schedule *sched){
+void zero_sched(struct schedule *sched){
   /*
   memset(sched,0,sizeof(sched));
     */
@@ -69,7 +57,7 @@ inline void zero_sched(struct schedule *sched){
   sched->n_scheduled = 0;
   sched->n_running =0;
 }
-inline void zero_schedevnt(struct scheduled_event* ev){
+void zero_schedevnt(struct scheduled_event* ev){
   ev->opt = NULL;
   //ev->next =NULL;
   //ev->father = NULL;
@@ -147,131 +135,16 @@ int free_and_close(void *le){
   free(ev);
   return 0;
 }
-/*
-int remove_recording(struct scheduled_event *ev, listed_entity **head){
-  int found = 0;
-  struct scheduled_event *temp;
-  struct scheduled_event *parent;
-  if(*head == ev){
-    *head = (*head)->next;
-    found=1;
-    D("Removed schedevent");
-    //return 0;
-  }
-  else{
-    parent = *head;
-    temp = parent->next;
-    while(temp != NULL){
-      if(temp == ev){
-	found=1;
-	parent->next = temp->next;
-	D("Removed schedevent");
-	break;
-	//return 0;
-      }
-      else{
-	parent = temp;
-	temp = parent->next;
-      }
-    }
-  }
-  if(found){
-    D("Free and close it");
-    free_and_close(ev);
-    return 0;
-  }
-  D("Didn't find schedevent in branch");
-  return -1;
-}
-*/
-/*
-inline void add_to_end(struct scheduled_event ** head, struct scheduled_event * to_add){
-  if(*head == NULL)
-    *head = to_add;
-  else{
-    struct scheduled_event * temp = *head;
-    while(temp->next != NULL)
-      temp = temp->next;
-    temp->next = to_add;
-  }
-}
-inline void change_sched_branch(struct scheduled_event **from, struct scheduled_event ** to, struct scheduled_event *ev){
-
-  if(*from == ev){
-    *from = ev->next;
-    ev->next = NULL;
-  }
-  else{
-    struct scheduled_event * temp = *from;
-    while(temp->next != ev){
-      temp = temp->next;
-    }
-    temp->next = ev->next;
-  }
-  if(to != NULL)
-    add_to_end(to, ev);
-}
-*/
-//int start_event(struct scheduled_event *ev, struct schedule* sched){
 int start_event(struct scheduled_event *ev)
 {
   int err;
 
   err = prep_filenames(ev->opt);
   CHECK_ERR("Prep filenames");
-  /*
-  D("preparing filenames");
-  if(ev->opt->optbits & READMODE){
-    for(i=0;i<ev->opt->n_drives;i++){
-      ev->opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-      if(ev->opt->filenames[i] == NULL){
-	return -1;
-	//STREAMER_ERROR_EXIT;
-      }
-      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
-      sprintf(ev->opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", ev->opt->filename,"/");
-    }
-  }
-  D("filenames prepared");
-  */
-
-
   err = init_cfg(ev->opt);
   if(err != 0){
     E("Error in cfg init");
     return -1;
-    // Recording might be going live!
-    //struct listed_entity * live = loop_and_check((sched->br.busylist), ev->opt->filename, NULL, CHECK_BY_NAME);
-    /*
-    if(live != NULL){
-      D("Frack it! We'll do it live!");
-      if(pthread_spin_destroy((ev->opt->augmentlock)) != 0)
-	E("pthread spin destroy");
-
-      if(ev->opt->augmentlock != NULL)
-	free((void*)ev->opt->augmentlock);
-      if(ev->opt->cumul != NULL)
-	free(ev->opt->cumul);
-      if(ev->opt->total_packets != NULL)
-	free(ev->opt->total_packets);
-
-      struct scheduled_event *livereceive = (struct scheduled_event*)live->entity;
-      pthread_spin_lock(livereceive->opt->augmentlock);
-      ev->opt->augmentlock = livereceive->opt->augmentlock;
-      ev->opt->cumul = livereceive->opt->cumul;
-      ev->opt->total_packets = livereceive->opt->total_packets;
-      ev->opt->optbits |= LIVE_SENDING;
-      livereceive->opt->optbits |= LIVE_RECEIVING;
-      ev->opt->liveother = livereceive->opt;
-      livereceive->opt->liveother = ev->opt;
-      pthread_spin_unlock(livereceive->opt->augmentlock);
-      D("Live copying done");
-    }
-    else{
-      E("Error in cfg init");
-      return -1 ;
-    }
-    */
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -282,25 +155,6 @@ int start_event(struct scheduled_event *ev)
   err = pthread_attr_init(&(ev->opt->pta));
 
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
-  /*
-  err = pthread_attr_getschedparam(&(ev->opt->pta), &(ev->opt->param));
-  if(err != 0)
-    E("Error getting schedparam for pthread attr: %s",,strerror(err));
-  else
-    D("Schedparam set to %d, Trying to set to minimun %d",, ev->opt->param.sched_priority, MIN_PRIO_FOR_PTHREAD);
-
-  err = pthread_attr_setschedpolicy(&(ev->opt->pta), SCHED_FIFO);
-  if(err != 0)
-    E("Error setting schedtype for pthread attr: %s",,strerror(err));
-
-  ev->opt->param.sched_priority = MIN_PRIO_FOR_PTHREAD;
-  err = pthread_attr_setschedparam(&(ev->opt->pta), &(ev->opt->param));
-  if(err != 0)
-    E("Error setting schedparam for pthread attr: %s",,strerror(err));
-  err = pthread_attr_setinheritsched(&(ev->opt->pta), PTHREAD_INHERIT_SCHED);
-  if(err != 0)
-    E("Error Setting inheritance");
-    */
   err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
 #else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
@@ -377,34 +231,6 @@ int sched_identify(void* opt, void *val1, void * val2, int iden_type){
   else 
     return iden_from_opt(ev->opt, val1, val2, iden_type);
 }
-/*
-inline struct scheduled_event* get_from_head(char * name, struct scheduled_event* head){
-  while(head != NULL){
-    if(strcmp(head->idstring, name) == 0){
-      return head;
-    }
-    head = head->next;
-  }
-  return NULL;
-}
-inline struct scheduled_event* get_event_by_name(char * name, struct schedule* sched){
-  struct scheduled_event* returnable = NULL;
-  returnable = get_from_head(name, sched->scheduled_head);
-  if(returnable == NULL)
-    returnable = get_from_head(name, sched->running_head);
-  return returnable;
-}
-inline struct scheduled_event* get_not_found(struct scheduled_event* event){
-  while(event != NULL){
-    if(event->found == 0)
-      return event;
-    else{
-      event = event->next;
-    }
-  }
-  return NULL;
-}
-*/
 int add_recording(config_setting_t* root, struct schedule* sched)
 {
   D("Adding new schedevent");
@@ -627,14 +453,6 @@ int check_finished(struct schedule* sched){
   }
   return 0;
 }
-/*
-static void hdl (int sig)
-{
-  (void)sig;
-  LOG("Signalled for shutdown");
-  running = 0;
-}
-*/
 #ifdef TERM_SIGNAL_HANDLING
 //TODO: Fix these. Need to add some pthread_cancel-stuff to kill 
 //malfunctioning threads properly

@@ -53,6 +53,7 @@
 #include "resourcetree.h"
 #include "confighelper.h"
 #include "simplebuffer.h"
+#include "dummywriter.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
@@ -1011,7 +1012,7 @@ int init_recp(struct opt_s *opt){
 	break;
 #endif
       case REC_DUMMY:
-	err = common_init_dummy(opt, &(opt->recs[i]));
+	err = dummy_init_dummy(opt, &(opt->recs[i]));
 	break;
       case REC_DEF:
 	err = def_init_def(opt, &(opt->recs[i]));
@@ -1023,6 +1024,7 @@ int init_recp(struct opt_s *opt){
 	err = writev_init_rec_entity(opt, &(opt->recs[i]));
 	break;
       default:
+	E("Unknown recorder");
 	err = -1;
 	break;
     }

@@ -507,7 +507,6 @@ void oper_to_list(struct entity_list_branch *br,struct listed_entity *le, int op
     le = le->child;
     if(removable != NULL){
       remove_from_branch(br,removable,1);
-      //free(removable);
     }
   }
 }

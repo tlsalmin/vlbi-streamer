@@ -27,6 +27,5 @@
 long def_write(struct recording_entity * re, void * start, size_t count);
 //int def_close(struct recording_entity * re, void * stats);
 int def_init_def(struct opt_s *opt, struct recording_entity *re);
-int rec_init_dummy(struct opt_s *opt, struct recording_entity *re);
 
 #endif

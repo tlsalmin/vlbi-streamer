@@ -59,7 +59,12 @@ int common_open_new_file(void * recco, void *opti,void* acq){
     tempflags = re->get_r_flags();
   else
     tempflags = re->get_w_flags();
-  ioi->file_seqnum = *((unsigned long*)acq);
+  if(acq != NULL)
+    ioi->file_seqnum = *((unsigned long*)acq);
+  else
+  {
+    E("Getting free, but not setting file_seqnum. Something weird happending");
+  }
 
   //ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   //CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
@@ -258,59 +263,12 @@ int handle_error(struct recording_entity *re, int errornum){
 
   return err;
 }
-long common_fake_recer_write(struct recording_entity * re, void* s, size_t count){
-  (void)re;
-  (void)s;
-  return count;
-}
-int common_close_dummy(struct recording_entity *re, void *st){
-  (void)st;
-  free((struct common_io_info*)re->opt);
-  return 0;
-}
 void* recpoint_getopt(void* red)
 {
   struct recording_entity* re = (struct recording_entity*) red;
   return (void*)(((struct common_io_info*)(re->opt))->opt);
 }
-int common_init_dummy(struct opt_s * opt, struct recording_entity *re){
-  re->opt = (void*)malloc(sizeof(struct common_io_info));
-  re->write = common_fake_recer_write;
-  re->close = common_close_dummy;
-  re->getid = common_getid;
-  D("Adding writer to diskbranch");
-  struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
-  le->entity = (void*)re;
-  le->child = NULL;
-  le->father = NULL;
-  le->getopt = recpoint_getopt;
-  le->notfreeafterthis = NULL;
-  //le->acquire = common_open_new_file;
-  //le->release = common_finish_file;
-  re->self= le;
-  add_to_entlist(opt->diskbranch, le);
-  D("Writer added to diskbranch");
-
-  //be->recer->write_index_data = NULL;
-  //return rbuf_init_buf_entity(opt,be);
-  return 0;
-}
-/*
-int common_check_id(void *recco, int id){
-  struct recording_entity *re = (struct recording_entity *)recco;
-  struct common_io_info* ioi = re->opt;
-  //D("Asked for %d, we are %d",, ioi->id,id);
-  //return (((struct common_io_info*)((struct recording_entity*)recco)->opt)->id == id);
-}
-*/
 int common_close_and_free(void* recco){
-  /*
-  if(recco != NULL){
-    struct recording_entity * re = (struct recording_entity *)recco;
-    //re->close(re,NULL);
-    free(re);
-  }
-  */
   (void)recco;
   return 0;
 }
@@ -460,6 +418,7 @@ int common_close(struct recording_entity * re, void * stats){
      */
 
   //Shrink to size we received if we're writing
+  //if(ioi->curfilename != NULL)
   free(ioi->curfilename);
   free(ioi);
 #if(DEBUG_OUTPUT)

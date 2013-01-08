@@ -141,13 +141,4 @@ int def_init_def(struct opt_s *opt, struct recording_entity *re){
 
   return re->init(opt,re);
 }
-int rec_init_dummy(struct opt_s *op , struct recording_entity *re){
-  (void)op;
-  (void)re;
-  /*
-     re->init = null;
-     re-write = dummy_write_wrapped;
-     */
-  return 0;
-}
 

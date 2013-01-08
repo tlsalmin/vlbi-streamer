@@ -1,29 +1,17 @@
 #include <stdlib.h>
 #include "../src/active_file_index.h"
 #include "common.h"
-#include "../src/streamer.h"
+//#include "../src/streamer.h"
 #include "../src/config.h"
 #include "string.h"
+#include "common.h"
 
 #define THREADS 100
 #define AFILES 10
 #define FILES_PER_AFILE 1000
 
-#define THREAD_STATUS_NOT_STARTED 	1
-#define THREAD_STATUS_STARTED 		2
-#define THREAD_STATUS_ERROR 		4
-#define THREAD_STATUS_FINISHED 		8
 
 char ** filenames;
-struct thread_data {
-  int thread_id;
-  int status;
-  int intid;
-  char* filename;
-  pthread_t ptd;
-};
-
-#define THREAD_EXIT_ON_ERROR(x) do{if(x){E("Fail!"); td->status = THREAD_STATUS_ERROR;pthread_exit(NULL);}}while(0)
 
 
 void *testfunc(void *tdr)
@@ -38,8 +26,10 @@ void *testfunc(void *tdr)
   fi = add_fileindex(td->filename, 0, FILESTATUS_RECORDING);
   THREAD_EXIT_ON_ERROR(fi==NULL);
 
-  for(i=0;i<FILES_PER_AFILE;i++)
-    THREAD_EXIT_ON_ERROR(add_file(fi,td->intid++, td->intid,FH_ONDISK) != 0);
+  for(i=0;i<FILES_PER_AFILE;i++){
+    THREAD_EXIT_ON_ERROR(add_file(fi,td->intid, td->intid,FH_ONDISK) != 0);
+    td->intid++;
+  }
 
   td->intid-=FILES_PER_AFILE;
 
@@ -66,7 +56,7 @@ int main(void)
   for(i=0;i<AFILES;i++){
     filenames[i] = (char*) malloc(sizeof(char)*FILENAME_MAX);
     memset(filenames[i], 0, sizeof(char)*FILENAME_MAX);
-    sprintf(filenames[i], "%s%d\0", "filename", i%10);
+    sprintf(filenames[i], "%s%d", "filename", i%10);
   }
 
   for(i=0;i<THREADS;i++)
