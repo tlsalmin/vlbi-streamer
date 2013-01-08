@@ -19,6 +19,7 @@ int dummy_acquire(void* recco, void* opti, void * acq)
   //(void*)opti;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
+  ioi->opt = (struct opt_s*)opti;
 
   ioi->file_seqnum = *((unsigned long*)acq);
 
@@ -27,7 +28,6 @@ int dummy_acquire(void* recco, void* opti, void * acq)
   D("Opening file(not really!) %s",,ioi->curfilename);
 
   ioi->filesize = ioi->opt->buf_num_elems *  ioi->opt->packet_size;
-  ioi->opt = (struct opt_s*)opti;
 
   return 0;
 }

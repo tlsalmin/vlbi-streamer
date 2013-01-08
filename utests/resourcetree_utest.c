@@ -11,7 +11,7 @@
 #define ENT_TYPE_INT 0
 #define ENT_TYPE_LONG 1
 
-#define N_THREADS 100
+#define N_THREADS 500
 #define AFILES 10
 
 char ** filenames;
@@ -158,7 +158,7 @@ void * mainloop(void* tdr)
   //struct file_index *fi;
   td->status = THREAD_STATUS_STARTED;
 
-  D("%i Getting ent!",, td->thread_id);
+  D("%i Getting ent with id  %ld!",, td->thread_id, intid);
   re = get_free(opt->diskbranch, opt, &intid, acq);
   if(re == NULL){
     THREAD_EXIT_ERROR("Cant get ent");
@@ -167,6 +167,8 @@ void * mainloop(void* tdr)
   set_free(opt->diskbranch, re->self);
 
   td->status = THREAD_STATUS_FINISHED;
+
+  free(acq);
   pthread_exit(NULL);
 }
 int main(void)
@@ -213,6 +215,7 @@ int main(void)
     memset(filenames[i], 0, sizeof(char)*FILENAME_MAX);
     sprintf(filenames[i], "%s%d", "filename", i%10);
   }
+  default_opt.filename = filenames[0];
 
   for(i=0;i<N_THREADS;i++)
   {
