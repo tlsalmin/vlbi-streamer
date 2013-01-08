@@ -7,15 +7,17 @@
 #include "resourcetree.h"
 #include "common.h"
 #include <string.h>
+#include <unistd.h>
 #define ENTITIES 200
 #define ENT_TYPE_INT 0
 #define ENT_TYPE_LONG 1
 
-#define N_THREADS 500
+#define N_THREADS 1000
 #define AFILES 10
 
 char ** filenames;
 struct opt_s * opt;
+uint32_t sleeptime;
 
 int sillycompare(void* i1, void *i2){
   if(*((int*)i1) > *((int*)i2))
@@ -163,12 +165,24 @@ void * mainloop(void* tdr)
   if(re == NULL){
     THREAD_EXIT_ERROR("Cant get ent");
   }
+  if(*acq != 0)
+    THREAD_EXIT_ERROR("Acquire failed");
+
+  D("setting %ld as loaded",, intid);
+  set_loaded(opt->diskbranch, re->self);
+
+  D("getting %ld from loaded",, intid);
+  re = get_loaded(opt->diskbranch, re->getid(re), opt);
+  if(re == NULL)
+    THREAD_EXIT_ERROR("Cant get loaded ent");
+
   
+  D("Setting %d to free",, re->getid(re));
   set_free(opt->diskbranch, re->self);
 
-  td->status = THREAD_STATUS_FINISHED;
+  usleep(sleeptime);
 
-  free(acq);
+  td->status = THREAD_STATUS_FINISHED;
   pthread_exit(NULL);
 }
 int main(void)
@@ -202,6 +216,7 @@ int main(void)
   opt = &default_opt;
   
   memset(br, 0, sizeof(struct entity_list_branch));
+  sleeptime = 5;
 
   D("Init lock");
   err = LOCK_INIT(&br->branchlock);

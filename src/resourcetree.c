@@ -86,8 +86,10 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en)
   if(br->mutex_free == 0)
     UNLOCK(&(br->branchlock));
 }
-void mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en)
+int mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en)
 {
+  /* TODO: It would be nice to check if en exists in from, but would it waste	*/
+  /* too much resources? */
   if(en == *from){
     *from = en->child;
     if(en->child != NULL)
@@ -100,6 +102,7 @@ void mutex_free_change_branch(struct listed_entity **from, struct listed_entity 
       en->child->father = en->father;
   }
   add_to_next(to, en, NULL);
+  return 0;
 }
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en)
