@@ -119,8 +119,10 @@ void * create_initial_header(long fileid, struct opt_s *opt)
     return NULL;
   }
   err  = init_header(&header, opt);
-  if(header == NULL)
+  if(header == NULL || err != 0){
+    E("Error in initializing header");
     return NULL;
+  }
   long * hdr = (long*)header;
   switch(opt->optbits & LOCKER_DATATYPE)
   {

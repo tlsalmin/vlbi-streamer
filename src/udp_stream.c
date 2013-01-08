@@ -978,10 +978,25 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   }
   return NULL;
 }
+void init_resq(struct resq_info* resq)
+{
+    resq->bufstart = resq->buf;
+    /* Set up preliminaries to -1 so we know to	*/
+    /* init this in the calcpos			*/
+    resq->current_seq= INT64_MAX;
+    resq->packets_per_second = -1;
+    resq->starting_second = -1;
+    resq->seqstart_current = INT64_MAX;
+
+    resq->usebuf = NULL;
+
+    /* First buffer so before is null 	*/
+    resq->bufstart_before = NULL;
+    resq->before = NULL;
+}
 /*
  * Receiver for UDP-data
  */
-
 void* udp_receiver(void *streamo)
 {
   int err = 0;
@@ -1007,21 +1022,7 @@ void* udp_receiver(void *streamo)
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   /* IF we have packet resequencing	*/
   if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN))
-  {
-    resq->bufstart = resq->buf;
-    /* Set up preliminaries to -1 so we know to	*/
-    /* init this in the calcpos			*/
-    resq->current_seq= INT64_MAX;
-    resq->packets_per_second = -1;
-    resq->starting_second = -1;
-    resq->seqstart_current = INT64_MAX;
-
-    resq->usebuf = NULL;
-
-    /* First buffer so before is null 	*/
-    resq->bufstart_before = NULL;
-    resq->before = NULL;
-  }
+    init_resq(resq);
 
   LOG("UDP_STREAMER: Starting stream capture\n");
   while(spec_ops->opt->status & STATUS_RUNNING){

@@ -17,7 +17,7 @@ int main(int argc, char** argv){
   int fd,i;
   long count = 0;
   long fsize;
-  long spacing;
+  long spacing=0;
   long read_count;
   int readoffset=0;
   int wordsize=8;
