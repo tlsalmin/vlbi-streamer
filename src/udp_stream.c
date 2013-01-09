@@ -63,7 +63,6 @@
 #include "confighelper.h"
 #include "common_filehandling.h"
 
-#define WRONGSIZELIMITBEFOREEXIT 20
 //#define FORCE_WRITE_TO_FILESIZE
 
 extern FILE* logfile;
@@ -419,6 +418,80 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 
   return 0;
 }
+int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
+{
+  long wait;
+  int err;
+#ifdef HAVE_RATELIMITER
+  if(opt->wait_nanoseconds > 0)
+  {
+    //clock_gettime(CLOCK_REALTIME, &now);
+    GETTIME(st->now);
+#if(SEND_DEBUG)
+    COPYTIME(st->now,st->reference);
+#endif
+    wait = nanodiff(&(opt->wait_last_sent), &st->now);
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+    //fprintf(st->out,"%ld %ld \n",spec_ops->total_captured_packets, wait);
+#else
+    fprintf(st->out, "UDP_STREAMER: %ld ns has passed since last->send\n", wait);
+#endif
+#endif
+    ZEROTIME(st->req);
+    SETNANOS(st->req,(opt->wait_nanoseconds-wait));
+    if(GETNANOS(st->req) > 0){
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld ", GETNANOS(st->req));
+#else
+      fprintf(st->out, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st->req));
+#endif
+#endif	
+#ifdef UGLY_BUSYLOOP_ON_TIMER
+      /* First->sleep in minsleep sleeps to get rid of the bulk		*/
+      while((unsigned long)GETNANOS(st->req) > minsleep){
+	SLEEP_NANOS(st->onenano);
+	SETNANOS(st->req,GETNANOS(st->req)-minsleep);
+      }
+      GETTIME(st->now);
+
+      while(nanodiff(&(opt->wait_last_sent),&st->now) < opt->wait_nanoseconds){
+	GETTIME(st->now);
+      }
+#else
+      err = SLEEP_NANOS(st->req);
+      if(err != 0){
+	E("cant sleep");
+	return -1;
+      }
+#endif /*UGLY_BUSYLOOP_ON_TIMER */
+
+      GETTIME(st->now);
+
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld\n", nanodiff(&st->reference, &st->now));
+#else
+      fprintf(st->out, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st->reference, &st->now));
+#endif
+#endif
+      nanoadd(&(opt->wait_last_sent), opt->wait_nanoseconds);	
+    }
+    else{
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "0 0\n");
+#else
+      fprintf(st->out, "Runaway timer! Resetting\n");
+#endif
+#endif
+      COPYTIME(st->now,opt->wait_last_sent);
+    }
+  }
+#endif //HAVE_RATELIMITER
+  return 0;
+}
 /*
  * Sending handler for an UDP-stream
  *
@@ -453,7 +526,7 @@ void * udp_sender(void *streamo){
   /* Slept with nanosleep or usleep seems to be 55microseconds		*/
   /* This means we can sleep only sleep multiples of it and then	*/
   /* do the rest in a busyloop						*/
-  long wait= 0;
+  //long wait= 0;
   se->be = NULL;
   spec_ops->total_captured_bytes = 0;
   spec_ops->total_captured_packets = 0;
@@ -496,93 +569,7 @@ void * udp_sender(void *streamo){
       sentinc = 0;
       //i=0;
     }
-#ifdef HAVE_RATELIMITER
-    if(spec_ops->opt->wait_nanoseconds > 0)
-    {
-      //clock_gettime(CLOCK_REALTIME, &now);
-      GETTIME(st.now);
-#if(SEND_DEBUG)
-
-      COPYTIME(st.now,st.reference);
-      /*
-	 reference.tv_sec = now.tv_sec;
-	 reference.tv_nsec = now.tv_nsec;
-	 */
-#endif
-      // waittime - (time_now - time_last) needs to be positive if we need to wait
-      // 10^6 is for conversion to microseconds. Done before CLOCKS_PER_SEC to keep
-      // accuracy	
-      //wait = (now.tv_sec*BILLION + now.tv_nsec) - (spec_ops->opt->wait_last_sent.tv_sec*BILLION + spec_ops->opt->wait_last_sent.tv_nsec);
-      wait = nanodiff(&(spec_ops->opt->wait_last_sent), &st.now);
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-      //fprintf(stdout,"%ld %ld \n",spec_ops->total_captured_packets, wait);
-#else
-      fprintf(stdout, "UDP_STREAMER: %ld ns has passed since last send\n", wait);
-#endif
-#endif
-      //wait = spec_ops->opt->wait_nanoseconds - wait;
-      ZEROTIME(st.req);
-
-      //req.tv_nsec = spec_ops->opt->wait_nanoseconds - wait;
-      SETNANOS(st.req,(spec_ops->opt->wait_nanoseconds-wait));
-      if(GETNANOS(st.req) > 0){
-	//int mysleep = ((*(spec_ops->wait_nanoseconds)-wait)*1000000)/CLOCKS_PER_SEC;
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-	fprintf(stdout, "%ld ", GETNANOS(st.req));
-#else
-	fprintf(stdout, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st.req));
-#endif
-#endif	
-	//nanoadd(&now, wait);
-	//req.tv_nsec = wait;
-#ifdef UGLY_BUSYLOOP_ON_TIMER
-	/* First sleep in minsleep sleeps to get rid of the bulk		*/
-	while((unsigned long)GETNANOS(st.req) > minsleep){
-	  SLEEP_NANOS(st.onenano);
-	  SETNANOS(st.req,GETNANOS(st.req)-minsleep);
-	}
-	GETTIME(st.now);
-
-	/* Then sleep in busyloop for finetuning				*/
-	while(nanodiff(&(spec_ops->opt->wait_last_sent),&st.now) < spec_ops->opt->wait_nanoseconds){
-	  /* This could be done in asm or by getting clock cycles but we don't  	*/
-	  /* Control the NIC:s buffers anyway, so it doesn't really matter	*/
-	  GETTIME(st.now);
-	}
-#else
-	//err = nanosleep(&req,&rem);
-	err = SLEEP_NANOS(st.req);
-	//err = usleep(1);
-#endif /*UGLY_BUSYLOOP_ON_TIMER */
-
-	GETTIME(st.now);
-
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-	fprintf(stdout, "%ld\n", nanodiff(&st.reference, &st.now));
-#else
-	fprintf(stdout, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st.reference, &st.now));
-#endif
-#endif
-	//COPYTIME(st.now,spec_ops->opt->wait_last_sent);
-
-	nanoadd(&(spec_ops->opt->wait_last_sent), spec_ops->opt->wait_nanoseconds);	
-      }
-      else{
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-	fprintf(stdout, "0 0\n");
-#else
-	fprintf(stdout, "Runaway timer! Resetting\n");
-#endif
-#endif
-	COPYTIME(st.now,spec_ops->opt->wait_last_sent);
-      }
-    }
-
-#endif //HAVE_RATELIMITER
+    udps_wait_function(&st, spec_ops->opt);
 #ifdef DUMMYSOCKET
     err = spec_ops->opt->packet_size;
 #else
@@ -726,7 +713,7 @@ void* udp_rxring(void *streamo)
 
   pthread_exit(NULL);
 }
-inline void free_the_buf(struct buffer_entity * be){
+void free_the_buf(struct buffer_entity * be){
   /* Set old buffer ready and signal it to start writing */
   be->set_ready(be);
   LOCK(be->headlock);
@@ -978,21 +965,90 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   }
   return NULL;
 }
-void init_resq(struct resq_info* resq)
+inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int err)
 {
-    resq->bufstart = resq->buf;
-    /* Set up preliminaries to -1 so we know to	*/
-    /* init this in the calcpos			*/
-    resq->current_seq= INT64_MAX;
-    resq->packets_per_second = -1;
-    resq->starting_second = -1;
-    resq->seqstart_current = INT64_MAX;
+  struct udpopts* spec_ops = (struct spec_ops*)se->opt;
+  if(err < 0){
+    if(err == EINTR)
+      LOG("UDP_STREAMER: Main thread has shutdown socket\n");
+    else{
+      perror("RECV error");
+      E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
+      fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
+      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+	E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
+      }
+    }
+    //spec_ops->running = 0;
+    udps_close_socket(se);
+    spec_ops->opt->status = STATUS_ERROR;
+    break;
+  }
+  else if((long unsigned)err != spec_ops->opt->packet_size){
+    if(spec_ops->opt->status & STATUS_RUNNING){
+      E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
+      spec_ops->incomplete++;
+      spec_ops->wrongsizeerrors++;
+      if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
+	E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
+	udps_close_socket(se);
+	spec_ops->opt->status = STATUS_ERROR;
+	break;
+      }
+    }
+  }
+  /* Success! */
+  else if(spec_ops->opt->status & STATUS_RUNNING){
+    if(spec_ops->opt->hostname != NULL){
+      int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
+      if(senderr <0 ){
+	perror("send error");
+	E("Send er");
+      }
+      else if((unsigned long)senderr != spec_ops->opt->packet_size)
+	E("Different size sent onward. NOT HANDLED");
+    }
+    assert(resq->i < spec_ops->opt->buf_num_elems);
+    /* i has to keep on running, so we always change	*/
+    /* the buffer at a correct spot			*/
 
-    resq->usebuf = NULL;
+    /* Check if we have a func for checking the	*/
+    /* correct sequence from the header		*/
+    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+      /* Calc the position we should have		*/
+      if(spec_ops->opt->first_packet == NULL)
+      {
+	err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
+	if (err != 0)
+	{
+	  E("First metadata malloc failed!");
+	}
+	else{
+	  err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
+	  if(err != 0)
+	  {
+	      E("First metadata copying failed!");
+	    }
+	    spec_ops->opt->resqut = resq;
+	  }
+	}
+	calc_bufpos_general(resq->buf, se, resq);
+      }
+      else{
+	resq->buf+=spec_ops->opt->packet_size;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
+	resq->i++;
 
-    /* First buffer so before is null 	*/
-    resq->bufstart_before = NULL;
-    resq->before = NULL;
+      }
+      assert(*resq->inc <= FILESIZE);
+      spec_ops->total_captured_bytes +=(unsigned int) err;
+      *spec_ops->opt->total_packets += 1;
+      if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
+	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
+	spec_ops->opt->status = STATUS_FINISHED;
+	break;
+      }
+    }
 }
 /*
  * Receiver for UDP-data
@@ -1062,86 +1118,10 @@ void* udp_receiver(void *streamo)
     }
     err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
     //err = spec_ops->opt->packet_size;
-    if(err < 0){
-      if(err == EINTR)
-	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
-      else{
-	perror("RECV error");
-	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
-	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
-	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
-	}
-      }
-      //spec_ops->running = 0;
-      udps_close_socket(se);
-      spec_ops->opt->status = STATUS_ERROR;
+    err = udps_handle_received_packet(se, resq);
+    if(err !=0){
+      E("Error in packet receive. Stopping loop!");
       break;
-    }
-    else if((long unsigned)err != spec_ops->opt->packet_size){
-      if(spec_ops->opt->status & STATUS_RUNNING){
-	E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
-	spec_ops->incomplete++;
-	spec_ops->wrongsizeerrors++;
-	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
-	  E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
-	  udps_close_socket(se);
-	  spec_ops->opt->status = STATUS_ERROR;
-	  break;
-	}
-      }
-    }
-    /* Success! */
-    else if(spec_ops->opt->status & STATUS_RUNNING){
-      if(spec_ops->opt->hostname != NULL){
-	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
-	if(senderr <0 ){
-	  perror("send error");
-	  E("Send er");
-	}
-	else if((unsigned long)senderr != spec_ops->opt->packet_size)
-	  E("Different size sent onward. NOT HANDLED");
-      }
-    assert(resq->i < spec_ops->opt->buf_num_elems);
-      /* i has to keep on running, so we always change	*/
-      /* the buffer at a correct spot			*/
-
-      /* Check if we have a func for checking the	*/
-      /* correct sequence from the header		*/
-      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	/* Calc the position we should have		*/
-	if(spec_ops->opt->first_packet == NULL)
-	{
-	  err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
-	  if (err != 0)
-	  {
-	    E("First metadata malloc failed!");
-	  }
-	  else{
-	    err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
-	    if(err != 0)
-	    {
-	      E("First metadata copying failed!");
-	    }
-	    spec_ops->opt->resqut = resq;
-	  }
-	}
-	calc_bufpos_general(resq->buf, se, resq);
-      }
-      else{
-	resq->buf+=spec_ops->opt->packet_size;
-	(*(resq->inc))+=spec_ops->opt->packet_size;
-	resq->i++;
-
-      }
-      assert(*resq->inc <= FILESIZE);
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      *spec_ops->opt->total_packets += 1;
-      if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
-	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
-	spec_ops->opt->status = STATUS_FINISHED;
-	break;
-      }
     }
   }
   /* Release last used buffer */

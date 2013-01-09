@@ -1,13 +1,11 @@
+#ifndef COMMON_FILEHANDLING_H
+#define COMMON_FILEHANDLING_H
 #include "streamer.h"
 #include "active_file_index.h"
+#include "datatypes.h"
 
 #define ALL_DONE 3123
-
-//#define AUGMENTLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(opt->augmentlock);}}while(0)
-//#define AUGMENTLOCK FILOCK(opt->fileindex)
-
-//#define AUGMENTUNLOCK do{if(opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(opt->augmentlock);}}while(0)
-//#define AUGMENTLOCK FILOCK(opt->fileindex)
+#define DONTRYLOADNOMORE 	B(2) 
 
 struct sender_tracking{
   //unsigned long files_loaded;
@@ -30,7 +28,6 @@ struct sender_tracking{
 #endif
   TIMERTYPE req;
 };
-#define DONTRYLOADNOMORE 	B(2) 
 
 void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st);
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st);
@@ -38,3 +35,5 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
 int loadup_n(struct opt_s *opt, struct sender_tracking * st);
 void throttling_count(struct opt_s* opt, struct sender_tracking * st);
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st);
+void init_resq(struct resq_info* resq);
+#endif

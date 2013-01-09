@@ -54,6 +54,7 @@
 #include "confighelper.h"
 #include "simplebuffer.h"
 #include "dummywriter.h"
+#include "dummy_stream.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
@@ -500,6 +501,10 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	else if (!strcmp(optarg, "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
+	}
+	else if (!strcmp(optarg, "dummy")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_DUMMY;
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", optarg);
@@ -959,6 +964,13 @@ int prep_streamer(struct opt_s* opt){
       break;
     case CAPTURE_W_SPLICER:
       //err = sendfile_init_writer(&opt, &(streamer_ent));
+      break;
+    case CAPTURE_W_DUMMY:
+      if(opt->optbits & READMODE)
+	err = dummy_init_dummy_sender(opt, opt->streamer_ent);
+      else
+	err = dummy_init_dummy_receiver(opt, opt->streamer_ent);
+      opt->get_stats = get_dummy_stats;
       break;
     case CAPTURE_W_DISK2FILE:
       err = d2f_init(opt, opt->streamer_ent);

@@ -84,11 +84,13 @@
 #define REC_WRITEV		B(8)
 
 /* How to capture packets. */
-#define LOCKER_CAPTURE		0x000000000000f000
+#define LOCKER_CAPTURE		0x00000000000ff000
 #define CAPTURE_W_FANOUT 	B(12)
 #define CAPTURE_W_UDPSTREAM 	B(13)
 #define CAPTURE_W_SPLICER 	B(14)
 #define CAPTURE_W_DISK2FILE	B(15)
+
+#define CAPTURE_W_DUMMY		B(16)
 
 /* How fanout works */
 /*
@@ -99,20 +101,20 @@
 
 /* Global stuff */
 //#define CHECK_SEQUENCE 		B(12)
-#define WILL_GET_SOCKET		B(16)
-#define ASYNC_WRITE		B(17)
-#define READMODE		B(18)
-#define USE_HUGEPAGE		B(19)
+#define WILL_GET_SOCKET		B(20)
+#define ASYNC_WRITE		B(21)
+#define READMODE		B(22)
+#define USE_HUGEPAGE		B(23)
 
 //#define WAIT_BETWEEN		B(16)
-#define WILL_GIVE_SOCKET	B(20)
-#define VERBOSE			B(21)
-#define MOUNTPOINT_VERBOSE	B(22)
-#define SIMPLE_BUFFER		B(23)
+#define WILL_GIVE_SOCKET	B(24)
+#define VERBOSE			B(25)
+#define MOUNTPOINT_VERBOSE	B(26)
+#define SIMPLE_BUFFER		B(27)
 
-#define USE_RX_RING		B(24)
-#define GET_A_FILENAME_AS_ARG	B(25)
-#define CAN_STRIP_BYTES		B(26)
+#define USE_RX_RING		B(28)
+#define GET_A_FILENAME_AS_ARG	B(29)
+#define CAN_STRIP_BYTES		B(30)
 /* One empty here */
 
 /* 4 empty here */

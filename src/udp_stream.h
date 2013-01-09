@@ -27,6 +27,9 @@
 #include <linux/if_packet.h>
 #include "streamer.h"
 #include "datatypes.h"
+#include "common_filehandling.h"
+
+#define WRONGSIZELIMITBEFOREEXIT 20
 
 /*
  * TODO: Change the function names to udps_<name>
@@ -67,4 +70,8 @@ struct udpopts
 void udps_close_socket(struct streamer_entity *se);
 
 
+int udps_wait_function(struct sender_tracking *st, struct opt_s* opt);
+int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq);
+void free_the_buf(struct buffer_entity * be);
+void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq);
 #endif //UDP_STREAMER

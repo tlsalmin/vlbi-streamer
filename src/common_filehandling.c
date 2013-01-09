@@ -294,3 +294,19 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   }
 return 0;
 }
+void init_resq(struct resq_info* resq)
+{
+    resq->bufstart = resq->buf;
+    /* Set up preliminaries to -1 so we know to	*/
+    /* init this in the calcpos			*/
+    resq->current_seq= INT64_MAX;
+    resq->packets_per_second = -1;
+    resq->starting_second = -1;
+    resq->seqstart_current = INT64_MAX;
+
+    resq->usebuf = NULL;
+
+    /* First buffer so before is null 	*/
+    resq->bufstart_before = NULL;
+    resq->before = NULL;
+}
