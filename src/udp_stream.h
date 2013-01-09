@@ -74,4 +74,6 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt);
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq);
 void free_the_buf(struct buffer_entity * be);
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq);
+inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received);
+int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq);
 #endif //UDP_STREAMER

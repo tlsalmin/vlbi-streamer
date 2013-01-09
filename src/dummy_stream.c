@@ -160,110 +160,17 @@ void * dummy_receiver(void *streamo)
 
   LOG("UDP_STREAMER: Starting stream capture\n");
   while(spec_ops->opt->status & STATUS_RUNNING){
-
-    //if(resq->i == spec_ops->opt->buf_num_elems)
-    //if(*(resq->inc) + spec_ops->opt->packet_size > FILESIZE)
-    if(resq->i == spec_ops->opt->buf_num_elems)
-    {
-      D("Buffer filled, Getting another");
-
-      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	D("Jumping to next buffer normally");
-	err = jump_to_next_buf(se, resq);
-	if(err < 0){
-	  E("Error in jump to next");
-	  //spec_ops->running = 0;
-	  spec_ops->opt->status = STATUS_ERROR;
-	  break;
-	}
-      }
-      else{
-	D("Datatype unknown!");
-	resq->i=0;
-	(*spec_ops->opt->cumul)++;
-#ifdef FORCE_WRITE_TO_FILESIZE
-	(*resq->inc) = FILESIZE;
-#endif
-
-	D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
-	free_the_buf(se->be);
-	/* Get a new buffer */
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
-	CHECK_AND_EXIT(se->be);
-	D("Got new free be. Grabbing buffer");
-	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-      }
+    err = handle_buffer_switch(se, resq);
+    if(err != 0){
+      LOG("Error or done in buffer switch");
+      break;
     }
     // RECEIVE
     err = spec_ops->opt->packet_size;
-
-    if(err < 0){
-	perror("RECV error");
-	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
-	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
-	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
-	}
-      //spec_ops->running = 0;
-      dummy_stop(se);
-      spec_ops->opt->status = STATUS_ERROR;
+    err = udps_handle_received_packet(se, resq, err);
+    if(err != 0){
+      E("Error in receive packet. Closing!");
       break;
-    }
-    else if((long unsigned)err != spec_ops->opt->packet_size){
-      if(spec_ops->opt->status & STATUS_RUNNING){
-	E("Received packet of size %d, when expected %lu",, err, spec_ops->opt->packet_size);
-	spec_ops->incomplete++;
-	spec_ops->wrongsizeerrors++;
-	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
-	  E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
-	  dummy_stop(se);
-	  spec_ops->opt->status = STATUS_ERROR;
-	  break;
-	}
-      }
-    }
-    /* Success! */
-    else if(spec_ops->opt->status & STATUS_RUNNING){
-      assert(resq->i < spec_ops->opt->buf_num_elems);
-      /* i has to keep on running, so we always change	*/
-      /* the buffer at a correct spot			*/
-
-      /* Check if we have a func for checking the	*/
-      /* correct sequence from the header		*/
-      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	/* Calc the position we should have		*/
-	if(spec_ops->opt->first_packet == NULL)
-	{
-	  err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
-	  if (err != 0)
-	  {
-	    E("First metadata malloc failed!");
-	  }
-	  else{
-	    err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
-	    if(err != 0)
-	    {
-	      E("First metadata copying failed!");
-	    }
-	    spec_ops->opt->resqut = resq;
-	  }
-	}
-	calc_bufpos_general(resq->buf, se, resq);
-      }
-      else{
-	resq->buf+=spec_ops->opt->packet_size;
-	(*(resq->inc))+=spec_ops->opt->packet_size;
-	resq->i++;
-
-      }
-      assert(*resq->inc <= FILESIZE);
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      *spec_ops->opt->total_packets += 1;
-      if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
-	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
-	spec_ops->opt->status = STATUS_FINISHED;
-	break;
-      }
     }
   }
   /* Release last used buffer */
