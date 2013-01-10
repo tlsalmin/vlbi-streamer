@@ -559,7 +559,7 @@ int init_cfg(struct opt_s *opt){
 	  FIUNLOCK(opt->fi);
 	  //opt->fileholders = fh_orig;
 	  /* This might differ from cfg nowadays */
-	  opt->buf_num_elems = FILESIZE / opt->packet_size;
+	  opt->buf_num_elems = opt->filesize / opt->packet_size;
 	  D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
 	  D("opts read from first config");
 	}

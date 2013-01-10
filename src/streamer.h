@@ -91,6 +91,7 @@
 #define CAPTURE_W_DISK2FILE	B(15)
 
 #define CAPTURE_W_DUMMY		B(16)
+/*Three empty here */
 
 /* How fanout works */
 /*
@@ -356,7 +357,7 @@ struct opt_s
   //unsigned long max_num_packets;
   char * filenames[MAX_OPEN_FILES];
   struct timespec starting_time;
-  //unsigned long filesize;
+  unsigned long filesize;
 
   /* Moved to optbits */
   //int capture_type;

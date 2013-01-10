@@ -323,11 +323,11 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* Special case when recording was stripped and buf_num_elems is different */
   if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
-    opt->buf_num_elems = FILESIZE / (opt->packet_size+opt->offset_onwrite);
+    opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
     D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
   }
   else{
-    opt->buf_num_elems = FILESIZE / opt->packet_size;
+    opt->buf_num_elems = opt->filesize / opt->packet_size;
     D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
   }
 

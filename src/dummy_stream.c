@@ -176,7 +176,7 @@ void * dummy_receiver(void *streamo)
   /* Release last used buffer */
   if(resq->before != NULL){
     //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = FILESIZE;
+    *(resq->inc_before) = spec_ops->opt->filesize;
     free_the_buf(resq->before);
   }
   if(*(resq->inc) == 0)

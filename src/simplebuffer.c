@@ -97,7 +97,7 @@ int sbuf_acquire(void* buffo, void *opti,void* acq)
     struct rxring_request* rxr = (struct rxring_request*)acq;
     /* This threads responsible area */
     //sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-    sbuf->buffer = sbuf->opt->buffer + FILESIZE*((long unsigned)rxr->bufnum);
+    sbuf->buffer = sbuf->opt->buffer + sbuf->opt->filesize*((long unsigned)rxr->bufnum);
   }
 
   sbuf->bufoffset = sbuf->buffer;
@@ -128,7 +128,7 @@ void preheat_buffer(void* buf, struct opt_s* opt)
 {
   //memset(buf, 0, opt->packet_size*(opt->buf_num_elems));
   (void)opt;
-  memset(buf, 0, FILESIZE);
+  memset(buf, 0, opt->filesize);
 }
 int sbuf_free(void* buffo)
 {
@@ -250,7 +250,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 
   if(!(sbuf->opt->optbits & USE_RX_RING)){
     //unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
-    unsigned long hog_memory = FILESIZE;
+    unsigned long hog_memory = sbuf->opt->filesize;
     D("Trying to hog %lu MB of memory",,hog_memory/MEG);
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
@@ -350,7 +350,7 @@ int sbuf_close(struct buffer_entity* be, void *stats)
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-      munmap(sbuf->buffer, FILESIZE);
+      munmap(sbuf->buffer, sbuf->opt->filesize);
     }
     else
 #endif /* HAVE_HUGEPAGES */
@@ -458,7 +458,7 @@ int simple_write_bytes(struct buffer_entity *be)
     limit = sbuf->opt->do_w_stuff_every;
 #else
   //unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
-  limit = FILESIZE;
+  limit = sbuf->opt->filesize;
 #endif
 
   //unsigned long count = sbuf->diff * sbuf->opt->packet_size;
@@ -466,7 +466,7 @@ int simple_write_bytes(struct buffer_entity *be)
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
   //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
   //ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+FILESIZE);
+  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->filesize);
   ASSERT(count != 0);
 
   if(count > limit){
@@ -512,7 +512,7 @@ int simple_write_bytes(struct buffer_entity *be)
 #endif
       sbuf->bufoffset += count;
       //if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
-      //if(sbuf->bufoffset >= sbuf->buffer +FILESIZE)
+      //if(sbuf->bufoffset >= sbuf->buffer +sbuf->opt->filesize)
 	//sbuf->bufoffset = sbuf->buffer;
     }
   }
@@ -663,7 +663,7 @@ void *sbuf_simple_write_loop(void *buffo)
 
     if(sbuf->diff > 0){
       D("Blocking reads/writes. Left to read/write %ld for file %lu",,sbuf->diff,sbuf->fileid);
-      assert(sbuf->diff <= FILESIZE);
+      assert((unsigned)sbuf->diff <= sbuf->opt->filesize);
       savedif = sbuf->diff;
       ret = -1;
 

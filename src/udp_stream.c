@@ -732,11 +732,11 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     /* Now heres a problem. We have to write the whole thing since	*/
     /* we don't know whats missing at this point. TODO: Fix when doing	*/
     /* fillpattern f4lz							*/
-    spec_ops->missing += (FILESIZE-(*(resq->inc_before)))/spec_ops->opt->packet_size;
+    spec_ops->missing += (spec_ops->opt->filesize-(*(resq->inc_before)))/spec_ops->opt->packet_size;
     //spec_ops->missing += 
     /* Write the to disk anyhow, so last packets aren't missed	*/
     //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = FILESIZE;
+    *(resq->inc_before) = spec_ops->opt->filesize;
     free_the_buf(resq->before);
     resq->bufstart_before = NULL;
     resq->before = NULL;
@@ -752,7 +752,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   {
     D("All packets for current file received OK. rsqinc: %ld, needed: %lu",, *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
 #ifdef FORCE_WRITE_TO_FILESIZE
-    *(resq->inc) = FILESIZE;
+    *(resq->inc) = spec_ops->opt->filesize;
 #endif
     free_the_buf(se->be);
     /* First buffer so *before is null 	*/
@@ -867,7 +867,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
 
 	//if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
-	if(*(resq->inc_before) + spec_ops->opt->packet_size > FILESIZE)
+	if(*(resq->inc_before) + spec_ops->opt->packet_size > spec_ops->opt->filesize)
 	{
 	  D("Buffer before is ready. Freeing it");
 	  free_the_buf(resq->before);
@@ -1041,7 +1041,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
       resq->i++;
 
     }
-    assert(*resq->inc <= FILESIZE);
+    assert((unsigned)*resq->inc <= spec_ops->opt->filesize);
     spec_ops->total_captured_bytes +=(unsigned int) received;
     *spec_ops->opt->total_packets += 1;
     if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
@@ -1074,7 +1074,7 @@ int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
       resq->i=0;
       (*spec_ops->opt->cumul)++;
 #ifdef FORCE_WRITE_TO_FILESIZE
-      (*resq->inc) = FILESIZE;
+      (*resq->inc) = spec_ops->opt->filesize;
 #endif
 
       D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
@@ -1127,7 +1127,7 @@ void* udp_receiver(void *streamo)
     }
 
     err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
-    //err = spec_ops->opt->packet_size;
+
     err = udps_handle_received_packet(se, resq, err);
     if(err !=0){
       E("Error in packet receive. Stopping loop!");
@@ -1137,7 +1137,7 @@ void* udp_receiver(void *streamo)
   /* Release last used buffer */
   if(resq->before != NULL){
     //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = FILESIZE;
+    *(resq->inc_before) = spec_ops->opt->filesize;
     free_the_buf(resq->before);
   }
   if(*(resq->inc) == 0)
