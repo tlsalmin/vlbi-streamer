@@ -90,7 +90,6 @@ extern FILE* logfile;
 //#define SHOW_PACKET_METADATA;
 
 //#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;pthread_exit(NULL);}while(0)
 
 //Gatherer specific options
 int phandler_sequence(struct streamer_entity * se, void * buffer){
@@ -561,7 +560,7 @@ void * udp_sender(void *streamo){
 	UDPS_EXIT;
       else if (err < 0){
 	E("Error in getting buffer");
-	UDPS_EXIT;
+	UDPS_EXIT_ERROR;
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
       packetpeek = get_n_packets(spec_ops->opt->fi);
@@ -582,7 +581,7 @@ void * udp_sender(void *streamo){
       perror("Send packet");
       shutdown(spec_ops->fd, SHUT_RDWR);
       //pthread_exit(NULL);
-      UDPS_EXIT;
+      UDPS_EXIT_ERROR;
       //TODO: How to handle error case? Either shut down all threads or keep on trying
       //pthread_exit(NULL);
       //break;
@@ -709,7 +708,7 @@ void* udp_rxring(void *streamo)
   D("Saved %lu files",, (*spec_ops->opt->cumul));
   D("Exiting mmap polling");
   //spec_ops->running = 0;
-  spec_ops->opt->status = STATUS_STOPPED;
+  //spec_ops->opt->status = STATUS_STOPPED;
 
   pthread_exit(NULL);
 }
@@ -1123,6 +1122,7 @@ void* udp_receiver(void *streamo)
     err = handle_buffer_switch(se,resq);
     if(err != 0){
       LOG("Done or error!");
+      spec_ops->opt->status = STATUS_ERROR;
       break;
     }
 
@@ -1131,6 +1131,7 @@ void* udp_receiver(void *streamo)
     err = udps_handle_received_packet(se, resq, err);
     if(err !=0){
       E("Error in packet receive. Stopping loop!");
+      spec_ops->opt->status = STATUS_ERROR;
       break;
     }
   }
@@ -1155,7 +1156,7 @@ void* udp_receiver(void *streamo)
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
   LOG("UDP_STREAMER: Closing streamer thread\n");
   //spec_ops->running = 0;
-  spec_ops->opt->status = STATUS_STOPPED;
+  //spec_ops->opt->status = STATUS_STOPPED;
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
     free(resq);

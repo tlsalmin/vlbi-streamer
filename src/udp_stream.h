@@ -31,6 +31,9 @@
 
 #define WRONGSIZELIMITBEFOREEXIT 20
 
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;pthread_exit(NULL);}while(0)
+#define UDPS_EXIT_ERROR do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_ERROR;pthread_exit(NULL);}while(0)
+
 /*
  * TODO: Change the function names to udps_<name>
  */
@@ -48,7 +51,6 @@ int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se);
 int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se);
 struct udpopts
 {
-  int running;
   int fd;
   int fd_send;
   struct opt_s* opt;

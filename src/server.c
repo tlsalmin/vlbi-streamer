@@ -127,10 +127,16 @@ int free_and_close(void *le){
   if(err !=0)
     E("Removing cfg entry from sched");
   free(ev->idstring);
-  if(ev->opt->optbits & READMODE)
-    disassociate(ev->opt->fi, FILESTATUS_SENDING);
-  else
+  if(ev->opt->optbits & READMODE){
+    err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
+    if(err != 0)
+      E("Error in disassociate");
+  }
+  else{
     disassociate(ev->opt->fi, FILESTATUS_RECORDING);
+    if(err != 0)
+      E("Error in disassociate");
+  }
   close_opts(ev->opt);
   free(ev);
   return 0;
@@ -152,9 +158,9 @@ int start_event(struct scheduled_event *ev)
     init_stats(ev->stats);
   }
 #if(PPRIORITY)
-  err = pthread_attr_init(&(ev->opt->pta));
-
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
+  if(err != 0)
+    E("error in priority prep! Wont stop though..");
   err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
 #else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
@@ -198,7 +204,7 @@ int start_scheduled(struct schedule *sched){
 	E("Something went wrong in recording %s start",, ev->opt->filename);
 	//remove_recording(le,sched->br.freelist);
 	remove_from_branch(&sched->br, le, MUTEX_FREE);
-	}
+      }
       else{
 	//change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
 	mutex_free_change_branch(&sched->br.freelist, &sched->br.busylist, le);
@@ -220,7 +226,7 @@ int sched_identify(void* opt, void *val1, void * val2, int iden_type){
       return 1;
     else
       return 0;
-    
+
   }
   else if (iden_type == CHECK_BY_NOTFOUND){
     if(ev->found == 0)
@@ -248,7 +254,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
     err = config_write_file(&cfg, STATEFILE);
     CHECK_CFG("Wrote config");
     running = 0;
-  
+
 
     config_destroy(&cfg);
     D("Shutdown finished");
@@ -282,12 +288,12 @@ int add_recording(config_setting_t* root, struct schedule* sched)
   opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
   *opt->total_packets = 0;
   /*
-  opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
-  if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
-    E("Spin init");
-    return -1;
-  }
-  */
+     opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
+     if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
+     E("Spin init");
+     return -1;
+     }
+     */
 
 
   config_init(&(opt->cfg));
@@ -403,36 +409,36 @@ int check_schedule(struct schedule *sched){
     //CHECK_ERR("Remove recording");
   }
   /*
-  while((temp = get_not_found(sched->running_head)) != NULL){
-    LOG("Recording %s removed from running\n", temp->opt->filename);
-    //TODO: Stop the recording
-    //err =  remove_recording(temp, &(sched->running_head));
-    err = remove_from_branch(&sched->br, le, MUTEX_FREE);
-    CHECK_ERR("Remove recording");
-  }
-  */
-  zerofound(sched);
-  config_destroy(&cfg);
-  D("Done checking schedule");
-
-  return 0;
-}
-/*
-int close_recording(struct schedule* sched, struct scheduled_event* ev){
-  int err;
-  err =pthread_join(ev->pt, NULL);
-  CHECK_ERR("pthread tryjoin");
-  D("Thread for %s finished",,ev->opt->filename);
-  change_sched_branch(&(sched->running_head), NULL, ev);
-
-  err = remove_from_cfgsched(ev);
-  CHECK_ERR("Remove from cfgsched");
-  close_streamer(ev->opt);
-  close_opts(ev->opt);
-  free(ev);
-  return 0;
+     while((temp = get_not_found(sched->running_head)) != NULL){
+     LOG("Recording %s removed from running\n", temp->opt->filename);
+//TODO: Stop the recording
+//err =  remove_recording(temp, &(sched->running_head));
+err = remove_from_branch(&sched->br, le, MUTEX_FREE);
+CHECK_ERR("Remove recording");
 }
 */
+zerofound(sched);
+config_destroy(&cfg);
+D("Done checking schedule");
+
+return 0;
+}
+/*
+   int close_recording(struct schedule* sched, struct scheduled_event* ev){
+   int err;
+   err =pthread_join(ev->pt, NULL);
+   CHECK_ERR("pthread tryjoin");
+   D("Thread for %s finished",,ev->opt->filename);
+   change_sched_branch(&(sched->running_head), NULL, ev);
+
+   err = remove_from_cfgsched(ev);
+   CHECK_ERR("Remove from cfgsched");
+   close_streamer(ev->opt);
+   close_opts(ev->opt);
+   free(ev);
+   return 0;
+   }
+   */
 int check_finished(struct schedule* sched){
   struct scheduled_event *ev;
   struct listed_entity *le;
@@ -460,10 +466,10 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 {
   (void)sig;
   (void)context;
-	LOG("Sending PID: %ld, UID: %ld\n",
-			(long)siginfo->si_pid, (long)siginfo->si_uid);
-	LOG("Signal received");
-	running = 0;
+  LOG("Sending PID: %ld, UID: %ld\n",
+      (long)siginfo->si_pid, (long)siginfo->si_uid);
+  LOG("Signal received");
+  running = 0;
 }
 #endif
 int main(int argc, char **argv)
@@ -613,8 +619,8 @@ int main(int argc, char **argv)
 #if(LOG_TO_FILE)
 LOG("Forking\n");
 err=fork();
-  if (err<0) exit(1); // fork error 
-  if (err>0) exit(0); // parent exits 
+if (err<0) exit(1); // fork error 
+if (err>0) exit(0); // parent exits 
   // child (daemon) continues 
 #endif
 */
@@ -682,11 +688,11 @@ err=fork();
     //ev->shutdown_thread(ev->opt);
     //err = free_and_close(ev);
     /*
-    if(ev->pt != 0){
-      D("Joining thread");
-      pthread_join(ev->pt, NULL);
-    }
-    */
+       if(ev->pt != 0){
+       D("Joining thread");
+       pthread_join(ev->pt, NULL);
+       }
+       */
     //temp = temp->next;
     //temp = temp->child;
   }

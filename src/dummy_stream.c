@@ -37,7 +37,7 @@ int close_dummy_streamer(void *opt_own,void *stats)
 }
 void dummy_stop(struct streamer_entity *se)
 {
-  ((struct udpopts*)se->opt)->running = 0;
+  ((struct udpopts*)se->opt)->opt->status = STATUS_STOPPED;
 }
 void dummy_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
@@ -99,11 +99,14 @@ void * dummy_sender(void * streamo)
     if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek  == 0))
     {
       err = jump_to_next_file(spec_ops->opt, se, &st);
-      if(err == ALL_DONE)
-	break;
+      if(err == ALL_DONE){
+	UDPS_EXIT;
+	//break;
+      }
       else if (err < 0){
 	E("Error in getting buffer");
-	break;
+	UDPS_EXIT_ERROR;
+	//break;
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
       packetpeek = get_n_packets(spec_ops->opt->fi);
@@ -113,10 +116,12 @@ void * dummy_sender(void * streamo)
     }
     udps_wait_function(&st, spec_ops->opt);
     //PACKET SEND
+    usleep(5);
     err = spec_ops->opt->packet_size;
     if(err < 0){
       perror("Send packet");
-      break;
+      UDPS_EXIT_ERROR;
+      //break;
       //TODO: How to handle error case? Either shut down all threads or keep on trying
       //pthread_exit(NULL);
       //break;
@@ -163,13 +168,16 @@ void * dummy_receiver(void *streamo)
     err = handle_buffer_switch(se, resq);
     if(err != 0){
       LOG("Error or done in buffer switch");
+      spec_ops->opt->status = STATUS_ERROR;
       break;
     }
     // RECEIVE
+    usleep(5);
     err = spec_ops->opt->packet_size;
     err = udps_handle_received_packet(se, resq, err);
     if(err != 0){
       E("Error in receive packet. Closing!");
+      spec_ops->opt->status = STATUS_ERROR;
       break;
     }
   }
@@ -194,7 +202,6 @@ void * dummy_receiver(void *streamo)
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
   LOG("UDP_STREAMER: Closing streamer thread\n");
   //spec_ops->running = 0;
-  spec_ops->opt->status = STATUS_STOPPED;
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
     free(resq);

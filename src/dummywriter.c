@@ -10,8 +10,13 @@ int dummy_get_r_fflags(){
   return 0;
 }
 long dummy_write(struct recording_entity * re, void* s, size_t count){
-  (void)re;
   (void)s;
+  struct common_io_info * ioi = (struct common_io_info*) re->opt;
+  usleep(5);
+  ioi->bytes_exchanged += count;
+#if(DAEMON)
+  ioi->opt->bytes_exchanged += count;
+#endif
   return count;
 }
 int dummy_acquire(void* recco, void* opti, void * acq)

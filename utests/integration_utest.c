@@ -1,14 +1,16 @@
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include "../src/datatypes.h"
 #include "common.h"
 #include "../src/streamer.h"
 #include "../src/config.h"
-#include <string.h>
+#include "../src/active_file_index.h"
 
 #define N_THREADS 128
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
+#define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
 #define NUMBER_OF_PACKETS 4096
 #define N_DRIVES 512
@@ -16,11 +18,79 @@
 char ** filenames;
 struct opt_s* dopt;
 struct opt_s* opts;
-
-void* testrun()
+int prep_dummy_file_index(struct opt_s *opt)
 {
-  return NULL;
+  int j;
+  *(opt->cumul) = N_FILES_PER_BOM;
+  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING);
+  CHECK_ERR_NONNULL(opt->fi, "start file index");
+  FILOCK(opt->fi);
+  struct fileholder * fh = opt->fi->files;
+
+  for(j=0;(unsigned)j<opt->fi->n_files;j++){
+    fh->diskid = (rand() % (N_DRIVES-1));
+    fh->status = FH_ONDISK;
+    fh++;
+  }
+  FIUNLOCK(opt->fi);
+
+  return 0;
 }
+
+int start_thread(struct scheduled_event * ev)
+{
+  int err;
+
+  err = prep_filenames(ev->opt);
+  CHECK_ERR("Prep filenames");
+
+  if(!(ev->opt->optbits & READMODE)){
+    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
+    CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
+  }
+  else{
+    err = prep_dummy_file_index(ev->opt);
+    CHECK_ERR("Prep dummies");
+  }
+#if(PPRIORITY)
+  err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
+  if(err != 0)
+    E("error in priority prep! Wont stop though..");
+  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
+#else
+  err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
+#endif
+  CHECK_ERR("streamer thread create");
+  /* TODO: check if packet size etc. match original config */
+  return 0;
+}
+
+int close_thread(struct scheduled_event *ev)
+{
+  int err;
+  err = pthread_join(ev->pt,NULL);
+  CHECK_ERR("pthread join");
+  if(ev->opt->optbits & READMODE){
+    err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
+    if(err != 0){
+      E("Error in disassociate");
+      return -1;
+    }
+  }
+  else{
+    disassociate(ev->opt->fi, FILESTATUS_RECORDING);
+    if(err != 0){
+      E("Error in disassociate");
+      return -1;
+    }
+  }
+  if(ev->opt->status != STATUS_FINISHED){
+    E("Thread didnt finish nicely");
+    return -1;
+  }
+  return 0;
+}
+
 
 int main()
 {
@@ -32,6 +102,7 @@ int main()
   dopt->optbits |= CAPTURE_W_DUMMY;
   dopt->optbits &= ~LOCKER_REC;
   dopt->optbits |= REC_DUMMY;
+  dopt->status = STATUS_NOT_STARTED;
   dopt->packet_size = PACKET_SIZE;
   dopt->buf_num_elems = NUMBER_OF_PACKETS;
   dopt->n_drives = N_DRIVES;
@@ -42,10 +113,11 @@ int main()
   dopt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
   *dopt->total_packets = 0;
 
+  struct scheduled_event * events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
 
   opts = malloc(sizeof(struct opt_s)*N_THREADS);
   CHECK_ERR_NONNULL(opts, "malloc opt");
-  struct thread_data thread_data[N_THREADS];
+  //struct thread_data thread_data[N_THREADS];
 
   filenames = (char**)malloc(sizeof(char*)*N_FILES);
   CHECK_ERR_NONNULL(filenames, "malloc filenames");
@@ -56,17 +128,10 @@ int main()
     sprintf(filenames[i], "%s%d", "filename", i%10);
   }
 
-  for(i=0;i<N_THREADS;i++)
-  {
-    thread_data[i].thread_id = i; 
-    thread_data[i].status = THREAD_STATUS_NOT_STARTED; 
-    thread_data[i].filename = filenames[i % N_FILES];
-    thread_data[i].intid = i*N_THREADS;
-    memcpy(&(opts[i]), dopt, sizeof(struct opt_s));
-  }
+  TEST_START(init_resources);
   err = init_active_file_index();
   CHECK_ERR("active file index");
-  
+
   err = init_branches(dopt);
   CHECK_ERR("Init branches");
 
@@ -76,10 +141,76 @@ int main()
   err = init_rbufs(dopt);
   CHECK_ERR("init buffers");
 
+  for(i=0;i<N_THREADS;i++)
+  {
+    memcpy(&(opts[i]), dopt,sizeof(struct opt_s));
+    clear_pointers(&(opts[i]));
+    opts[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
+    *(opts[i].cumul) = 0;
+    opts[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
+    *(opts[i].total_packets) = 0;
+    /* This will give the same filename to each pair */
+    opts[i].filename = filenames[i/2];
+    if((i % 2) == 1)
+      opts[i].optbits |= READMODE;
+    events[i].opt = &(opts[i]);
+  }
+  TEST_END(init_resources);
 
+  TEST_START(only_receive_one);
+
+  opts[0].time= 10;
+  err = start_thread(&(events[0]));
+  CHECK_ERR("start event");
+  err = close_thread(&(events[0]));
+  CHECK_ERR("Close event");
+
+  TEST_END(only_receive_one);
+
+  TEST_START(only_receive);
+
+  for(i=0;i<N_THREADS;i+=2)
+  {
+    opts[i].time = 10;
+    err = start_thread(&(events[i]));
+    CHECK_ERR("Start thread");
+  }
+  for(i=0;i<N_THREADS;i+=2)
+  {
+    err = close_thread(&(events[i]));
+    CHECK_ERR("Close thread");
+  }
+  CHECK_ERR("Whole receive test");
+
+  TEST_END(only_receive);
+  TEST_START(only_send_one);
+
+  //opts[1].time= 10;
+  err = start_thread(&(events[1]));
+  CHECK_ERR("start event");
+  err = close_thread(&(events[1]));
+  CHECK_ERR("Close event");
+
+  TEST_END(only_send_one);
+  TEST_START(only_send);
+  for(i=1;i<N_THREADS;i+=2)
+  {
+    //opts[i].time = 10;
+    err = start_thread(&(events[i]));
+    CHECK_ERR("Start thread");
+  }
+  for(i=1;i<N_THREADS;i+=2)
+  {
+    err = close_thread(&(events[i]));
+    CHECK_ERR("Close thread");
+  }
+  CHECK_ERR("Whole only send test");
+  TEST_END(only_send);
+
+  TEST_START(close_resources);
   D("Closing membranch and diskbranch");
-  close_rbufs(dopt, NULL);
-  D("Membranch closed");
+  err = close_rbufs(dopt, NULL);
+  CHECK_ERR("close rbufs");
   close_recp(dopt,NULL);
   D("Membranch and diskbranch shut down");
 
@@ -87,10 +218,18 @@ int main()
     free(filenames[i]);
   }
 
-  close_active_file_index();
+  err = close_active_file_index();
+  CHECK_ERR("Close active file index");
+
+  for(i=0;i<N_THREADS;i++)
+  {
+    free(opts[i].cumul);
+    free(opts[i].total_packets);
+  }
 
   free(filenames);
   free(opts);
   close_opts(dopt);
+  TEST_END(close_resources);
   return 0;
 }

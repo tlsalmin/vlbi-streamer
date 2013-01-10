@@ -800,7 +800,7 @@ int init_rbufs(struct opt_s *opt){
   return 0;
 }
 int close_rbufs(struct opt_s *opt, struct stats* da_stats){
-  int i,err;
+  int i,err, retval=0;
   // Stop the memory threads 
   oper_to_all(opt->membranch, BRANCHOP_STOPANDSIGNAL, NULL);
 #ifndef UGLY_FIX_ON_RBUFTHREAD_EXIT
@@ -808,6 +808,7 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
     err = pthread_join(opt->rbuf_pthreads[i], NULL);
     if (err<0) {
       printf("ERROR; return code from pthread_join() is %d\n", err);
+      retval--;
     }
     else
       D("%dth buffer exit OK",,i);
@@ -820,7 +821,7 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
   free(opt->membranch);
   free(opt->bes);
 
-  return 0;
+  return retval;
 }
 int close_opts(struct opt_s *opt){
   int i;
@@ -923,6 +924,7 @@ int prep_priority(struct opt_s * opt, int priority){
   err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
   if(err != 0)
     E("Error Setting inheritance");
+  D("Done prepping priority");
 
   return 0;
 }
@@ -971,7 +973,9 @@ int prep_streamer(struct opt_s* opt){
 	err = dummy_init_dummy_sender(opt, opt->streamer_ent);
       else
 	err = dummy_init_dummy_receiver(opt, opt->streamer_ent);
+#if(DAEMON)
       opt->get_stats = get_dummy_stats;
+#endif
       break;
     case CAPTURE_W_DISK2FILE:
       err = d2f_init(opt, opt->streamer_ent);
@@ -1311,6 +1315,7 @@ int main(int argc, char **argv)
       int sleepleft = opt->time;
       //while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
       while(sleepleft > 0 && (opt->status & STATUS_RUNNING)){
+	D("Slept really");
 	sleep(1);
 	sleepleft-=1;
       }
@@ -1346,7 +1351,13 @@ int main(int argc, char **argv)
   block_until_free(opt->membranch, opt);
 #if(DAEMON)
   LOG("Buffers finished\n");
-  opt->status = STATUS_FINISHED;
+  if(opt->status != STATUS_STOPPED)
+  {
+    E("Thread didnt finish nicely with STATUS_STOPPED");
+    opt->status |= STATUS_FINISHED;
+  }
+  else
+    opt->status = STATUS_FINISHED;
 #else
   close_streamer(opt);
 #endif

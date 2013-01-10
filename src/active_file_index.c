@@ -24,10 +24,12 @@ int init_active_file_index()
 }
 int close_file_index_mutex_free(struct file_index* closing)
 {
+  int retval=0;
   struct file_index* temp;
   int notfound=0;
   if(closing->associations != 0){
     E("Closing file which still has associations: %s!",, closing->filename);
+    retval=-1;
   }
   if(closing == NULL){
     E("closing is null!");
@@ -58,7 +60,7 @@ int close_file_index_mutex_free(struct file_index* closing)
   pthread_mutex_destroy(&(closing->augmentlock));
   free(closing->filename);
   free(closing);
-  return 0;
+  return retval;
 }
 int close_file_index(struct file_index* closing)
 {
@@ -102,19 +104,24 @@ int add_file(struct file_index* fi, long unsigned id, int diskid, int status)
 int close_active_file_index()
 {
   //MAINLOCK;
+  int err,retval=0;
   struct file_index* temp = files;
   struct file_index* temp2;
   while(temp != NULL){
     temp2 = temp;
     temp = temp->next;
-    close_file_index(temp2);
+    err = close_file_index(temp2);
+    if(err != 0){
+      E("Error in closing file index!");
+      retval--;
+    }
   }
   files = NULL;
   //MAINUNLOCK;
   //pthread_spin_destroy(&mainlock);
   CLOSEMAINLOCK;
   //free(mainlock);
-  return 0;
+  return retval;
 }
 struct file_index* get_fileindex_mutex_free(char * name, int associate)
 {
