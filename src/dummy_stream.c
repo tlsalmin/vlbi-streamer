@@ -82,7 +82,11 @@ void * dummy_sender(void * streamo)
   //void * buf = se->be->simple_get_writebuf(se->be, &inc);
   D("Getting first loaded buffer for sender");
   
-  jump_to_next_file(spec_ops->opt, se, &st);
+  err = jump_to_next_file(spec_ops->opt, se, &st);
+  if(err != 0){
+    UDPS_EXIT;
+  }
+
 
   CHECK_AND_EXIT(se->be);
   unsigned long minsleep = get_min_sleeptime();
@@ -100,6 +104,7 @@ void * dummy_sender(void * streamo)
     {
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE){
+	D("All done for sending %s",, spec_ops->opt->filename);
 	UDPS_EXIT;
 	//break;
       }
@@ -138,6 +143,12 @@ void * dummy_sender(void * streamo)
       packetcounter++;
     }
   }
+  if(se->be != NULL)
+  {
+    D("Still have buffer in se->be");
+  }
+  //assert(se->be ==NULL);
+  D("All done. Sent %lu packets for file %s",, st.packets_sent, spec_ops->opt->filename);
   pthread_exit(NULL);
 }
 void * dummy_receiver(void *streamo)

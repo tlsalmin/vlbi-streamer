@@ -524,10 +524,11 @@ int init_cfg(struct opt_s *opt){
     int found = 0;
     /* For checking on cfg-file consistency */
     //long long packet_size=0,cumul=0,old_packet_size=0,old_cumul=0;//,n_files=0,old_n_files=0;
+    /* TODO: this stuff should really be done in active_file_index */
     char * path = (char*) malloc(sizeof(char)*FILENAME_MAX);
     CHECK_ERR_NONNULL(path, "Filepath malloc");
     for(i=0;i<opt->n_drives;i++){
-      sprintf(path, "%s%s%s", opt->filenames[i],opt->filename ,".cfg");
+      sprintf(path, "%s%d%s%s%s%s%s", ROOTDIRS, i, "/", opt->filename, "/",opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
 	D("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }

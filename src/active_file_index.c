@@ -164,6 +164,18 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   if((new = get_fileindex_mutex_free(name,1)) != NULL){
     D("File %s  already exists in index",, name);
     MAINUNLOCK;
+    if(status & FILESTATUS_RECORDING)
+    {
+      if(new->status & FILESTATUS_RECORDING)
+      {
+	E("Cant give recording status to a file thats already being recorded");
+	return NULL;
+      }
+      else{
+	D("Adding status recording to existing file index");
+	new->status |= FILESTATUS_RECORDING;
+      }
+    }
     return new;
   }
   D("File %s really is new",, name);
@@ -227,8 +239,12 @@ int disassociate(struct file_index* dis, int type)
   D("Disassociating with %s which has %d associations",, dis->filename, dis->associations);
   assert(dis->associations > 0);
   dis->associations--;
-  if(type == FILESTATUS_RECORDING)
-    dis->status &= ~FILESTATUS_RECORDING;
+  if(type == FILESTATUS_RECORDING){
+    if(!(dis->status & FILESTATUS_RECORDING))
+      E("Recorder disassociating eventhough status doesn't show a recorder active!");
+    else
+      dis->status &= ~FILESTATUS_RECORDING;
+  }
   /* Hmm so the other side isn't really relevant ..*/
   if(dis->associations == 0){
     D("File has no more associations. Closing it");

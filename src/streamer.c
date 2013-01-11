@@ -365,16 +365,18 @@ int clear_pointers(struct opt_s* opt){
   return 0;
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
-  int i;
+  //int i;
   memset(opt, 0, sizeof(struct opt_s));
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
   opt->hostname = NULL;
   opt->streamer_ent = NULL;
+  /*
   for(i=0;i<MAX_OPEN_FILES;i++){
     opt->filenames[i] = NULL;
   }
+  */
 
   opt->diskids = 0;
   opt->hd_failures = 0;
@@ -824,7 +826,7 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
   return retval;
 }
 int close_opts(struct opt_s *opt){
-  int i;
+  //int i;
   if(opt->first_packet != NULL)
     free(opt->first_packet);
   if(opt->resqut != NULL)
@@ -834,12 +836,14 @@ int close_opts(struct opt_s *opt){
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
   }
+  /*
   if(opt->optbits & READMODE){
     for(i = 0;i< opt->n_drives;i++){
       if(opt->filenames[i] != NULL)
 	free(opt->filenames[i]);
     }
   }
+  */
   if(opt->disk2fileoutput != NULL)
     free(opt->disk2fileoutput);
   if(opt->streamer_ent != NULL)
@@ -929,16 +933,14 @@ int prep_priority(struct opt_s * opt, int priority){
   return 0;
 }
 #endif
+/*
 int prep_filenames(struct opt_s *opt){
   int i;
   D("preparing filenames");
   if(opt->optbits & READMODE){
     for(i=0;i<opt->n_drives;i++){
       opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-      if(opt->filenames[i] == NULL){
-	return -1;
-	//STREAMER_ERROR_EXIT;
-      }
+      CHECK_ERR_NONNULL(opt->filenames[i]
       //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
       sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
     }
@@ -946,6 +948,7 @@ int prep_filenames(struct opt_s *opt){
   D("filenames prepared");
   return 0;
 }
+*/
 int prep_streamer(struct opt_s* opt){
   int err = 0;
   D("Initializing streamer thread");
@@ -1093,6 +1096,7 @@ int main(int argc, char **argv)
 
 #if(DAEMON)
   struct opt_s *opt = (struct opt_s*)opti;
+  D("Starting thread from daemon");
 #else
   LOG("Running in non-daemon mode\n");
   struct opt_s *opt = malloc(sizeof(struct opt_s));
@@ -1103,9 +1107,11 @@ int main(int argc, char **argv)
   if(err != 0)
     STREAMER_ERROR_EXIT;
 
+  /*
   err = prep_filenames(opt);
   if(err != 0)
     STREAMER_ERROR_EXIT;
+    */
 
   err = init_branches(opt);
   CHECK_ERR("init branches");
@@ -1144,16 +1150,20 @@ int main(int argc, char **argv)
   }
 #endif //HAVE_LIBCONFIG_H
 
+
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
   if(opt->hostname != NULL){
     err = prep_hostname(opt);
     if(err != 0){
+      E("Error determining hostname");
       STREAMER_ERROR_EXIT;
     }
+    D("Got hostname");
   }
+  else if(opt->optbits & READMODE)
+    D("No hostname set for readmode!");
   
-
   err = prep_streamer(opt);
   if(err != 0){
     STREAMER_ERROR_EXIT;

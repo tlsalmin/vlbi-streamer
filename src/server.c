@@ -145,8 +145,10 @@ int start_event(struct scheduled_event *ev)
 {
   int err;
 
+  /*
   err = prep_filenames(ev->opt);
   CHECK_ERR("Prep filenames");
+  */
   err = init_cfg(ev->opt);
   if(err != 0){
     E("Error in cfg init");

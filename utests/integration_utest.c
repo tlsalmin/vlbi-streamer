@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 #include "../src/datatypes.h"
 #include "common.h"
 #include "../src/streamer.h"
@@ -14,6 +15,7 @@
 #define PACKET_SIZE 1024
 #define NUMBER_OF_PACKETS 4096
 #define N_DRIVES 512
+#define RUNTIME 5
 
 char ** filenames;
 struct opt_s* dopt;
@@ -21,18 +23,24 @@ struct opt_s* opts;
 int prep_dummy_file_index(struct opt_s *opt)
 {
   int j;
-  *(opt->cumul) = N_FILES_PER_BOM;
-  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING);
+  //*(opt->cumul) = N_FILES_PER_BOM;
+  //*(opt->total_packets) = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
+  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FILOCK(opt->fi);
+  if(!((opt->fi->status) & FILESTATUS_RECORDING))
+    opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
+  //opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
   struct fileholder * fh = opt->fi->files;
 
-  for(j=0;(unsigned)j<opt->fi->n_files;j++){
+  for(j=0;(unsigned)j<=opt->fi->n_files;j++){
     fh->diskid = (rand() % (N_DRIVES-1));
     fh->status = FH_ONDISK;
     fh++;
   }
   FIUNLOCK(opt->fi);
+
+  opt->cumul_found = N_FILES_PER_BOM;
 
   return 0;
 }
@@ -41,16 +49,23 @@ int start_thread(struct scheduled_event * ev)
 {
   int err;
 
-  err = prep_filenames(ev->opt);
-  CHECK_ERR("Prep filenames");
+  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
+  D("num elems wtf %d",, ev->opt->buf_num_elems);
 
+  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
   if(!(ev->opt->optbits & READMODE)){
     ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
   }
   else{
+  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
+    D("num elems wtf %d",, ev->opt->buf_num_elems);
     err = prep_dummy_file_index(ev->opt);
+  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
     CHECK_ERR("Prep dummies");
+    ev->opt->hostname = NULL;
+    D("num elems wtf %d",, ev->opt->buf_num_elems);
+  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
   }
 #if(PPRIORITY)
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
@@ -106,6 +121,7 @@ int main()
   dopt->packet_size = PACKET_SIZE;
   dopt->buf_num_elems = NUMBER_OF_PACKETS;
   dopt->n_drives = N_DRIVES;
+  dopt->hostname = NULL;
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
   dopt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
@@ -125,7 +141,7 @@ int main()
     filenames[i] = (char*) malloc(sizeof(char)*FILENAME_MAX);
     CHECK_ERR_NONNULL(filenames[i], "malloc filename");
     memset(filenames[i], 0, sizeof(char)*FILENAME_MAX);
-    sprintf(filenames[i], "%s%d", "filename", i%10);
+    sprintf(filenames[i], "%s%d", "filename", i);
   }
 
   TEST_START(init_resources);
@@ -149,17 +165,19 @@ int main()
     *(opts[i].cumul) = 0;
     opts[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
     *(opts[i].total_packets) = 0;
-    /* This will give the same filename to each pair */
-    opts[i].filename = filenames[i/2];
-    if((i % 2) == 1)
-      opts[i].optbits |= READMODE;
     events[i].opt = &(opts[i]);
+    /* This will give the same filename to each pair */
+    D("Giving %d filename %s",, i, filenames[i/2]);
+    opts[i].filename = filenames[i/2];
+    if((i % 2) == 1){
+      opts[i].optbits |= READMODE;
+    }
   }
   TEST_END(init_resources);
 
   TEST_START(only_receive_one);
 
-  opts[0].time= 10;
+  opts[0].time= RUNTIME;
   err = start_thread(&(events[0]));
   CHECK_ERR("start event");
   err = close_thread(&(events[0]));
@@ -171,7 +189,7 @@ int main()
 
   for(i=0;i<N_THREADS;i+=2)
   {
-    opts[i].time = 10;
+    opts[i].time = RUNTIME;
     err = start_thread(&(events[i]));
     CHECK_ERR("Start thread");
   }
@@ -186,10 +204,12 @@ int main()
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
+  D("num elems wtf %d",, opts[1].buf_num_elems);
+  D("num elems wtf %d",, events[1].opt->buf_num_elems);
   err = start_thread(&(events[1]));
-  CHECK_ERR("start event");
+  CHECK_ERR("start thread");
   err = close_thread(&(events[1]));
-  CHECK_ERR("Close event");
+  CHECK_ERR("Close thread");
 
   TEST_END(only_send_one);
   TEST_START(only_send);
