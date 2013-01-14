@@ -20,6 +20,7 @@
 char ** filenames;
 struct opt_s* dopt;
 struct opt_s* opts;
+struct scheduled_event* events;
 int prep_dummy_file_index(struct opt_s *opt)
 {
   int j;
@@ -105,7 +106,27 @@ int close_thread(struct scheduled_event *ev)
   }
   return 0;
 }
-
+int format_threads(struct opt_s* original, struct opt_s* copies)
+{
+  int i;
+  for(i=0;i<N_THREADS;i++)
+  {
+    memcpy(&(copies[i]), original,sizeof(struct opt_s));
+    clear_pointers(&(copies[i]));
+    copies[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
+    *(copies[i].cumul) = 0;
+    copies[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
+    *(copies[i].total_packets) = 0;
+    events[i].opt = &(copies[i]);
+    /* This will give the same filename to each pair */
+    D("Giving %d filename %s",, i, filenames[i/2]);
+    copies[i].filename = filenames[i/2];
+    if((i % 2) == 1){
+      copies[i].optbits |= READMODE;
+    }
+  }
+  return 0;
+}
 
 int main()
 {
@@ -129,7 +150,7 @@ int main()
   dopt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
   *dopt->total_packets = 0;
 
-  struct scheduled_event * events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
+  events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
 
   opts = malloc(sizeof(struct opt_s)*N_THREADS);
   CHECK_ERR_NONNULL(opts, "malloc opt");
@@ -157,22 +178,10 @@ int main()
   err = init_rbufs(dopt);
   CHECK_ERR("init buffers");
 
-  for(i=0;i<N_THREADS;i++)
-  {
-    memcpy(&(opts[i]), dopt,sizeof(struct opt_s));
-    clear_pointers(&(opts[i]));
-    opts[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
-    *(opts[i].cumul) = 0;
-    opts[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
-    *(opts[i].total_packets) = 0;
-    events[i].opt = &(opts[i]);
-    /* This will give the same filename to each pair */
-    D("Giving %d filename %s",, i, filenames[i/2]);
-    opts[i].filename = filenames[i/2];
-    if((i % 2) == 1){
-      opts[i].optbits |= READMODE;
-    }
-  }
+  //ÄTÄHÄ
+  err =  format_threads(dopt,opts);
+  CHECK_ERR("Init threads");
+
   TEST_END(init_resources);
 
   TEST_START(only_receive_one);

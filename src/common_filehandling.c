@@ -179,8 +179,10 @@ void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st)
 inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
 {
   //if(!spec_ops->running)
-  if(!(opt->status & STATUS_RUNNING))
+  if(!(opt->status & STATUS_RUNNING)){
+    D("Run status set off!");
     return 0;
+  }
   /* Check if the receiver is still running */
   if(opt->optbits & READMODE && get_status(opt->fi) & FILESTATUS_RECORDING){
     return 1;
@@ -193,6 +195,7 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
   }
   /* If there's still packets to be sent */
 
+  D("Shouldnt be running anymore");
   return 0;
 }
 void throttling_count(struct opt_s* opt, struct sender_tracking * st)
@@ -212,30 +215,29 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
+  struct buffer_entity *tempbe;
   //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
   if(se->be != NULL){
     D("Buffer empty for: %lu",, st->files_sent);
     st->files_sent++;
   }
-  if(st->files_loaded <= get_n_files(opt->fi)){
-    D("Still files to be loaded. Loading %lu",, st->files_loaded);
+  tempbe = se->be;
+  while(st->files_loaded <= get_n_files(opt->fi) && st->allocated_to_load > 0){
+    D("Still files to be loaded. Loading %lu. Allocated %d",, st->files_loaded, st->allocated_to_load);
     /* start_loading increments files_loaded */
-    err = start_loading(opt, se->be, st);
-    CHECK_ERR("Loading file");
-    while(st->allocated_to_load > 0)
-    {
-      D("Loading one more file since allocations are ok");
-      err = start_loading(opt, NULL, st);
-      if(err == DONTRYLOADNOMORE)
-	break;
-      CHECK_ERR("Loading more files");
+    err = start_loading(opt, tempbe, st);
+    tempbe = NULL;
+    if(err == DONTRYLOADNOMORE){
+      D("Loader signalled to stop loading");
+      break;
     }
-    D("Wont load anymore. Still allocated: %d",, st->allocated_to_load);
+    CHECK_ERR("Loading file");
   }
-  else{
+  if(tempbe != NULL)
+  {
     D("Loaded enough files as loaded is %lu. Setting memorybuf to free",, st->files_loaded);
-    set_free(opt->membranch, se->be->self);
+    set_free(opt->membranch, tempbe->self);
     st->allocated_to_load++;
   }
 
@@ -251,27 +253,27 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     FIUNLOCK(opt->fi);
     /* Skip this optimization for now. TODO: reimplement */
     /*
-    if (opt->fileholders->status & FH_INMEM){
-      D("File should still be in mem..");
-      if ((se->be = get_lingering(opt->membranch, opt, opt->fileholders, 0)) == NULL){
-	D("Lingering copy has disappeared! Requesting load on file");
-	struct fileholder* tempfh = (struct fileholder*)malloc(sizeof(struct fileholder));
-	memcpy(tempfh, opt->fileholders, sizeof(struct fileholder));
-	tempfh->next = NULL;
-	tempfh->status &= ~FH_INMEM;
-	if(st->head_loaded != NULL){
-	  tempfh->next = st->head_loaded;
-	  st->head_loaded = tempfh;
-	}
-	else
-	  st->head_loaded = tempfh;
-	return jump_to_next_file(opt, se, st);
-      }
-      else
-	D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
-    }
-    else
-    */
+       if (opt->fileholders->status & FH_INMEM){
+       D("File should still be in mem..");
+       if ((se->be = get_lingering(opt->membranch, opt, opt->fileholders, 0)) == NULL){
+       D("Lingering copy has disappeared! Requesting load on file");
+       struct fileholder* tempfh = (struct fileholder*)malloc(sizeof(struct fileholder));
+       memcpy(tempfh, opt->fileholders, sizeof(struct fileholder));
+       tempfh->next = NULL;
+       tempfh->status &= ~FH_INMEM;
+       if(st->head_loaded != NULL){
+       tempfh->next = st->head_loaded;
+       st->head_loaded = tempfh;
+       }
+       else
+       st->head_loaded = tempfh;
+       return jump_to_next_file(opt, se, st);
+       }
+       else
+       D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
+       }
+       else
+       */
     if(st->files_in_loading > 0)
     {
       D("File should be waiting for us now or soon with status %lu",, st->files_sent);
@@ -292,21 +294,21 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       return -1;
     }
   }
-return 0;
+  return 0;
 }
 void init_resq(struct resq_info* resq)
 {
-    resq->bufstart = resq->buf;
-    /* Set up preliminaries to -1 so we know to	*/
-    /* init this in the calcpos			*/
-    resq->current_seq= INT64_MAX;
-    resq->packets_per_second = -1;
-    resq->starting_second = -1;
-    resq->seqstart_current = INT64_MAX;
+  resq->bufstart = resq->buf;
+  /* Set up preliminaries to -1 so we know to	*/
+  /* init this in the calcpos			*/
+  resq->current_seq= INT64_MAX;
+  resq->packets_per_second = -1;
+  resq->starting_second = -1;
+  resq->seqstart_current = INT64_MAX;
 
-    resq->usebuf = NULL;
+  resq->usebuf = NULL;
 
-    /* First buffer so before is null 	*/
-    resq->bufstart_before = NULL;
-    resq->before = NULL;
+  /* First buffer so before is null 	*/
+  resq->bufstart_before = NULL;
+  resq->before = NULL;
 }

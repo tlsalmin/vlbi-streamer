@@ -754,6 +754,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     *(resq->inc) = spec_ops->opt->filesize;
 #endif
     free_the_buf(se->be);
+    se->be = NULL;
     /* First buffer so *before is null 	*/
     resq->bufstart_before = NULL;
     resq->before = NULL;

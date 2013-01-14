@@ -23,7 +23,7 @@ void *testfunc(void *tdr)
   td->status = THREAD_STATUS_STARTED;
 
   D("Adding file index");
-  fi = add_fileindex(td->filename, 0, FILESTATUS_RECORDING);
+  fi = add_fileindex(td->filename, 0, FILESTATUS_SENDING);
   THREAD_EXIT_ON_ERROR(fi==NULL);
 
   for(i=0;i<FILES_PER_AFILE;i++){

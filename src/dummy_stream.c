@@ -102,6 +102,7 @@ void * dummy_sender(void * streamo)
   while(should_i_be_running(spec_ops->opt, &st) == 1){
     if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek  == 0))
     {
+      D("Sent %lu packets for file %lu. Changing buffer",, packetcounter, st.files_sent);
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE){
 	D("All done for sending %s",, spec_ops->opt->filename);
@@ -145,11 +146,12 @@ void * dummy_sender(void * streamo)
   }
   if(se->be != NULL)
   {
-    D("Still have buffer in se->be");
+    D("Still have buffer in se->be. It sent %lu before we quit",, packetcounter);
+    //free_the_buf(se->be);
   }
-  //assert(se->be ==NULL);
+  assert(st.packets_sent == get_n_packets(spec_ops->opt->fi));
   D("All done. Sent %lu packets for file %s",, st.packets_sent, spec_ops->opt->filename);
-  pthread_exit(NULL);
+  UDPS_EXIT;
 }
 void * dummy_receiver(void *streamo)
 {

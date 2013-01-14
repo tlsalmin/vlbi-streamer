@@ -217,7 +217,9 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
     new->allocated_files = INITIAL_SIZE;
   }
   else
+  {
     new->allocated_files = new->n_files = (n_files-1);
+  }
   /* +1 because indices start from 0 */
   new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files+1));
   CHECK_ERR_NONNULL_RN(new->files);
