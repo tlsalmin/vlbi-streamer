@@ -44,6 +44,12 @@ int dummy_release(void* recco)
   ioi->opt = NULL;
   return 0;
 }
+int return_zero(struct recording_entity* recco, void * something)
+{
+  (void)recco;
+  (void)something;
+  return 0;
+}
 int dummy_init_dummy(struct opt_s * opt, struct recording_entity *re){
   int err;
   common_init_common_functions(opt,re);
@@ -62,6 +68,7 @@ int dummy_init_dummy(struct opt_s * opt, struct recording_entity *re){
 
   re->self->acquire = dummy_acquire;
   re->self->release = dummy_release;
+  re->check_files = return_zero;
 
   return 0;
 }

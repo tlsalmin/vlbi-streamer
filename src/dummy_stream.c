@@ -203,6 +203,11 @@ void * dummy_receiver(void *streamo)
   if(*(resq->inc) == 0)
     se->be->cancel_writebuf(se->be);
   else{
+    if(spec_ops->opt->fi != NULL){
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+      D("N packets is now %lu",, n_now);
+    }
+
     se->be->set_ready(se->be);
     (*spec_ops->opt->cumul)++;
   }

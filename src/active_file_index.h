@@ -62,4 +62,5 @@ long unsigned get_n_files(struct file_index* fi);
 long unsigned get_n_packets(struct file_index* fi);
 int add_file(struct file_index* fi, long unsigned id, int diskid, int status);
 int get_status(struct file_index * fi);
+unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_add);
 #endif

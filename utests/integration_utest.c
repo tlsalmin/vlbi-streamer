@@ -7,6 +7,7 @@
 #include "../src/streamer.h"
 #include "../src/config.h"
 #include "../src/active_file_index.h"
+#include "../src/udp_stream.h"
 
 #define N_THREADS 128
 #define NAMEDIVISION 2
@@ -15,17 +16,21 @@
 #define PACKET_SIZE 1024
 #define NUMBER_OF_PACKETS 4096
 #define N_DRIVES 512
-#define RUNTIME 5
+#define RUNTIME 10
 
 char ** filenames;
 struct opt_s* dopt;
 struct opt_s* opts;
 struct scheduled_event* events;
+struct stats * stats;
 int prep_dummy_file_index(struct opt_s *opt)
 {
   int j;
-  //*(opt->cumul) = N_FILES_PER_BOM;
-  //*(opt->total_packets) = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
+  if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
+  {
+    D("filename %s Already exists, so just going along with this..",, opt->filename);
+    return 0;
+  }
   opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FILOCK(opt->fi);
@@ -50,23 +55,16 @@ int start_thread(struct scheduled_event * ev)
 {
   int err;
 
-  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
-  D("num elems wtf %d",, ev->opt->buf_num_elems);
-
-  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
   if(!(ev->opt->optbits & READMODE)){
     ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
   }
   else{
-  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
     D("num elems wtf %d",, ev->opt->buf_num_elems);
     err = prep_dummy_file_index(ev->opt);
-  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
     CHECK_ERR("Prep dummies");
     ev->opt->hostname = NULL;
     D("num elems wtf %d",, ev->opt->buf_num_elems);
-  assert(ev->opt->buf_num_elems == NUMBER_OF_PACKETS);
   }
 #if(PPRIORITY)
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
@@ -104,6 +102,7 @@ int close_thread(struct scheduled_event *ev)
     E("Thread didnt finish nicely");
     return -1;
   }
+  get_udp_stats(ev->opt->streamer_ent->opt, ev->stats);
   return 0;
 }
 int format_threads(struct opt_s* original, struct opt_s* copies)
@@ -118,12 +117,15 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
     copies[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
     *(copies[i].total_packets) = 0;
     events[i].opt = &(copies[i]);
+    events[i].stats = &(stats[i]);
     /* This will give the same filename to each pair */
     D("Giving %d filename %s",, i, filenames[i/2]);
     copies[i].filename = filenames[i/2];
     if((i % 2) == 1){
       copies[i].optbits |= READMODE;
     }
+    else
+      copies[i].time = RUNTIME;
   }
   return 0;
 }
@@ -151,6 +153,8 @@ int main()
   *dopt->total_packets = 0;
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
+  stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
 
   opts = malloc(sizeof(struct opt_s)*N_THREADS);
   CHECK_ERR_NONNULL(opts, "malloc opt");
@@ -178,7 +182,6 @@ int main()
   err = init_rbufs(dopt);
   CHECK_ERR("init buffers");
 
-  //ÄTÄHÄ
   err =  format_threads(dopt,opts);
   CHECK_ERR("Init threads");
 
@@ -191,6 +194,16 @@ int main()
   CHECK_ERR("start event");
   err = close_thread(&(events[0]));
   CHECK_ERR("Close event");
+  if(stats[0].total_bytes > 0)
+  {
+    D("Captured %ld bytes",, stats[0].total_bytes);
+  }
+  else{
+    E("No bytes captured!");
+    return -1;
+  }
+  memset(&(stats[0]), 0, sizeof(struct stats));
+
 
   TEST_END(only_receive_one);
 
@@ -206,6 +219,14 @@ int main()
   {
     err = close_thread(&(events[i]));
     CHECK_ERR("Close thread");
+    if(stats[i].total_bytes > 0)
+    {
+      D("Captured %ld bytes",, stats[i].total_bytes);
+    }
+    else{
+      E("No bytes captured on id %d!",, i);
+      return -1;
+    }
   }
   CHECK_ERR("Whole receive test");
 
@@ -219,8 +240,18 @@ int main()
   CHECK_ERR("start thread");
   err = close_thread(&(events[1]));
   CHECK_ERR("Close thread");
+  if (stats[1].total_bytes == PACKET_SIZE*NUMBER_OF_PACKETS*N_FILES_PER_BOM)
+  {
+    D("sent %ld bytes correctly",, stats[1].total_bytes);
+  }
+  else{
+    E("Not enough bytes sent. Only %ld!",, stats[1].total_bytes);
+    return -1;
+  }
+  memset(&(stats[1]), 0, sizeof(struct stats));
 
   TEST_END(only_send_one);
+
   TEST_START(only_send);
   for(i=1;i<N_THREADS;i+=2)
   {
@@ -232,9 +263,63 @@ int main()
   {
     err = close_thread(&(events[i]));
     CHECK_ERR("Close thread");
+    if (stats[i].total_bytes == PACKET_SIZE*NUMBER_OF_PACKETS*N_FILES_PER_BOM)
+    {
+      D("sent %ld bytes correctly",, stats[i].total_bytes);
+    }
+    else{
+      E("Not enough bytes sent. Only %ld for id %i!",, stats[i].total_bytes,i);
+      return -1;
+    }
   }
   CHECK_ERR("Whole only send test");
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_END(only_send);
+
+  TEST_START(send_and_receive_one);
+  err = start_thread(&(events[0]));
+  CHECK_ERR("Start receive");
+  sleep(1);
+  err = start_thread(&(events[1]));
+  CHECK_ERR("Start send");
+  err = close_thread(&(events[0]));
+  CHECK_ERR("Close receiving thread");
+  err = close_thread(&(events[1]));
+  CHECK_ERR("Close sending thread");
+  TEST_END(send_and_receive_one);
+
+  TEST_START(send_and_receive);
+  for(i=0;i<N_THREADS;i+=2)
+  {
+    //opts[i].time = 10;
+    err = start_thread(&(events[i]));
+    CHECK_ERR("Start thread");
+  }
+  //sleep(1);
+  for(i=1;i<N_THREADS;i+=2)
+  {
+    //opts[i].time = 10;
+    err = start_thread(&(events[i]));
+    CHECK_ERR("Start thread");
+  }
+  for(i=0;i<N_THREADS;i++)
+  {
+    err = close_thread(&(events[i]));
+    CHECK_ERR("Close thread");
+    if(i % 2 == 1)
+    {
+      D("Closed a pair. Checking bytes");
+      if (stats[i].total_bytes == stats[i-1].total_bytes)
+      {
+	D("sent %ld bytes correctly",, stats[i].total_bytes);
+      }
+      else{
+	E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[i].total_bytes, stats[i-1].total_bytes);
+	return -1;
+      }
+    }
+  }
+  TEST_END(send_and_receive);
 
   TEST_START(close_resources);
   D("Closing membranch and diskbranch");
@@ -258,6 +343,7 @@ int main()
 
   free(filenames);
   free(opts);
+  free(stats);
   close_opts(dopt);
   TEST_END(close_resources);
   return 0;

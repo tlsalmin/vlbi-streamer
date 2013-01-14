@@ -221,9 +221,12 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   if(se->be != NULL){
     D("Buffer empty for: %lu",, st->files_sent);
     st->files_sent++;
+    if(st->files_sent == get_n_files(opt->fi))
+      return ALL_DONE;
   }
   tempbe = se->be;
-  while(st->files_loaded <= get_n_files(opt->fi) && st->allocated_to_load > 0){
+  /* -1 here, since indexes start at 0 */
+  while(st->files_loaded < (get_n_files(opt->fi)) && st->allocated_to_load > 0){
     D("Still files to be loaded. Loading %lu. Allocated %d",, st->files_loaded, st->allocated_to_load);
     /* start_loading increments files_loaded */
     err = start_loading(opt, tempbe, st);
@@ -290,7 +293,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       //CHECK_AND_EXIT(se->be);
     }
     else{
-      E("No files in loading so shouldn't get here");
+      E("No files in loading so shouldn't get here. Loaded %ld, sent %ld, in loading: %ld. Filename %s ",, st->files_loaded, st->files_sent,st->files_in_loading, opt->filename);
       return -1;
     }
   }

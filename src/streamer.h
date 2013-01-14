@@ -355,7 +355,7 @@ struct opt_s
   TIMERTYPE start_time;
 #endif
   //unsigned long max_num_packets;
-  char * filenames[MAX_OPEN_FILES];
+  //char * filenames[MAX_OPEN_FILES];
   struct timespec starting_time;
   unsigned long filesize;
 
@@ -523,7 +523,7 @@ void arrange_by_id(struct opt_s* opt);
 int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);
 void shutdown_thread(struct opt_s *opt);
-int prep_filenames(struct opt_s * opt);
+//int prep_filenames(struct opt_s * opt);
 int prep_hostname(struct opt_s * opt);
 int prep_priority(struct opt_s * opt, int priority);
 int prep_streamer(struct opt_s * opt);

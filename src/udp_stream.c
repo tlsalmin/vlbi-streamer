@@ -1058,6 +1058,10 @@ int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
   if(resq->i == spec_ops->opt->buf_num_elems)
   {
     D("Buffer filled, Getting another");
+    if(spec_ops->opt->fi != NULL){
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      D("N packets is now %lu",, n_now);
+    }
 
     if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
       D("Jumping to next buffer normally");
@@ -1145,6 +1149,10 @@ void* udp_receiver(void *streamo)
   if(*(resq->inc) == 0)
     se->be->cancel_writebuf(se->be);
   else{
+    if(spec_ops->opt->fi != NULL){
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+      D("N packets is now %lu",, n_now);
+    }
     se->be->set_ready(se->be);
     (*spec_ops->opt->cumul)++;
   }

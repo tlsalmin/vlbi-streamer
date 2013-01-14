@@ -218,10 +218,10 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   }
   else
   {
-    new->allocated_files = new->n_files = (n_files-1);
+    new->allocated_files = new->n_files = n_files;
   }
   /* +1 because indices start from 0 */
-  new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files+1));
+  new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files));
   CHECK_ERR_NONNULL_RN(new->files);
   new->status = status;
   FIUNLOCK(new);
@@ -344,6 +344,10 @@ long unsigned get_n_packets(struct file_index* fi)
   return ret;
   */
   return __sync_fetch_and_add(&(fi->n_packets),0);
+}
+unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_add)
+{
+  return __sync_add_and_fetch(&(fi->n_packets), n_packets_to_add);
 }
 int get_status(struct file_index * fi)
 {
