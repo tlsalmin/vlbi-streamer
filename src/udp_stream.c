@@ -1226,8 +1226,11 @@ int close_udp_streamer(void *opt_own, void *stats){
 }
 void udps_stop(struct streamer_entity *se){
   D("Stopping loop");
-  //((struct udpopts *)se->opt)->running = 0;
-  ((struct opt_s*)((struct udpopts *)se->opt)->opt)->status = STATUS_STOPPED;
+  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  spec_ops->opt->status = STATUS_STOPPED;
+  if(!(spec_ops->opt->optbits & READMODE)){
+    udps_close_socket(se);
+  }
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){

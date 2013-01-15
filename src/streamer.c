@@ -1138,7 +1138,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCONFIG_H
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
-    LOG("For recording %s: %lu files were found out of %lu total.\n", opt->filename, opt->cumul_found, *opt->cumul);
+    LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, *opt->cumul, get_n_files(opt->fi));
     /* Only if we're sending live, do we need to rearrange these properly */
     /*
     if(opt->optbits & LIVE_SENDING){
@@ -1460,8 +1460,6 @@ int init_branches(struct opt_s *opt){
 void shutdown_thread(struct opt_s *opt){
   if(opt->streamer_ent != NULL){
     opt->streamer_ent->stop(opt->streamer_ent);
-    if(!(opt->optbits & READMODE))
-      udps_close_socket(opt->streamer_ent);
   }
 }
 #if(DAEMON)

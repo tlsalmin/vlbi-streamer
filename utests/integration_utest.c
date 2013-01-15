@@ -286,8 +286,18 @@ int main()
   CHECK_ERR("Close receiving thread");
   err = close_thread(&(events[1]));
   CHECK_ERR("Close sending thread");
+  D("Closed a pair. Checking bytes");
+  if (stats[0].total_bytes == stats[1].total_bytes)
+  {
+    D("sent %ld bytes correctly",, stats[0].total_bytes);
+  }
+  else{
+    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[0].total_bytes, stats[1].total_bytes);
+    return -1;
+  }
   TEST_END(send_and_receive_one);
 
+  memset(&(stats[0]), 0, sizeof(struct stats));
   TEST_START(send_and_receive);
   for(i=0;i<N_THREADS;i+=2)
   {
@@ -302,6 +312,7 @@ int main()
     err = start_thread(&(events[i]));
     CHECK_ERR("Start thread");
   }
+  int retval = 0;
   for(i=0;i<N_THREADS;i++)
   {
     err = close_thread(&(events[i]));
@@ -315,9 +326,13 @@ int main()
       }
       else{
 	E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[i].total_bytes, stats[i-1].total_bytes);
-	return -1;
+	retval = -1;
       }
     }
+  }
+  if(retval != 0){
+    E("Atleast one thread didn't send & receive the same");
+    return -1;
   }
   TEST_END(send_and_receive);
 
