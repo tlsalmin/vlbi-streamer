@@ -134,6 +134,17 @@ do
   SARRAY=(`tail -n +$I $TMPSTARTSFILE | head -1`)
   EARRAY=(`tail -n +$I $TMPENDTIMES | head -1`)
 
+  #AHSDG It seems date handles +016 days differently than +16days
+  #valueWithoutZeroes="$(echo $valueWithZeroes | sed 's/0*//')"
+  SARRAY[0]=$(echo ${SARRAY[0]} | sed 's/0*//')
+  SARRAY[1]=$(echo ${SARRAY[1]} | sed 's/0*//')
+  SARRAY[2]=$(echo ${SARRAY[2]} | sed 's/0*//')
+  EARRAY[0]=$(echo ${EARRAY[0]} | sed 's/0*//')
+  EARRAY[1]=$(echo ${EARRAY[1]} | sed 's/0*//')
+  EARRAY[2]=$(echo ${EARRAY[2]} | sed 's/0*//')
+  #echo ${SARRAY[@]} "EHERE" ${EARRAY[@]}
+#Read more at http://www.askdavetaylor.com/how_do_i_strip_leading_zeroes_for_math_in_a_shell_script.html#LPkh75mIhLQLOp4A.99 
+
   #Use time from EPOCH as start time, since its nice to use in C
   #Aggh so +x days we need to negate one as we start from day 1
   STARTEPOCH=`date -u -d "01/01/${SARRAY[0]} + $((${SARRAY[1]}-1)) days ${SARRAY[2]}" +%s `
@@ -174,7 +185,8 @@ do
     echo $VBS_QUEUE $EXPNAME $dur -e $STARTEPOCH $EXTRAOPS $DOTHEDOT  >> $EXTRAOUT
   fi
   I=$(($I+1))
-done < starttimes
+done
+#done < starttimes
 
 if [ ! -z "$REMOTER" ]
 then

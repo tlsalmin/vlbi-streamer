@@ -50,6 +50,10 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     return DONTRYLOADNOMORE;
   }
   if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
+    if(FH_STATUS(st->files_loaded) & FH_BUSY|FH_INMEM)
+    {
+      //TODO add a wait here 
+    }
     D("Not on disk so not loading");
     FIUNLOCK(opt->fi);
     return DONTRYLOADNOMORE;
@@ -82,8 +86,11 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   D("Requested a load start on file %lu",, st->files_loaded);
   if (be == NULL){
     if(check_if_free(opt->membranch) != 0){
-      D("wont loadup since no more free buffers");
-      return DONTRYLOADNOMORE;
+      D("No more free buffers");
+      if(st->files_in_loading != 0){
+	D("wont loadup since no more free buffers and we have files in loading");
+	return DONTRYLOADNOMORE;
+      }
     }
     be = get_free(opt->membranch, opt, (void*)(&(st->files_loaded)), NULL);
     st->allocated_to_load--;
