@@ -1,0 +1,21 @@
+#!/bin/bash
+while [ 1 ]
+do
+  HOUR="`date -u +%H|sed 's/0*//'`"
+  MINUTE="`date -u +%M|sed 's/0*//'`"
+  SECOND="`date -u +%S|sed 's/0*//'`"
+  if [ -z "$HOUR" ]
+  then
+    HOUR="0"
+  fi
+  if [ -z "$MINUTE" ]
+  then
+    MINUTE="0"
+  fi
+  if [ -z "$SECOND" ]
+  then
+    SECOND="0"
+  fi
+    
+  echo $(($HOUR* 60*60 + $MINUTE*60 + $SECOND ))  ;sleep 1
+done

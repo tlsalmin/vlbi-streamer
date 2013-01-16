@@ -48,6 +48,7 @@ int main(int argc, char ** argv){
   int syncword;
   int userspecified;
   int hexoffset=0;
+  int extraoffset = 0;
   int tvg;
   int framenum=0;
   int VLBABCD_timecodeword1J;
@@ -59,7 +60,7 @@ int main(int argc, char ** argv){
   int isauto=0;
   int netmode=0;
 
-  while ( (c = getopt(argc, argv, "anf:")) != -1) {
+  while ( (c = getopt(argc, argv, "anf:o:")) != -1) {
         //int this_option_optind = optind ? optind : 1;
         switch (c) {
 	  case 'n':
@@ -81,6 +82,9 @@ int main(int argc, char ** argv){
 	  case 'a':
 	    isauto=1;
 	    break;
+	  case 'o':
+	    extraoffset=atoi(optarg);
+	    break;
 	  //case 's':
 	    //seek = 1;
 	  default:
@@ -88,6 +92,8 @@ int main(int argc, char ** argv){
 	    break;
 	}
   }
+  if(extraoffset!=0)
+    framesize+=extraoffset;
   /*
      O("argc %d\n", argc);
      argv +=optind;
@@ -115,7 +121,7 @@ int main(int argc, char ** argv){
     perror("mmap file");
 
   /* Check if we started at half frame */
-  target = mmapfile+offset;
+  target = mmapfile+offset+extraoffset;
   GRAB_4_BYTES
   if(read_count != 0xABADDEED){
     if(netmode == 0)
@@ -136,7 +142,7 @@ int main(int argc, char ** argv){
     }
     else
     */
-    target = mmapfile + framesize*count + offset + hexoffset*16;
+    target = mmapfile + framesize*count + offset + hexoffset*16 +extraoffset;
     if(hexmode == 0){
     GRAB_4_BYTES
     syncword = read_count;
