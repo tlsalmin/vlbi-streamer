@@ -33,7 +33,7 @@ int prep_dummy_file_index(struct opt_s *opt)
     return 0;
   }
   else
-    D("filename %s Not found in index. Creating new");
+    D("filename %s Not found in index. Creating new",, opt->filename);
   opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FILOCK(opt->fi);

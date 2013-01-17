@@ -64,7 +64,6 @@ int dummy_init_dummy_sender( struct opt_s *opt, struct streamer_entity *se)
 void * dummy_sender(void * streamo)
 {
   int err = 0;
-  void *buf;
   long *inc, sentinc=0, packetcounter=0;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
@@ -92,7 +91,7 @@ void * dummy_sender(void * streamo)
   unsigned long minsleep = get_min_sleeptime();
   LOG("Can sleep max %lu microseconds on average\n", minsleep);
 
-  buf = se->be->simple_get_writebuf(se->be, &inc);
+  se->be->simple_get_writebuf(se->be, &inc);
 
   D("Starting stream send");
   //i=0;
@@ -114,7 +113,7 @@ void * dummy_sender(void * streamo)
 	UDPS_EXIT_ERROR;
 	//break;
       }
-      buf = se->be->simple_get_writebuf(se->be, &inc);
+      se->be->simple_get_writebuf(se->be, &inc);
       packetpeek = get_n_packets(spec_ops->opt->fi);
       packetcounter = 0;
       sentinc = 0;

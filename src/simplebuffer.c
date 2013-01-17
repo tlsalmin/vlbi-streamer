@@ -572,7 +572,7 @@ int write_buffer(struct buffer_entity *be)
       if (be->recer == NULL || ret !=0){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
-	E("Wanted %d from %d",, sbuf->fileid, sbuf->opt->fi->files[sbuf->fileid]);
+	E("Wanted %ld from %d",, sbuf->fileid, (sbuf->opt->fi->files[sbuf->fileid]).diskid);
 	if(be->recer == NULL)
 	  E("Recer was null");
 	else

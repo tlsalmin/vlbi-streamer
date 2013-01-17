@@ -65,4 +65,5 @@ int get_status(struct file_index * fi);
 unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_add);
 int mutex_free_wait_on_update(struct file_index *fi);
 int wait_on_update(struct file_index *fi);
+int wake_up_waiters(struct file_index *fi);
 #endif

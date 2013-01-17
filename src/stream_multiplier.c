@@ -55,7 +55,7 @@ int main(int argc, char** argv)
   }
   else
   {
-    fprintf(stdout, "Multiple targets:\n");
+    fprintf(stdout, "Multiple targets %d:\n", n_targets);
    }
 
   fprintf(stdout, "Recv socket: %d packets size: %d\n", recv_socket, packetsize);

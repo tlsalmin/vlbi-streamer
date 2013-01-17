@@ -51,7 +51,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     return DONTRYLOADNOMORE;
   }
   if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
-    if(FH_STATUS(st->files_loaded) & FH_BUSY|FH_INMEM)
+    if(FH_STATUS(st->files_loaded) & (FH_BUSY|FH_INMEM))
     {
       if(st->files_in_loading > 0){
 	FIUNLOCK(opt->fi);
@@ -59,7 +59,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
       }
       else
       {
-	while(FH_STATUS(st->files_loaded) & FH_BUSY|FH_INMEM)
+	while(FH_STATUS(st->files_loaded) & (FH_BUSY|FH_INMEM))
 	{
 	  err = mutex_free_wait_on_update(opt->fi);
 	  CHECK_ERR("wait on update");
