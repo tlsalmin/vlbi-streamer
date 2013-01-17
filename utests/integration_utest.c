@@ -29,8 +29,11 @@ int prep_dummy_file_index(struct opt_s *opt)
   if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
   {
     D("filename %s Already exists, so just going along with this..",, opt->filename);
+    opt->cumul_found = get_n_files(opt->fi);
     return 0;
   }
+  else
+    D("filename %s Not found in index. Creating new");
   opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FILOCK(opt->fi);
@@ -57,6 +60,7 @@ int start_thread(struct scheduled_event * ev)
 
   if(!(ev->opt->optbits & READMODE)){
     ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
+    ev->opt->time = RUNTIME;
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
   }
   else{
@@ -110,6 +114,10 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   int i;
   for(i=0;i<N_THREADS;i++)
   {
+    if(copies[i].cumul != NULL)
+      free(copies[i].cumul);
+    if(copies[i].total_packets != NULL)
+      free(copies[i].total_packets);
     memcpy(&(copies[i]), original,sizeof(struct opt_s));
     clear_pointers(&(copies[i]));
     copies[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
@@ -147,10 +155,14 @@ int main()
   dopt->hostname = NULL;
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
+  dopt->cumul = NULL;
+  dopt->total_packets = NULL;
+  /*
   dopt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   *dopt->cumul = 0;
   dopt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
   *dopt->total_packets = 0;
+  */
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
   stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
@@ -159,6 +171,7 @@ int main()
   opts = malloc(sizeof(struct opt_s)*N_THREADS);
   CHECK_ERR_NONNULL(opts, "malloc opt");
   //struct thread_data thread_data[N_THREADS];
+  memset(opts, 0,sizeof(struct opt_s)*N_THREADS);
 
   filenames = (char**)malloc(sizeof(char*)*N_FILES);
   CHECK_ERR_NONNULL(filenames, "malloc filenames");
@@ -207,6 +220,8 @@ int main()
 
   TEST_END(only_receive_one);
 
+  format_threads(dopt,opts);
+
   TEST_START(only_receive);
 
   for(i=0;i<N_THREADS;i+=2)
@@ -231,6 +246,7 @@ int main()
   CHECK_ERR("Whole receive test");
 
   TEST_END(only_receive);
+  format_threads(dopt,opts);
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
@@ -252,6 +268,7 @@ int main()
 
   TEST_END(only_send_one);
 
+  format_threads(dopt,opts);
   TEST_START(only_send);
   for(i=1;i<N_THREADS;i+=2)
   {
@@ -275,8 +292,9 @@ int main()
   CHECK_ERR("Whole only send test");
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_END(only_send);
-
+  format_threads(dopt,opts);
   TEST_START(send_and_receive_one);
+
   err = start_thread(&(events[0]));
   CHECK_ERR("Start receive");
   sleep(1);
@@ -292,11 +310,12 @@ int main()
     D("sent %ld bytes correctly",, stats[0].total_bytes);
   }
   else{
-    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[0].total_bytes, stats[1].total_bytes);
+    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
     return -1;
   }
   TEST_END(send_and_receive_one);
 
+  format_threads(dopt,opts);
   memset(&(stats[0]), 0, sizeof(struct stats));
   TEST_START(send_and_receive);
   for(i=0;i<N_THREADS;i+=2)
@@ -305,7 +324,7 @@ int main()
     err = start_thread(&(events[i]));
     CHECK_ERR("Start thread");
   }
-  //sleep(1);
+  sleep(2);
   for(i=1;i<N_THREADS;i+=2)
   {
     //opts[i].time = 10;
@@ -325,13 +344,13 @@ int main()
 	D("sent %ld bytes correctly",, stats[i].total_bytes);
       }
       else{
-	E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[i].total_bytes, stats[i-1].total_bytes);
-	retval = -1;
+	E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
+	retval--;
       }
     }
   }
   if(retval != 0){
-    E("Atleast one thread didn't send & receive the same");
+    E("Atleast one thread didn't send & receive the same. Errors: %d",, retval);
     return -1;
   }
   TEST_END(send_and_receive);

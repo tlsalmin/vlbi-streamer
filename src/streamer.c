@@ -1169,7 +1169,10 @@ int main(int argc, char **argv)
     STREAMER_ERROR_EXIT;
   }
 
-  LOG("STREAMER: In main, starting receiver thread \n");
+  if(opt->optbits & READMODE)
+    LOG("STREAMER: In main, starting sending thread \n");
+  else
+    LOG("STREAMER: In main, starting receiver thread \n");
 
 #if(PPRIORITY)
   

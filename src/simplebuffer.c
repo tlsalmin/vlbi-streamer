@@ -572,6 +572,11 @@ int write_buffer(struct buffer_entity *be)
       if (be->recer == NULL || ret !=0){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
+	E("Wanted %d from %d",, sbuf->fileid, sbuf->opt->fi->files[sbuf->fileid]);
+	if(be->recer == NULL)
+	  E("Recer was null");
+	else
+	  E("Ret wasnt zero");
 	/* Not thread safe atm 			*/
 	//Let the one using it close it!
 	if(be->recer !=NULL){
@@ -609,6 +614,7 @@ int write_buffer(struct buffer_entity *be)
 	{
 	  check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL);
 	}
+	assert(be->recer->getid(be->recer) < sbuf->opt->n_drives);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
@@ -698,6 +704,8 @@ void *sbuf_simple_write_loop(void *buffo)
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
 	    D("Write cycle complete. Setting self to free");
+	    if(wake_up_waiters(sbuf->opt->fi) != 0)
+	      E("Error in waking up waiters");
 	    set_free(sbuf->opt->membranch, be->self);
 	  }
 	}

@@ -88,9 +88,16 @@ inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diski
       return -1;
     }
   }
+  if(fi->n_files > id)
+  {
+    D("Warning: Adding file which already exists with id %ld",, id);
+  }
+  else{
+    fi->n_files++;
+  }
   fi->files[id].diskid = diskid;
   fi->files[id].status = status;
-  fi->n_files++;
+  D("Added file %ld of %s with status FH_MISSNNG:%d",, id, fi->filename, status & FH_MISSING);
   return 0;
 }
 int add_file(struct file_index* fi, long unsigned id, int diskid, int status)
@@ -132,10 +139,12 @@ struct file_index* get_fileindex_mutex_free(char * name, int associate)
       if(associate == 1){
 	temp->associations++;
       }
+      D("%s found!",, name);
       return temp;
     }
     temp= temp->next;
   }
+  D("%s Not found",, name);
   return NULL;
 }
 struct file_index* get_fileindex(char * name, int associate)
@@ -231,6 +240,7 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
 int disassociate(struct file_index* dis, int type)
 {
   int err = 0;
+  int signal =0;
   if(dis == NULL)
   {
     E("File association is null");
@@ -244,19 +254,53 @@ int disassociate(struct file_index* dis, int type)
   if(type == FILESTATUS_RECORDING){
     if(!(dis->status & FILESTATUS_RECORDING))
       E("Recorder disassociating eventhough status doesn't show a recorder active!");
-    else
+    else{
       dis->status &= ~FILESTATUS_RECORDING;
+      signal = 1;
+    }
   }
   /* Hmm so the other side isn't really relevant ..*/
   if(dis->associations == 0){
     D("File has no more associations. Closing it");
     err = close_file_index_mutex_free(dis);
+    signal = 0;
   }
   else{
     D("Still associations to %s",, dis->filename);
   }
   MAINUNLOCK;
+  if(signal == 1)
+    wake_up_waiters(dis);
   return err;
+}
+int mutex_free_wait_on_update(struct file_index *fi)
+{
+  if(fi->status & FILESTATUS_RECORDING)
+    return pthread_cond_wait(&(fi->waiting), &(fi->augmentlock));
+  else {
+    E("Asking wait on file thats not being recorded! %s",, fi->filename);
+    return -1;
+  }
+}
+int wait_on_update(struct file_index *fi)
+{
+  int retval;
+  FILOCK(fi);
+  retval = mutex_free_wait_on_update(fi);
+  FIUNLOCK(fi);
+  return retval;
+}
+int mutex_free_wake_up_waiters(struct file_index *fi)
+{
+  return pthread_cond_broadcast(&(fi->waiting));
+}
+int wake_up_waiters(struct file_index *fi)
+{
+  int retval;
+  FILOCK(fi);
+  retval = mutex_free_wake_up_waiters(fi);
+  FIUNLOCK(fi);
+  return retval;
 }
 void and_action(struct file_index* fi, unsigned long filenum, int status, int action)
 {

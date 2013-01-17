@@ -17,22 +17,22 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
 
   if(target != NULL)
   {
-  while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
-    long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+    while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
+      long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
 
-    D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
+      D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
 
-    /* files skipped is just for statistics so don't want to log it twice	*/
-    if(lors == SKIP_SENT)
-      st->files_skipped++;
-    //st->files_loaded++;
-    (*target)++;
+      /* files skipped is just for statistics so don't want to log it twice	*/
+      if(lors == SKIP_SENT)
+	st->files_skipped++;
+      //st->files_loaded++;
+      (*target)++;
 
-    if(lors == SKIP_SENT)
-      st->packets_sent += nuf;
-    else if(lors == SKIP_LOADED)
-      st->packets_loaded+= nuf;
-  }
+      if(lors == SKIP_SENT)
+	st->packets_sent += nuf;
+      else if(lors == SKIP_LOADED)
+	st->packets_loaded+= nuf;
+    }
   }
   else
     E("Weird target");
@@ -41,6 +41,7 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
   long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  int err;
   D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
   FILOCK(opt->fi);
   skip_missing(opt,st,SKIP_LOADED);
@@ -52,11 +53,25 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
     if(FH_STATUS(st->files_loaded) & FH_BUSY|FH_INMEM)
     {
+      if(st->files_in_loading > 0){
+	FIUNLOCK(opt->fi);
+	return DONTRYLOADNOMORE;
+      }
+      else
+      {
+	while(FH_STATUS(st->files_loaded) & FH_BUSY|FH_INMEM)
+	{
+	  err = mutex_free_wait_on_update(opt->fi);
+	  CHECK_ERR("wait on update");
+	}
+      }
       //TODO add a wait here 
     }
-    D("Not on disk so not loading");
-    FIUNLOCK(opt->fi);
-    return DONTRYLOADNOMORE;
+    else{
+      D("Not on disk so not loading");
+      FIUNLOCK(opt->fi);
+      return DONTRYLOADNOMORE;
+    }
   }
   FIUNLOCK(opt->fi);
   /*TODO Lets skip this perf improvement stuff for now */
