@@ -216,7 +216,7 @@ void * dummy_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
+  D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets, spec_ops->opt->filename);
   LOG("UDP_STREAMER: Closing streamer thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */

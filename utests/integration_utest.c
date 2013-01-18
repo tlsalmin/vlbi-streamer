@@ -221,6 +221,7 @@ int main()
   TEST_END(only_receive_one);
 
   format_threads(dopt,opts);
+  memset(stats, 0, sizeof(struct stats));
 
   TEST_START(only_receive);
 
@@ -247,6 +248,7 @@ int main()
 
   TEST_END(only_receive);
   format_threads(dopt,opts);
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
@@ -264,11 +266,11 @@ int main()
     E("Not enough bytes sent. Only %ld!",, stats[1].total_bytes);
     return -1;
   }
-  memset(&(stats[1]), 0, sizeof(struct stats));
 
   TEST_END(only_send_one);
 
   format_threads(dopt,opts);
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_START(only_send);
   for(i=1;i<N_THREADS;i+=2)
   {
@@ -290,9 +292,9 @@ int main()
     }
   }
   CHECK_ERR("Whole only send test");
-  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_END(only_send);
   format_threads(dopt,opts);
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_START(send_and_receive_one);
 
   err = start_thread(&(events[0]));
@@ -316,7 +318,7 @@ int main()
   TEST_END(send_and_receive_one);
 
   format_threads(dopt,opts);
-  memset(&(stats[0]), 0, sizeof(struct stats));
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
   TEST_START(send_and_receive);
   for(i=0;i<N_THREADS;i+=2)
   {
