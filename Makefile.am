@@ -11,6 +11,8 @@ logdir = $(localstatedir)/log
 log_DATA = vlbistreamer.log
 dist_bin_SCRIPTS = scripts/*
 
+#TODO  Set all stuff to load vbs_common_functions first like in nfilepreview
+#so we can delete all the extra stuff!
 install-data-hook:
 	chown -R @USER@:@GROUP@ $(rundir)
 	chmod -R u+rw $(rundir)
@@ -18,6 +20,16 @@ install-data-hook:
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	chown @USER@:@GROUP@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
+	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_common_functions
+	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_common_functions
+	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_common_functions
+	sed -i 's:PIDFILE=.*:PIDFILE=$(rundir)/vlbistreamer.pid:' $(bindir)/vbs_common_functions
+	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_common_functions
+	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/vbs_common_functions
+	sed -i 's:PPRIORITY=.*:PPRIORITY=@PPRIORITY@:' $(bindir)/vbs_common_functions
+	sed -i 's:DAEMON=.*:DAEMON=$(bindir)/vlbistreamer:' $(bindir)/vbs_common_functions
+	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vbs_common_functions
+	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vbs_common_functions
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_ls
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_unionfs
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_rm

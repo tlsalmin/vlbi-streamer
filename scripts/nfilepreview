@@ -1,0 +1,146 @@
+#!/bin/bash
+
+#source $(pwd)/$(echo $0 | sed 's_/*$_/')/vbs_common_functions
+SCRIPTNAME=nfilepreview
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
+
+usage()
+{
+cat << EOF
+$0 : Grabs n files and combines them to save/send to a target
+
+Usage: $0 <options> <recording name> <filename/targetip:port>
+
+OPTIONS: to plot:
+  -x 		number of files
+  -f 		send using ftp(TODO)
+  -n		send using netcat
+  -u		send using netcat(udp)
+EOF
+}
+
+NUMPREVFILES=3
+TARGETTYPE="netcat"
+
+n=1
+while [ $# -gt 0 ]
+do
+  case $1 in
+    -x) 
+      NUMPREVFILES=$2
+      ;;
+    -f)
+      TARGETTYPE="ftp"
+      ;;
+    -n)
+      TARGETTYPE="netcat"
+      ;;
+    -u)
+      TARGETTYPE="netcatudp"
+      ;;
+    -l)
+      TARGETTYPE="file"
+      ;;
+    -s)
+      FILESIZE=$2
+      ;;
+    -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters" | tee -a  $LOGFILE ;;
+  *) eval "arg_$n=$1";n=$(($n+1));;
+esac
+shift
+done
+TARGET=$arg_2
+RECNAME=$arg_1
+if [ -z "$TARGET" ] || [ -z "$RECNAME" ]
+then
+  echo "No target or recname specified!"
+  usage
+  exit 1
+fi
+
+RECCFGFILE=$(get_cfgfile_for_recname $RECNAME)
+if [ "$?" -eq "$ERR" ]
+then
+  echo "ERROR: No cfg for $RECNAME found"
+  exit 1
+fi
+PACKETSIZE=$(get_packetsize_from_cfgfile $RECCFGFILE)
+if [ "$?" -eq "$ERR" ]
+then
+  echo "ERROR: No packet_size for $RECNAME found"
+  exit 1
+fi
+OFFSET=$(get_offset_onwrite_from_cfgfile $RECCFGFILE)
+#Not checking err for this
+
+n=0
+while [ "$n" -ne "$NUMPREVFILES" ]
+do
+  N_FILENAME=$(get_file_n_for_recname $RECNAME $n)
+  if [ "$?" -ne "0" ]
+  then
+    echo Cant find file $n for $RECNAME
+    exit 1
+  fi
+  eval "file_$n=$N_FILENAME"
+  n=$(($n+1))
+done
+
+case $TARGETTYPE in
+  ftp)
+    echo TODO
+    exit 1
+    ;;
+  netcat)
+    TARGETSTRING=" | nc -v -q 5 $(get_target_n_port $TARGET)"
+    ;;
+  netcatudp)
+    TARGETSTRING=" | nc -v -u -q 5 $(get_target_n_port $TARGET)"
+    ;;
+  file)
+    #TODO invent sumthing clever here
+    ;;
+esac
+
+#Ah it rounds down!
+COUNT=$(($FILESIZE/($PACKETSIZE+$OFFSET)))
+#echo $COUNT
+TMPFILE=/tmp/$RECNAME
+if [ -e "$TMPFILE" ]
+then
+  rm $TMPFILE
+fi
+
+n=0
+while [ "$n" -ne "$NUMPREVFILES" ]
+do
+  #FILENOW=$(eval '$file_${n}')
+  eval FILENOW=\$"file_${n}"
+  dd if=$FILENOW bs=$(($PACKETSIZE-$OFFSET)) count=$COUNT >> $TMPFILE
+  if [ ! $? -eq 0 ]
+  then
+    echo "Error in creating tmpfile $TMPFILE!"
+    exit 1
+  fi
+  n=$(($n+1))
+done
+
+DA_COMMAND="dd if=$TMPFILE bs=$(($PACKETSIZE-$OFFSET)) count=$(($COUNT*NUMPREVFILES)) $TARGETSTRING"
+eval $DA_COMMAND
+if [ ! $? -eq 0 ]
+then
+  echo "Error in sending file!"
+  rm $TMPFILE
+  exit 1
+fi
+
+rm $TMPFILE
+
+exit 0

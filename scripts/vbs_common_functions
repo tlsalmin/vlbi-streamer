@@ -1,0 +1,92 @@
+#!/bin/bash
+ERR=-1
+AOK=0
+ROOTDIRS=/mnt/disk
+FILESIZE=536870912
+SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
+LOGFLE=/usr/local/var/log/vlbistreamer.log
+PIDFILE=/usr/local/var/opt/vlbistreamer/vlbistreamer.pid
+BINDIR=/usr/local/bin
+CFGFILE=/usr/local/etc/vlbistreamer.conf
+PPRIORITY=20
+DAEMON=/usr/local/bin/vlbistreamer
+USER=oper
+GROUP=oper
+
+RETURNSTRING=""
+
+function get_packetsize_from_cfgfile()
+{
+  if [ -z "$1" ]
+  then
+    echo "No cfgname given"
+    return $ERR
+  fi
+
+  PSIZE=`cat $1 |grep packet_size|awk '{print $3}'|sed 's/[^0-9]//g'`
+  if [ -z "$PSIZE" ]
+  then
+    echo "No packet size found in cfg file named $1"
+    return $ERR
+  fi
+  echo $PSIZE
+  return $AOK
+}
+
+function get_offset_onwrite_from_cfgfile()
+{
+  if [ -z "$1" ]
+  then
+    echo "No cfgname given"
+    return $ERR
+  fi
+
+  PSIZE=`cat $1 |grep offset_onwrite|awk '{print $3}'|sed 's/[^0-9]//g'`
+  if [ -z "$PSIZE" ]
+  then
+    echo "0"
+  else
+    echo $PSIZE
+  fi
+  return $AOK
+}
+
+function get_cfgfile_for_recname()
+{
+  RECCFGFILE=$(find ${ROOTDIRS}* | egrep "${1}.cfg$" | head -n 1) 
+  if [ -z "$RECCFGFILE" ]
+  then
+    echo No cfgfile for $1 found!
+    return $ERR
+  fi
+  echo $RECCFGFILE
+  return $AOK
+}
+function get_file_n_for_recname()
+{
+  if [ -z "$1" ]
+  then
+    echo no recname given!
+    return $ERR
+  fi
+  if [ -z "$2" ]
+  then
+    echo no number for recname given!
+    return $ERR
+  fi
+  N_FILENAME=${1}.$(printf "%08d" $2)
+  returnable=$(find ${ROOTDIRS}*|grep $N_FILENAME)
+  if [ -z "$returnable" ]
+  then
+    echo Cant find filename $N_FILENAME
+    return $ERR
+  fi
+  echo $returnable
+  return $AOK
+}
+function get_target_n_port()
+{
+  COMBINED=$1
+  SINGLE="$(echo $COMBINED|cut -d ':' -f 1) $(echo $COMBINED | cut -d ':' -f 2)"
+  echo $SINGLE
+}
