@@ -122,6 +122,11 @@ int testrun()
 int main(void)
 {
   int retval =0;
+  int i,j;
+  void* testarea_mark5b = malloc(HSIZE_MARK5B);
+  void* testarea_vdif = malloc(HSIZE_VDIF);
+  void* testarea_udpmon = malloc(HSIZE_UDPMON);
+  void* testarea_mark5bnet = malloc(HSIZE_MARK5BNET);
   opt = malloc(sizeof(struct opt_s));
   clear_and_default(opt,0);
   opt->buf_num_elems = N_PACKETS;
@@ -148,8 +153,42 @@ int main(void)
   }
   TEST_END(MARK5BNET);
 
+  TEST_START(M5TESTS);
+  void *teststring = malloc(HSIZE_MARK5B);
+  memset(teststring, 0, HSIZE_MARK5B);
+  int sec, day;
+  for(i=0;i<365;i++)
+  {
+    for(j=0;j<24*60*60;j++)
+    {
+      sprintf((char*)(teststring+4+4), "%03d%05d", i,j);
+      D("The teststring %s",, (char*)(teststring+4+4));
+       D("%X %X %X",, *(uint32_t*)teststring, *(uint32_t*)(teststring+4), *(uint32_t*)(teststring+4+4));
+      sec = get_sec_from_mark5b((void*)teststring);
+      day = get_day_from_mark5b((void*)teststring);
+      if(sec != i)
+      {
+	E("Got %d for sec when expected %d",, sec, i);
+	retval = -1;
+	break;
+      }
+      if(day != j)
+      {
+	E("Got %d for sec when expected %d",, day, j);
+	retval = -1;
+	break;
+      }
+    }
+    if(retval <0)
+      break;
+  }
+  TEST_END(M5TESTS);
 
   free(opt->first_packet);
   free(opt);
+  free(testarea_mark5b);
+  free(testarea_vdif);
+  free(testarea_udpmon);
+  free(testarea_mark5bnet);
   return retval;
 }

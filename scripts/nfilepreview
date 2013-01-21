@@ -112,18 +112,18 @@ esac
 #Ah it rounds down!
 COUNT=$(($FILESIZE/($PACKETSIZE+$OFFSET)))
 #echo $COUNT
-TMPFILE=/tmp/$RECNAME
-if [ -e "$TMPFILE" ]
-then
-  rm $TMPFILE
-fi
+#TMPFILE=/tmp/$RECNAME
+#if [ -e "$TMPFILE" ]
+#then
+  #rm $TMPFILE
+#fi
 
 n=0
 while [ "$n" -ne "$NUMPREVFILES" ]
 do
   #FILENOW=$(eval '$file_${n}')
   eval FILENOW=\$"file_${n}"
-  dd if=$FILENOW bs=$(($PACKETSIZE-$OFFSET)) count=$COUNT >> $TMPFILE
+  dd if=$FILENOW bs=$(($PACKETSIZE-$OFFSET)) count=$COUNT
   if [ ! $? -eq 0 ]
   then
     echo "Error in creating tmpfile $TMPFILE!"
@@ -132,15 +132,15 @@ do
   n=$(($n+1))
 done
 
-DA_COMMAND="dd if=$TMPFILE bs=$(($PACKETSIZE-$OFFSET)) count=$(($COUNT*NUMPREVFILES)) $TARGETSTRING"
-eval $DA_COMMAND
-if [ ! $? -eq 0 ]
-then
-  echo "Error in sending file!"
-  rm $TMPFILE
-  exit 1
-fi
+#DA_COMMAND="dd if=$TMPFILE bs=$(($PACKETSIZE-$OFFSET)) count=$(($COUNT*NUMPREVFILES)) $TARGETSTRING"
+#eval $DA_COMMAND
+#if [ ! $? -eq 0 ]
+#then
+  #echo "Error in sending file!"
+  #rm $TMPFILE
+  #exit 1
+#fi
 
-rm $TMPFILE
+#rm $TMPFILE
 
 exit 0

@@ -2,7 +2,7 @@
 #define ACTIVE_FILE_INDEX_H
 /* For keeping track of files in use */
 
-//init struct to 1024 files at start
+//init struct to 128 files at start
 #define INITIAL_SIZE 128
 
 #define FILESTATUS_RECORDING 	B(0)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "datatypes.h"
 #include "streamer.h"
 
@@ -234,5 +235,80 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
     *expected_errors = errors;
   D("Check and fill showed %d holes",, errors);
   return 0;
+}
+int get_sec_from_mark5b(void *buffer)
+{
+  int temp =0;
+  /* shift it so we can get it null terminated */
+  temp |= ((*((int*)(buffer+4+4))& RBITMASK_20) << 4);
+  D("%X %X %X",, *(uint32_t*)buffer, *(uint32_t*)(buffer+4), *(uint32_t*)(buffer+4+4));
+  D("%X",, temp);
+  D("%X",, *((int*)(buffer+4+4)));
+  return atoi((char*)&temp);
+}
+int get_day_from_mark5b(void *buffer)
+{
+  int temp =0;
+  /* shift it so we can get it null terminated */
+  temp |= (*((int*)(buffer+4+4)) & BITMASK_12);
+  D("%X",, temp);
+  D("%X",, *((int*)(buffer+4+4)));
+  return atoi((char*)&temp);
+}
+long epochtime_from_mark5b(void *buffer, struct tm* reftime)
+{
+  /* Presumes that reftime has the same stuff mark5b metadata has */
+  long m5seconds = get_sec_from_mark5b(buffer);
+  long m5days = get_day_from_mark5b(buffer);
+  if(m5days != reftime->tm_yday){
+    D("Different day in mark5data: in mark5b: %ld, right now %d. Better just wait than to try to count this..",, m5days, reftime->tm_yday);
+    return DIFFERENT_DAY;
+  }
+  struct tm m5tm;
+  memset(&m5tm, 0, sizeof(struct tm));
+  m5tm.tm_hour = m5seconds / (60*60);
+  m5tm.tm_min = (m5seconds % (60*60))/60;
+  m5tm.tm_sec = ((m5seconds % (60*60)) % 60);
+  m5tm.tm_year = reftime->tm_year;
+  m5tm.tm_mon = reftime->tm_mon;
+  m5tm.tm_mday = reftime->tm_mday;
+
+  return (long)mktime(&m5tm);
+}
+/* Get a difference between (sec from epoch) time and value in buffer 	*/
+/* Value type in buffer determined by opt				*/
+int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* res_err)
+{
+  long time2=0;
+  int dif = 0;
+  if(res_err != NULL)
+    *res_err =0;
+  switch (opt->optbits & LOCKER_DATATYPE)
+  {
+    case DATATYPE_VDIF:
+      E("Not implemented yet! epcoh 2000 6 months period bull");
+      time2 = SECOND_FROM_VDIF(buffer);
+      break;
+    case DATATYPE_MARK5B:
+      time2= epochtime_from_mark5b(buffer, time);
+      break;
+    case DATATYPE_UDPMON:
+      break;
+    case DATATYPE_MARK5BNET:
+      break;
+    case DATATYPE_UNKNOWN:
+      E("Can't determine metadata second for unknown");
+      if(res_err != NULL)
+	*res_err = -1;
+      return 0;
+      break;
+    default: 
+      E("Unknown datatype");
+      if(res_err != NULL)
+	*res_err = -1;
+      return 0;
+      break;
+  }
+  return dif;
 }
 
