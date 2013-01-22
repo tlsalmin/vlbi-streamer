@@ -122,7 +122,7 @@ int testrun()
 int main(void)
 {
   int retval =0;
-  int i,j;
+  int i;
   void* testarea_mark5b = malloc(HSIZE_MARK5B);
   void* testarea_vdif = malloc(HSIZE_VDIF);
   void* testarea_udpmon = malloc(HSIZE_UDPMON);
@@ -154,33 +154,64 @@ int main(void)
   TEST_END(MARK5BNET);
 
   TEST_START(M5TESTS);
-  void *teststring = malloc(HSIZE_MARK5B);
-  memset(teststring, 0, HSIZE_MARK5B);
+  void *teststring = malloc(HSIZE_MARK5B+4);
+  memset(teststring, 0, HSIZE_MARK5B+4);
   int sec, day;
-  for(i=0;i<365;i++)
+
+  opt->optbits &= ~LOCKER_DATATYPE;
+  opt->optbits |= DATATYPE_MARK5B;
+
+  long lerr;
+  TIMERTYPE temptime;
+  GETTIME(temptime);
+  struct tm  gmtime_s;
+  gmtime_r(&(temptime.tv_sec), &gmtime_s);
+  sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+  lerr = epochtime_from_mark5b((void*)teststring, &gmtime_s);
+  if(lerr != temptime.tv_sec){
+    E("didnt get %ld from epochtime-counter, got %ld",, temptime.tv_sec,lerr);
+    return -1;
+  }
+  int temp;
+  if(get_sec_dif_from_buf((void*)teststring, &gmtime_s, opt, &temp) != 0)
   {
-    for(j=0;j<24*60*60;j++)
+    E("didnt get zero from sec dif with time now");
+    return -1;
+  }
+  else if ( temp != 0)
+  {
+    E("Err in retval");
+    return -1;
+  }
+
+  for(i=0;i<24*60*60;i++)
+  {
+    sprintf((char*)(teststring+4+4), "%03d%05d", i%365,i);
+    //D("The teststring %s",, (char*)(teststring+4+4));
+    //D("%X %X %X",, *(uint32_t*)teststring, *(uint32_t*)(teststring+4), *(uint32_t*)(teststring+4+4));
+    //sec = get_sec_from_mark5b((void*)teststring);
+    //day = get_day_from_mark5b((void*)teststring);
+    if(get_sec_and_day_from_mark5b((void*)teststring, &sec, &day) != 2)
     {
-      sprintf((char*)(teststring+4+4), "%03d%05d", i,j);
-      D("The teststring %s",, (char*)(teststring+4+4));
-       D("%X %X %X",, *(uint32_t*)teststring, *(uint32_t*)(teststring+4), *(uint32_t*)(teststring+4+4));
-      sec = get_sec_from_mark5b((void*)teststring);
-      day = get_day_from_mark5b((void*)teststring);
-      if(sec != i)
-      {
-	E("Got %d for sec when expected %d",, sec, i);
-	retval = -1;
-	break;
-      }
-      if(day != j)
-      {
-	E("Got %d for sec when expected %d",, day, j);
-	retval = -1;
-	break;
-      }
+      E("Didnt get both sec and day!");
+      retval = -1;
     }
-    if(retval <0)
+    if(sec != i)
+    {
+      E("Got %d for sec when expected %d",, sec, i);
+      retval = -1;
       break;
+    }
+    if(day != i%365)
+    {
+      E("Got %d for sec when expected %d",, day, i%365);
+      retval = -1;
+      break;
+    }
+  }
+  if(!(retval == 0)){
+    E("Something went wrong in m5tests");
+    return -1;
   }
   TEST_END(M5TESTS);
 

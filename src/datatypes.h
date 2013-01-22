@@ -8,12 +8,14 @@
 #define RBITMASK_20 0x000fffff
 
 #define DIFFERENT_DAY INT64_MAX
+#define SEC_OF_DAY_FROM_TM(x) (60*60*(x)->tm_hour + 60*(x)->tm_min + (x)->tm_sec)
 
 /* Really VDIF could be 32 bytes, but we won't care about extended user stuff anyway */
 #define HSIZE_VDIF 16
 #define HSIZE_MARK5B 16
 #define HSIZE_UDPMON 8
 #define HSIZE_MARK5BNET 20
+#define POINT_TO_MARK5B_SECOND(x) ((x)+4+4)
 
 #define FRAMENUM_FROM_VDIF(x) (long)(*((uint32_t*)((x)+4)) & RBITMASK_24)
 #define SET_FRAMENUM_FOR_VDIF(target,framenum) *((uint32_t*)(target+4)) = framenum & RBITMASK_24
@@ -52,5 +54,8 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
 inline long header_match(void* target, void* match, struct opt_s * opt);
 int get_day_from_mark5b(void *buffer);
 int get_sec_from_mark5b(void *buffer);
+int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day);
+long epochtime_from_mark5b(void *buffer, struct tm* reftime);
+int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* res_err);
 
 #endif

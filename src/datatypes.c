@@ -238,30 +238,41 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
 }
 int get_sec_from_mark5b(void *buffer)
 {
-  int temp =0;
-  /* shift it so we can get it null terminated */
-  temp |= ((*((int*)(buffer+4+4))& RBITMASK_20) << 4);
-  D("%X %X %X",, *(uint32_t*)buffer, *(uint32_t*)(buffer+4), *(uint32_t*)(buffer+4+4));
-  D("%X",, temp);
-  D("%X",, *((int*)(buffer+4+4)));
-  return atoi((char*)&temp);
+  int day,sec;
+  int n;
+  if((n=sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", &day, &sec)) != 2){
+    E("sscanf got only %d from buffer",, n);
+    return -1;
+  }
+  return sec;
 }
 int get_day_from_mark5b(void *buffer)
 {
-  int temp =0;
-  /* shift it so we can get it null terminated */
-  temp |= (*((int*)(buffer+4+4)) & BITMASK_12);
-  D("%X",, temp);
-  D("%X",, *((int*)(buffer+4+4)));
-  return atoi((char*)&temp);
+  int day,sec;
+  int n;
+  if((n=sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", &day, &sec)) != 2){
+    E("sscanf got only %d from buffer",, n);
+    return -1;
+  }
+  return day;
+}
+int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day)
+{
+  return sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", day, sec);
 }
 long epochtime_from_mark5b(void *buffer, struct tm* reftime)
 {
   /* Presumes that reftime has the same stuff mark5b metadata has */
-  long m5seconds = get_sec_from_mark5b(buffer);
-  long m5days = get_day_from_mark5b(buffer);
+  int m5seconds, m5days;
+  int err;
+  err = get_sec_and_day_from_mark5b(buffer, &m5seconds, &m5days);
+  if(err != 2)
+  {
+    E("Didnt't get day and sec from sscanf. Got %d",, err);
+    return -1;
+  }
   if(m5days != reftime->tm_yday){
-    D("Different day in mark5data: in mark5b: %ld, right now %d. Better just wait than to try to count this..",, m5days, reftime->tm_yday);
+    D("Different day in mark5data: in mark5b: %d, right now %d. Better just wait than to try to count this..",, m5days, reftime->tm_yday);
     return DIFFERENT_DAY;
   }
   struct tm m5tm;
@@ -273,7 +284,7 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   m5tm.tm_mon = reftime->tm_mon;
   m5tm.tm_mday = reftime->tm_mday;
 
-  return (long)mktime(&m5tm);
+  return (long)mktime(&m5tm) - timezone;
 }
 /* Get a difference between (sec from epoch) time and value in buffer 	*/
 /* Value type in buffer determined by opt				*/
@@ -291,6 +302,12 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
       break;
     case DATATYPE_MARK5B:
       time2= epochtime_from_mark5b(buffer, time);
+      long temp = (mktime(time)-timezone) - time2;
+      if(temp > INT32_MAX || temp < INT32_MIN)
+      {
+	E("Int overflow. Return INT32_MIN");
+	dif = INT32_MAX;
+      }
       break;
     case DATATYPE_UDPMON:
       break;
