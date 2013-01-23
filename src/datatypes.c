@@ -260,6 +260,10 @@ int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day)
 {
   return sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", day, sec);
 }
+int get_sec_and_day_from_mark5b_net(void *buffer, int * sec, int * day)
+{
+  return get_sec_and_day_from_mark5b(buffer+8, sec, day);
+}
 long epochtime_from_mark5b(void *buffer, struct tm* reftime)
 {
   /* Presumes that reftime has the same stuff mark5b metadata has */
@@ -285,6 +289,20 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   m5tm.tm_mday = reftime->tm_mday;
 
   return (long)mktime(&m5tm) - timezone;
+}
+long epochtime_from_vdif(void *buffer, struct tm* reftime)
+{
+  (void)buffer;
+  (void)reftime;
+
+  return 0;
+}
+long epochtime_from_mark5b_net(void *buffer, struct tm* reftime)
+{
+  if(*((long*)(buffer+8)) != MARK5BSYNCWORD)
+    return NONEVEN_PACKET;
+  else
+    return epochtime_from_mark5b(buffer+8, reftime);
 }
 /* Get a difference between (sec from epoch) time and value in buffer 	*/
 /* Value type in buffer determined by opt				*/

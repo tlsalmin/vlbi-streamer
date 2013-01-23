@@ -116,13 +116,114 @@ int testrun()
     E("Found errors when shouldn't!");
     return -1;
   }
+
+  void * teststring = NULL;
+  switch(opt->optbits & LOCKER_DATATYPE)
+  {
+    case DATATYPE_VDIF:
+      teststring = malloc(HSIZE_VDIF+4);
+      memset(teststring, 0, HSIZE_VDIF+4);
+      D("Not implemented yet");
+      return 0;
+      //TODO properly
+      break;
+    case DATATYPE_UDPMON:
+      D("Not doing this stuff for udpmon");
+      return 0;
+      break;
+    case DATATYPE_MARK5BNET:
+      teststring = malloc(HSIZE_MARK5BNET+4);
+      memset(teststring, 0, HSIZE_MARK5BNET+4);
+      break;
+    case DATATYPE_MARK5B:
+      teststring = malloc(HSIZE_MARK5B+4);
+      memset(teststring, 0, HSIZE_MARK5B+4);
+      //TODO
+      break;
+  }
+  int sec, day;
+  long lerr;
+  TIMERTYPE temptime;
+  GETTIME(temptime);
+  struct tm  gmtime_s;
+  gmtime_r(&(temptime.tv_sec), &gmtime_s);
+  switch(opt->optbits & LOCKER_DATATYPE)
+  {
+    case DATATYPE_VDIF:
+      lerr = epochtime_from_vdif((void*)teststring, &gmtime_s);
+      break;
+    case DATATYPE_MARK5BNET:
+      sprintf((char*)(teststring+8+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
+      if(lerr != NONEVEN_PACKET)
+      {
+	E("epochtime from mark5bnet should return NONEVEN_PACKET when no ABADDEED present");
+	return -1;
+      }
+      *((long*)(teststring+8)) = 0xABADDEED;
+      //D("%lX",, *((long*)(teststring+8)));
+      lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
+      break;
+    case DATATYPE_MARK5B:
+      sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      lerr = epochtime_from_mark5b((void*)teststring, &gmtime_s);
+      break;
+  }
+  if(lerr != temptime.tv_sec){
+    E("didnt get %ld from epochtime-counter, got %ld",, temptime.tv_sec,lerr);
+    return -1;
+  }
+  int temp;
+  if(get_sec_dif_from_buf((void*)teststring, &gmtime_s, opt, &temp) != 0)
+  {
+    E("didnt get zero from sec dif with time now");
+    return -1;
+  }
+  else if ( temp != 0)
+  {
+    E("Err in retval");
+    return -1;
+  }
+
+  for(i=0;i<24*60*60;i++)
+  {
+    switch(opt->optbits & LOCKER_DATATYPE)
+    {
+      case DATATYPE_VDIF:
+	break;
+      case DATATYPE_MARK5BNET:
+	sprintf((char*)(teststring+8+4+4), "%03d%05d", i%365,i);
+	temp = get_sec_and_day_from_mark5b_net((void*)teststring, &sec, &day);
+	break;
+      case DATATYPE_MARK5B:
+	sprintf((char*)(teststring+4+4), "%03d%05d", i%365,i);
+	temp = get_sec_and_day_from_mark5b((void*)teststring, &sec, &day);
+	break;
+    }
+    if(temp != 2)
+    {
+      E("Didnt get both sec and day!");
+      return -1;
+    }
+    if(sec != i)
+    {
+      E("Got %d for sec when expected %d",, sec, i);
+      return -1;
+    }
+    if(day != i%365)
+    {
+      E("Got %d for sec when expected %d",, day, i%365);
+      return -1;
+    }
+  }
+  free(expected_errors);
+  free(teststring);
   return 0;
 }
 
 int main(void)
 {
   int retval =0;
-  int i;
   void* testarea_mark5b = malloc(HSIZE_MARK5B);
   void* testarea_vdif = malloc(HSIZE_VDIF);
   void* testarea_udpmon = malloc(HSIZE_UDPMON);
@@ -148,72 +249,10 @@ int main(void)
   opt->optbits &= ~LOCKER_DATATYPE;
   opt->optbits |= DATATYPE_MARK5BNET;
   if (testrun() != 0){
-    E("Error in testrun of udpmon");
+    E("Error in testrun of mark5bnet");
     retval = -1;
   }
   TEST_END(MARK5BNET);
-
-  TEST_START(M5TESTS);
-  void *teststring = malloc(HSIZE_MARK5B+4);
-  memset(teststring, 0, HSIZE_MARK5B+4);
-  int sec, day;
-
-  opt->optbits &= ~LOCKER_DATATYPE;
-  opt->optbits |= DATATYPE_MARK5B;
-
-  long lerr;
-  TIMERTYPE temptime;
-  GETTIME(temptime);
-  struct tm  gmtime_s;
-  gmtime_r(&(temptime.tv_sec), &gmtime_s);
-  sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
-  lerr = epochtime_from_mark5b((void*)teststring, &gmtime_s);
-  if(lerr != temptime.tv_sec){
-    E("didnt get %ld from epochtime-counter, got %ld",, temptime.tv_sec,lerr);
-    return -1;
-  }
-  int temp;
-  if(get_sec_dif_from_buf((void*)teststring, &gmtime_s, opt, &temp) != 0)
-  {
-    E("didnt get zero from sec dif with time now");
-    return -1;
-  }
-  else if ( temp != 0)
-  {
-    E("Err in retval");
-    return -1;
-  }
-
-  for(i=0;i<24*60*60;i++)
-  {
-    sprintf((char*)(teststring+4+4), "%03d%05d", i%365,i);
-    //D("The teststring %s",, (char*)(teststring+4+4));
-    //D("%X %X %X",, *(uint32_t*)teststring, *(uint32_t*)(teststring+4), *(uint32_t*)(teststring+4+4));
-    //sec = get_sec_from_mark5b((void*)teststring);
-    //day = get_day_from_mark5b((void*)teststring);
-    if(get_sec_and_day_from_mark5b((void*)teststring, &sec, &day) != 2)
-    {
-      E("Didnt get both sec and day!");
-      retval = -1;
-    }
-    if(sec != i)
-    {
-      E("Got %d for sec when expected %d",, sec, i);
-      retval = -1;
-      break;
-    }
-    if(day != i%365)
-    {
-      E("Got %d for sec when expected %d",, day, i%365);
-      retval = -1;
-      break;
-    }
-  }
-  if(!(retval == 0)){
-    E("Something went wrong in m5tests");
-    return -1;
-  }
-  TEST_END(M5TESTS);
 
   free(opt->first_packet);
   free(opt);
