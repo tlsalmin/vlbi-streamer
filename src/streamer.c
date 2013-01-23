@@ -1233,6 +1233,7 @@ int main(int argc, char **argv)
 #endif
   }
 #if(!DAEMON)
+  /* I really want to delete non-daemon mode.. */
   /* Print speed etc. */
   if(opt->optbits & VERBOSE){
 
@@ -1320,17 +1321,17 @@ int main(int argc, char **argv)
   }
   /* If we're capturing, time the threads and run them down after we're done 	*/
   else
-#endif /* DAEMON */
+#endif /* NOT DAEMON */
   {
     /* Check also that last_packet is 0. Else the thread should shut itself 	*/
     /* down									*/
     if(!(opt->optbits & READMODE) && opt->last_packet == 0){
-      int sleepleft = opt->time;
+      TIMERTYPE now;
+      GETTIME(now);
       //while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
-      while(sleepleft > 0 && (opt->status & STATUS_RUNNING)){
-	D("Slept really");
+      while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && (opt->status & STATUS_RUNNING)){
 	sleep(1);
-	sleepleft-=1;
+	GETTIME(now);
       }
       //sleep(opt->time);
       ////pthread_mutex_destroy(opt.cumlock);
@@ -1461,7 +1462,7 @@ int init_branches(struct opt_s *opt){
   return 0;
 }
 void shutdown_thread(struct opt_s *opt){
-  if(opt->streamer_ent != NULL){
+  if(opt->streamer_ent != NULL && opt->streamer_ent->stop != NULL){
     opt->streamer_ent->stop(opt->streamer_ent);
   }
 }

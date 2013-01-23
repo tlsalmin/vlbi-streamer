@@ -38,6 +38,7 @@
 #define SETNANOS(x,y) x.tv_usec = (y)/1000
 #define SETONE(x) x.tv_usec=1
 #define GETNANOS(x) (x).tv_usec*1000
+#define GETSECONDS(x) ((x).tv_sec)
 #else
 #define TIMERTYPE struct timespec
 #define GETTIME(x) clock_gettime(CLOCK_REALTIME, &x)
@@ -47,6 +48,7 @@
 #define SETNANOS(x,y) x.tv_nsec = (y)
 #define GETNANOS(x) (x).tv_nsec
 #define SETONE(x) x.tv_nsec=1
+#define GETSECONDS(x) ((x).tv_sec)
 #endif
 #define ZEROTIME(x) memset((void*)(&x),0,sizeof(TIMERTYPE))
 //#include "streamer.h"

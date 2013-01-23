@@ -199,6 +199,10 @@ int start_scheduled(struct schedule *sched){
 	continue;
       }
       LOG("Starting event %s\n", ev->opt->filename);
+      if(ev->opt->starting_time.tv_sec == 0){
+	D("Setting start time as now for better timing");
+	ev->opt->starting_time.tv_sec = time_now.tv_sec;
+      }
       sched->n_scheduled--;
       //err = start_event(ev, sched);
       err = start_event(ev);

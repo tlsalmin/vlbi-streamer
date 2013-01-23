@@ -59,8 +59,11 @@ int start_thread(struct scheduled_event * ev)
   int err;
 
   if(!(ev->opt->optbits & READMODE)){
+    TIMERTYPE now;
+    GETTIME(now);
     ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
     ev->opt->time = RUNTIME;
+    GETSECONDS(ev->opt->starting_time) = GETSECONDS(now);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
   }
   else{
