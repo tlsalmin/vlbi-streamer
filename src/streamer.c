@@ -1205,19 +1205,11 @@ int main(int argc, char **argv)
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
-  ///#if(DAEMON)
   opt->status = STATUS_RUNNING;
-  //#endif
 
 #ifdef TUNE_AFFINITY
   /* Put the capture on the first core */
   CPU_SET(0,&(opt->cpuset));
-  /*
-     cpusetter++;
-     if(cpusetter > processors)
-     cpusetter = 1;
-     */
-
   err = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
   if(err != 0){
     E("Error: setting affinity: %d",,err);
@@ -1227,7 +1219,8 @@ int main(int argc, char **argv)
 
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
-    clock_gettime(CLOCK_REALTIME, &start_t);
+    //clock_gettime(CLOCK_REALTIME, &start_t);
+    GETTIME(start_t);
 #else
     //TODO
 #endif

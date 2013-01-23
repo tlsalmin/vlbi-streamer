@@ -107,7 +107,6 @@
 #define READMODE		B(22)
 #define USE_HUGEPAGE		B(23)
 
-//#define WAIT_BETWEEN		B(16)
 #define WILL_GIVE_SOCKET	B(24)
 #define VERBOSE			B(25)
 #define MOUNTPOINT_VERBOSE	B(26)
@@ -116,6 +115,7 @@
 #define USE_RX_RING		B(28)
 #define GET_A_FILENAME_AS_ARG	B(29)
 #define CAN_STRIP_BYTES		B(30)
+#define WAIT_START_ON_METADATA	B(31)
 /* One empty here */
 
 /* 4 empty here */

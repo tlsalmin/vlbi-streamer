@@ -308,7 +308,7 @@ long epochtime_from_mark5b_net(void *buffer, struct tm* reftime)
 /* Value type in buffer determined by opt				*/
 int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* res_err)
 {
-  long time2=0;
+  long time2=0,temp;
   int dif = 0;
   if(res_err != NULL)
     *res_err =0;
@@ -320,16 +320,12 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
       break;
     case DATATYPE_MARK5B:
       time2= epochtime_from_mark5b(buffer, time);
-      long temp = (mktime(time)-timezone) - time2;
-      if(temp > INT32_MAX || temp < INT32_MIN)
-      {
-	E("Int overflow. Return INT32_MIN");
-	dif = INT32_MAX;
-      }
       break;
     case DATATYPE_UDPMON:
       break;
     case DATATYPE_MARK5BNET:
+      time2= epochtime_from_mark5b(buffer, time);
+      //temp = (mktime(time)-timezone) - time2;
       break;
     case DATATYPE_UNKNOWN:
       E("Can't determine metadata second for unknown");
@@ -344,6 +340,19 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
       return 0;
       break;
   }
+  temp = GETSECONDS(opt->starting_time) - time2;
+  if(temp > INT32_MAX )
+  {
+    E("Int overflow. Return INT32_MAX");
+    dif = INT32_MAX;
+  }
+  else if(temp<INT32_MIN)
+  {
+    E("Int overflow. Return INT32_MIN");
+    dif = INT32_MIN;
+  }
+  else
+    dif = (int)temp;
   return dif;
 }
 

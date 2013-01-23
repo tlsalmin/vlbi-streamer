@@ -742,11 +742,6 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->inc_before = NULL;
   }
   /* Check if we have all the packets for this file */
-  //if(*(resq->inc) == spec_ops->opt->buf_num_elems){
-  /* It looks silly, but inc was migrated to byte offset 		*/
-  /* This setup lets use use arbitrary packet sizes with all buffers	*/
-  //if(*(resq->inc)+spec_ops->opt->packet_size > FILESIZE)
-  //if((resq->i) == spec_ops->opt->buf_num_elems)
   if((unsigned long)*(resq->inc) == (spec_ops->opt->buf_num_elems*(spec_ops->opt->packet_size)))
   {
     D("All packets for current file received OK. rsqinc: %ld, needed: %lu",, *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
@@ -771,9 +766,9 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
-  /* Set the next seqstart to += buf_num_elems	*/
+  /* Set the next seqstart to += buf_num_elems		*/
   /* This way we can keep the buffers consistent	*/
-  /* without holes from the resequencing logic	*/
+  /* without holes from the resequencing logic		*/
   resq->seqstart_current += spec_ops->opt->buf_num_elems;
 
   return 0;
@@ -981,7 +976,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
       }
     }
     //spec_ops->running = 0;
-    udps_close_socket(se);
+    se->stop(se);
     spec_ops->opt->status = STATUS_ERROR;
     return -1;
   }
@@ -992,7 +987,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
       spec_ops->wrongsizeerrors++;
       if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
 	E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
-	udps_close_socket(se);
+	se->stop(se);
 	spec_ops->opt->status = STATUS_ERROR;
 	return -1;
       }
@@ -1016,6 +1011,24 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
     /* Check if we have a func for checking the	*/
     /* correct sequence from the header		*/
     if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+  
+      if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
+      {
+	if(get_sec_dif_from_buf(resq->buf,&(resq->tm_s), spec_ops->opt, &err) > 0)
+	{
+	  if(err !=0)
+	    E("Err in get_sec_dif");
+	  else
+	    D("Still waiting on start");
+	  return 0;
+	}
+	else
+	{
+	  D("Got first packet in correct metadata second. Starting recording!");
+	  spec_ops->opt->optbits &= ~WAIT_START_ON_METADATA;
+	}
+      }
+
       /* Calc the position we should have		*/
       if(spec_ops->opt->first_packet == NULL)
       {
@@ -1092,35 +1105,42 @@ int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
   }
   return 0;
 }
-/*
- * Receiver for UDP-data
- */
-void* udp_receiver(void *streamo)
+void reset_udpopts_stats(struct udpopts *spec_ops)
 {
-  int err = 0;
-  //int i=0;
-  //void *buf;
-
-  struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
-  memset(resq, 0, sizeof(struct resq_info));
-
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
-
   spec_ops->wrongsizeerrors = 0;
   spec_ops->total_captured_bytes = 0;
   *spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
+}
+/*
+ * Receiver for UDP-data
+ */
+void* udp_receiver(void *streamo)
+{
+  int err = 0;
+
+  struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
+  memset(resq, 0, sizeof(struct resq_info));
+
+  struct streamer_entity *se =(struct streamer_entity*)streamo;
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  
+
+  reset_udpopts_stats(spec_ops);
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-  /* IF we have packet resequencing	*/
-  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN))
+
+  /* If we have packet resequencing	*/
+  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
     init_resq(resq);
+    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
+      gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
+  }
 
   LOG("UDP_STREAMER: Starting stream capture\n");
   while(spec_ops->opt->status & STATUS_RUNNING){
