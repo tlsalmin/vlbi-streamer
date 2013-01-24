@@ -16,6 +16,7 @@ OPTIONS:
       -s SOCKET	Socket number(Default: 2222)
       -u 		Use hugepages
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
+      -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
 EOF
@@ -114,6 +115,10 @@ do
     -x)
       EXTRAOPS="$EXTRAOPS
       use_rx_ring = 1;"
+      ;;
+    -w)
+      EXTRAOPS="$EXTRAOPS
+      wait_start_on_metadata = 1;"
       ;;
     -u)
       EXTRAOPS="$EXTRAOPS
