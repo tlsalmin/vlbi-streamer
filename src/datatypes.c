@@ -234,6 +234,7 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
   if(expected_errors != NULL)
     *expected_errors = errors;
   D("Check and fill showed %d holes",, errors);
+  free(modelheader);
   return 0;
 }
 int get_sec_from_mark5b(void *buffer)
@@ -258,7 +259,22 @@ int get_day_from_mark5b(void *buffer)
 }
 int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day)
 {
-  return sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", day, sec);
+  char temp[10];
+  memset(&temp, 0, sizeof(char)*10);
+  sprintf(temp, "%X", DAY_FROM_MARK5B(buffer));
+  *day = atoi(temp);
+  memset(&temp, 0, sizeof(char)*10);
+  //sprintf(temp, "%X", *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))) & RBITMASK_20);
+  sprintf(temp, "%X", SECOND_FROM_MARK5B(buffer));
+  *sec = atoi(temp);
+  D("day %d sec %d",, *day, *sec);
+  D("At point: %X",, *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))));
+  return 0;
+  /*
+  int err = sscanf(((char*)(POINT_TO_MARK5B_SECOND(buffer))), "%03d%05d", day, sec);
+  if(err != 2)
+  return err;
+  */
 }
 int get_sec_and_day_from_mark5b_net(void *buffer, int * sec, int * day)
 {
@@ -307,12 +323,13 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
     m5tm.tm_mday--;
   }
 
-  return (long)mktime(&m5tm) - timezone;
+  return (int64_t)mktime(&m5tm) - timezone;
 }
 int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int *errref)
 {
-  if(*((long*)(buffer+8)) != MARK5BSYNCWORD)
+  if(*((uint32_t*)(buffer+8)) != MARK5BSYNCWORD)
   {
+    D("Got %X when expected %X",, *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
     if(errref != NULL)
       *errref = NONEVEN_PACKET;
     return NONEVEN_PACKET;
@@ -328,7 +345,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
   err = get_sec_and_day_from_mark5b(buffer, &m5seconds, &m5days);
   /* Yeah pass an error int pointer but.. int32_min is a difference of 68 years.*/
   /* TODO: Ask me to debug this in 2038 */
-  if(err != 2)
+  if(err != 0)
   {
     E("Didnt't get day and sec from sscanf. Got %d",, err);
     if(errref != NULL)
@@ -351,6 +368,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
     diff = secofday - m5seconds;
     //diff = m5seconds-secofday;
 
+  D("Diff is %d",, diff);
   return diff;
 }
 long epochtime_from_vdif(void *buffer, struct tm* reftime)

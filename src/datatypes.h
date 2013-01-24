@@ -25,15 +25,13 @@
 #define HSIZE_MARK5BNET 24
 #define POINT_TO_MARK5B_SECOND(x) ((x)+4+4)
 
-#define FRAMENUM_FROM_VDIF(x) (long)(*((uint32_t*)((x)+4)) & RBITMASK_24)
+#define FRAMENUM_FROM_VDIF(x) (int64_t)(*((uint32_t*)((x)+4)) & RBITMASK_24)
 #define SET_FRAMENUM_FOR_VDIF(target,framenum) *((uint32_t*)(target+4)) = framenum & RBITMASK_24
-#define SECOND_FROM_VDIF(x) (long)(*((uint32_t*)(x))) & RBITMASK_30;
+#define SECOND_FROM_VDIF(x) (int64_t)(*((uint32_t*)(x))) & RBITMASK_30;
 #define SET_SECOND_FOR_VDIF(target,second) *((uint32_t*)(target)) = second & RBITMASK_30
 
-#define SECOND_FROM_MARK5B(x) (long)((*((uint32_t*)(x+4+4))) & RBITMASK_20);
-#define SECOND_FROM_MARK5B_CHAR(x) (long)atoi((*((uint32_t*)(x+4+4))) & RBITMASK_20);
-#define DAY_FROM_MARK5B(x) (long)(((*((uint32_t*)(x+4+4))) & BITMASK_12) >> 20);
-#define DAY_FROM_MARK5B_CHAR(x) (long)(((*((uint32_t*)(x+4+4))) & BITMASK_12) >> 20);
+#define SECOND_FROM_MARK5B(x) ((*((uint32_t*)(POINT_TO_MARK5B_SECOND(x)))) & RBITMASK_20)
+#define DAY_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECOND(x)))) & BITMASK_12) >> 20)
 
 #define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)(framenum));
 #define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint32_t*)(target+4)) = (uint32_t)(framenum);

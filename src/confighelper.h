@@ -130,6 +130,7 @@
 	E(#x" type not correct");\
 	return -1;\
       }\
+      D("Found " y " in cfg");\
       CFG_CHK_BOOLEAN(x,y)\
       CFG_WRT_BOOLEAN(x,y)\
       CFG_GET_BOOLEAN(x,y)\

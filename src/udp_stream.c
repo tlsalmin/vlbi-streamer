@@ -1014,15 +1014,15 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
   
       if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
       {
-	int temperr;
+	int temperr=0;
 	err = get_sec_dif_from_buf(resq->buf, &(resq->tm_s), spec_ops->opt,&temperr);
-	if(temperr != 0){
-	  E("Error in getting metadata");
-	  return -1;
-	}
-	else if(temperr == NONEVEN_PACKET){
+	if(temperr == NONEVEN_PACKET){
 	  D("Noneven packet");
 	  return 0;
+	}
+	else if(temperr != 0){
+	  E("Error in getting metadata");
+	  return -1;
 	}
 	else if(err > 0)
 	{
