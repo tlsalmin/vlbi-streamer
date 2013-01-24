@@ -1014,18 +1014,29 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
   
       if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
       {
-	if(get_sec_dif_from_buf(resq->buf,&(resq->tm_s), spec_ops->opt, &err) > 0)
+	int temperr;
+	err = get_sec_dif_from_buf(resq->buf, &(resq->tm_s), spec_ops->opt,&temperr);
+	if(temperr != 0){
+	  E("Error in getting metadata");
+	  return -1;
+	}
+	else if(temperr == NONEVEN_PACKET){
+	  D("Noneven packet");
+	  return 0;
+	}
+	else if(err > 0)
 	{
-	  if(err !=0)
-	    E("Err in get_sec_dif");
-	  else
-	    D("Still waiting on start");
+	  D("Still waiting on start");
 	  return 0;
 	}
 	else
 	{
-	  D("Got first packet in correct metadata second. Starting recording!");
+	  D("Got first packet in correct metadata second. Starting recording! diff was %d",, err);
 	  spec_ops->opt->optbits &= ~WAIT_START_ON_METADATA;
+	  D("Updating our start time according to metadata");
+	  TIMERTYPE temptime;
+	  GETTIME(temptime);
+	  GETSECONDS(spec_ops->opt->starting_time) = GETSECONDS(temptime);
 	}
       }
 
@@ -1138,8 +1149,9 @@ void* udp_receiver(void *streamo)
   /* If we have packet resequencing	*/
   if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
     init_resq(resq);
-    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
+    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
       gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
+    }
   }
 
   LOG("UDP_STREAMER: Starting stream capture\n");

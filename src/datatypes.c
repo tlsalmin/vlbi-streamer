@@ -273,12 +273,20 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   if(err != 2)
   {
     E("Didnt't get day and sec from sscanf. Got %d",, err);
-    return -1;
+    return ERROR_IN_DIFF;
   }
+  /* We will presume its about on the same day */
+
+  /* Oh **** its Modified julian date crap */
+  /*
   if(m5days != reftime->tm_yday){
     D("Different day in mark5data: in mark5b: %d, right now %d. Better just wait than to try to count this..",, m5days, reftime->tm_yday);
     return DIFFERENT_DAY;
   }
+  */
+  /* Dropping day checking altogether. Just going to check if time within day matches */
+  
+  /* What a silly way. How bout just get second of day atm. and figure this out faster*/
   struct tm m5tm;
   memset(&m5tm, 0, sizeof(struct tm));
   m5tm.tm_hour = m5seconds / (60*60);
@@ -288,7 +296,62 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   m5tm.tm_mon = reftime->tm_mon;
   m5tm.tm_mday = reftime->tm_mday;
 
+
+  /* Manpage claimed mktime handles these nicely */
+  if(reftime->tm_hour ==  23 && m5seconds < MIDNIGHTRESHOLD){
+    /* m5seconds is tomorrow */
+    m5tm.tm_mday++;
+  }
+  else if (reftime->tm_hour < 0 && m5seconds > (SECONDS_IN_DAY-MIDNIGHTRESHOLD)){
+    /* m5seconds is yesterday */
+    m5tm.tm_mday--;
+  }
+
   return (long)mktime(&m5tm) - timezone;
+}
+int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int *errref)
+{
+  if(*((long*)(buffer+8)) != MARK5BSYNCWORD)
+  {
+    if(errref != NULL)
+      *errref = NONEVEN_PACKET;
+    return NONEVEN_PACKET;
+  }
+  return secdiff_from_mark5b(buffer+8, reftime,errref);
+}
+int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
+{
+  /* Presumes that reftime has the same stuff mark5b metadata has */
+  int m5seconds, m5days;
+  int err;
+  int diff;
+  err = get_sec_and_day_from_mark5b(buffer, &m5seconds, &m5days);
+  /* Yeah pass an error int pointer but.. int32_min is a difference of 68 years.*/
+  /* TODO: Ask me to debug this in 2038 */
+  if(err != 2)
+  {
+    E("Didnt't get day and sec from sscanf. Got %d",, err);
+    if(errref != NULL)
+      *errref = -1;
+    return ERROR_IN_DIFF;
+  }
+  /* We will presume its about on the same day */
+
+  int secofday = reftime->tm_hour*60*60 + reftime->tm_min*60 + reftime->tm_sec;
+
+  /* Format here: Positive = m5 is later, negative = m5 is ahead	*/
+  /* Check if we're close to midnight */
+  if(secofday > SECONDS_IN_DAY-MIDNIGHTRESHOLD && m5seconds < MIDNIGHTRESHOLD){
+    diff = -((SECONDS_IN_DAY-secofday) + m5seconds);
+  }
+  else if (secofday < MIDNIGHTRESHOLD && m5seconds > (SECONDS_IN_DAY-MIDNIGHTRESHOLD)){
+    diff = ((SECONDS_IN_DAY-m5seconds) + secofday);
+  }
+  else
+    diff = secofday - m5seconds;
+    //diff = m5seconds-secofday;
+
+  return diff;
 }
 long epochtime_from_vdif(void *buffer, struct tm* reftime)
 {
@@ -319,13 +382,16 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
       time2 = SECOND_FROM_VDIF(buffer);
       break;
     case DATATYPE_MARK5B:
-      time2= epochtime_from_mark5b(buffer, time);
+      return secdiff_from_mark5b(buffer, time, res_err);
       break;
     case DATATYPE_UDPMON:
+      E("Udpmon doesn't have timestamp!");
+      if(res_err != NULL)
+	*res_err = -1;
+      return 0;
       break;
     case DATATYPE_MARK5BNET:
-      time2= epochtime_from_mark5b(buffer, time);
-      //temp = (mktime(time)-timezone) - time2;
+      return secdiff_from_mark5b_net(buffer,time,res_err);
       break;
     case DATATYPE_UNKNOWN:
       E("Can't determine metadata second for unknown");
@@ -341,6 +407,7 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
       break;
   }
   temp = GETSECONDS(opt->starting_time) - time2;
+  /* Checking if diff is more than 68 years?! What was i thinking.. 	*/
   if(temp > INT32_MAX )
   {
     E("Int overflow. Return INT32_MAX");

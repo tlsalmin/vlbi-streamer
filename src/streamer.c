@@ -589,18 +589,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	break;
-	/*
-#ifdef USE_FOR_DISK2FILE
-      case 'o':
-	opt->out_filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-	CHECK_ERR_NONNULL(opt->filename, "filename malloc");
-	if(strcpy(opt->filename, argv[0]) == NULL){
-	  E("strcpy filename");
-	  return -1;
-	}
-	break;
-#endif
-*/
       case 'm':
 	if (!strcmp(optarg, "r")){
 	  opt->optbits &= ~READMODE;
@@ -735,12 +723,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 #endif
     opt->minmem = rl.rlim_cur;
   }
-  //if(!(opt->optbits & READMODE)){
-  /*
-     if (CALC_BUF_SIZE(opt) != 0)
-     return -1;
-     */
-  //}
   return 0;
 }
 int init_rbufs(struct opt_s *opt){
@@ -836,14 +818,6 @@ int close_opts(struct opt_s *opt){
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
   }
-  /*
-  if(opt->optbits & READMODE){
-    for(i = 0;i< opt->n_drives;i++){
-      if(opt->filenames[i] != NULL)
-	free(opt->filenames[i]);
-    }
-  }
-  */
   if(opt->disk2fileoutput != NULL)
     free(opt->disk2fileoutput);
   if(opt->streamer_ent != NULL)
@@ -888,22 +862,7 @@ int prep_priority(struct opt_s * opt, int priority){
   minprio = sched_get_priority_min(scheduler);
   maxprio = sched_get_priority_max(scheduler);
   D("Min prio: %d, max prio: %d",, minprio, maxprio);
-  //int halfprio = (maxprio+minprio)/2;
 
-  /*
-  int realprio = priority;
-
-  if(priority == MAX_PRIO_FOR_PTHREAD)
-    realprio = maxprio;
-  else if (priority == MIN_PRIO_FOR_PTHREAD)
-    realprio = minprio;
-  else if (priority == RBUF_PRIO)
-    realprio = halfprio;
-  else
-    realprio = halfprio +10;
-
-
-  */
   realprio = schedp.sched_priority - priority;
   if(realprio < 0)
     realprio=0;
@@ -933,22 +892,6 @@ int prep_priority(struct opt_s * opt, int priority){
   return 0;
 }
 #endif
-/*
-int prep_filenames(struct opt_s *opt){
-  int i;
-  D("preparing filenames");
-  if(opt->optbits & READMODE){
-    for(i=0;i<opt->n_drives;i++){
-      opt->filenames[i] = malloc(sizeof(char)*FILENAME_MAX);
-      CHECK_ERR_NONNULL(opt->filenames[i]
-      //opt->filenames[i] = (char*)malloc(FILENAME_MAX);
-      sprintf(opt->filenames[i], "%s%d%s%s%s", ROOTDIRS, i, "/", opt->filename,"/");
-    }
-  }
-  D("filenames prepared");
-  return 0;
-}
-*/
 int prep_streamer(struct opt_s* opt){
   int err = 0;
   D("Initializing streamer thread");
@@ -1139,14 +1082,6 @@ int main(int argc, char **argv)
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
     LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, *opt->cumul, get_n_files(opt->fi));
-    /* Only if we're sending live, do we need to rearrange these properly */
-    /*
-    if(opt->optbits & LIVE_SENDING){
-      pthread_spin_lock(opt->augmentlock);
-      arrange_by_id(opt);
-      pthread_spin_unlock(opt->augmentlock);
-    }
-    */
   }
 #endif //HAVE_LIBCONFIG_H
 
@@ -1180,22 +1115,6 @@ int main(int argc, char **argv)
     prep_priority(opt, SEND_THREAD_PRIO);
   else
     prep_priority(opt, RECEIVE_THREAD_PRIO);
-  /* TODO: err Not used */
-  /*
-  if(opt->optbits & READMODE)
-    opt->param.sched_priority = MAX_PRIO_FOR_PTHREAD;
-  else
-    opt->param.sched_priority = RECEIVE_THREAD_PRIO;
-  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error setting schedparam for pthread attr: %s, to %d",, strerror(err), MAX_PRIO_FOR_PTHREAD);
-  err = pthread_attr_setschedpolicy(&(opt->pta), SCHED_FIFO);
-  if(err != 0)
-    E("Error Setting sched policy to SCHED_FIFO");
-  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
-  if(err != 0)
-    E("Error Setting inheritance");
-    */
   err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
 #else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
@@ -1208,7 +1127,8 @@ int main(int argc, char **argv)
   opt->status = STATUS_RUNNING;
 
 #ifdef TUNE_AFFINITY
-  /* Put the capture on the first core */
+  /* Caused some weird ass bugs and crashes so not used anymore NEVER 	*/
+  /* Put the capture on the first core 					*/
   CPU_SET(0,&(opt->cpuset));
   err = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
   if(err != 0){
@@ -1219,7 +1139,6 @@ int main(int argc, char **argv)
 
   if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
-    //clock_gettime(CLOCK_REALTIME, &start_t);
     GETTIME(start_t);
 #else
     //TODO
@@ -1235,14 +1154,9 @@ int main(int argc, char **argv)
     stats_prev = (struct stats*)malloc(sizeof(struct stats));
     STREAMER_CHECK_NONNULL(stats_prev, "stats malloc");
     stats_now = (struct stats*)malloc(sizeof(struct stats));
-    //STREAMER_CHECK_NONNULL(stats_now, "stats malloc");
-    //memset(stats_prev, 0,sizeof(struct stats));
-    //memset(stats_now, 0,sizeof(struct stats));
-    /* MEmset is doing weird stuff 	*/
     init_stats(stats_prev);
     init_stats(stats_now);
     int sleeptodo;
-    //memset(&stats_now, 0,sizeof(struct stats));
     LOG("STREAMER: Printing stats per second\n");
     LOG("----------------------------------------\n");
 
@@ -1252,34 +1166,21 @@ int main(int argc, char **argv)
       sleeptodo = opt->time;
     while(sleeptodo >0 && (opt->status & STATUS_RUNNING)){
       sleep(1);
-      //memset(stats_now, 0,sizeof(struct stats));
       init_stats(stats_now);
-      //print_midstats(tempsched, stats_prev);
 
       opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats_now);
+
       /* Query and print the stats */
-      /*
-	 for(i=0;i<opt.n_threads;i++){
-      //threads[i].get_stats(threads[i].opt, &stats_now);
-      if(threads[i].be->recer->get_stats != NULL)
-      threads[i].be->recer->get_stats(threads[i].be->recer->opt, &stats_now);
-      }
-      */
-      //TODO: Write end stats
       oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_now);
 
-      //memcpy(&stats_temp, &stats_now, sizeof(struct stats));
       neg_stats(stats_now, stats_prev);
 
       print_intermediate_stats(stats_now);
-      //LOG("Time %ds \t------------------------\n", opt.time-sleeptodo+1);
       if(!(opt->optbits & READMODE)){
 	LOG("Time %lds\n", opt->time-sleeptodo+1);
-	//LOG("Files: %ld\n", stats_now.files_exchanged);
       }
       else{
 	LOG("Time %ds\n", sleeptodo);
-	//LOG("Files: %ld/%ld\n", stats_now.files_exchanged, opt->cumul_found);
       }
 
       LOG("Ringbuffers: ");
@@ -1294,17 +1195,9 @@ int main(int argc, char **argv)
       else
 	sleeptodo++;
       add_stats(stats_prev, stats_now);
-      //memcpy(&stats_prev, &stats_temp, sizeof(struct stats));
-      /*
-	 if(opt.optbits & READMODE){
-	 if(opt.cumul >= opt.max_num_packets-1)
-	 sleeptodo = 0;
-	 }
-	 */
       fflush(stdout);
     }
     free(stats_now);
-    //free(tempsched);
     free(stats_prev);
   }
   if(!(opt->optbits & READMODE)){
@@ -1316,18 +1209,16 @@ int main(int argc, char **argv)
   else
 #endif /* NOT DAEMON */
   {
+    /* READMODE shuts itself down so we just go to pthread_join			*/
     /* Check also that last_packet is 0. Else the thread should shut itself 	*/
     /* down									*/
     if(!(opt->optbits & READMODE) && opt->last_packet == 0){
       TIMERTYPE now;
       GETTIME(now);
-      //while(sleepleft > 0 && opt->streamer_ent->is_running(opt->streamer_ent)){
       while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && (opt->status & STATUS_RUNNING)){
 	sleep(1);
 	GETTIME(now);
       }
-      //sleep(opt->time);
-      ////pthread_mutex_destroy(opt.cumlock);
       shutdown_thread(opt);
     }
   }
@@ -1346,7 +1237,6 @@ int main(int argc, char **argv)
     struct timespec end_t;
     clock_gettime(CLOCK_REALTIME, &end_t);
     opt->time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
-    //LOG("END: %lus %luns, START: %lus, %luns\n", end_t.tv_sec, end_t.tv_nsec, start_t.tv_sec, start_t.tv_nsec);
 #else
     LOGERR("STREAMER: lrt not present. Setting time to 1\n");
     opt->time = 1;
@@ -1500,7 +1390,6 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
   (void)val2;
   switch (iden_type){
     case CHECK_BY_NAME:
-      //char* name = (char*)val1;
       if(strcmp(opt->filename,(char*)val1)== 0)
 	return 1;
       else 

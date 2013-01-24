@@ -143,6 +143,7 @@ int testrun()
   }
   int sec, day;
   long lerr;
+  int temperr=0, tempdiff;
   TIMERTYPE temptime;
   GETTIME(temptime);
   struct tm  gmtime_s;
@@ -161,11 +162,30 @@ int testrun()
 	return -1;
       }
       *((long*)(teststring+8)) = 0xABADDEED;
-      //D("%lX",, *((long*)(teststring+8)));
+      tempdiff = secdiff_from_mark5b_net((void*)teststring, &gmtime_s, &temperr);
+      if(temperr != 0){
+	E("ERr in getting secdiff");
+	return -1;
+      }
+      if(tempdiff != 0)
+      {
+	E("Should get 0 for diff");
+	return -1;
+      }
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
       break;
     case DATATYPE_MARK5B:
       sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      tempdiff = secdiff_from_mark5b((void*)teststring, &gmtime_s, &temperr);
+      if(temperr != 0){
+	E("ERr in getting secdiff");
+	return -1;
+      }
+      if(tempdiff != 0)
+      {
+	E("Should get 0 for diff");
+	return -1;
+      }
       lerr = epochtime_from_mark5b((void*)teststring, &gmtime_s);
       break;
   }
