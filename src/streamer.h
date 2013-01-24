@@ -116,9 +116,9 @@
 #define GET_A_FILENAME_AS_ARG	B(29)
 #define CAN_STRIP_BYTES		B(30)
 #define WAIT_START_ON_METADATA	B(31)
-/* One empty here */
 
-/* 4 empty here */
+#define FORCE_SOCKET_REACQUIRE	B(32)
+/* 3 empty here */
 
 /* Set only if the writer can actually strip bytes from packets	*/
 

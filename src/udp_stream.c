@@ -408,8 +408,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     CHECK_ERR("BIND RX");
   }
   else{
-    err = udps_bind_port(spec_ops);
-    CHECK_ERR("Bind port");
+    /* Moving binding to start of receive/send */
   }
 
   /* MMap the ring for rx-ring */
@@ -548,7 +547,15 @@ void * udp_sender(void *streamo){
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
   D("Starting stream send");
-  //i=0;
+
+  LOG("UDP_STREAMER: Starting stream capture\n");
+  err = udps_bind_port(spec_ops);
+  if(err != 0)
+  {
+    E("Error in getting buffer");
+    UDPS_EXIT_ERROR;
+  }
+
   GETTIME(spec_ops->opt->wait_last_sent);
   long packetpeek = get_n_packets(spec_ops->opt->fi);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
@@ -1031,7 +1038,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
 	}
 	else
 	{
-	  D("Got first packet in correct metadata second. Starting recording! diff was %d",, err);
+	  LOG("Got first packet in correct metadata second. Starting recording! diff was %d seconds\n", err);
 	  spec_ops->opt->optbits &= ~WAIT_START_ON_METADATA;
 	  D("Updating our start time according to metadata");
 	  TIMERTYPE temptime;
@@ -1141,6 +1148,19 @@ void* udp_receiver(void *streamo)
 
   reset_udpopts_stats(spec_ops);
 
+  LOG("UDP_STREAMER: Starting stream capture\n");
+  err = udps_bind_port(spec_ops);
+  if(err != 0){
+    E("Error in port binding");
+    if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
+    {
+      //TODO: Is this even sensible?:w
+      pthread_exit(NULL);
+    }
+    else
+      pthread_exit(NULL);
+  }
+
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
 
@@ -1154,7 +1174,8 @@ void* udp_receiver(void *streamo)
     }
   }
 
-  LOG("UDP_STREAMER: Starting stream capture\n");
+
+
   while(spec_ops->opt->status & STATUS_RUNNING){
     err = handle_buffer_switch(se,resq);
     if(err != 0){

@@ -19,6 +19,7 @@ OPTIONS:
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
       -v 		Verbose. Print stats on all transfers
       -x 		Use an mmap rxring for receiving
+      -y 		Force socket reaqcuire on error (Useful when recordings overlap)
 EOF
 }
 
@@ -115,6 +116,10 @@ do
     -x)
       EXTRAOPS="$EXTRAOPS
       use_rx_ring = 1;"
+      ;;
+    -w)
+      EXTRAOPS="$EXTRAOPS
+      force_socket_reacquire = 1;"
       ;;
     -w)
       EXTRAOPS="$EXTRAOPS
