@@ -120,7 +120,7 @@ AC_MSG_CHECKING([--enable-ppriority argument])
 AC_ARG_ENABLE(ppriority,
     [  --enable-ppriority         Enable pthread priority setting (default: No).],
     [enable_ppriority=$enableval],
-    [enable_ppriority="no"])
+    [enable_ppriority="yes"])
 AC_MSG_RESULT($enable_ppriority)
 AS_IF([test "x$enable_ppriority" != "xno"], [
 		     AC_DEFINE(PPRIORITY, 1, [Compile with pthread priority])
