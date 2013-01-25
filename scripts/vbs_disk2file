@@ -2,6 +2,7 @@
 usage()
 {
 cat << EOF
+Usage $0 <RECNAME> <OUTPUTFILE> <OPTIONS>
 OPTIONS:
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
       -f OFFSET		Strip offset amount of bytes from header of each packet

@@ -38,6 +38,7 @@ do
       EXTRAOPS="$EXTRAOPS $1"
       ;;
     *)
+      #This could be nicer
       if [ "$(echo $1|cut -d '.' -f2)" == "snp" ]
       then
 	echo "Target file $1"
