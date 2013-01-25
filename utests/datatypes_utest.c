@@ -155,6 +155,7 @@ int testrun()
       break;
     case DATATYPE_MARK5BNET:
       sprintf((char*)(teststring+8+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      //*((int*)(teststring+8+4+4)) = 0xgmtim
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
       if(lerr != NONEVEN_PACKET)
       {
@@ -169,7 +170,7 @@ int testrun()
       }
       if(tempdiff != 0)
       {
-	E("Should get 0 for diff");
+	E("Should get 0 for diff. Got %d",, tempdiff);
 	return -1;
       }
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
@@ -255,6 +256,14 @@ int main(void)
   testarea = malloc((opt->packet_size)*(opt->buf_num_elems));
 
   opt->first_packet = malloc(opt->packet_size);
+
+  TEST_START(HEXTRICKS);
+  int i;
+  for(i=0;i<58237215;i++){
+    D("%d as %X",, i, form_hexliteral_from_int(i));
+  }
+
+  TEST_END(HEXTRICKS);
 
   TEST_START(UDPMON);
   opt->optbits &= ~LOCKER_DATATYPE;
