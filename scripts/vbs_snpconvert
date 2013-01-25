@@ -32,7 +32,6 @@ do
       ;;
     -X) 
       EXECUTE=1
-      shift
       ;;
     -*)
       echo "Adding switch $1 to extra ops"

@@ -1025,7 +1025,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
 	int temperr=0;
 	err = get_sec_dif_from_buf(resq->buf, &(resq->tm_s), spec_ops->opt,&temperr);
 	if(temperr == NONEVEN_PACKET){
-	  D("Noneven packet");
+	  //D("Noneven packet");
 	  return 0;
 	}
 	else if(temperr != 0){
@@ -1034,7 +1034,7 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
 	}
 	else if(err > 0)
 	{
-	  D("Still waiting on start");
+	  //D("Still waiting on start");
 	  return 0;
 	}
 	else

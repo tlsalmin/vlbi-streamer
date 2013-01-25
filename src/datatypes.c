@@ -280,8 +280,8 @@ int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day)
   //sprintf(temp, "%X", *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))) & RBITMASK_20);
   sprintf(temp, "%X", SECOND_FROM_MARK5B(buffer));
   *sec = atoi(temp);
-  D("day %d sec %d",, *day, *sec);
-  D("At point: %X",, *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))));
+  //D("day %d sec %d",, *day, *sec);
+  //D("At point: %X",, *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))));
   return 0;
   /*
   int err = sscanf(((char*)(POINT_TO_MARK5B_SECOND(buffer))), "%03d%05d", day, sec);
@@ -342,7 +342,7 @@ int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int *errref)
 {
   if(*((uint32_t*)(buffer+8)) != MARK5BSYNCWORD)
   {
-    D("Got %X when expected %X",, *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
+    //D("Got %X when expected %X",, *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
     if(errref != NULL)
       *errref = NONEVEN_PACKET;
     return NONEVEN_PACKET;
@@ -381,7 +381,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
     diff = secofday - m5seconds;
     //diff = m5seconds-secofday;
 
-  D("Diff is %d. Buffer has %d and secofday is %d",, diff, m5seconds,secofday);
+  //D("Diff is %d. Buffer has %d and secofday is %d",, diff, m5seconds,secofday);
   return diff;
 }
 long epochtime_from_vdif(void *buffer, struct tm* reftime)
