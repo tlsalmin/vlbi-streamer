@@ -232,18 +232,19 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
-  struct buffer_entity *tempbe;
+  //struct buffer_entity *tempbe;
   //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
   if(se->be != NULL){
     st->files_sent++;
     D("Buffer empty for: %lu",, st->files_sent);
+    /* Not too efficient to free and then get a new, but doing this for simpler logci	 */
+    D("Freeing used buffer for other use");
+    set_free(opt->membranch, se->be->self);
+    se->be = NULL;
+    st->allocated_to_load++;
     if(st->files_sent == get_n_files(opt->fi)){
       if(opt->fi->status & FILESTATUS_RECORDING){
-	D("Freeing used buffer for other use");
-	set_free(opt->membranch, se->be->self);
-	se->be = NULL;
-	st->allocated_to_load++;
 	D("All sent, but we're still recording on %s",, opt->filename);	
 	err = wait_on_update(opt->fi);
 	CHECK_ERR("wait on update");
@@ -253,24 +254,16 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 	return ALL_DONE;
     }
   }
-  tempbe = se->be;
   /* -1 here, since indexes start at 0 */
   while(st->files_loaded < (get_n_files(opt->fi)) && st->allocated_to_load > 0){
     D("Still files to be loaded. Loading %lu. Allocated %d",, st->files_loaded, st->allocated_to_load);
     /* start_loading increments files_loaded */
-    err = start_loading(opt, tempbe, st);
-    tempbe = NULL;
+    err = start_loading(opt, se->be, st);
     if(err == DONTRYLOADNOMORE){
       D("Loader signalled to stop loading");
       break;
     }
     CHECK_ERR("Loading file");
-  }
-  if(tempbe != NULL)
-  {
-    D("Loaded enough files as loaded is %lu. Setting memorybuf to free",, st->files_loaded);
-    set_free(opt->membranch, tempbe->self);
-    st->allocated_to_load++;
   }
   if(st->files_in_loading == 0){
     D("Can't start loading and can't go to wait for loading files on %s. Waiting and running again",, opt->filename);
@@ -279,11 +272,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     return jump_to_next_file(opt, se, st);
   }
 
-  /*
-     while(st->files_sent < opt->cumul && opt->fileholders[st->files_sent] == -1)
-     st->files_sent++;
-     */
-  se->be = NULL;
+  //se->be = NULL;
   while(se->be == NULL){
     D("Getting new loaded for file %lu",, st->files_sent);
     FILOCK(opt->fi);
@@ -325,7 +314,6 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 	E("Couldnt get loaded file");
 	return -1;
       }
-      //CHECK_AND_EXIT(se->be);
     }
     else{
       E("No files in loading so shouldn't get here. Loaded %ld, sent %ld, in loading: %ld. Filename %s ",, st->files_loaded, st->files_sent,st->files_in_loading, opt->filename);

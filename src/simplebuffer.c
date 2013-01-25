@@ -610,12 +610,13 @@ int write_buffer(struct buffer_entity *be)
       }
       else{
 	D("Got recer so updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
+	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))
 	{
-	  check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL);
+	  if(check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL) != 0)
+	    E("Error in check and fill for %s id %ld",, sbuf->opt->filename, sbuf->fileid);
 	}
 	assert(be->recer->getid(be->recer) < sbuf->opt->n_drives);
-	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
     }

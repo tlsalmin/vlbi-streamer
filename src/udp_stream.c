@@ -527,7 +527,7 @@ void * udp_sender(void *streamo){
   //long wait= 0;
   se->be = NULL;
   spec_ops->total_captured_bytes = 0;
-  spec_ops->total_captured_packets = 0;
+  //spec_ops->total_captured_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -599,7 +599,8 @@ void * udp_sender(void *streamo){
     else{
       st.packets_sent++;
       spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets++;
+      //spec_ops->total_captured_packets++;
+      spec_ops->opt->total_packets++;
       //buf += spec_ops->opt->packet_size;
       sentinc += spec_ops->opt->packet_size;
       packetcounter++;
@@ -626,7 +627,7 @@ void* udp_rxring(void *streamo)
   struct rxring_request rxr;
 
   spec_ops->total_captured_bytes = 0;
-  *spec_ops->opt->total_packets = 0;
+  spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -655,15 +656,15 @@ void* udp_rxring(void *streamo)
 
       if(hdr->tp_status & TP_STATUS_COPY){
 	spec_ops->incomplete++;
-	(*spec_ops->opt->total_packets)++;
+	spec_ops->opt->total_packets++;
       }
       else if (hdr ->tp_status & TP_STATUS_LOSING){
 	spec_ops->missing++;
-	(*spec_ops->opt->total_packets)++;
+	spec_ops->opt->total_packets++;
       }
       else{
 	spec_ops->total_captured_bytes += hdr->tp_len;
-	(*spec_ops->opt->total_packets)++;
+	spec_ops->opt->total_packets++;
 	//(*inc)++;
 	//TODO: Should we add s the extra?
 	(*inc)+=hdr->tp_len;
@@ -1074,8 +1075,8 @@ inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_i
     }
     assert((unsigned)*resq->inc <= spec_ops->opt->filesize);
     spec_ops->total_captured_bytes +=(unsigned int) received;
-    *spec_ops->opt->total_packets += 1;
-    if(spec_ops->opt->last_packet == *spec_ops->opt->total_packets){
+    spec_ops->opt->total_packets++;
+    if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
       LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
       spec_ops->opt->status = STATUS_FINISHED;
     }
@@ -1127,7 +1128,7 @@ void reset_udpopts_stats(struct udpopts *spec_ops)
 {
   spec_ops->wrongsizeerrors = 0;
   spec_ops->total_captured_bytes = 0;
-  *spec_ops->opt->total_packets = 0;
+  spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -1236,7 +1237,7 @@ void* udp_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets);
+  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
   LOG("UDP_STREAMER: Closing streamer thread\n");
   //spec_ops->running = 0;
   //spec_ops->opt->status = STATUS_STOPPED;
@@ -1261,7 +1262,7 @@ void get_udp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)sp;
   //if(spec_ops->opt->optbits & USE_RX_RING)
-  stat->total_packets += *spec_ops->opt->total_packets;
+  stat->total_packets += spec_ops->opt->total_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;

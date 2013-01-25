@@ -4,6 +4,7 @@
 #include <time.h>
 #include "datatypes.h"
 #include "streamer.h"
+#include "active_file_index.h"
 
 
 inline long getseq_vdif(void* header, struct resq_info *resq){
@@ -214,9 +215,21 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
   int err;
   int errors=0;
   long match;
+  long real_number_of_elements;
+
+  /* Makes sure we only fill as much as we have received */
+  /* If wrapper added for unit tests */
+  if(opt->fi != NULL)
+  {
+    long packets_left = get_n_packets(opt->fi) - opt->buf_num_elems*fileid;
+    real_number_of_elements = MIN(opt->buf_num_elems, packets_left);
+  }
+  else
+    real_number_of_elements = opt->buf_num_elems;
+
   void* modelheader = create_initial_header(fileid, opt);
   CHECK_ERR_NONNULL(modelheader, "Create modelheader");
-  for(i=0;i<opt->buf_num_elems;i++)
+  for(i=0;i<real_number_of_elements;i++)
   {
     match = header_match(buffer, modelheader, opt);
     if(match != 0)

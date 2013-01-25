@@ -112,6 +112,7 @@ int close_thread(struct scheduled_event *ev)
     return -1;
   }
   get_udp_stats(ev->opt->streamer_ent->opt, ev->stats);
+  print_stats(ev->stats, ev->opt);
   return 0;
 }
 int format_threads(struct opt_s* original, struct opt_s* copies)
@@ -121,14 +122,10 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   {
     if(copies[i].cumul != NULL)
       free(copies[i].cumul);
-    if(copies[i].total_packets != NULL)
-      free(copies[i].total_packets);
     memcpy(&(copies[i]), original,sizeof(struct opt_s));
     clear_pointers(&(copies[i]));
     copies[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
     *(copies[i].cumul) = 0;
-    copies[i].total_packets = (long unsigned *)malloc(sizeof(long unsigned));
-    *(copies[i].total_packets) = 0;
     events[i].opt = &(copies[i]);
     events[i].stats = &(stats[i]);
     /* This will give the same filename to each pair */
@@ -162,12 +159,9 @@ int main()
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
   dopt->cumul = NULL;
-  dopt->total_packets = NULL;
   /*
   dopt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   *dopt->cumul = 0;
-  dopt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
-  *dopt->total_packets = 0;
   */
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
@@ -406,7 +400,6 @@ int main()
   for(i=0;i<N_THREADS;i++)
   {
     free(opts[i].cumul);
-    free(opts[i].total_packets);
   }
 
   free(filenames);

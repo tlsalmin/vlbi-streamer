@@ -21,7 +21,7 @@ void get_dummy_stats(void *opt, void *stats)
 {
   struct stats *stat = (struct stats * ) stats;
   struct udpopts *spec_ops = (struct udpopts*)opt;
-  stat->total_packets += *spec_ops->opt->total_packets;
+  stat->total_packets += spec_ops->opt->total_packets;
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
@@ -71,7 +71,7 @@ void * dummy_sender(void * streamo)
   throttling_count(spec_ops->opt, &st);
   se->be = NULL;
   spec_ops->total_captured_bytes = 0;
-  spec_ops->total_captured_packets = 0;
+  //spec_ops->total_captured_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -137,8 +137,9 @@ void * dummy_sender(void * streamo)
     else{
       st.packets_sent++;
       spec_ops->total_captured_bytes +=(unsigned int) err;
-      spec_ops->total_captured_packets++;
+      //spec_ops->total_captured_packets++;
       //buf += spec_ops->opt->packet_size;
+      spec_ops->opt->total_packets++;
       sentinc += spec_ops->opt->packet_size;
       packetcounter++;
     }
@@ -163,7 +164,7 @@ void * dummy_receiver(void *streamo)
 
   spec_ops->wrongsizeerrors = 0;
   spec_ops->total_captured_bytes = 0;
-  *spec_ops->opt->total_packets = 0;
+  spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
@@ -216,7 +217,7 @@ void * dummy_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets, spec_ops->opt->filename);
+  D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets, spec_ops->opt->filename);
   LOG("UDP_STREAMER: Closing receiver thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */

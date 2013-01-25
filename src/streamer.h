@@ -384,7 +384,7 @@ struct opt_s
   void (*get_stats)(void*, void*);
   long unsigned bytes_exchanged;
 #endif
-  unsigned long *total_packets;
+  unsigned long total_packets;
   pthread_t *rbuf_pthreads;
   struct buffer_entity * bes;
   struct recording_entity *recs;
@@ -534,5 +534,6 @@ int print_midstats(struct schedule* sched, struct stats* old_stats);
 void* vlbistreamer(void *opti);
 #endif
 int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type);
+void print_stats(struct stats *stats, struct opt_s * opts);
 
 #endif

@@ -97,7 +97,7 @@ inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diski
   }
   fi->files[id].diskid = diskid;
   fi->files[id].status = status;
-  D("Added file %ld of %s with status FH_MISSING: %ld",, id, fi->filename, status & FH_MISSING);
+  D("Added file %ld of %s with status FH_MISSING: %ld",, id, fi->filename, status & FH_MISSING );
   return 0;
 }
 int add_file(struct file_index* fi, long unsigned id, int diskid, int status)

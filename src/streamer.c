@@ -428,7 +428,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
+  //opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
 
 
@@ -831,8 +831,10 @@ int close_opts(struct opt_s *opt){
 #endif
   if(opt->cumul != NULL)
     free(opt->cumul);
+  /*
   if(opt->total_packets != NULL)
     free(opt->total_packets);
+    */
   free(opt);
   return 0;
 }

@@ -291,8 +291,6 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   *opt->cumul = 0;
-  opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
-  *opt->total_packets = 0;
   /*
      opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
      if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
