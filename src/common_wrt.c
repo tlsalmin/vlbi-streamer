@@ -492,7 +492,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	//temp = atoi(ent->d_name);
 	//temp = atoi(the_index);
 	temp = atoi(start_of_index);
-	if((unsigned long)temp >= *opt->cumul)
+	if((unsigned long)temp >= get_n_files(opt->fi))
 	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
 	else
 	{

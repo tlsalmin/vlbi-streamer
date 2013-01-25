@@ -576,10 +576,10 @@ int init_cfg(struct opt_s *opt){
       }
     }
     if(found == 0){
-      E("No config file found! This means no recording with said name found");
+      LOG("No config file found! This means no recording %s found\n", opt->filename);
       if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
       {
-	D("Live recording exists. Returning OK");
+	LOG("%s is a Live recording exists. Everything is fine\n", opt->filename);
 	retval = 0;
       }
       else

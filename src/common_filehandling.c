@@ -45,7 +45,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
   FILOCK(opt->fi);
   skip_missing(opt,st,SKIP_LOADED);
-  if(st->files_loaded > opt->fi->n_files){
+  if(st->files_loaded == opt->fi->n_files){
     D("Loaded up to n_files!");
     FIUNLOCK(opt->fi);
     return DONTRYLOADNOMORE;
@@ -176,12 +176,6 @@ int loadup_n(struct opt_s *opt, struct sender_tracking * st)
     if(err == DONTRYLOADNOMORE)
       break;
     CHECK_ERR("Start loading");
-    /*
-       SAUGMENTLOCK;
-       cumulpeek = (*spec_ops->opt->cumul);
-       packetpeek = (*spec_ops->opt->total_packets);
-       SAUGMENTUNLOCK;
-       */
     /* TODO: loadup might cut short if we're sending a recording that has just started */
   }
   return 0;
@@ -234,6 +228,7 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
     D("rate as %d ns. Setting to use max %d buffers",, opt->wait_nanoseconds, st->allocated_to_load);
   }
 }
+/* TODO: This logic needs to be rethunked! Lots of cases to consider with live sending */
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
@@ -241,10 +236,22 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   //long cumulpeek; //= (*opt->cumul);
   //st->files_sent++;
   if(se->be != NULL){
-    D("Buffer empty for: %lu",, st->files_sent);
     st->files_sent++;
-    if(st->files_sent == get_n_files(opt->fi))
-      return ALL_DONE;
+    D("Buffer empty for: %lu",, st->files_sent);
+    if(st->files_sent == get_n_files(opt->fi)){
+      if(opt->fi->status & FILESTATUS_RECORDING){
+	D("Freeing used buffer for other use");
+	set_free(opt->membranch, se->be->self);
+	se->be = NULL;
+	st->allocated_to_load++;
+	D("All sent, but we're still recording on %s",, opt->filename);	
+	err = wait_on_update(opt->fi);
+	CHECK_ERR("wait on update");
+	return jump_to_next_file(opt,se,st);
+      }
+      else
+	return ALL_DONE;
+    }
   }
   tempbe = se->be;
   /* -1 here, since indexes start at 0 */
@@ -264,6 +271,12 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     D("Loaded enough files as loaded is %lu. Setting memorybuf to free",, st->files_loaded);
     set_free(opt->membranch, tempbe->self);
     st->allocated_to_load++;
+  }
+  if(st->files_in_loading == 0){
+    D("Can't start loading and can't go to wait for loading files on %s. Waiting and running again",, opt->filename);
+    err = wait_on_update(opt->fi);
+    CHECK_ERR("wait on update");
+    return jump_to_next_file(opt, se, st);
   }
 
   /*
@@ -301,7 +314,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
        */
     if(st->files_in_loading > 0)
     {
-      D("File should be waiting for us now or soon with status %lu",, st->files_sent);
+      D("File should be waiting for us now or soon with status %lu. in loading %ld",, st->files_sent, st->files_in_loading);
       se->be = get_loaded(opt->membranch, st->files_sent, opt);
       //buf = se->be->simple_get_writebuf(se->be, &inc);
       if(se->be != NULL){

@@ -1132,6 +1132,24 @@ void reset_udpopts_stats(struct udpopts *spec_ops)
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
 }
+int force_reacquire(struct udpopts *spec_ops)
+{
+  int err =1;
+  //TODO: Is this even sensible?
+  TIMERTYPE temptimer;
+  GETTIME(temptimer);
+  while(GETSECONDS(temptimer) < (GETSECONDS(spec_ops->opt->starting_time) + (long)spec_ops->opt->time) && err != 0)
+  {
+    sleep(1);
+    GETTIME(temptimer);
+    err = udps_bind_port(spec_ops);
+  }
+  if(err != 0){
+    E("Still couldn't get the port. Exiting");
+    return -1;
+  }
+  return 0;
+}
 /*
  * Receiver for UDP-data
  */
@@ -1144,7 +1162,7 @@ void* udp_receiver(void *streamo)
 
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  
+
 
   reset_udpopts_stats(spec_ops);
 
@@ -1154,17 +1172,9 @@ void* udp_receiver(void *streamo)
     E("Error in port binding");
     if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
     {
-      err =0;
-      //TODO: Is this even sensible?
-      TIMERTYPE temptimer;
-      GETTIME(temptimer);
-      while(GETSECONDS(temptimer) < (GETSECONDS(spec_ops->opt->starting_time) + (long)spec_ops->opt->time))
-      {
-	sleep(1);
-	err = udps_bind_port(spec_ops);
-      }
+      err = force_reacquire(spec_ops);
       if(err != 0){
-	E("Still couldn't get the port. Exiting");
+	E("Force reacquire failed");
 	pthread_exit(NULL);
       }
     }
@@ -1233,8 +1243,11 @@ void* udp_receiver(void *streamo)
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
     free(resq);
-  pthread_exit(NULL);
+  err = close(spec_ops->fd);
+  if(err != 0)
+    E("Error in closing socket");
 
+  pthread_exit(NULL);
 }
 /*
    unsigned long udps_get_fileprogress(struct udpopts* spec_ops){
@@ -1268,23 +1281,10 @@ int close_udp_streamer(void *opt_own, void *stats){
     close(spec_ops->fd_send);
     free(spec_ops->sin_send);
   }
-  close(spec_ops->fd);
-
-  //close(spec_ops->fd);
-  //close(spec_ops->rp->fd);
-
-  //#if(DEBUG_OUTPUT)
   LOG("UDP_STREAMER: Closed\n");
-  //#endif
-  //stats->packet_index = spec_ops->packet_index;
-  //spec_ops->be->close(spec_ops->be, stats);
-  //free(spec_ops->be);
-  /* So if we're reading, just let the recorder end free the packet_index */
-  //else
+
   if(!(spec_ops->opt->optbits & USE_RX_RING))
     free(spec_ops->sin);
-  //free(spec_ops->headlock);
-  //free(spec_ops->iosignal);
   free(spec_ops);
   return 0;
 }

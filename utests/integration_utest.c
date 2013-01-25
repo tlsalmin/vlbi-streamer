@@ -92,6 +92,7 @@ int close_thread(struct scheduled_event *ev)
   err = pthread_join(ev->pt,NULL);
   CHECK_ERR("pthread join");
   if(ev->opt->optbits & READMODE){
+  D("Pthread sender joining on %s",, ev->opt->filename);
     err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
     if(err != 0){
       E("Error in disassociate");
@@ -99,6 +100,7 @@ int close_thread(struct scheduled_event *ev)
     }
   }
   else{
+  D("Pthread recorder joining on %s",, ev->opt->filename);
     disassociate(ev->opt->fi, FILESTATUS_RECORDING);
     if(err != 0){
       E("Error in disassociate");
@@ -134,6 +136,7 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
     copies[i].filename = filenames[i/2];
     if((i % 2) == 1){
       copies[i].optbits |= READMODE;
+      copies[i].wait_nanoseconds = 5;
     }
     else
       copies[i].time = RUNTIME;
@@ -319,6 +322,30 @@ int main()
     return -1;
   }
   TEST_END(send_and_receive_one);
+  format_threads(dopt,opts);
+  memset(stats, 0, sizeof(struct stats)*N_THREADS);
+  TEST_START(send_faster_and_receive_one);
+  opts[1].wait_nanoseconds = 0;
+
+  err = start_thread(&(events[0]));
+  CHECK_ERR("Start receive");
+  sleep(1);
+  err = start_thread(&(events[1]));
+  CHECK_ERR("Start send");
+  err = close_thread(&(events[0]));
+  CHECK_ERR("Close receiving thread");
+  err = close_thread(&(events[1]));
+  CHECK_ERR("Close sending thread");
+  D("Closed a pair. Checking bytes");
+  if (stats[0].total_bytes == stats[1].total_bytes)
+  {
+    D("sent %ld bytes correctly",, stats[0].total_bytes);
+  }
+  else{
+    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
+    return -1;
+  }
+  TEST_END(send_faster_and_receive_one);
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
@@ -337,21 +364,23 @@ int main()
     CHECK_ERR("Start thread");
   }
   int retval = 0;
-  for(i=0;i<N_THREADS;i++)
+  for(i=0;i<N_THREADS;i+=2)
+  {
+    err = close_thread(&(events[i]));
+    CHECK_ERR("Close receiver");
+  }
+  for(i=1;i<N_THREADS;i+=2)
   {
     err = close_thread(&(events[i]));
     CHECK_ERR("Close thread");
-    if(i % 2 == 1)
+    D("Closed a pair. Checking bytes");
+    if (stats[i].total_bytes == stats[i-1].total_bytes)
     {
-      D("Closed a pair. Checking bytes");
-      if (stats[i].total_bytes == stats[i-1].total_bytes)
-      {
-	D("sent %ld bytes correctly",, stats[i].total_bytes);
-      }
-      else{
-	E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
-	retval--;
-      }
+      D("sent %ld bytes correctly",, stats[i].total_bytes);
+    }
+    else{
+      E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
+      retval--;
     }
   }
   if(retval != 0){

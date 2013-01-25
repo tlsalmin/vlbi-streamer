@@ -117,7 +117,7 @@ do
       EXTRAOPS="$EXTRAOPS
       use_rx_ring = 1;"
       ;;
-    -w)
+    -y)
       EXTRAOPS="$EXTRAOPS
       force_socket_reacquire = 1;"
       ;;

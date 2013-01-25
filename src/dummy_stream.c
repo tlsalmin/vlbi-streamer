@@ -6,7 +6,6 @@
 #include "common_filehandling.h"
 #include "udp_stream.h"
 
-
 int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 {
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
@@ -121,7 +120,8 @@ void * dummy_sender(void * streamo)
     }
     udps_wait_function(&st, spec_ops->opt);
     //PACKET SEND
-    usleep(5);
+    if(spec_ops->opt->wait_nanoseconds != 0)
+      usleep(spec_ops->opt->wait_nanoseconds);
     err = spec_ops->opt->packet_size;
     if(err < 0){
       perror("Send packet");
@@ -217,7 +217,7 @@ void * dummy_receiver(void *streamo)
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), *spec_ops->opt->total_packets, spec_ops->opt->filename);
-  LOG("UDP_STREAMER: Closing streamer thread\n");
+  LOG("UDP_STREAMER: Closing receiver thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
