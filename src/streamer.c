@@ -422,7 +422,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   //opt->optbits = 0xff000000;
   opt->optbits |= SIMPLE_BUFFER;
   opt->socket = 0;
-  memset(&opt->start_time, 0,sizeof(TIMERTYPE));
   memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
 
   //opt->cumul = NULL;
@@ -473,7 +472,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	break;
 #if(DAEMON)
       case 'e':
-	opt->start_time.tv_sec = atoi(optarg);
+	GETSECONDS(opt->starting_time) = atoi(optarg);
 	break;
 #endif
       case 'I':

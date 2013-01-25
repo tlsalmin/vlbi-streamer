@@ -286,7 +286,7 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   int m5seconds, m5days;
   int err;
   err = get_sec_and_day_from_mark5b(buffer, &m5seconds, &m5days);
-  if(err != 2)
+  if(err != 0)
   {
     E("Didnt't get day and sec from sscanf. Got %d",, err);
     return ERROR_IN_DIFF;
@@ -368,7 +368,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
     diff = secofday - m5seconds;
     //diff = m5seconds-secofday;
 
-  D("Diff is %d",, diff);
+  D("Diff is %d. Buffer has %d and secofday is %d",, diff, m5seconds,secofday);
   return diff;
 }
 long epochtime_from_vdif(void *buffer, struct tm* reftime)
@@ -440,4 +440,3 @@ int get_sec_dif_from_buf(void * buffer, struct tm* time,struct opt_s* opt, int* 
     dif = (int)temp;
   return dif;
 }
-

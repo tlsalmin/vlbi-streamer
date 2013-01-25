@@ -351,12 +351,12 @@ struct opt_s
   unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
+  /* TODO: move this to spec_ops or similar */
   TIMERTYPE wait_last_sent;
-  TIMERTYPE start_time;
 #endif
   //unsigned long max_num_packets;
   //char * filenames[MAX_OPEN_FILES];
-  struct timespec starting_time;
+  TIMERTYPE starting_time;
   unsigned long filesize;
 
   /* Moved to optbits */

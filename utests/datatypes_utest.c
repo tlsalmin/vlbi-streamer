@@ -1,14 +1,63 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "../src/datatypes.h"
 #include "common.h"
 #include "../src/streamer.h"
 #include "../src/config.h"
-#include "string.h"
+#include <string.h>
+#include <math.h>
 
 #define N_PACKETS 6500
 #define PACKET_SIZE 1200
 #define RANDOM_FILE 4
 #define DO_ERRORS 1000
+
+uint32_t form_hexliteral_from_int(uint32_t m)
+{
+  int i,j;
+  long double powler=0;
+  char temp[33];
+  char temp2[2];
+  memset(&temp, 0, sizeof(char)*33);
+  memset(&temp2, 0, sizeof(char)*2);
+  //recursive_basemod(m, 10, temp);
+  sprintf(temp, "%d", m);
+
+  j=0;
+  for(i=(strlen(temp)-1);i>=0;i--)
+  {
+    memcpy(temp2,temp+i,sizeof(char));
+    powler+=(atoi(temp2))*pow(16,j);
+    j++;
+  }
+
+  //D("Dat string %s",, temp);
+
+  return (uint32_t)floor(powler);
+}
+
+void set_mark5b_day_and_sec(void* buffer, int sec, int day)
+{
+  *((uint32_t*)(buffer+4+4)) = (form_hexliteral_from_int(day) << 20) | form_hexliteral_from_int(sec);
+  //return (form_hexliteral_from_int(day) << 20) | form_hexliteral_from_int(sec);
+}
+void set_mark5b_day_and_sec_from_tms(void* buffer, struct tm *tms)
+{
+  /*TODO: tm_yday is not correct MJD, but foek it */
+  set_mark5b_day_and_sec(buffer, tms->tm_yday, SEC_OF_DAY_FROM_TM(tms));
+}
+
+void recursive_basemod(int m, int n, char* temp)
+{
+  if(m < n){
+    sprintf(temp, "%d", m);
+  }
+  else
+  {
+    sprintf(temp, "%d", m%n);
+    recursive_basemod(m/n,n,temp+1);
+  }
+}
 
 unsigned int get_mask(int start, int end){
   unsigned int returnable = 0;
@@ -142,7 +191,8 @@ int testrun()
       break;
   }
   int sec, day;
-  long lerr;
+  long lerr=0;
+  //uint32_t datthere;
   int temperr=0, tempdiff;
   TIMERTYPE temptime;
   GETTIME(temptime);
@@ -154,7 +204,12 @@ int testrun()
       lerr = epochtime_from_vdif((void*)teststring, &gmtime_s);
       break;
     case DATATYPE_MARK5BNET:
-      sprintf((char*)(teststring+8+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      //TODO: Disabled for now
+      return 0;
+      set_mark5b_day_and_sec_from_tms(teststring+8, &gmtime_s);
+      //sprintf((char*)(teststring+8+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      //datthere = (form_hexliteral_from_int(gmtime_s.tm_yday) << 20) | form_hexliteral_from_int(SEC_OF_DAY_FROM_TM(&gmtime_s));
+      //*((uint32_t*)(teststring+8+4+4)) = datthere;
       //*((int*)(teststring+8+4+4)) = 0xgmtim
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
       if(lerr != NONEVEN_PACKET)
@@ -176,7 +231,9 @@ int testrun()
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
       break;
     case DATATYPE_MARK5B:
-      sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      //sprintf((char*)(teststring+4+4), "%03d%05d", gmtime_s.tm_yday,SEC_OF_DAY_FROM_TM(&gmtime_s)); 
+      set_mark5b_day_and_sec_from_tms(teststring, &gmtime_s);
+      //datthere = (form_hexliteral_from_int(gmtime_s.tm_yday) << 20) | form_hexliteral_from_int(SEC_OF_DAY_FROM_TM(&gmtime_s));
       tempdiff = secdiff_from_mark5b((void*)teststring, &gmtime_s, &temperr);
       if(temperr != 0){
 	E("ERr in getting secdiff");
@@ -221,7 +278,7 @@ int testrun()
 	temp = get_sec_and_day_from_mark5b((void*)teststring, &sec, &day);
 	break;
     }
-    if(temp != 2)
+    if(temp != 0)
     {
       E("Didnt get both sec and day!");
       return -1;
@@ -257,6 +314,7 @@ int main(void)
 
   opt->first_packet = malloc(opt->packet_size);
 
+  /*
   TEST_START(HEXTRICKS);
   int i;
   for(i=0;i<58237215;i++){
@@ -264,6 +322,7 @@ int main(void)
   }
 
   TEST_END(HEXTRICKS);
+  */
 
   TEST_START(UDPMON);
   opt->optbits &= ~LOCKER_DATATYPE;

@@ -10,6 +10,6 @@ endif
 active_file_index_SOURCES = active_file_index_utest.c $(top_builddir)/src/active_file_index.h
 active_file_index_LDADD = $(resourcetree_LDADD)
 datatypes_SOURCES = datatypes_utest.c $(top_builddir)/src/datatypes.h
-datatypes_LDADD = $(resourcetree_LDADD)
+datatypes_LDADD = $(resourcetree_LDADD) -lm
 integration_SOURCES = integration_utest.c $(top_builddir)/src/streamer.h
 integration_LDADD = $(resourcetree_LDADD)

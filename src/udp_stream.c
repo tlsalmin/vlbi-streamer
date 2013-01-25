@@ -1154,8 +1154,19 @@ void* udp_receiver(void *streamo)
     E("Error in port binding");
     if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
     {
-      //TODO: Is this even sensible?:w
-      pthread_exit(NULL);
+      err =0;
+      //TODO: Is this even sensible?
+      TIMERTYPE temptimer;
+      GETTIME(temptimer);
+      while(GETSECONDS(temptimer) < (GETSECONDS(spec_ops->opt->starting_time) + (long)spec_ops->opt->time))
+      {
+	sleep(1);
+	err = udps_bind_port(spec_ops);
+      }
+      if(err != 0){
+	E("Still couldn't get the port. Exiting");
+	pthread_exit(NULL);
+      }
     }
     else
       pthread_exit(NULL);
