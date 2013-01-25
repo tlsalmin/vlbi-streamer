@@ -1173,14 +1173,18 @@ void* udp_receiver(void *streamo)
     E("Error in port binding");
     if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
     {
+      LOG("Force acquiring\n");
       err = force_reacquire(spec_ops);
       if(err != 0){
 	E("Force reacquire failed");
+	spec_ops->opt->status = STATUS_ERROR;
 	pthread_exit(NULL);
       }
     }
-    else
+    else{
+      spec_ops->opt->status = STATUS_ERROR;
       pthread_exit(NULL);
+    }
   }
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);

@@ -117,7 +117,6 @@
 #define CAN_STRIP_BYTES		B(30)
 #define WAIT_START_ON_METADATA	B(31)
 
-#define FORCE_SOCKET_REACQUIRE	B(32)
 /* 3 empty here */
 
 /* Set only if the writer can actually strip bytes from packets	*/
@@ -130,6 +129,8 @@
 
 #define	DATATYPE_MARK5BNET	B(36) 
 /* Next three empty */
+
+#define FORCE_SOCKET_REACQUIRE	B(40)
 
 #define MEG			B(20)
 #define GIG			B(30)
