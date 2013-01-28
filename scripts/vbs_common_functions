@@ -2,9 +2,8 @@
 ERR=-1
 AOK=0
 ROOTDIRS=/mnt/disk
-FILESIZE=536870912
 SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
-LOGFLE=/usr/local/var/log/vlbistreamer.log
+LOGFILE=/usr/local/var/log/vlbistreamer.log
 PIDFILE=/usr/local/var/opt/vlbistreamer/vlbistreamer.pid
 BINDIR=/usr/local/bin
 CFGFILE=/usr/local/etc/vlbistreamer.conf
@@ -15,6 +14,25 @@ GROUP=oper
 
 RETURNSTRING=""
 
+function get_filesize_from_cfgfile()
+{
+  if [ -z "$1" ]
+  then
+    echo "No cfgname given"
+    return $ERR
+  fi
+
+  FILESIZE=`cat $1 |grep filesizemb|awk '{print $3}'|sed 's/[^0-9]//g'`
+  FILESIZE=$(echo "$FILESIZE*(2^20)" | bc )
+  if [ -z "$FILESIZE" ]
+  then
+    echo "No filesizemb found in cfg file named $1"
+    return $ERR
+  fi
+  echo $FILESIZE
+  return $AOK
+}
+FILESIZE=$(get_filesize_from_cfgfile $CFGFILE)
 function get_packetsize_from_cfgfile()
 {
   if [ -z "$1" ]

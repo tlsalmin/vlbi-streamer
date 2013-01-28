@@ -212,11 +212,13 @@ if [ -z "${DATDATE}" ]
 then
   DATDATE=$(date +%s)
 fi
+
+echo $LOGFILE
 if [ "$RECORD" == "1" ]
 then
-  echo "`date --rfc-3339=seconds`: Added recording named $RECNAME to record for $DUR s starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " >> $LOGFILE
+  echo "`date --rfc-3339=seconds`: Added recording named $RECNAME to record for $DUR s starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) " | tee -a $LOGFILE
 else
-  echo "`date --rfc-3339=seconds`: Added streaming named $RECNAME to send to $DUR" starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) >> $LOGFILE
+  echo "`date --rfc-3339=seconds`: Added streaming named $RECNAME to send to $DUR" starting at UTC:  $(date -u -d @${DATDATE} --rfc-3339=seconds) |tee -a  $LOGFILE
 fi
 #TODO: What date format people want?
 exit 0
