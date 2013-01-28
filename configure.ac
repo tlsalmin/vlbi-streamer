@@ -118,7 +118,7 @@ AS_IF([test "x$enable_spinlock" != "xno"], [
 
 AC_MSG_CHECKING([--enable-ppriority argument])
 AC_ARG_ENABLE(ppriority,
-    [  --enable-ppriority         Enable pthread priority setting (default: No).],
+    [  --enable-ppriority         Enable pthread priority setting (default: Yes).],
     [enable_ppriority=$enableval],
     [enable_ppriority="yes"])
 AC_MSG_RESULT($enable_ppriority)
@@ -168,24 +168,6 @@ AC_ARG_ENABLE(user,
 AC_MSG_RESULT($user)
 USER=$user
 AC_SUBST(USER)
-
-AC_MSG_CHECKING([--minsize argument])
-AC_ARG_ENABLE(minsize,
-	      [  --enable-minsize         Set the minimum size of the files used.(default 256)],
-    [minsize=$enableval],
-    [minsize=256])
-AC_MSG_RESULT($minsize)
-MINSIZE=$minsize
-AC_SUBST(MINSIZE)
-
-AC_MSG_CHECKING([--maxsize argument])
-AC_ARG_ENABLE(maxsize,
-	      [  --enable-maxsize         Set the maximum size of the files used.(default 512)],
-    [maxsize=$enableval],
-    [maxsize=512])
-AC_MSG_RESULT($maxsize)
-MAXSIZE=$maxsize
-AC_SUBST(MAXSIZE)
 
 AC_MSG_CHECKING([--group argument])
 AC_ARG_ENABLE(group,

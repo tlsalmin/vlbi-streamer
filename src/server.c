@@ -291,14 +291,6 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   *opt->cumul = 0;
-  /*
-     opt->augmentlock = (pthread_spinlock_t*)malloc(sizeof(pthread_spinlock_t)); 
-     if (pthread_spin_init((opt->augmentlock), PTHREAD_PROCESS_SHARED) != 0){
-     E("Spin init");
-     return -1;
-     }
-     */
-
 
   config_init(&(opt->cfg));
 
@@ -412,37 +404,13 @@ int check_schedule(struct schedule *sched){
     remove_from_branch(&sched->br, le, MUTEX_FREE);
     //CHECK_ERR("Remove recording");
   }
-  /*
-     while((temp = get_not_found(sched->running_head)) != NULL){
-     LOG("Recording %s removed from running\n", temp->opt->filename);
-//TODO: Stop the recording
-//err =  remove_recording(temp, &(sched->running_head));
-err = remove_from_branch(&sched->br, le, MUTEX_FREE);
-CHECK_ERR("Remove recording");
-}
-*/
-zerofound(sched);
-config_destroy(&cfg);
-D("Done checking schedule");
+  zerofound(sched);
+  config_destroy(&cfg);
+  D("Done checking schedule");
 
-return 0;
+  return 0;
 }
-/*
-   int close_recording(struct schedule* sched, struct scheduled_event* ev){
-   int err;
-   err =pthread_join(ev->pt, NULL);
-   CHECK_ERR("pthread tryjoin");
-   D("Thread for %s finished",,ev->opt->filename);
-   change_sched_branch(&(sched->running_head), NULL, ev);
 
-   err = remove_from_cfgsched(ev);
-   CHECK_ERR("Remove from cfgsched");
-   close_streamer(ev->opt);
-   close_opts(ev->opt);
-   free(ev);
-   return 0;
-   }
-   */
 int check_finished(struct schedule* sched){
   struct scheduled_event *ev;
   struct listed_entity *le;
@@ -619,15 +587,6 @@ int main(int argc, char **argv)
     LOG("----------------------------------------\n");
     temptime = (TIMERTYPE*)malloc(sizeof(TIMERTYPE));
   }
-  /*
-#if(LOG_TO_FILE)
-LOG("Forking\n");
-err=fork();
-if (err<0) exit(1); // fork error 
-if (err>0) exit(0); // parent exits 
-  // child (daemon) continues 
-#endif
-*/
 
   LOG("Running..\n");
   while(running == 1)

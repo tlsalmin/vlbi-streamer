@@ -82,6 +82,24 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	filesize = (unsigned long)config_setting_get_int64(setting);
       }
     }
+    if(strcmp(config_setting_name(setting), "filesizemb") == 0){
+      if(config_setting_type(setting) != CONFIG_TYPE_INT){
+	E("Filesizemb not int");
+	return -1;
+      }
+      /* This stuff should only be called when reading the main vlbistreamer.conf */
+      else if(write == 1){
+	int filesizemb = (opt->packet_size*opt->buf_num_elems)/MEG;
+	err = config_setting_set_int(setting,filesizemb);
+	if(err != CONFIG_TRUE){
+	  E("Writing filesize: %d",, err);
+	  return -1;
+	}
+      }
+      else{
+	opt->filesize = config_setting_get_int(setting)*MEG;
+      }
+    }
     /* "Legacy" stuff*/
     CFG_ELIF("buf_elem_size"){
       if(config_setting_type(setting) != CONFIG_TYPE_INT64)
