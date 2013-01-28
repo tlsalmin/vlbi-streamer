@@ -11,6 +11,21 @@
 #define THREAD_STATUS_ERROR 		B(2)
 #define THREAD_STATUS_FINISHED 		B(3)
 
+#if(LOG_TO_FILE)
+#undef LOG_TO_FILE
+#define LOG_TO_FILE 0
+#undef LOG
+#undef LOGERR
+#undef D
+#undef E
+#define LOG(...) fprintf(stdout, __VA_ARGS__)
+#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
+#define D(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+#endif
+
 struct thread_data {
   int thread_id;
   int status;

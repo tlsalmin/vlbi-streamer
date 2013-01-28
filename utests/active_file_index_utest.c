@@ -1,9 +1,7 @@
 #include <stdlib.h>
+#include <string.h>
 #include "../src/active_file_index.h"
-#include "common.h"
-//#include "../src/streamer.h"
 #include "../src/config.h"
-#include "string.h"
 #include "common.h"
 
 #define THREADS 100

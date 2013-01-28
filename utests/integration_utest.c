@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <assert.h>
 #include "../src/datatypes.h"
-#include "common.h"
 #include "../src/streamer.h"
 #include "../src/config.h"
 #include "../src/active_file_index.h"
 #include "../src/udp_stream.h"
+#include "common.h"
 
 #define N_THREADS 128
 #define NAMEDIVISION 2

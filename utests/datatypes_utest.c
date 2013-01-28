@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "../src/datatypes.h"
-#include "common.h"
-#include "../src/streamer.h"
-#include "../src/config.h"
 #include <string.h>
 #include <math.h>
+#include "../src/datatypes.h"
+#include "../src/streamer.h"
+#include "../src/config.h"
+#include "common.h"
 
 #define N_PACKETS 6500
 #define PACKET_SIZE 1200

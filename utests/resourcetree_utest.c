@@ -1,13 +1,13 @@
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 #include "../src/streamer.h"
+#include "common.h"
 #include "../src/resourcetree.h"
 #include "../src/common_filehandling.h"
 #include "../src/dummywriter.h"
 #include "resourcetree.h"
-#include "common.h"
-#include <string.h>
-#include <unistd.h>
 #define ENTITIES 200
 #define ENT_TYPE_INT 0
 #define ENT_TYPE_LONG 1
