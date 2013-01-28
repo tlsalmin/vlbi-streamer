@@ -103,6 +103,7 @@ void* disk2file(void * streamo)
   //loadup_n(opt, &st);
 
   opt->status = STATUS_RUNNING;
+  se->be = NULL;
 
   //st.packetpeek = *(opt->total_packets);
 

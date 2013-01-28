@@ -35,8 +35,8 @@ MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 #DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 #DRIVES=($(echo sd{a..z} sda{a..j}))
 
-UID=$(id -u oper)
-GID=$(getent group $GROUP | cut -d: -f3)
+DATUID=$(id -u $USER)
+DATGID=$(getent group $GROUP | cut -d: -f3)
 FORMAT=0
 ASK=0
 JUSTMOUNT=0

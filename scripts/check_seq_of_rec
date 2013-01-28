@@ -1,5 +1,14 @@
 #!/bin/bash
+usage()
+{
+  echo "Usage: $0 <rec name>"
+}
 RECNAME=$1
+if [ -z "$RECNAME" ]
+then
+  usage
+  exit 1
+fi
 ROOTDIRS=/mnt/disk
 #ONECFG=`find ${ROOTDIRS%/*} | grep ${RECNAME}.cfg`
 #Find is sooo slow
