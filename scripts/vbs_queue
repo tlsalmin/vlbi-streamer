@@ -5,20 +5,17 @@ cat << EOF
 OPTIONS:
       -a MYY		Wait MYY microseconds between packet sends
       -c CFGFILE	Load config from cfg-file CFGFILE
-      -d DRIVES		Number of drives(Default: 1)
-      -i INTERFACE	Which interface to bind to(Not required)
+      -i INTERFACE	Which interface to bind to(Not required)(Requires root)
       -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
       -n IP		Simultaneously send stream to IP
-      -p SIZE		Set buffer element size to SIZE(Needs to be aligned with sent packet size)
-      -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon)(Only UDPMON supportee -a d atm.)
+      -p SIZE		Expect SIZE size payload on packets. Reject everything else.
+      -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,mark5bnet)
       -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
       -s SOCKET	Socket number(Default: 2222)
-      -u 		Use hugepages
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
       -v 		Verbose. Print stats on all transfers
-      -x 		Use an mmap rxring for receiving
       -y 		Force socket reaqcuire on error (Useful when recordings overlap)
 EOF
 }
@@ -39,11 +36,6 @@ do
     -c)
       EXTRAOPS="$EXTRAOPS
       cfgfile = \"$2\";"
-      shift
-      ;;
-    -d)
-      EXTRAOPS="$EXTRAOPS
-      n_drives = $2;"
       shift
       ;;
     -i)
@@ -113,10 +105,6 @@ do
       EXTRAOPS="$EXTRAOPS
       hostname = \"$EXTRAHOSTNAME\";"
       ;;
-    -x)
-      EXTRAOPS="$EXTRAOPS
-      use_rx_ring = 1;"
-      ;;
     -y)
       EXTRAOPS="$EXTRAOPS
       force_socket_reacquire = 1;"
@@ -124,10 +112,6 @@ do
     -w)
       EXTRAOPS="$EXTRAOPS
       wait_start_on_metadata = 1;"
-      ;;
-    -u)
-      EXTRAOPS="$EXTRAOPS
-      use_hugepage = 1;"
       ;;
     -q)
       EXTRAOPS="$EXTRAOPS
