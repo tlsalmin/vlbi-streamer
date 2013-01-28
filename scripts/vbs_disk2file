@@ -8,8 +8,17 @@ OPTIONS:
       -f OFFSET		Strip offset amount of bytes from header of each packet
 EOF
 }
-SCHEDULE=temp/vlbischedule
-LOGFILE=temp/vlbistreamer.log
+
+SCRIPTNAME=vbs_disk2file
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
+
 EXTRAOPS="#Schedule extra parameters"
 EXTRAOPS="$EXTRAOPS
   capture = \"disk2file\";"

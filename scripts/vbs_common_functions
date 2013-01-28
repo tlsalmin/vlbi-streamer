@@ -50,6 +50,17 @@ function get_packetsize_from_cfgfile()
   echo $PSIZE
   return $AOK
 }
+function get_maxmem()
+{
+  MAXMEM=`cat $CFGFILE |grep maxmem|awk '{print $3}'|sed 's/[^0-9]//g'`
+  if [ -z "$MAXMEM" ]
+  then
+    echo "No maxsmem found in cfg file named $1"
+    return $ERR
+  fi
+  echo $MAXMEM
+  return $AOK
+}
 
 function get_offset_onwrite_from_cfgfile()
 {

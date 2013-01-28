@@ -8,15 +8,21 @@ OPTIONS:
   -c		Read GIGABYTES amount from vlbistreamer default config
 EOF
 }
+SCRIPTNAME=init_hugepages
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 
 HUGESIZE=$(cat /proc/meminfo | grep Hugepagesize | cut -d ' ' -f 8)
 #Shown in KB
 #HUGESIZE=$(($HUGESIZE*1024))
 #Buffer size in GB
 BUFFERSIZE=12
-USER=replaceme
-GROUP=replaceme
-CFGFILE=vlbistreamer.conf
 
 #Ok not using the set hugesize
 
@@ -32,11 +38,12 @@ do
       shift
       ;;
     -c)
-      if [ ! -f $CFGFILE ]; then
-	echo "Config file not found $CFGFILE"
-	exit 1
+      BUFFERSIZE=$(get_maxmem)
+      if [ ! "$?" == "$AOK" ]
+      then
+	echo "Error in getting maxmem"
+	exit -1
       fi
-      BUFFERSIZE=$(grep maxmem $CFGFILE |awk '{print $3}'|cut -d 'L' -f1)
       ;;
     -*) echo "Unknown argument $1";usage;exit 1;;
   *) eval "arg_$n=$1";n=$(($n+1));;

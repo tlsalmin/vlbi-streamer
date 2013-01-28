@@ -1,5 +1,14 @@
 #!/bin/bash
 #Careful with this script, or you'll wipe data off disks
+SCRIPTNAME=mount_volumes
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 usage()
 {
 cat << EOF
@@ -26,10 +35,6 @@ MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"
 #DRIVES=(sdb sdc sdd sde sdf sdh sdj sdi sdm sdn sdk sdl sdo)
 #DRIVES=($(echo sd{a..z} sda{a..j}))
 
-ROOTDIRS=/mnt/disk
-
-USER=oper
-GROUP=oper
 UID=$(id -u oper)
 GID=$(getent group $GROUP | cut -d: -f3)
 FORMAT=0

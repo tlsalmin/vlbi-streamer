@@ -1,6 +1,13 @@
 #!/bin/bash
-SCHEDULE=temp/vlbischedule
-LOGFILE=temp/vlbistreamer.log
+SCRIPTNAME=vbs_clearschedule
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 
 echo "" > $SCHEDULE
 echo $(date --rfc-3339=seconds) "Manually cleared schedule" | tee -a  $LOGFILE

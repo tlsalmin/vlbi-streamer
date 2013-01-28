@@ -1,12 +1,17 @@
 #!/bin/bash
 
-USER=oper
-GROUP=oper
+SCRIPTNAME=mount_unionfs
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
+
 DAT_UID=$(id -u $USER)
 DAT_GID=$(getent group $GROUP | cut -d: -f3)
-ROOTDIRS=/mnt/disk
-
-CFGFILE=/usr/local/etc/vlbistreamer.conf
 
 DISKS=$(cat $CFGFILE |grep n_drives |cut -d ' ' -f 3)
 DISKS=${DISKS%?}

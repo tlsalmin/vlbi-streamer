@@ -1,9 +1,18 @@
 #!/bin/bash
+SCRIPTNAME=check_size
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 RECORDING=$1
 
 SUM=0
 
-for i in /mnt/disk*
+for i in ${ROOTDIRS}*
 do
   if [ -d $i/$RECORDING ]
   then

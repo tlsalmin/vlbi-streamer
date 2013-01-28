@@ -9,7 +9,15 @@ This script queues a recording for the vlbistreamer daemon
 EOF
 }
 #Both should update at installed location after make install
-LOGFILE=temp/vlbistreamer.log
+SCRIPTNAME=vbs_record
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 
 vbs_queue $@ -m r
 

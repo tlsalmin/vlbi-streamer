@@ -1,5 +1,15 @@
 #!/bin/bash
-ROOTDIRS=/mnt/disk
+
+SCRIPTNAME=vbs_rm
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
+
 if [ -z "$1" ]
 then
   echo "Usage $0 <recording name>"

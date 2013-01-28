@@ -1,6 +1,14 @@
 #!/bin/bash
 
-SCHEDULE=temp/vlbischedule
+SCRIPTNAME=vbs_shutdown
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 
 echo "shutdown = 
 {
