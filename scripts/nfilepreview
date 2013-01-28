@@ -20,14 +20,10 @@ Usage: $0 <options> <recording name> <filename/targetip:port>
 
 OPTIONS: to plot:
   -x 		number of files
-  -f 		send using ftp(TODO)
-  -n		send using netcat
-  -u		send using netcat(udp)
 EOF
 }
 
 NUMPREVFILES=3
-TARGETTYPE="netcat"
 
 n=1
 while [ $# -gt 0 ]
@@ -35,18 +31,6 @@ do
   case $1 in
     -x) 
       NUMPREVFILES=$2
-      ;;
-    -f)
-      TARGETTYPE="ftp"
-      ;;
-    -n)
-      TARGETTYPE="netcat"
-      ;;
-    -u)
-      TARGETTYPE="netcatudp"
-      ;;
-    -l)
-      TARGETTYPE="file"
       ;;
     -s)
       FILESIZE=$2
@@ -56,11 +40,10 @@ do
 esac
 shift
 done
-TARGET=$arg_2
 RECNAME=$arg_1
-if [ -z "$TARGET" ] || [ -z "$RECNAME" ]
+if [ -z "$RECNAME" ]
 then
-  echo "No target or recname specified!"
+  echo "No recname specified!"
   usage
   exit 1
 fi
@@ -93,22 +76,6 @@ do
   n=$(($n+1))
 done
 
-case $TARGETTYPE in
-  ftp)
-    echo TODO
-    exit 1
-    ;;
-  netcat)
-    TARGETSTRING=" | nc -v -q 5 $(get_target_n_port $TARGET)"
-    ;;
-  netcatudp)
-    TARGETSTRING=" | nc -v -u -q 5 $(get_target_n_port $TARGET)"
-    ;;
-  file)
-    #TODO invent sumthing clever here
-    ;;
-esac
-
 #Ah it rounds down!
 COUNT=$(($FILESIZE/($PACKETSIZE+$OFFSET)))
 #echo $COUNT
@@ -126,7 +93,7 @@ do
   dd if=$FILENOW bs=$(($PACKETSIZE-$OFFSET)) count=$COUNT
   if [ ! $? -eq 0 ]
   then
-    echo "Error in creating tmpfile $TMPFILE!"
+    echo "Error in dd"
     exit 1
   fi
   n=$(($n+1))

@@ -7,10 +7,13 @@ $0 adds vlbistreamer commands to a snp-file. The output is a new snp-file with t
 
 If no host is given, the script will presume a vlbistreamer instance is running on localhost.
 
-usage: $0 <snp-file> <options>
+usage: $0 <snp-file> <options> <vbs_record options>
 
 Options:
-  -h <host> Prepare queue script for specific host
+  -h <host> 	Prepare queue script for specific host
+  -X 		Run queueing script after conversion.	
+
+All extra options are added to each vbs_record command generated
 EOF
 }
 #Go through params

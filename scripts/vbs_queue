@@ -11,7 +11,7 @@ OPTIONS:
       -n IP		Simultaneously send stream to IP
       -p SIZE		Expect SIZE size payload on packets. Reject everything else.
       -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,mark5bnet)
-      -r RATE		Expected network rate in MB(default: 10000)(Deprecated)
+      -r RATE		Expected network rate in MB(default: 10000)
       -s SOCKET	Socket number(Default: 2222)
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
@@ -19,10 +19,18 @@ OPTIONS:
       -y 		Force socket reaqcuire on error (Useful when recordings overlap)
 EOF
 }
+SCRIPTNAME=vbs_queue
+scriptPath=${0%${SCRIPTNAME}}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+fi
+source ${scriptPath}vbs_common_functions
 
-SCHEDULE=temp/vlbischedule
-LOGFILE=temp/vlbistreamer.log
 EXTRAOPS="#Schedule extra parameters"
+RECALC_RATE=0
 RECORD=1
 n=1
 while [ $# -gt 0 ]
@@ -63,6 +71,7 @@ do
       shift
       ;;
     -p)
+      PACKETSIZEIS=$2
       EXTRAOPS="$EXTRAOPS
       packet_size = $(($2))L;"
       shift
@@ -118,8 +127,8 @@ do
       datatype = \"$2\";"
       ;;
     -r)
-      EXTRAOPS="$EXTRAOPS
-      rate = $2;"
+      RECALC_RATE=1
+      RATE=$2
       shift
       ;;
     -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters of streaming $RECNAME" | tee -a  $LOGFILE ;;
@@ -132,6 +141,22 @@ RECNAME=$arg_1
 #STIME=$arg_3
 CONFSTART=""
 YE_OLDE=$RECNAME
+
+if [ "$RECALC_RATE" == "1" ]
+then
+  if [ -z "$PACKETSIZEIS" ]
+  then
+    PACKETSIZEIS=$(get_packetsize_from_cfgfile $CFGFILE)
+    if [ "$?" -eq "$ERR" ]
+    then
+      echo "ERROR: No packet_size for $RECNAME found"
+      exit 1
+    fi
+  fi
+  NYY=$(echo "((1000000000)*$PACKETSIZEIS*8)/($RATE*1024*1024)" |bc )
+  EXTRAOPS="$EXTRAOPS
+  wait_nanoseconds = ${NYY};"
+fi
 
 if [ "$RECORD" -eq "1" ]
 then
