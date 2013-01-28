@@ -20,7 +20,7 @@ BINDIR=/usr/local/bin
 PPRIORITY=no
 USER=oper
 GROUP=oper
-RTPRIO=50
+RTPRIO=20
 TIMEOUT=5
 
 CFGFILE=/usr/local/etc/vlbistreamer.conf
@@ -70,8 +70,10 @@ do_start()
       if [ "$(cat /proc/sys/vm/nr_hugepages)" == "0" ]
       then
 	echo $(date --rfc-3339=seconds) "Initializing hugepages" | tee -a  $LOGFILE
-	init_hugepages
+	init_hugepages -c
       fi
+    else
+      echo "Hugepages not in use"
     fi
     if start-stop-daemon --start --make-pidfile --pidfile $PIDFILE -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
       if [ "$PPRIORITY" == "yes" ]
@@ -81,6 +83,8 @@ do_start()
 	#chrt -f -p $RTPRIO  $(ps -A |grep -i vlbistreamer |cut -d ' ' -f2)
 	chrt -f -p $RTPRIO  $(cat $PIDFILE)
       fi
+      #TODO: whats the right way to check if it started ok? 
+      #TODO Doesn't work from service..
       echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE
       return 0
     else
