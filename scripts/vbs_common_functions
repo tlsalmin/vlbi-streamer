@@ -1,5 +1,5 @@
 #!/bin/bash
-ERR=-1
+ERR=1
 AOK=0
 ROOTDIRS=/mnt/disk
 SCHEDULE=/usr/local/var/opt/vlbistreamer/schedule
