@@ -30,37 +30,6 @@ install-data-hook:
 	sed -i 's:DAEMON=.*:DAEMON=$(bindir)/vlbistreamer:' $(bindir)/vbs_common_functions
 	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vbs_common_functions
 	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vbs_common_functions
-	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_ls
-	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_unionfs
-	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_rm
-	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/mount_volumes
-	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_disk2file
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_disk2file
-	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_record
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_record
-	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_clearschedule
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_clearschedule
-	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_send
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_send
-	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_shutdown
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_daemon
-	sed -i 's:PIDFILE=.*:PIDFILE=$(rundir)/vlbistreamer.pid:' $(bindir)/vbs_daemon
-	sed -i 's:PPRIORITY=.*:PPRIORITY=@PPRIORITY@:' $(bindir)/vbs_daemon
-	sed -i 's:DAEMON=.*:DAEMON=$(bindir)/vlbistreamer:' $(bindir)/vbs_daemon
-	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_daemon
-	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_logscript
-	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_logscript
-	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/init_hugepages
-	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/mount_unionfs
-	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/vbs_daemon
-	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_unionfs
-	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_unionfs
-	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/mount_volumes
-	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/mount_volumes
-	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/vbs_daemon
-	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/vbs_daemon
-	sed -i 's:USER=.*:USER=@USER@:' $(bindir)/init_hugepages
-	sed -i 's:GROUP=.*:GROUP=@GROUP@:' $(bindir)/init_hugepages
 	rm -f /etc/init.d/vbs_daemon
 	ln -s ${bindir}/vbs_daemon /etc/init.d/vbs_daemon
 
