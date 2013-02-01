@@ -39,7 +39,7 @@
 #define D(str, ...)\
     do { if(DEBUG_OUTPUT) fprintf(logfile,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
-    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
 
 
 #else
@@ -49,7 +49,7 @@
 #define D(str, ...)\
     do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 #define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
 
 #endif
 

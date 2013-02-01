@@ -279,7 +279,10 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	    err = config_setting_set_string(setting, "sendfile");
 	    break;
 	  case CAPTURE_W_DISK2FILE:
-	    err = config_setting_set_string(setting, "sendfile");
+	    err = config_setting_set_string(setting, "disk2file");
+	    break;
+	  case CAPTURE_W_DUMMY:
+	    err = config_setting_set_string(setting, "dummy");
 	    break;
 	  default:
 	    E("Unknown capture");
@@ -305,6 +308,10 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DISK2FILE;
 	  opt->optbits |= READMODE;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "dummy")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_DUMMY;
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));

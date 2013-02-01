@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->status & DEBUG)
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
@@ -22,22 +23,57 @@
 #define E(str, ...)\
     do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
-#define VBS_DATA ((struct vbs_state *) fuse_get_context()->private_data)
+#define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
-#define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->status & DEBUG)
 #define DEBUG B(0)
+
+#define STATUS_NOTINIT 		B(0)
+#define STATUS_INITIALIZED 	B(1)
+#define STATUS_OPEN 		B(2)
+#define STATUS_NOCFG		B(3)
+#define STATUS_NOTVBS		B(4)
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
 
+struct file_index{
+  char *filename;
+  int status;
+  int packet_size;
+  int filesize;
+  int n_files;
+  int * fileid;
+}
+
 struct vbs_state{
   char* rootdir;
+  char** datadirs;
+  struct file_index* head;
   int opts;
 };
- 
+
+//struct vbs_state *vbs_data
+
+void init_vbs_state(struct vbs_state* vbsd)
+{
+  memset(vbsd, 0,sizeof(struct vbs_state));
+}
 void vbs_usage()
 {
     E("usage:  vbs_fuse [FUSE and mount options] rootDir mountPoint");
     exit(-1);
+}
+int strip_last(char * original, char * stripped)
+{
+  char * lrindex;
+  memset(stripped, 0, sizeof(char)*FILENAME_MAX);
+  lrindex = strrchr(original, '/');
+  if(lrindex == NULL){
+    E("Cant right strip %s, since rindex is null",, original);
+    return -1;
+  }
+  int diff = (void*)lrindex-(void*)original
+  memcpy(stripped, original, diff);
+  return 0;
 }
 //  All the paths I see are relative to the root of the mounted
 //  filesystem.  In order to get to the underlying filesystem, I need to
@@ -131,6 +167,47 @@ int vbs_mkdir(const char *path, mode_t mode)
     
     return retstat;
 }
+static int vbs_releasedir(const char* path, struct fuse_file_info *fi)
+{
+  (void) path;
+  (void) fi;
+  E("Not yet implemented");
+  return 0;
+}
+static int vbs_release(const char *path, struct fuse_file_info * fi)
+{
+  /* Just a stub.  This method is optional and can safely be left
+     unimplemented */
+  /*TODO: free up structs/maps used */
+
+  (void) path;
+  (void) fi;
+  E("Not yet implemented");
+  return 0;
+}
+static int vbs_fsync(const char *path, int isdatasync,, struct fuse_file_info* fi)
+{
+  /* Just a stub.  This method is optional and can safely be left
+     unimplemented */
+
+  (void)fi;
+  (void) path;
+  (void) isdatasync;
+  E("Not yet implemented");
+  return 0;
+}
+void * vbs_init(struct fuse_conn_info *conn)
+{
+  /* Might use conn at some point */
+  (void)conn;
+  struct vbs_state *vbs_data = (struct vbs_state*)malloc(sizeof(struct vbs_state));
+  if(vbs_data == NULL){
+    E("vbs_data malloc");
+    exit(-1);
+  }
+  init_vbs_state(vbs_data);
+  return (void*)vbs_data;
+}
 struct fuse_operations vbs_oper = {
   .getattr = vbs_getattr,
   .readlink = vbs_readlink,
@@ -172,7 +249,7 @@ struct fuse_operations vbs_oper = {
 };
 
 int main (int argc, char ** argv){
-  struct vbs_state* vbs_data;
+  //struct vbs_state* vbs_data;
   int fuse_stat;
 
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
@@ -187,11 +264,6 @@ int main (int argc, char ** argv){
     vbs_usage();
 
 
-  vbs_data = (struct vbs_state*)malloc(sizeof(struct vbs_state));
-  if(vbs_data == NULL){
-    E("vbs_data malloc");
-    exit(-1);
-  }
 
   vbs_data->rootdir = realpath(argv[argc-2], NULL);
   argv[argc-2] = argv[argc-1];
