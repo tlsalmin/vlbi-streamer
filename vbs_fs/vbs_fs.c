@@ -196,6 +196,9 @@ static int vbs_fsync(const char *path, int isdatasync,, struct fuse_file_info* f
   E("Not yet implemented");
   return 0;
 }
+int unionfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
+
+}
 void * vbs_init(struct fuse_conn_info *conn)
 {
   /* Might use conn at some point */
@@ -262,8 +265,6 @@ int main (int argc, char ** argv){
   /* Last two are the opts we want */
   if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
     vbs_usage();
-
-
 
   vbs_data->rootdir = realpath(argv[argc-2], NULL);
   argv[argc-2] = argv[argc-1];
