@@ -15,7 +15,9 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-#define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->status & DEBUG)
+#define B(x) (1l << x)
+#define DEBUG B(0)
+#define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->opts & DEBUG)
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
 #define D(str, ...)\
@@ -25,7 +27,6 @@
 
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
-#define DEBUG B(0)
 
 #define STATUS_NOTINIT 		B(0)
 #define STATUS_INITIALIZED 	B(1)
@@ -42,7 +43,7 @@ struct file_index{
   int filesize;
   int n_files;
   int * fileid;
-}
+};
 
 struct vbs_state{
   char* rootdir;
@@ -51,7 +52,7 @@ struct vbs_state{
   int opts;
 };
 
-//struct vbs_state *vbs_data
+struct vbs_state *vbs_data;
 
 void init_vbs_state(struct vbs_state* vbsd)
 {
@@ -71,7 +72,7 @@ int strip_last(char * original, char * stripped)
     E("Cant right strip %s, since rindex is null",, original);
     return -1;
   }
-  int diff = (void*)lrindex-(void*)original
+  int diff = (void*)lrindex-(void*)original;
   memcpy(stripped, original, diff);
   return 0;
 }
@@ -86,8 +87,7 @@ static void vbs_fullpath(char fpath[PATH_MAX], const char *path)
     strncat(fpath, path, PATH_MAX); // ridiculously long paths will
 				    // break here
 
-    log_msg("    vbs_fullpath:  rootdir = \"%s\", path = \"%s\", fpath = \"%s\"\n",
-	    VBS_DATA->rootdir, path, fpath);
+    D("vbs_fullpath:  rootdir = \"%s\", path = \"%s\", fpath = \"%s\"",, VBS_DATA->rootdir, path, fpath);
 }
 /** Get file attributes.
  *
@@ -100,13 +100,15 @@ int vbs_getattr(const char *path, struct stat *statbuf)
     int retstat = 0;
     char fpath[PATH_MAX];
     
-    log_msg("\nvbs_getattr(path=\"%s\", statbuf=0x%08x)\n",
-	  path, statbuf);
+    D("\nvbs_getattr(path=\"%s\")",,
+	  path);
     vbs_fullpath(fpath, path);
     
     retstat = lstat(fpath, statbuf);
-    if (retstat != 0)
-	retstat = vbs_error("vbs_getattr lstat");
+    if (retstat != 0){
+      retstat = -1;
+      E("vbs_getattr lstat");
+    }
     
     //log_stat(statbuf);
     
@@ -123,8 +125,8 @@ int vbs_mknod(const char *path, mode_t mode, dev_t dev)
     int retstat = 0;
     char fpath[PATH_MAX];
     
-    log_msg("\nvbs_mknod(path=\"%s\", mode=0%3o, dev=%lld)\n",
-	  path, mode, dev);
+    E("\nvbs_mknod(path=\"%s\", mode=0%3o)",,
+	  path, mode);
     vbs_fullpath(fpath, path);
     
     // On Linux this could just be 'mknod(path, mode, rdev)' but this
@@ -132,21 +134,21 @@ int vbs_mknod(const char *path, mode_t mode, dev_t dev)
     if (S_ISREG(mode)) {
         retstat = open(fpath, O_CREAT | O_EXCL | O_WRONLY, mode);
 	if (retstat < 0)
-	    retstat = E("vbs_mknod open");
+	     E("vbs_mknod open");
         else {
             retstat = close(retstat);
 	    if (retstat < 0)
-		retstat = E("vbs_mknod close");
+		E("vbs_mknod close");
 	}
     } else
 	if (S_ISFIFO(mode)) {
 	    retstat = mkfifo(fpath, mode);
 	    if (retstat < 0)
-		retstat = E("vbs_mknod mkfifo");
+		E("vbs_mknod mkfifo");
 	} else {
 	    retstat = mknod(fpath, mode, dev);
 	    if (retstat < 0)
-		retstat = E("vbs_mknod mknod");
+		E("vbs_mknod mknod");
 	}
     
     return retstat;
@@ -157,13 +159,13 @@ int vbs_mkdir(const char *path, mode_t mode)
     int retstat = 0;
     char fpath[PATH_MAX];
     
-    log_msg("\nvbs_mkdir(path=\"%s\", mode=0%3o)\n",
+    D("\nvbs_mkdir(path=\"%s\", mode=0%3o)",,
 	    path, mode);
     vbs_fullpath(fpath, path);
     
     retstat = mkdir(fpath, mode);
     if (retstat < 0)
-	retstat = E("vbs_mkdir mkdir");
+	E("vbs_mkdir mkdir");
     
     return retstat;
 }
@@ -185,7 +187,7 @@ static int vbs_release(const char *path, struct fuse_file_info * fi)
   E("Not yet implemented");
   return 0;
 }
-static int vbs_fsync(const char *path, int isdatasync,, struct fuse_file_info* fi)
+static int vbs_fsync(const char *path, int isdatasync, struct fuse_file_info* fi)
 {
   /* Just a stub.  This method is optional and can safely be left
      unimplemented */
@@ -197,48 +199,47 @@ static int vbs_fsync(const char *path, int isdatasync,, struct fuse_file_info* f
   return 0;
 }
 int unionfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
-
+  (void)path;
+  (void)buf;
+  (void)filler;
+  (void)offset;
+  (void)fi;
+  return 0;
 }
 void * vbs_init(struct fuse_conn_info *conn)
 {
   /* Might use conn at some point */
   (void)conn;
-  struct vbs_state *vbs_data = (struct vbs_state*)malloc(sizeof(struct vbs_state));
-  if(vbs_data == NULL){
-    E("vbs_data malloc");
-    exit(-1);
-  }
-  init_vbs_state(vbs_data);
   return (void*)vbs_data;
 }
 struct fuse_operations vbs_oper = {
   .getattr = vbs_getattr,
-  .readlink = vbs_readlink,
+  //.readlink = vbs_readlink,
   // no .getdir -- that's deprecated
   .getdir = NULL,
   .mknod = vbs_mknod,
   .mkdir = vbs_mkdir,
-  .unlink = vbs_unlink,
-  .rmdir = vbs_rmdir,
-  .symlink = vbs_symlink,
-  .rename = vbs_rename,
-  .link = vbs_link,
-  .chmod = vbs_chmod,
-  .chown = vbs_chown,
-  .truncate = vbs_truncate,
-  .utime = vbs_utime,
-  .open = vbs_open,
-  .read = vbs_read,
-  .write = vbs_write,
+  //.unlink = vbs_unlink,
+  //.rmdir = vbs_rmdir,
+  //.symlink = vbs_symlink,
+  //.rename = vbs_rename,
+  //.link = vbs_link,
+  //.chmod = vbs_chmod,
+  //.chown = vbs_chown,
+  //.truncate = vbs_truncate,
+  //.utime = vbs_utime,
+  //.open = vbs_open,
+  //.read = vbs_read,
+  //.write = vbs_write,
   /** Just a placeholder, don't set */ // huh???
-  .statfs = vbs_statfs,
-  .flush = vbs_flush,
-  .release = vbs_release,
+  //.statfs = vbs_statfs,
+  //.flush = vbs_flush,
+  //.release = vbs_release,
   .fsync = vbs_fsync,
-  .setxattr = vbs_setxattr,
-  .getxattr = vbs_getxattr,
-  .listxattr = vbs_listxattr,
-  .removexattr = vbs_removexattr,
+  //.setxattr = vbs_setxattr,
+  //.getxattr = vbs_getxattr,
+  //.listxattr = vbs_listxattr,
+  //.removexattr = vbs_removexattr,
   .opendir = vbs_opendir,
   .readdir = vbs_readdir,
   .releasedir = vbs_releasedir,
@@ -250,6 +251,26 @@ struct fuse_operations vbs_oper = {
   .ftruncate = vbs_ftruncate,
   .fgetattr = vbs_fgetattr
 };
+#define MYFS_OPT(t, p, v) { t, offsetof(struct vbs_state, p), v }
+
+static struct fuse_opt myfs_opts[] = {
+     MYFS_OPT("-r %s",             rootdir, 0),
+     /*
+     MYFS_OPT("mystring=%s",       mystring, 0),
+     MYFS_OPT("mybool",            mybool, 1),
+     MYFS_OPT("nomybool",          mybool, 0),
+     MYFS_OPT("--mybool=true",     mybool, 1),
+     MYFS_OPT("--mybool=false",    mybool, 0),
+     */
+
+     /*
+     FUSE_OPT_KEY("-V",             KEY_VERSION),
+     FUSE_OPT_KEY("--version",      KEY_VERSION),
+     FUSE_OPT_KEY("-h",             KEY_HELP),
+     FUSE_OPT_KEY("--help",         KEY_HELP),
+     */
+     FUSE_OPT_END
+};
 
 int main (int argc, char ** argv){
   //struct vbs_state* vbs_data;
@@ -257,12 +278,21 @@ int main (int argc, char ** argv){
 
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
+  vbs_data = (struct vbs_state*)malloc(sizeof(struct vbs_state));
+  if(vbs_data == NULL){
+    E("vbs_data malloc");
+    exit(-1);
+  }
+  init_vbs_state(vbs_data);
+  /* Just setting it manually */
+  vbs_data->opts |= DEBUG;
 
   if ((getuid() == 0) || (geteuid() == 0)) {
     fprintf(stderr, "Running vbs_fuse as root opens unnacceptable security holes\n");
     return 1;
   }
   /* Last two are the opts we want */
+  /*
   if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
     vbs_usage();
 
@@ -270,11 +300,9 @@ int main (int argc, char ** argv){
   argv[argc-2] = argv[argc-1];
   argv[argc-1] = NULL;
   argc--;
+  */
 
-  vbs_data->opts = 0;
-
-  /* Just setting it manually */
-  vbs_data->opts |= DEBUG_OUTPUT;
+  fuse_opt_parse(&args, vbs_data, myfs_opts, NULL);
 
   LOG("about to call fuse_main\n");
   fuse_stat = fuse_main(argc, argv, &vbs_oper, vbs_data);
