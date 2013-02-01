@@ -42,4 +42,4 @@ uninstall-hook:
 ## language-specific options.
 #AM_CPPFLAGS = $(PTHREAD_LIBS) $(LIBAIO_LIBS)
 
-SUBDIRS = src seqsrc . utests
+SUBDIRS = src seqsrc . utests vbs_fs

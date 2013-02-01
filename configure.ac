@@ -57,8 +57,34 @@ AS_IF([test "x$enable_libaio" != "xno"], [
 			 enable_libaio="no"
 			 ])
 ])
-dnl Its a bit silly to define em twice..
 AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
+
+AC_MSG_CHECKING(--enable-libfuse argument)
+AC_ARG_ENABLE(libfuse,
+    [  --enable-libfuse         Include fuse fs.],
+    [enable_libfuse=$enableval],
+    [enable_libfuse="yes"])
+AC_MSG_RESULT($enable_libfuse)
+AS_IF([test "x$enable_libfuse" != "xno"], [
+       AC_CHECK_LIB([fuse],[fuse_main], [
+		     #AC_CHECK_LIB([fuse], [fuse_main],
+#	     [
+	      FUSE_LIBS=`pkg-config fuse --libs`
+	      FUSE_CFLAGS=`pkg-config fuse --cflags`
+	      AC_SUBST([FUSE_LIBS])
+	      AC_SUBST([FUSE_CFLAGS])
+	      AC_DEFINE(HAVE_LIBFUSE, 1, [Compile with added libaio backend])
+#	     ],
+#	     [AC_MSG_ERROR([FUSE library is missing])],
+#	     )
+		     ], [
+			 AC_MSG_WARN([Could not find library fuse])
+			 AC_MSG_WARN([fuse functionality disabled])
+			 enable_libfuse="no"
+			 ])
+])
+dnl Its a bit silly to define em twice..
+AM_CONDITIONAL([HAVE_FUSE], [test "${enable_libfuse}" = "yes"])
 
 AC_MSG_CHECKING(--enable-gprofile argument)
 AC_ARG_ENABLE(gprofile,
