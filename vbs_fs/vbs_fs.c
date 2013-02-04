@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
@@ -52,6 +53,7 @@ struct vbs_state{
   char* rootdir;
   char** datadirs;
   struct file_index* head;
+  pthread_mutex_t  augmentlock;
   int opts;
 };
 
@@ -102,22 +104,30 @@ static void vbs_fullpath(char fpath[PATH_MAX], const char *path)
 static int vbs_getattr(const char *path, struct stat *statbuf)
 {
   LOG("Running getattr\n");
-    int retstat = 0;
+  int retstat = 0;
+  /* If its the root, just display all recordings */
+  if (strcmp(path, "/") == 0) {
+    statbuf->st_mode = S_IFDIR | 0755;
+    statbuf->st_nlink = 2;
+  }
+  else
+  {
     char fpath[PATH_MAX];
-    
+
     LOG("\nvbs_getattr(path=\"%s\")\n",path);
     vbs_fullpath(fpath, path);
-    
+
     LOG("\nvbs_getattr(path=\"%s\"), fullpath=\"%s\"\n", path,fpath);
     retstat = lstat(fpath, statbuf);
     if (retstat != 0){
       retstat = -1;
       E("vbs_getattr lstat");
     }
-    
-    //log_stat(statbuf);
-    
-    return retstat;
+  }
+
+  //log_stat(statbuf);
+
+  return retstat;
 }
 /** Create a file node
  *
@@ -128,81 +138,81 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
 int vbs_mknod(const char *path, mode_t mode, dev_t dev)
 {
   LOG("Running mknod\n");
-    int retstat = 0;
-    char fpath[PATH_MAX];
-    
-    E("\nvbs_mknod(path=\"%s\", mode=0%3o)",,
-	  path, mode);
-    vbs_fullpath(fpath, path);
-    
-    // On Linux this could just be 'mknod(path, mode, rdev)' but this
-    //  is more portable
-    if (S_ISREG(mode)) {
-        retstat = open(fpath, O_CREAT | O_EXCL | O_WRONLY, mode);
-	if (retstat < 0)
-	     E("vbs_mknod open");
-        else {
-            retstat = close(retstat);
-	    if (retstat < 0)
-		E("vbs_mknod close");
-	}
-    } else
-	if (S_ISFIFO(mode)) {
-	    retstat = mkfifo(fpath, mode);
-	    if (retstat < 0)
-		E("vbs_mknod mkfifo");
-	} else {
-	    retstat = mknod(fpath, mode, dev);
-	    if (retstat < 0)
-		E("vbs_mknod mknod");
-	}
-    
-    return retstat;
+  int retstat = 0;
+  char fpath[PATH_MAX];
+
+  E("\nvbs_mknod(path=\"%s\", mode=0%3o)",,
+      path, mode);
+  vbs_fullpath(fpath, path);
+
+  // On Linux this could just be 'mknod(path, mode, rdev)' but this
+  //  is more portable
+  if (S_ISREG(mode)) {
+    retstat = open(fpath, O_CREAT | O_EXCL | O_WRONLY, mode);
+    if (retstat < 0)
+      E("vbs_mknod open");
+    else {
+      retstat = close(retstat);
+      if (retstat < 0)
+	E("vbs_mknod close");
+    }
+  } else
+    if (S_ISFIFO(mode)) {
+      retstat = mkfifo(fpath, mode);
+      if (retstat < 0)
+	E("vbs_mknod mkfifo");
+    } else {
+      retstat = mknod(fpath, mode, dev);
+      if (retstat < 0)
+	E("vbs_mknod mknod");
+    }
+
+  return retstat;
 }
 /** Create a directory */
 int vbs_mkdir(const char *path, mode_t mode)
 {
   LOG("Running mkdir\n");
-    int retstat = 0;
-    char fpath[PATH_MAX];
-    
-    D("\nvbs_mkdir(path=\"%s\", mode=0%3o)",,
-	    path, mode);
-    vbs_fullpath(fpath, path);
-    
-    retstat = mkdir(fpath, mode);
-    if (retstat < 0)
-	E("vbs_mkdir mkdir");
-    
-    return retstat;
+  int retstat = 0;
+  char fpath[PATH_MAX];
+
+  D("\nvbs_mkdir(path=\"%s\", mode=0%3o)",,
+      path, mode);
+  vbs_fullpath(fpath, path);
+
+  retstat = mkdir(fpath, mode);
+  if (retstat < 0)
+    E("vbs_mkdir mkdir");
+
+  return retstat;
 }
 /*
-static int vbs_releasedir(const char* path, struct fuse_file_info *fi)
-{
-  (void) path;
-  (void) fi;
-  E("Not yet implemented");
-  return 0;
-}
-static int vbs_release(const char *path, struct fuse_file_info * fi)
-{
-   //Just a stub.  This method is optional and can safely be left unimplemented 
-  //TODO: free up structs/maps used 
+   static int vbs_releasedir(const char* path, struct fuse_file_info *fi)
+   {
+   (void) path;
+   (void) fi;
+   E("Not yet implemented");
+   return 0;
+   }
+   static int vbs_release(const char *path, struct fuse_file_info * fi)
+   {
+//Just a stub.  This method is optional and can safely be left unimplemented 
+//TODO: free up structs/maps used 
 
-  (void) path;
-  (void) fi;
-  E("Not yet implemented");
-  return 0;
+(void) path;
+(void) fi;
+E("Not yet implemented");
+return 0;
 }
 static int vbs_fsync(const char *path, int isdatasync, struct fuse_file_info* fi)
 {
-  // Just a stub.  This method is optional and can safely be left unimplemented 
+// Just a stub.  This method is optional and can safely be left unimplemented 
 
-  (void)fi;
-  (void) path;
-  (void) isdatasync;
-  E("Not yet implemented");
-  return 0;
+(void)fi;
+(void) path;
+(void) isdatasync;
+E("Not yet implemented");
+return 0;
 }
 */
 void * vbs_init(struct fuse_conn_info *conn)
@@ -210,6 +220,8 @@ void * vbs_init(struct fuse_conn_info *conn)
   LOG("Running init\n");
   /* Might use conn at some point */
   (void)conn;
+  if(pthread_mutex_init(&(vbs_data->augmentlock), NULL) != 0)
+    perror("Mutex init");
   return (void*)vbs_data;
 }
 static int vbs_open(const char *path, struct fuse_file_info * fi)
@@ -222,7 +234,7 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
   return open(fpath, O_RDONLY, S_IRUSR);
 }
 static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
-		      struct fuse_file_info *fi){
+    struct fuse_file_info *fi){
   LOG("Running read\n");
   (void)path;
   (void)buf;
@@ -277,7 +289,7 @@ struct fuse_operations vbs_oper = {
   //.opendir = vbs_opendir,
   //.releasedir = vbs_releasedir,
   //.fsyncdir = vbs_fsyncdir,
-  //.init = vbs_init,
+  .init = vbs_init,
   //.destroy = vbs_destroy,
   //.access = vbs_access,
   //.create = vbs_create,
@@ -286,22 +298,22 @@ struct fuse_operations vbs_oper = {
 #define MYFS_OPT(t, p, v) { t, offsetof(struct vbs_state, p), v }
 
 static struct fuse_opt vbs_opts[] = {
-     MYFS_OPT("-r %s",             rootdir, 0),
-     FUSE_OPT_END
-     /*
-     MYFS_OPT("mystring=%s",       mystring, 0),
-     MYFS_OPT("mybool",            mybool, 1),
-     MYFS_OPT("nomybool",          mybool, 0),
-     MYFS_OPT("--mybool=true",     mybool, 1),
-     MYFS_OPT("--mybool=false",    mybool, 0),
-     */
+  MYFS_OPT("-r %s",             rootdir, 0),
+  FUSE_OPT_END
+    /*
+       MYFS_OPT("mystring=%s",       mystring, 0),
+       MYFS_OPT("mybool",            mybool, 1),
+       MYFS_OPT("nomybool",          mybool, 0),
+       MYFS_OPT("--mybool=true",     mybool, 1),
+       MYFS_OPT("--mybool=false",    mybool, 0),
+       */
 
-     /*
-     FUSE_OPT_KEY("-V",             KEY_VERSION),
-     FUSE_OPT_KEY("--version",      KEY_VERSION),
-     FUSE_OPT_KEY("-h",             KEY_HELP),
-     FUSE_OPT_KEY("--help",         KEY_HELP),
-     */
+    /*
+       FUSE_OPT_KEY("-V",             KEY_VERSION),
+       FUSE_OPT_KEY("--version",      KEY_VERSION),
+       FUSE_OPT_KEY("-h",             KEY_HELP),
+       FUSE_OPT_KEY("--help",         KEY_HELP),
+       */
 };
 
 int main (int argc, char ** argv){
@@ -325,14 +337,14 @@ int main (int argc, char ** argv){
   }
   /* Last two are the opts we want */
   /*
-  if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
-    vbs_usage();
+     if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
+     vbs_usage();
 
-  vbs_data->rootdir = realpath(argv[argc-2], NULL);
-  argv[argc-2] = argv[argc-1];
-  argv[argc-1] = NULL;
-  argc--;
-  */
+     vbs_data->rootdir = realpath(argv[argc-2], NULL);
+     argv[argc-2] = argv[argc-1];
+     argv[argc-1] = NULL;
+     argc--;
+     */
 
   LOG("Testing output\n");
   fuse_opt_parse(&args, vbs_data, vbs_opts, NULL);
@@ -348,5 +360,5 @@ int main (int argc, char ** argv){
   //free(vbs_data);
 
   return fuse_stat;
-  
+
 }
