@@ -5,11 +5,13 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#define FUSE_USE_VERSION 26
 #include <fuse.h>
 #include <libgen.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -33,6 +35,7 @@
 #define STATUS_OPEN 		B(2)
 #define STATUS_NOCFG		B(3)
 #define STATUS_NOTVBS		B(4)
+
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
 
@@ -83,6 +86,7 @@ int strip_last(char * original, char * stripped)
 //  it.
 static void vbs_fullpath(char fpath[PATH_MAX], const char *path)
 {
+  LOG("rootdir is set as %s", VBS_DATA->rootdir);
     strcpy(fpath, VBS_DATA->rootdir);
     strncat(fpath, path, PATH_MAX); // ridiculously long paths will
 				    // break here
@@ -95,15 +99,16 @@ static void vbs_fullpath(char fpath[PATH_MAX], const char *path)
  * ignored.  The 'st_ino' field is ignored except if the 'use_ino'
  * mount option is given.
  */
-int vbs_getattr(const char *path, struct stat *statbuf)
+static int vbs_getattr(const char *path, struct stat *statbuf)
 {
+  LOG("Running getattr\n");
     int retstat = 0;
     char fpath[PATH_MAX];
     
-    D("\nvbs_getattr(path=\"%s\")",,
-	  path);
+    LOG("\nvbs_getattr(path=\"%s\")\n",path);
     vbs_fullpath(fpath, path);
     
+    LOG("\nvbs_getattr(path=\"%s\"), fullpath=\"%s\"\n", path,fpath);
     retstat = lstat(fpath, statbuf);
     if (retstat != 0){
       retstat = -1;
@@ -122,6 +127,7 @@ int vbs_getattr(const char *path, struct stat *statbuf)
 // shouldn't that comment be "if" there is no.... ?
 int vbs_mknod(const char *path, mode_t mode, dev_t dev)
 {
+  LOG("Running mknod\n");
     int retstat = 0;
     char fpath[PATH_MAX];
     
@@ -156,6 +162,7 @@ int vbs_mknod(const char *path, mode_t mode, dev_t dev)
 /** Create a directory */
 int vbs_mkdir(const char *path, mode_t mode)
 {
+  LOG("Running mkdir\n");
     int retstat = 0;
     char fpath[PATH_MAX];
     
@@ -169,6 +176,7 @@ int vbs_mkdir(const char *path, mode_t mode)
     
     return retstat;
 }
+/*
 static int vbs_releasedir(const char* path, struct fuse_file_info *fi)
 {
   (void) path;
@@ -178,9 +186,8 @@ static int vbs_releasedir(const char* path, struct fuse_file_info *fi)
 }
 static int vbs_release(const char *path, struct fuse_file_info * fi)
 {
-  /* Just a stub.  This method is optional and can safely be left
-     unimplemented */
-  /*TODO: free up structs/maps used */
+   //Just a stub.  This method is optional and can safely be left unimplemented 
+  //TODO: free up structs/maps used 
 
   (void) path;
   (void) fi;
@@ -189,8 +196,7 @@ static int vbs_release(const char *path, struct fuse_file_info * fi)
 }
 static int vbs_fsync(const char *path, int isdatasync, struct fuse_file_info* fi)
 {
-  /* Just a stub.  This method is optional and can safely be left
-     unimplemented */
+  // Just a stub.  This method is optional and can safely be left unimplemented 
 
   (void)fi;
   (void) path;
@@ -198,27 +204,57 @@ static int vbs_fsync(const char *path, int isdatasync, struct fuse_file_info* fi
   E("Not yet implemented");
   return 0;
 }
-int unionfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
-  (void)path;
-  (void)buf;
-  (void)filler;
-  (void)offset;
-  (void)fi;
-  return 0;
-}
+*/
 void * vbs_init(struct fuse_conn_info *conn)
 {
+  LOG("Running init\n");
   /* Might use conn at some point */
   (void)conn;
   return (void*)vbs_data;
 }
+static int vbs_open(const char *path, struct fuse_file_info * fi)
+{
+  LOG("Running open\n");
+  char fpath[PATH_MAX];
+  (void)fi;
+  vbs_fullpath(fpath, path);
+
+  return open(fpath, O_RDONLY, S_IRUSR);
+}
+static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
+		      struct fuse_file_info *fi){
+  LOG("Running read\n");
+  (void)path;
+  (void)buf;
+  (void)offset;
+  (void)fi;
+  return size;
+}
+
+static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
+{
+  LOG("Running readdir\n");
+  (void)offset;
+  (void)fi;
+  if (strcmp(path, "/") != 0)
+    return -ENOENT;
+
+  filler(buf, ".", NULL, 0);
+  filler(buf, "..", NULL, 0);
+  filler(buf, "test", NULL, 0);
+
+  return 0;
+}
 struct fuse_operations vbs_oper = {
   .getattr = vbs_getattr,
+  .readdir = vbs_readdir,
+  .open = vbs_open,
+  .read = vbs_read,
   //.readlink = vbs_readlink,
   // no .getdir -- that's deprecated
-  .getdir = NULL,
-  .mknod = vbs_mknod,
-  .mkdir = vbs_mkdir,
+  //.getdir = NULL,
+  //.mknod = vbs_mknod,
+  //.mkdir = vbs_mkdir,
   //.unlink = vbs_unlink,
   //.rmdir = vbs_rmdir,
   //.symlink = vbs_symlink,
@@ -228,33 +264,30 @@ struct fuse_operations vbs_oper = {
   //.chown = vbs_chown,
   //.truncate = vbs_truncate,
   //.utime = vbs_utime,
-  //.open = vbs_open,
-  //.read = vbs_read,
   //.write = vbs_write,
   /** Just a placeholder, don't set */ // huh???
   //.statfs = vbs_statfs,
   //.flush = vbs_flush,
   //.release = vbs_release,
-  .fsync = vbs_fsync,
+  //.fsync = vbs_fsync,
   //.setxattr = vbs_setxattr,
   //.getxattr = vbs_getxattr,
   //.listxattr = vbs_listxattr,
   //.removexattr = vbs_removexattr,
-  .opendir = vbs_opendir,
-  .readdir = vbs_readdir,
-  .releasedir = vbs_releasedir,
-  .fsyncdir = vbs_fsyncdir,
-  .init = vbs_init,
-  .destroy = vbs_destroy,
-  .access = vbs_access,
-  .create = vbs_create,
-  .ftruncate = vbs_ftruncate,
-  .fgetattr = vbs_fgetattr
+  //.opendir = vbs_opendir,
+  //.releasedir = vbs_releasedir,
+  //.fsyncdir = vbs_fsyncdir,
+  //.init = vbs_init,
+  //.destroy = vbs_destroy,
+  //.access = vbs_access,
+  //.create = vbs_create,
+  //.ftruncate = vbs_ftruncate,
 };
 #define MYFS_OPT(t, p, v) { t, offsetof(struct vbs_state, p), v }
 
-static struct fuse_opt myfs_opts[] = {
+static struct fuse_opt vbs_opts[] = {
      MYFS_OPT("-r %s",             rootdir, 0),
+     FUSE_OPT_END
      /*
      MYFS_OPT("mystring=%s",       mystring, 0),
      MYFS_OPT("mybool",            mybool, 1),
@@ -269,7 +302,6 @@ static struct fuse_opt myfs_opts[] = {
      FUSE_OPT_KEY("-h",             KEY_HELP),
      FUSE_OPT_KEY("--help",         KEY_HELP),
      */
-     FUSE_OPT_END
 };
 
 int main (int argc, char ** argv){
@@ -302,10 +334,14 @@ int main (int argc, char ** argv){
   argc--;
   */
 
-  fuse_opt_parse(&args, vbs_data, myfs_opts, NULL);
+  LOG("Testing output\n");
+  fuse_opt_parse(&args, vbs_data, vbs_opts, NULL);
+  LOG("Fuse opt parse done\n");
+
+  LOG("Read rootdir as %s\n", vbs_data->rootdir);
 
   LOG("about to call fuse_main\n");
-  fuse_stat = fuse_main(argc, argv, &vbs_oper, vbs_data);
+  fuse_stat = fuse_main(args.argc, args.argv, &vbs_oper, vbs_data);
   LOG("fuse_main returned %d\n", fuse_stat);
 
   /* Free or not to free? */
