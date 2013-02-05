@@ -68,7 +68,7 @@ void init_vbs_state(struct vbs_state* vbsd)
 }
 void vbs_usage()
 {
-    E("usage:  vbs_fuse [FUSE and mount options] rootDir mountPoint");
+    E("usage:  vbs_fuse [FUSE and mount options] rootdir mountPoint");
     exit(-1);
 }
 int strip_last(char * original, char * stripped)
@@ -220,6 +220,7 @@ return 0;
 */
 void * vbs_init(struct fuse_conn_info *conn)
 {
+  char * temp;
   LOG("Running init\n");
   /* Might use conn at some point */
   (void)conn;
@@ -228,6 +229,20 @@ void * vbs_init(struct fuse_conn_info *conn)
 
   vbs_data->rootdirextension = (char*)malloc(sizeof(char)*FILENAME_MAX);
   vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  temp = rindex(vbs_data->rootdir, '/');
+  /* Special case when rootdir ends with '/'. It really shouldn't though! */
+  if((temp - vbs_data->rootdir) == strlen(vbs_data->rootdir)-1)
+  {
+    LOG("rootdir ending with /\n");
+  }
+  else
+  {
+    size_t diff = (temp -  vbs_data->rootdir + 1)*sizeof(char);
+    size_t diff_end = (strlen(temp))*sizeof(char);
+    memcpy(vbs_data->rootofrootdirs, vbs_data->rootdir, diff);
+    memcpy(vbs_data->rootdirextension, temp, diff);
+    LOG("Extension is %s, rootdir %s\n", temp, diff_end);
+  }
   //vbs_data->
   return (void*)vbs_data;
 }
