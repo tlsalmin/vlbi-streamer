@@ -51,7 +51,10 @@ struct file_index{
 
 struct vbs_state{
   char* rootdir;
-  char** datadirs;
+  char* rootofrootdirs;
+  char* rootdirextension
+  //char** datadirs;
+  int n_datadirs;
   struct file_index* head;
   pthread_mutex_t  augmentlock;
   int opts;
@@ -222,7 +225,20 @@ void * vbs_init(struct fuse_conn_info *conn)
   (void)conn;
   if(pthread_mutex_init(&(vbs_data->augmentlock), NULL) != 0)
     perror("Mutex init");
+
+  vbs_data->rootdirextension = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  //vbs_data->
   return (void*)vbs_data;
+}
+void vbs_destroy(void * vd)
+{
+  int err;
+  struct vbs_state * vbs_data = (struct vbs_state*)vd;
+  err = pthread_mutex_destroy(vbs_data->augmentlock);
+  if(err != 0)
+    E("Error in pthread mutex destroy");
+  /* TODO: Free everything */
 }
 static int vbs_open(const char *path, struct fuse_file_info * fi)
 {
@@ -242,14 +258,28 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   (void)fi;
   return size;
 }
+int rebuild_file_index(){
+  char rootdirs_root[FILENAME_MAX];
+  char diskpoint[FILENAME_MAX];
+  char * temp;
+  struct vbs_state * vbs_data = VBS_DATA;
+
+  temp = rindex(vbs_data->rootdir, '/');
+}
 
 static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
+  int err;
   LOG("Running readdir\n");
   (void)offset;
   (void)fi;
   if (strcmp(path, "/") != 0)
     return -ENOENT;
+
+  err = rebuild_file_index();
+  if(err != 0){
+    E("Error in rebuilding index for %s",, path);
+  }
 
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
@@ -290,7 +320,7 @@ struct fuse_operations vbs_oper = {
   //.releasedir = vbs_releasedir,
   //.fsyncdir = vbs_fsyncdir,
   .init = vbs_init,
-  //.destroy = vbs_destroy,
+  .destroy = vbs_destroy,
   //.access = vbs_access,
   //.create = vbs_create,
   //.ftruncate = vbs_ftruncate,
