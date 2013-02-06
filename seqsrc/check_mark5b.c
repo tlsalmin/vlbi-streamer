@@ -25,6 +25,7 @@ read_count = be32toh(read_count);
 void usage(){
   O("Usage: check_mark5b -f <file> (-n if networked packets)\n");
   O("-a to spew out everything in automode");
+  O("-c to check the data for consistency");
   exit(-1);
 }
 //#define MULPLYTEN
@@ -44,6 +45,10 @@ int main(int argc, char ** argv){
   int offset = 0;
   int framesize = MARK5SIZE;
   int hexmode=0;
+  int checkmode = 0;
+  int frames_per_sec = -1;
+  int lastframenum = -1;
+  int lastsec = -1;
 
   int syncword;
   int userspecified;
@@ -60,7 +65,7 @@ int main(int argc, char ** argv){
   int isauto=0;
   int netmode=0;
 
-  while ( (c = getopt(argc, argv, "anf:o:")) != -1) {
+  while ( (c = getopt(argc, argv, "anf:o:c")) != -1) {
         //int this_option_optind = optind ? optind : 1;
         switch (c) {
 	  case 'n':
@@ -81,6 +86,9 @@ int main(int argc, char ** argv){
 	    break;
 	  case 'a':
 	    isauto=1;
+	    break;
+	  case 'c':
+	    checkmode=1;
 	    break;
 	  case 'o':
 	    extraoffset=atoi(optarg);
@@ -171,12 +179,53 @@ int main(int argc, char ** argv){
 #endif
     CRCC = read_count & get_mask(0,15);
 
-    //fprintf(stdout, "---------------------------------------------------------------------------\n");
+    if(checkmode== 0)
+    {
+      //fprintf(stdout, "---------------------------------------------------------------------------\n");
 #ifdef MULPLYTEN
-    fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
+      fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
 #else
-    fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6X mjd| timecordword1S: %6X s | timecodeword2: 0.%6X s | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
+      fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6X mjd| timecordword1S: %6X s | timecodeword2: 0.%6X s | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
 #endif
+    }
+    else
+    {
+      if(lastframenum == -1){
+	lastframenum = framenum;
+	lastsec = VLBABCD_timecodeword1S;
+	fprintf(stdout, "First frame is %d of second %d\n", lastframenum, lastsec);
+      }
+      if(frames_per_sec == -1 && VLBABCD_timecodeword1S != lastsec)
+      {
+	frames_per_sec = lastframenum;
+	fprintf(stdout, "Second second reached. Frames in second is %d\n", frames_per_sec);
+      }
+      else
+      {
+	if(framenum == 0)
+	{
+	  if(lastsec+1 != VLBABCD_timecodeword1S)
+	  {
+	    fprintf(stderr, "Zero frame! Last sec: %d now %d\n", lastsec, VLBABCD_timecodeword1S);
+	  }
+	  else if(frames_per_sec != -1)
+	  {
+	    if(lastframenum != frames_per_sec)
+	    {
+	      fprintf(stderr, "Zero frame! Packets per sec %d but last frame was %d\n", frames_per_sec, lastframenum);
+	    }
+	  }
+	  lastsec = VLBABCD_timecodeword1S;
+	  }
+	else
+	{
+	if(lastframenum+1 != framenum){
+	  fprintf(stderr, "Framenum: Expected %d but got %d\n", lastframenum+1, framenum);
+	}
+	}
+      }
+      lastframenum = framenum;
+    }
     }
     else{
 #ifdef BEITONNET
@@ -211,7 +260,7 @@ int main(int argc, char ** argv){
     //fprintf(stdout, "| vdif_version: %2d | log2_channels: %4d | frame_length %14d |\n", vdif_version, log2_channels, frame_length);
     //fprintf(stdout, "| data_type: %8s | bits_per_sample: %6d | thread_id: %6d | station_id %8d |\n", DATATYPEPRINT(data_type), bits_per_sample, thread_id, station_id);
 
-    if(isauto == 0){
+    if(isauto == 0 && checkmode == 0){
 #ifndef PORTABLE
       err = system ("/bin/stty raw");
       if(err < 0){
@@ -223,179 +272,179 @@ int main(int argc, char ** argv){
       switch(dachar)
       {
 	case (int)'q': 
-	running = 0;
-	break;
-      case (int)'h': 
-	if(hexmode){
-	  if(hexoffset>0)
-	    hexoffset--;
-	}
-	else{
-	if(count>0)
-	  count--;
-	}
-	break;
-      case (int)'k': 
-	if(hexmode){
-	  if(hexoffset>JUMPSIZE)
-	    hexoffset-=JUMPSIZE;
-	}
-	else{
-	if(count>JUMPSIZE)
-	  count-=JUMPSIZE;
-	else
-	  count = 0;
-	}
-	break;
-      case (int)'j': 
-	if(hexmode){
-	  if(hexoffset<(framesize/16-JUMPSIZE))
-	    hexoffset+=JUMPSIZE;
-	  else
+	  running = 0;
+	  break;
+	case (int)'h': 
+	  if(hexmode){
+	    if(hexoffset>0)
+	      hexoffset--;
+	  }
+	  else{
+	    if(count>0)
+	      count--;
+	  }
+	  break;
+	case (int)'k': 
+	  if(hexmode){
+	    if(hexoffset>JUMPSIZE)
+	      hexoffset-=JUMPSIZE;
+	  }
+	  else{
+	    if(count>JUMPSIZE)
+	      count-=JUMPSIZE;
+	    else
+	      count = 0;
+	  }
+	  break;
+	case (int)'j': 
+	  if(hexmode){
+	    if(hexoffset<(framesize/16-JUMPSIZE))
+	      hexoffset+=JUMPSIZE;
+	    else
+	      hexoffset = (framesize/16)-1;
+	  }
+	  else{
+	    if((count) <(fsize/framesize - JUMPSIZE))
+	      count+=JUMPSIZE;
+	    else
+	      count = fsize/framesize -1;
+	  }
+	  break;
+	case (int)'G': 
+	  if(hexmode){
 	    hexoffset = (framesize/16)-1;
-	}
-	else{
-	if((count) <(fsize/framesize - JUMPSIZE))
-	  count+=JUMPSIZE;
-	else
-	  count = fsize/framesize -1;
-	}
-	break;
-      case (int)'G': 
-	if(hexmode){
-	  hexoffset = (framesize/16)-1;
-	}
-	else{
-	count = fsize/framesize -1;
-	}
-	break;
-      case (int)'g': 
-	if(hexmode){
+	  }
+	  else{
+	    count = fsize/framesize -1;
+	  }
+	  break;
+	case (int)'g': 
+	  if(hexmode){
+	    hexoffset = 0;
+	  }
+	  else{
+	    count = 0;
+	  }
+	  break;
+	case (int)'s':
+#ifndef PORTABLE
+	  err = system ("/bin/stty cooked");
+	  if(err < 0){
+	    O("Err in system");
+	    exit(-1);
+	  }
+#endif
+	  char* tempstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
+	  char* temp = NULL;
+	  int seconds;
+	  int tempfd;
+	  long end;
+	  int timecode2;
+	  //long last;
+	  int framenum2;
+	  long framesinsecond;
+	  /* VLBABCD_timecodeword1S  is our start time */
+
+	  fprintf(stdout, "Seconds:");
+	  temp = fgets(tempstring, FILENAME_MAX, stdin);
+	  if(temp == NULL){
+	    O("Error in getting seconds");
+	    free(tempstring);
+	    break;
+	  }
+	  temp = NULL;
+	  seconds = atoi(tempstring);
+
+	  fprintf(stdout, "Outputfile:");
+	  temp = fgets(tempstring, FILENAME_MAX, stdin);
+	  if(temp == NULL){
+	    O("Error in getting seconds");
+	    free(tempstring);
+	    break;
+	  }
+
+	  tempfd = open(tempstring, O_WRONLY|O_CREAT|S_IWUSR,S_IRUSR|S_IWGRP|S_IRGRP);
+	  if(fd == -1){
+	    O("Error opening file %s\n", tempstring);
+	    break;
+	    //exit(-1);
+	  }
+
+	  /* TODO: Refactor to function blabla */
+	  timecode2 = VLBABCD_timecodeword1S;
+	  end = count;
+	  framenum2 = framenum;
+	  //while(timecode2 == VLBABCD_timecodeword1S){
+	  while(framenum2 != 0){
+	    target = mmapfile + framesize*end + offset + hexoffset*16;
+	    GRAB_4_BYTES
+	      GRAB_4_BYTES
+	      framenum2 = read_count & get_mask(0,14);
+	    GRAB_4_BYTES
+	      timecode2 = read_count & get_mask(0,19);
+	    end++;
+	  }
+	  O("Got to next second: %X, frame %d", timecode2, framenum2);
+	  target = mmapfile + framesize*(end-2) + offset + hexoffset*16;
+	  GRAB_4_BYTES
+	    GRAB_4_BYTES
+	    framesinsecond = (read_count & get_mask(0,14)) +1;
+	  GRAB_4_BYTES
+	    timecode2 = read_count & get_mask(0,19);
+
+	  target = mmapfile + framesize*count + offset + hexoffset*16;
+	  O("Writing %i seconds, with %ld frames in a second with %i framesize\n", seconds, framesinsecond, framesize);
+
+	  err = write(tempfd,target, seconds*framesinsecond*framesize);
+	  if(err <0)
+	    O("Error in write\n");
+
+	  close(tempfd);
+	  free(tempstring);
+	  break;
+	case (int)'H': 
+	  target = mmapfile + framesize*count + offset;
+	  fprintf(stdout, " %10X %5X %5X %10X --> ", *((unsigned int*)target), *((short unsigned int*)(target+4)),*((short unsigned int*)(target+6) ) ^ B(15), *((unsigned int*)(target+8)));
+	  break;
+	case 'b':
+	  hexmode ^= 1;
 	  hexoffset = 0;
-	}
-	else{
-	count = 0;
-	}
-	break;
-      case (int)'s':
+	  break;
+	case (int)'l': 
+	  if(hexmode){
+	    if(hexoffset < (framesize/16 -1 ))
+	      hexoffset++;
+	  }
+	  else{
+	    if((count) <(fsize/framesize - 1))
+	      count++;
+	  }
+	  break;
+      }
 #ifndef PORTABLE
-    err = system ("/bin/stty cooked");
+      err = system ("/bin/stty cooked");
       if(err < 0){
 	O("Err in system");
 	exit(-1);
       }
 #endif
-	char* tempstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
-	char* temp = NULL;
-	int seconds;
-	int tempfd;
-	long end;
-	int timecode2;
-	//long last;
-	int framenum2;
-	long framesinsecond;
-	/* VLBABCD_timecodeword1S  is our start time */
-
-	fprintf(stdout, "Seconds:");
-	temp = fgets(tempstring, FILENAME_MAX, stdin);
-	if(temp == NULL){
-	  O("Error in getting seconds");
-	  free(tempstring);
-	  break;
-	}
-	temp = NULL;
-	seconds = atoi(tempstring);
-
-	fprintf(stdout, "Outputfile:");
-	temp = fgets(tempstring, FILENAME_MAX, stdin);
-	if(temp == NULL){
-	  O("Error in getting seconds");
-	  free(tempstring);
-	  break;
-	}
-
-	tempfd = open(tempstring, O_WRONLY|O_CREAT|S_IWUSR,S_IRUSR|S_IWGRP|S_IRGRP);
-	if(fd == -1){
-	  O("Error opening file %s\n", tempstring);
-	  break;
-	  //exit(-1);
-	}
-
-	/* TODO: Refactor to function blabla */
-	timecode2 = VLBABCD_timecodeword1S;
-	end = count;
-	framenum2 = framenum;
-	//while(timecode2 == VLBABCD_timecodeword1S){
-	while(framenum2 != 0){
-	  target = mmapfile + framesize*end + offset + hexoffset*16;
-	  GRAB_4_BYTES
-	  GRAB_4_BYTES
-	  framenum2 = read_count & get_mask(0,14);
-	  GRAB_4_BYTES
-	  timecode2 = read_count & get_mask(0,19);
-	  end++;
-	}
-	O("Got to next second: %X, frame %d", timecode2, framenum2);
-	target = mmapfile + framesize*(end-2) + offset + hexoffset*16;
-	GRAB_4_BYTES
-	GRAB_4_BYTES
-	framesinsecond = (read_count & get_mask(0,14)) +1;
-	GRAB_4_BYTES
-	timecode2 = read_count & get_mask(0,19);
-
-	target = mmapfile + framesize*count + offset + hexoffset*16;
-	O("Writing %i seconds, with %ld frames in a second with %i framesize\n", seconds, framesinsecond, framesize);
-
-	err = write(tempfd,target, seconds*framesinsecond*framesize);
-	if(err <0)
-	  O("Error in write\n");
-
-	close(tempfd);
-	free(tempstring);
-	break;
-      case (int)'H': 
-	target = mmapfile + framesize*count + offset;
-	fprintf(stdout, " %10X %5X %5X %10X --> ", *((unsigned int*)target), *((short unsigned int*)(target+4)),*((short unsigned int*)(target+6) ) ^ B(15), *((unsigned int*)(target+8)));
-	break;
-      case 'b':
-	hexmode ^= 1;
-	hexoffset = 0;
-	break;
-      case (int)'l': 
-	if(hexmode){
-	  if(hexoffset < (framesize/16 -1 ))
-	    hexoffset++;
-	}
-	else{
-	if((count) <(fsize/framesize - 1))
-	  count++;
-	}
-	break;
-    }
-#ifndef PORTABLE
-    err = system ("/bin/stty cooked");
-      if(err < 0){
-	O("Err in system");
-	exit(-1);
       }
-#endif
+      else{
+	count++;
+	if (count == fsize/framesize -1)
+	  running = 0;
+
+      }
     }
-    else{
-      count++;
-      if (count == fsize/framesize -1)
-	running = 0;
 
+    err = munmap(mmapfile, fsize);
+    if(err != 0)
+      perror("unmap\n");
+
+    if(close(fd) != 0){
+      O("Error on close\n");
+      exit(-1);
     }
+
+    exit(0);
   }
-
-  err = munmap(mmapfile, fsize);
-  if(err != 0)
-    perror("unmap\n");
-
-  if(close(fd) != 0){
-    O("Error on close\n");
-    exit(-1);
-  }
-
-  exit(0);
-}
