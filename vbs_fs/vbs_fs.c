@@ -30,12 +30,19 @@
 
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
+#define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_NONNULL_RN(val) do{if(val==NULL){perror("malloc "#val);E("malloc "#val);return NULL;}else{D("malloc "#val);}}while(0)
+#define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return y;}else{D(x);}}while(0)
+#define CHECK_ERR_CUST_QUIET(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}}while(0)
+#define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
 
+#define STATUS_SLOTFREE		0
 #define STATUS_NOTINIT 		B(0)
 #define STATUS_INITIALIZED 	B(1)
 #define STATUS_OPEN 		B(2)
 #define STATUS_NOCFG		B(3)
 #define STATUS_NOTVBS		B(4)
+#define STATUS_FOUND		B(5)
 
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
@@ -45,7 +52,8 @@ struct file_index{
   int status;
   int packet_size;
   int filesize;
-  int n_files;
+  long unsigned n_files;
+  long unsigned allocated_files;
   int * fileid;
 };
 
@@ -55,6 +63,8 @@ struct vbs_state{
   char* rootdirextension;
   //char** datadirs;
   int n_datadirs;
+  int n_files;
+  uint64_t max_files;
   struct file_index* head;
   pthread_mutex_t  augmentlock;
   int opts;
@@ -83,6 +93,49 @@ int strip_last(char * original, char * stripped)
   int diff = (void*)lrindex-(void*)original;
   memcpy(stripped, original, diff);
   return 0;
+}
+uint64_t vbs_hashfunction(char* key, struct vbs_state *vbs_data)
+{
+  int i;
+  int n_loops;
+  void * keypointer;
+  uint64_t sum=0;
+  uint64_t value;
+  if(strlen(key) ==0){
+    D("Empty key");
+    return 0;
+  }
+  uint64_t sum=0;
+  /* Loop through each sizeof(int64_t) segment. Defined behaviour	*/
+  /* Is floor so no worries on reading over the buffer			*/
+  n_loops = ((strlen(key)*sizeof(char)) / (sizeof(uint8_t)));
+  if(n_loops = 0){
+    D("Zero loops");
+    return 0;
+  }
+  keypointer = (void*)key;
+  for(i=0;i<n_loops;i+=sizeof(uint8_t))
+  {
+    sum += *((uint8_t*)keypointer);
+    keypointer+=sizeof(uint8_t);
+  }
+
+  value = sum % vbs_data->max_files;
+  if(vbs_data->fis[value].status == STATUS_SLOTFREE){
+    D("%ld Is a free slot!",, value);
+    return value
+  }
+  else
+  {
+    while(strcmp(vbs_data->fis[value].filename, key) !=0){
+      D("%ld already occupied by %s",, vbs_data->fis[value].filename);
+      value++;
+      if(value == vbs_data->max_files)
+	//TODO INTERRUPTED HERE
+    }
+  }
+
+  return (sum)%
 }
 //  All the paths I see are relative to the root of the mounted
 //  filesystem.  In order to get to the underlying filesystem, I need to
@@ -227,35 +280,43 @@ void * vbs_init(struct fuse_conn_info *conn)
   if(pthread_mutex_init(&(vbs_data->augmentlock), NULL) != 0)
     perror("Mutex init");
 
-  vbs_data->rootdirextension = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  memset(vbs_data->rootofrootdirs, 0, sizoef(char)*FILENAME_MAX);
-  memset(vbs_data->rootdirextension, 0, sizoef(char)*FILENAME_MAX);
+  vbs_data->rootdirextension;
+  //vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  //CHECK_ERR_NONNULL_RN(vbs_data->rootofrootdirs);
+
+  //memset(vbs_data->rootofrootdirs, 0, sizeof(char)*FILENAME_MAX);
+  //memset(vbs_data->rootdirextension, 0, sizeof(char)*FILENAME_MAX);
+
   temp = rindex(vbs_data->rootdir, '/');
   /* Special case when rootdir ends with '/'. It really shouldn't though! */
-  if((temp - vbs_data->rootdir) == strlen(vbs_data->rootdir)-1)
+  if(((size_t)(temp - vbs_data->rootdir)) == strlen(vbs_data->rootdir)-1)
   {
     LOG("rootdir ending with /\n");
   }
   else
   {
-    size_t diff = (temp -  vbs_data->rootdir + 1);
-    size_t diff_end = (strlen(temp));
-    memcpy(vbs_data->rootofrootdirs, vbs_data->rootdir, diff);
-    memcpy(vbs_data->rootdirextension, temp, diff);
-    LOG("Extension is %s, rootdir %s\n", temp, diff_end);
+    //size_t diff = (temp -  vbs_data->rootdir + 1);
+    //size_t diff_end = (strlen(temp));
+    //memcpy(vbs_data->rootofrootdirs, vbs_data->rootdir, diff);
+    //memcpy(vbs_data->rootdirextension, temp+1, diff);
+    vbs_data->rootofrootdirs = strndup(vbs_data->rootdir, strlen(vbs_data->rootdir)-strlen(temp));
+    CHECK_ERR_NONNULL_RN(vbs_data->rootofrootdirs);
+    vbs_data->rootdirextension = temp+1;
+    LOG("Rootdir is %s, extension %s\n", vbs_data->rootofrootdirs, vbs_data->rootdirextension);
   }
-  //vbs_data->
   return (void*)vbs_data;
 }
 void vbs_destroy(void * vd)
 {
   int err;
   struct vbs_state * vbs_data = (struct vbs_state*)vd;
-  err = pthread_mutex_destroy(vbs_data->augmentlock);
+  err = pthread_mutex_destroy(&(vbs_data->augmentlock));
   if(err != 0)
     E("Error in pthread mutex destroy");
   /* TODO: Free everything */
+  free(vbs_data->rootdir);
+  free(vbs_data->rootdir);
+  free(vbs_data->rootdir);
 }
 static int vbs_open(const char *path, struct fuse_file_info * fi)
 {
@@ -275,13 +336,77 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   (void)fi;
   return size;
 }
-int rebuild_file_index(){
-  char rootdirs_root[FILENAME_MAX];
-  char diskpoint[FILENAME_MAX];
-  char * temp;
-  struct vbs_state * vbs_data = VBS_DATA;
+int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
+{
+  int i;
+  int found=0;
+  /* We'll see if this needs a hashtable */
+  /* Iterate though our file-index */
+  for(i=0;i<vbs_data->n_files;i++)
+  {
+    if(strcmp(vbs_data->fis[i].filename,filename) == 0)
+    {
+      D("Found %s in index",, filename);
+      found=1;
+      vbs_data->fis[i].status |= STATUS_FOUND;
+      break; 
+    }
+  }
+  if(found == 0)
+  {
+    D("New file %s in index",, de->d_name);
+    for(i=0;i<vbs_data->n_files;i++)
+    {
+    }
 
-  temp = rindex(vbs_data->rootdir, '/');
+  }
+}
+int rebuild_file_index(){
+  int err;
+  char diskpoint[FILENAME_MAX];
+  int n_drives= 0;
+  struct dirent* de;
+  struct file_index* fi;
+  DIR *df;
+  struct vbs_state * vbs_data = VBS_DATA;
+  int drives_to_go = 1;
+
+
+  while(drives_to_go == 1)
+  {
+    memset(diskpoint, 0, sizeof(char)*FILENAME_MAX);
+    sprintf(diskpoint, "%s%d", vbs_data->rootdir, n_drives);
+    df = opendir(diskpoint); 
+    if(df ==NULL)
+    {
+      if(errno == ENOENT){
+	D("No more drivers to check");
+	drives_to_go = 0;
+      }
+      else
+      {
+	perror("Check drivers");
+	return -1;
+      }
+    }
+    else
+    {
+      D("%s is a valid drive",, diskpoint);
+      while((de = readdir(df)) != NULL)
+      {
+	if(strcmp(de->d_name, "..") == 0 || strcmp(de->d_name, "." == 0))
+	  D("skipping dotties");
+	else
+	{
+	  err = add_or_check_in_index(de->d_name, vbs_data);
+	  CHECK_ERR("add or check");
+	}
+      }
+      err = closedir(df);
+      CHECK_ERR("Close dir");
+    }
+  }
+
 }
 
 static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
