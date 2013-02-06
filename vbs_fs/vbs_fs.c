@@ -52,7 +52,7 @@ struct file_index{
 struct vbs_state{
   char* rootdir;
   char* rootofrootdirs;
-  char* rootdirextension
+  char* rootdirextension;
   //char** datadirs;
   int n_datadirs;
   struct file_index* head;
@@ -229,6 +229,8 @@ void * vbs_init(struct fuse_conn_info *conn)
 
   vbs_data->rootdirextension = (char*)malloc(sizeof(char)*FILENAME_MAX);
   vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  memset(vbs_data->rootofrootdirs, 0, sizoef(char)*FILENAME_MAX);
+  memset(vbs_data->rootdirextension, 0, sizoef(char)*FILENAME_MAX);
   temp = rindex(vbs_data->rootdir, '/');
   /* Special case when rootdir ends with '/'. It really shouldn't though! */
   if((temp - vbs_data->rootdir) == strlen(vbs_data->rootdir)-1)
@@ -237,8 +239,8 @@ void * vbs_init(struct fuse_conn_info *conn)
   }
   else
   {
-    size_t diff = (temp -  vbs_data->rootdir + 1)*sizeof(char);
-    size_t diff_end = (strlen(temp))*sizeof(char);
+    size_t diff = (temp -  vbs_data->rootdir + 1);
+    size_t diff_end = (strlen(temp));
     memcpy(vbs_data->rootofrootdirs, vbs_data->rootdir, diff);
     memcpy(vbs_data->rootdirextension, temp, diff);
     LOG("Extension is %s, rootdir %s\n", temp, diff_end);
