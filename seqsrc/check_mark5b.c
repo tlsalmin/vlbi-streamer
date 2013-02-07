@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/mman.h>
+#include "../src/datatypes_common.h"
 #include "common.h"
 //#include "mark5b.h"
 //#define BEITONNET
@@ -404,7 +405,7 @@ int main(int argc, char ** argv){
 	  break;
 	case (int)'H': 
 	  target = mmapfile + framesize*count + offset;
-	  fprintf(stdout, " %10X %5X %5X %10X --> ", *((unsigned int*)target), *((short unsigned int*)(target+4)),*((short unsigned int*)(target+6) ) ^ B(15), *((unsigned int*)(target+8)));
+	  fprintf(stdout, " %10X %5X %5X %10X --> ", *((unsigned int*)target), *((short unsigned int*)(target+4)),*((short unsigned int*)(target+6) ) , *((unsigned int*)(target+8)));
 	  break;
 	case 'b':
 	  hexmode ^= 1;
