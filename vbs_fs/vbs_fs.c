@@ -50,6 +50,11 @@
 
 #define INITIAL_FILENUM		1024
 
+#define FILOCK(x) do {D("MUTEXNOTE: Locking file mutex"); pthread_mutex_lock(&(x));} while(0)
+#define FIUNLOCK(x) do {D("MUTEXNOTE: Unlocking file mutex"); pthread_mutex_unlock(&((x)));} while(0)
+
+#define MAINLOCK vbs_data->augmentlock
+
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
 
@@ -119,7 +124,6 @@ uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data)
     return 0;
   }
   keypointer = (void*)key;
-  D("Debug");
   for(i=0;i<n_loops;i+=sizeof(uint8_t))
   {
     sum += *((uint8_t*)keypointer);
@@ -133,10 +137,11 @@ uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data)
   else
   {
     int goneover=0;
-    while(strcmp(vbs_data->fis[value].filename, key) != 0){
-      D("%ld already occupied by %s",,value, vbs_data->fis[value].filename);
+    while(vbs_data->fis[value].status != STATUS_SLOTFREE && strcmp(vbs_data->fis[value].filename, key) != 0){
+      //D("%ld already occupied by %s",,value, vbs_data->fis[value].filename);
       value++;
-      if(value == vbs_data->max_files){
+      if(value >= vbs_data->max_files){
+	D("Going over");
 	/* Just making sure we wont go looping forever */
 	if(goneover == 0){
 	  goneover =1;
@@ -333,9 +338,12 @@ void * vbs_init(struct fuse_conn_info *conn)
     LOG("Rootdir is %s, extension %s\n", vbs_data->rootofrootdirs, vbs_data->rootdirextension);
   }
 
-  vbs_data->fis = (struct file_index*)malloc(sizeof(struct file_index)*INITIAL_FILENUM);
-  memset(vbs_data->fis, 0, sizeof(struct file_index)*INITIAL_FILENUM);
+  vbs_data->max_files = INITIAL_FILENUM;
+  vbs_data->fis = (struct file_index*)malloc(sizeof(struct file_index)*vbs_data->max_files);
+  memset(vbs_data->fis, 0, sizeof(struct file_index)*vbs_data->max_files);
 
+
+  D("init done");
   return (void*)vbs_data;
 }
 void vbs_destroy(void * vd)
@@ -393,6 +401,17 @@ int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
   }
 }
 */
+int add_file_to_index(const char * filename, const int index,struct vbs_state * vbs_data)
+{
+  struct file_index* fi = &(vbs_data->fis[index]);
+
+  fi->filename = strdup(filename);
+  fi->status |= STATUS_INITIALIZED;
+  fi->status |= STATUS_FOUND;
+  //TODO: Rest of the stuff
+
+  return 0;
+}
 int rebuild_file_index(){
   int err;
   char diskpoint[FILENAME_MAX];
@@ -425,6 +444,7 @@ int rebuild_file_index(){
     }
     else
     {
+      FILOCK(MAINLOCK);
       D("%s is a valid drive",, diskpoint);
       while((de = readdir(df)) != NULL)
       {
@@ -433,13 +453,30 @@ int rebuild_file_index(){
 	else
 	{
 	  err = vbs_hashfunction(de->d_name, vbs_data);
-	  CHECK_ERR("add or check");
+	  if(err > 0)
+	  {
+	    if(vbs_data->fis[err].status == STATUS_SLOTFREE)
+	    {
+	      D("new file %s",, de->d_name);
+	      err = add_file_to_index(de->d_name, err, vbs_data);
+	      if(err != 0)
+		E("Err in add file to index");
+	    }
+	    else
+	    {
+	      D("Found old file %s",, de->d_name);
+	    }
+
+	  }
+	  //CHECK_ERR("add or check");
 	  //TODO: adding
 	}
       }
       err = closedir(df);
       CHECK_ERR("Close dir");
+      FIUNLOCK(MAINLOCK);
     }
+    n_drives++;
   }
 
   return 0;
@@ -448,6 +485,7 @@ int rebuild_file_index(){
 static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
 {
   int err;
+  uint64_t i;
   LOG("Running readdir\n");
   (void)offset;
   (void)fi;
@@ -461,7 +499,11 @@ static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off
 
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
-  filler(buf, "test", NULL, 0);
+  for(i=0;i<vbs_data->max_files;i++)
+  {
+    if(vbs_data->fis[i].status != STATUS_SLOTFREE)
+      filler(buf, vbs_data->fis[i].filename, NULL, 0);
+  }
 
   return 0;
 }
