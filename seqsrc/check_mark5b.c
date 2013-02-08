@@ -9,8 +9,10 @@
 #include <sys/mman.h>
 #include "../src/datatypes_common.h"
 #include "common.h"
+#include "../src/logging.h"
 //#include "mark5b.h"
 //#define BEITONNET
+#define LOG_DISCREPANCY(reason) fprintf(stdout, "lastframe: %d lastsec: %d fps: %d framenow: %d secnow %d " reason "\n",lastframenum, lastsec, frames_per_sec, framenum, VLBABCD_timecodeword1S)
 #define GRAB_4_BYTES \
   memcpy(&read_count, target, 4);\
   target+=4;
@@ -29,7 +31,6 @@ void usage(){
   O("-c to check the data for consistency");
   exit(-1);
 }
-//#define MULPLYTEN
 int main(int argc, char ** argv){
   int fd=-1,err;
   //struct common_control_element * cce = (struct common_control_element*)malloc(sizeof(common_control_element));
@@ -135,11 +136,11 @@ int main(int argc, char ** argv){
   if(read_count != 0xABADDEED){
     if(netmode == 0)
     {
-    O("Adding 5008 offset, since recording started at midway of a mark5b frame");
+    O("Adding 5008 offset, since recording started at midway of a mark5b frame\n");
     offset+=5008;
     }
     else{
-    O("Adding 5016 offset, since recording started at midway of a mark5b frame");
+    O("Adding 5016 offset, since recording started at midway of a mark5b frame\n");
     offset+=5016;
     }
   }
@@ -153,6 +154,9 @@ int main(int argc, char ** argv){
     */
     target = mmapfile + framesize*count + offset + hexoffset*16 +extraoffset;
     if(hexmode == 0){
+    err = get_sec_and_day_from_mark5b((target),&VLBABCD_timecodeword1S,&VLBABCD_timecodeword1J);
+    if(err != 0)
+      E("Error in getting sec and day");
     GRAB_4_BYTES
     syncword = read_count;
 
@@ -162,32 +166,23 @@ int main(int argc, char ** argv){
     framenum = read_count & get_mask(0,14);
 
     GRAB_4_BYTES
-#ifdef MULPLYTEN
-      //read_count = be32toh(read_count);
-    VLBABCD_timecodeword1J = m5getMJD(read_count);
-    VLBABCD_timecodeword1S= m5getsecs((unsigned int)read_count);
-    //VLBABCD_timecodeword1S = read_count & get_mask(0,20);
-#else
+    /*
     VLBABCD_timecodeword1J = (read_count & get_mask(20,31)) >> 20;
     VLBABCD_timecodeword1S = read_count & get_mask(0,19);
+    */
+    /*
+    VLBABCD_timecodeword1S = get_sec_from_mark5b(target-4-4);
+    VLBABCD_timecodeword1J = get_day_from_mark5b(target-4-4);
+    */
     //O("%X\n", VLBABCD_timecodeword1S);
-#endif
     GRAB_4_BYTES
-#ifdef MULPLYTEN
-    VLBABCD_timecodeword2 = m5getmyysecs((unsigned int)read_count);
-#else
     VLBABCD_timecodeword2 = (((unsigned int)read_count) & get_mask(16,31)) >> 16;
-#endif
     CRCC = read_count & get_mask(0,15);
 
     if(checkmode== 0)
     {
       //fprintf(stdout, "---------------------------------------------------------------------------\n");
-#ifdef MULPLYTEN
-      fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: %6d myys | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
-#else
-      fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6X mjd| timecordword1S: %6X s | timecodeword2: 0.%6X s | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
-#endif
+      fprintf(stdout, "syncword: %5X | userspecified: %6X | tvg: %6s | framenum: %6d | timecodeword1J: %6d mjd| timecordword1S: %6d s | timecodeword2: 0.%6X s | CRCC: %6d\n",syncword, userspecified, BOLPRINT(tvg), framenum, VLBABCD_timecodeword1J, VLBABCD_timecodeword1S, VLBABCD_timecodeword2, CRCC);
     }
     else
     {
@@ -196,36 +191,44 @@ int main(int argc, char ** argv){
 	lastsec = VLBABCD_timecodeword1S;
 	fprintf(stdout, "First frame is %d of second %d\n", lastframenum, lastsec);
       }
-      if(frames_per_sec == -1 && VLBABCD_timecodeword1S != lastsec)
-      {
-	frames_per_sec = lastframenum;
-	fprintf(stdout, "Second second reached. Frames in second is %d\n", frames_per_sec);
-      }
-      else
-      {
-	if(framenum == 0)
+      else{
+	if(frames_per_sec == -1 && VLBABCD_timecodeword1S != lastsec)
 	{
-	  if(lastsec+1 != VLBABCD_timecodeword1S)
-	  {
-	    fprintf(stderr, "Zero frame! Last sec: %d now %d\n", lastsec, VLBABCD_timecodeword1S);
-	  }
-	  else if(frames_per_sec != -1)
-	  {
-	    if(lastframenum != frames_per_sec)
-	    {
-	      fprintf(stderr, "Zero frame! Packets per sec %d but last frame was %d\n", frames_per_sec, lastframenum);
-	    }
-	  }
-	  lastsec = VLBABCD_timecodeword1S;
-	  }
+	  frames_per_sec = lastframenum;
+	  fprintf(stdout, "Second second reached. Frames in second is %d\n", frames_per_sec);
+	}
 	else
 	{
-	if(lastframenum+1 != framenum){
-	  fprintf(stderr, "Framenum: Expected %d but got %d\n", lastframenum+1, framenum);
+	  if(framenum == 0)
+	  {
+	    if(lastsec+1 != VLBABCD_timecodeword1S)
+	    {
+	      if(lastframenum == 0)
+		LOG_DISCREPANCY("Double 0 frame");
+	      else
+		LOG_DISCREPANCY("Second is wrong");
+	    }
+	    else if(frames_per_sec != -1)
+	    {
+	      if(lastframenum != frames_per_sec)
+	      {
+		LOG_DISCREPANCY("incorrect FPS");
+		//fprintf(stderr, "Zero frame! Packets per sec %d but last frame was %d\n", frames_per_sec, lastframenum);
+	      }
+	    }
+	    lastsec = VLBABCD_timecodeword1S;
+	  }
+	  else
+	  {
+	    if(lastframenum+1 != framenum){
+	      LOG_DISCREPANCY("framenum != last+1");
+	      //fprintf(stderr, "Framenum: Expected %d but got %d\n", lastframenum+1, framenum);
+	    }
+	  }
 	}
-	}
+	lastframenum = framenum;
+	lastsec = VLBABCD_timecodeword1S;
       }
-      lastframenum = framenum;
     }
     }
     else{
@@ -432,7 +435,7 @@ int main(int argc, char ** argv){
       }
       else{
 	count++;
-	if (count == fsize/framesize -1)
+	if (count >= fsize/framesize -1)
 	  running = 0;
 
       }
