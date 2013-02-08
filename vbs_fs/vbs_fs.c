@@ -18,7 +18,11 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+#include "../src/logging.h"
+#define DEBUG_OUTPUT 1
 #define B(x) (1l << x)
+#define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
+/*
 #define DEBUG B(0)
 #define IS_DEBUG (((struct vbs_state *) fuse_get_context()->private_data)->opts & DEBUG)
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
@@ -28,13 +32,13 @@
 #define E(str, ...)\
     do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
-#define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
 #define CHECK_ERR_NONNULL_RN(val) do{if(val==NULL){perror("malloc "#val);E("malloc "#val);return NULL;}else{D("malloc "#val);}}while(0)
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return y;}else{D(x);}}while(0)
 #define CHECK_ERR_CUST_QUIET(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+*/
 
 #define STATUS_SLOTFREE		0
 #define STATUS_NOTINIT 		B(0)
@@ -43,6 +47,8 @@
 #define STATUS_NOCFG		B(3)
 #define STATUS_NOTVBS		B(4)
 #define STATUS_FOUND		B(5)
+
+#define INITIAL_FILENUM		1024
 
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
@@ -65,7 +71,7 @@ struct vbs_state{
   int n_datadirs;
   int n_files;
   uint64_t max_files;
-  struct file_index* head;
+  struct file_index* fis;
   pthread_mutex_t  augmentlock;
   int opts;
 };
@@ -94,7 +100,7 @@ int strip_last(char * original, char * stripped)
   memcpy(stripped, original, diff);
   return 0;
 }
-uint64_t vbs_hashfunction(char* key, struct vbs_state *vbs_data)
+uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data)
 {
   int i;
   int n_loops;
@@ -105,15 +111,15 @@ uint64_t vbs_hashfunction(char* key, struct vbs_state *vbs_data)
     D("Empty key");
     return 0;
   }
-  uint64_t sum=0;
   /* Loop through each sizeof(int64_t) segment. Defined behaviour	*/
   /* Is floor so no worries on reading over the buffer			*/
   n_loops = ((strlen(key)*sizeof(char)) / (sizeof(uint8_t)));
-  if(n_loops = 0){
+  if(n_loops == 0){
     D("Zero loops");
     return 0;
   }
   keypointer = (void*)key;
+  D("Debug");
   for(i=0;i<n_loops;i+=sizeof(uint8_t))
   {
     sum += *((uint8_t*)keypointer);
@@ -123,19 +129,29 @@ uint64_t vbs_hashfunction(char* key, struct vbs_state *vbs_data)
   value = sum % vbs_data->max_files;
   if(vbs_data->fis[value].status == STATUS_SLOTFREE){
     D("%ld Is a free slot!",, value);
-    return value
   }
   else
   {
-    while(strcmp(vbs_data->fis[value].filename, key) !=0){
-      D("%ld already occupied by %s",, vbs_data->fis[value].filename);
+    int goneover=0;
+    while(strcmp(vbs_data->fis[value].filename, key) != 0){
+      D("%ld already occupied by %s",,value, vbs_data->fis[value].filename);
       value++;
-      if(value == vbs_data->max_files)
-	//TODO INTERRUPTED HERE
+      if(value == vbs_data->max_files){
+	/* Just making sure we wont go looping forever */
+	if(goneover == 0){
+	  goneover =1;
+	}
+	else{
+	  E("Hash function cant find a free spot!");
+	  return -1;
+	}
+	value=0;
+      }
     }
   }
+  D("Got %ld for %s",, value, key);
 
-  return (sum)%
+  return value;
 }
 //  All the paths I see are relative to the root of the mounted
 //  filesystem.  In order to get to the underlying filesystem, I need to
@@ -161,6 +177,7 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
 {
   LOG("Running getattr\n");
   int retstat = 0;
+  int err = 0;
   /* If its the root, just display all recordings */
   if (strcmp(path, "/") == 0) {
     statbuf->st_mode = S_IFDIR | 0755;
@@ -168,6 +185,16 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
   }
   else
   {
+    /* Skipping the / from start */
+    D("Looking up %s",, path);
+    err = vbs_hashfunction(path+1, VBS_DATA);
+    if(err < 0)
+    {
+      E("No such file");
+      return -ENOENT;
+    }
+
+    /*
     char fpath[PATH_MAX];
 
     LOG("\nvbs_getattr(path=\"%s\")\n",path);
@@ -179,6 +206,7 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
       retstat = -1;
       E("vbs_getattr lstat");
     }
+    */
   }
 
   //log_stat(statbuf);
@@ -280,7 +308,7 @@ void * vbs_init(struct fuse_conn_info *conn)
   if(pthread_mutex_init(&(vbs_data->augmentlock), NULL) != 0)
     perror("Mutex init");
 
-  vbs_data->rootdirextension;
+  //vbs_data->rootdirextension;
   //vbs_data->rootofrootdirs = (char*)malloc(sizeof(char)*FILENAME_MAX);
   //CHECK_ERR_NONNULL_RN(vbs_data->rootofrootdirs);
 
@@ -304,6 +332,10 @@ void * vbs_init(struct fuse_conn_info *conn)
     vbs_data->rootdirextension = temp+1;
     LOG("Rootdir is %s, extension %s\n", vbs_data->rootofrootdirs, vbs_data->rootdirextension);
   }
+
+  vbs_data->fis = (struct file_index*)malloc(sizeof(struct file_index)*INITIAL_FILENUM);
+  memset(vbs_data->fis, 0, sizeof(struct file_index)*INITIAL_FILENUM);
+
   return (void*)vbs_data;
 }
 void vbs_destroy(void * vd)
@@ -336,12 +368,11 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   (void)fi;
   return size;
 }
+/*
 int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
 {
   int i;
   int found=0;
-  /* We'll see if this needs a hashtable */
-  /* Iterate though our file-index */
   for(i=0;i<vbs_data->n_files;i++)
   {
     if(strcmp(vbs_data->fis[i].filename,filename) == 0)
@@ -361,6 +392,7 @@ int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
 
   }
 }
+*/
 int rebuild_file_index(){
   int err;
   char diskpoint[FILENAME_MAX];
@@ -371,6 +403,8 @@ int rebuild_file_index(){
   struct vbs_state * vbs_data = VBS_DATA;
   int drives_to_go = 1;
 
+
+  (void)fi;
 
   while(drives_to_go == 1)
   {
@@ -394,12 +428,13 @@ int rebuild_file_index(){
       D("%s is a valid drive",, diskpoint);
       while((de = readdir(df)) != NULL)
       {
-	if(strcmp(de->d_name, "..") == 0 || strcmp(de->d_name, "." == 0))
+	if(strcmp(de->d_name, "..") == 0 || strcmp(de->d_name, ".") == 0)
 	  D("skipping dotties");
 	else
 	{
-	  err = add_or_check_in_index(de->d_name, vbs_data);
+	  err = vbs_hashfunction(de->d_name, vbs_data);
 	  CHECK_ERR("add or check");
+	  //TODO: adding
 	}
       }
       err = closedir(df);
@@ -407,6 +442,7 @@ int rebuild_file_index(){
     }
   }
 
+  return 0;
 }
 
 static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi)
@@ -501,7 +537,7 @@ int main (int argc, char ** argv){
   }
   init_vbs_state(vbs_data);
   /* Just setting it manually */
-  vbs_data->opts |= DEBUG;
+  //vbs_data->opts |= DEBUG;
 
   if ((getuid() == 0) || (geteuid() == 0)) {
     fprintf(stderr, "Running vbs_fuse as root opens unnacceptable security holes\n");
