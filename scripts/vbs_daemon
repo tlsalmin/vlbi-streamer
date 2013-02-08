@@ -19,7 +19,7 @@ PPRIORITY=no
 RTPRIO=20
 TIMEOUT=5
 DEBVARS=/lib/init/vars.sh
-DISTRO=DEBIAN
+DISTRO=OTHER
 
 SCRIPTNAME=vbs_daemon
 #scriptPath=${0%${SCRIPTNAME}}
@@ -45,8 +45,11 @@ if [ -f "$DEBVARS" ]
 then
   . /lib/init/vars.sh
   DISTRO=DEBIAN
+else
+  VERBOSE=1
 fi
 
+#Doesnt work..
 PPSTRING=""
 if [ "$PPRIORITY" == "yes" ]
 then
@@ -63,8 +66,48 @@ then
   DISTRO=DEBIAN
 fi
 
+#Hack to get init script work on non-debian system
+do_log()
+{
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    log_end_msg $1
+  else
+    if [ "$1" == "0" ]
+    then
+      echo "OK"
+    else
+      echo "ERROR"
+    fi
+  fi
+}
+do_log_daemon()
+{
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    log_daemon_msg $1 $2
+  else
+    echo "DAEMON" $1 $2
+  fi
+}
 # Function that starts the daemon/service
 #
+do_hugepages()
+{
+  echo $(date --rfc-3339=seconds) "Checking if hugepages are in use.." | tee -a  $LOGFILE
+  if [ "$(cat $CFGFILE |egrep -v "^#" |grep use_hugepage |cut -d' ' -f3)" == "1;" ] 
+  then
+    if [ "$(cat /proc/sys/vm/nr_hugepages)" == "0" ]
+    then
+      echo $(date --rfc-3339=seconds) "Initializing hugepages" | tee -a  $LOGFILE
+      init_hugepages -c
+    else
+      echo $(date --rfc-3339=seconds) "Hugepages already initialized" | tee -a  $LOGFILE
+    fi
+  else
+    echo "Hugepages not in use"
+  fi
+}
 do_start()
 {
   # Return
@@ -75,26 +118,27 @@ do_start()
     echo "vlbistreamer already running"
     return 1;
   else
+    do_hugepages
     #sudo -u $USER $BINDIR/vlbistreamer &>> $LOGFILE &
     #if [ -n "$(ps -A -o cmd | grep -v grep|grep -i $BINDIR/vlbistreamer)" ] ; then
-    echo $(date --rfc-3339=seconds) "Checking if hugepages are in use.." | tee -a  $LOGFILE
-    if [ "$(cat $CFGFILE |egrep -v "^#" |grep use_hugepage |cut -d' ' -f3)" == "1;" ] 
+    retval=-1
+    if [ "$DISTRO" == "DEBIAN" ]
     then
-      if [ "$(cat /proc/sys/vm/nr_hugepages)" == "0" ]
-      then
-	echo $(date --rfc-3339=seconds) "Initializing hugepages" | tee -a  $LOGFILE
-	init_hugepages -c
-      fi
+      start-stop-daemon --start --make-pidfile --pidfile $PIDFILE -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS
+      retval=$?
     else
-      echo "Hugepages not in use"
+      #TODO: -g ${group} doesn't work for some reason
+      sudo -u ${USER} $DAEMON &> $LOGFILE &
+      retval=$?
+      echo $! > $PIDFILE
     fi
-    if start-stop-daemon --start --make-pidfile --pidfile $PIDFILE -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS ; then
+    if [ "$retval" == 0 ]
+    then
       if [ "$PPRIORITY" == "yes" ]
       then
 	#TODO: This is not the correct way
 	sleep 1
-	#chrt -f -p $RTPRIO  $(ps -A |grep -i vlbistreamer |cut -d ' ' -f2)
-	chrt -f -p $RTPRIO  $(cat $PIDFILE)
+	chrt -f -p $RTPRIO  $(cat $PIDFILE) |tee -a $LOGFILE
       fi
       #TODO: whats the right way to check if it started ok? 
       #TODO Doesn't work from service..
@@ -149,60 +193,84 @@ do_reload() {
 
 case "$1" in
   start)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
-	do_start
+    if [ "$DISTRO" == "DEBIAN" ]
+    then
+      [ "$VERBOSE" != no ] && do_log_daemon "Starting $DESC" "$NAME"
+      do_start
+      case "$?" in
+	0|1) [ "$VERBOSE" != no ] && do_log 0 ;;
+      2) [ "$VERBOSE" != no ] && do_log 1 ;;
+    esac
+  else
+    echo "Not in debian so daemon start not logged"
+    do_start
+  fi
+  ;;
+stop)
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    [ "$VERBOSE" != no ] && do_log_daemon "Stopping $DESC" "$NAME"
+    do_stop
+    case "$?" in
+      0|1) [ "$VERBOSE" != no ] && do_log 0 ;;
+    2) [ "$VERBOSE" != no ] && do_log 1 ;;
+  esac
+else
+  echo "Doing stop on non-debian machine"
+  do_stop
+  if [ "$?" == "0" ]
+  then
+    echo "Exit OK"
+  else
+    echo "Error in vlbistreamer stop"
+  fi
+fi
+;;
+status)
+  status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+  ;;
+#reload|force-reload)
+  #
+  # If do_reload() is not implemented then leave this commented out
+  # and leave 'force-reload' as an alias for 'restart'.
+  #
+  #log_daemon_msg "Reloading $DESC" "$NAME"
+  #do_reload
+  #log_end_msg $?
+  #;;
+restart|force-reload)
+  #
+  # If the "reload" option is implemented then remove the
+  # 'force-reload' alias
+  #
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    do_log_daemon "Restarting $DESC" "$NAME"
+  fi
+  do_stop
+  case "$?" in
+    0|1)
+      do_start
+      if [ "$DISTRO" == "DEBIAN" ]
+      then
 	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-	do_stop
-	case "$?" in
-		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-	esac
-	;;
-  status)
-       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       ;;
-  #reload|force-reload)
-	#
-	# If do_reload() is not implemented then leave this commented out
-	# and leave 'force-reload' as an alias for 'restart'.
-	#
-	#log_daemon_msg "Reloading $DESC" "$NAME"
-	#do_reload
-	#log_end_msg $?
-	#;;
-  restart|force-reload)
-	#
-	# If the "reload" option is implemented then remove the
-	# 'force-reload' alias
-	#
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	do_stop
-	case "$?" in
-	  0|1)
-		do_start
-		case "$?" in
-			0) log_end_msg 0 ;;
-			1) log_end_msg 1 ;; # Old process is still running
-			*) log_end_msg 1 ;; # Failed to start
-		esac
-		;;
-	  *)
-	  	# Failed to stop
-		log_end_msg 1
-		;;
-	esac
-	;;
+	  0) do_log 0 ;;
+	1) do_log 1 ;; # Old process is still running
+      *) do_log 1 ;; # Failed to start
+    esac
+  fi
+  ;;
+*)
+  # Failed to stop
+do_log 1
+  ;;
+esac
+;;
   *)
-	#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
-	exit 3
-	;;
+    #echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
+    echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+    exit 3
+    ;;
 esac
 
 :
