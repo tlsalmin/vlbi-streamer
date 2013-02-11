@@ -20,12 +20,12 @@ OPTIONS:
 EOF
 }
 SCRIPTNAME=vbs_queue
-scriptPath=${0%${SCRIPTNAME}}
+scriptPath=${0%$SCRIPTNAME}
 if [ -z "$scriptPath" ]
 then
   #invoked from PATH
   scriptPath=$(which $0)
-  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+  scriptPath=${scriptPath%$SCRIPTNAME}
 fi
 source ${scriptPath}vbs_common_functions
 
@@ -161,13 +161,14 @@ fi
 if [ "$RECORD" -eq "1" ]
 then
   kk=0
-  match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
-  while [ -n "$match" ]
+  #match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
+  while [ ! -z "$(find ${ROOTDIRS}* -maxdepth 1 -name ${RECNAME})" ]
+  #while [ -n "$match" ]
   do
     RECNAME=${YE_OLDE}_${kk}
     kk=$(($kk+1))
     echo $(date --rfc-3339=seconds) "Recording already exists! Renaming to $RECNAME" | tee -a  $LOGFILE
-    match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
+    #match=$(vbs_ls |egrep "^`echo ${RECNAME}`$")
   done
 fi
 
