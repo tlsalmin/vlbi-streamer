@@ -20,6 +20,9 @@
 #include <libconfig.h>
 #include <regex.h> /* For regexp file matching */
 
+#define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
+#define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+
 #include "../src/configcommon.h"
 #include "../src/logging.h"
 #define DEBUG_OUTPUT 1
@@ -52,7 +55,7 @@ struct file_index{
   char *filename;
   int status;
   int packet_size;
-  int filesize;
+  unsigned long filesize;
   unsigned long n_packets;
   long unsigned n_files;
   long unsigned files_missing;
@@ -221,13 +224,135 @@ int get_fi_from_cfg(char * path, struct file_index * fi)
 
   return retval;
 }
-int update_single_file_index(struct file_index *fi, const struct vbs_state *vbs_data)
+int parse_schedule_for_fi(struct file_index *fi)
+{
+  int i,j;
+  int retval=-1;
+  int filename_ok = 0;
+  int is_rec = 0;
+  config_t cfg;
+  config_init(&cfg);
+  config_read_file(&cfg, STATEFILE);
+  config_setting_t *root, *setting, *inner_setting;
+
+  root = config_root_setting(&cfg);
+  if(root == NULL){
+    E("Error in getting root");
+    config_destroy(&cfg);
+    return -1;
+  }
+  /* setting is always the random string to identify the recordings 	*/
+  /* So need to use inner_setting to check filename 			*/
+  for(i=0; (setting = config_setting_get_elem(root, i))!= NULL; i++)
+  {
+    for(j=0; (inner_setting = config_setting_get_elem(setting,j)) != NULL ; j++)
+    {
+      if(strcmp(config_setting_name(inner_setting), "filename") == 0)
+      {
+	D("Found filename");
+	if(strcmp(config_setting_get_string(inner_setting), fi->filename) == 0)
+	{
+	  D("Found correct %s in schedule",, fi->filename);
+	  filename_ok = 1;
+	}
+	else{
+	  break;
+	}
+      }
+      else if(strcmp(config_setting_name(inner_setting), "record")==0)
+      {
+	if(config_setting_get_int(inner_setting) == 1)
+	{
+	  D("Is record");
+	  is_rec = 1;
+	}
+      }
+    }
+    if(is_rec == 1 && filename_ok == 1){
+      D("Found %s in schedule!",, fi->filename);
+      parse_cfg(setting, fi);
+      retval = 0;
+      break;
+    }
+    is_rec =0;
+    filename_ok = 0;
+  }
+  config_destroy(&cfg);
+  return retval;
+}
+int get_and_update_from_own_cfg(struct file_index *fi, char *dir)
+{
+  int err;
+  struct stat st_temp;
+  char cfgname[FILENAME_MAX];
+  sprintf(cfgname, "%s%c%s%s", dir, '/', fi->filename, ".cfg");
+  D("Statting cfg %s",, cfgname);
+  err = stat(cfgname, &st_temp);
+
+  if(err == -1){
+    if(errno != ENOENT)
+    {
+      E("Not enoent, but worse!");
+    }
+    D("No cfg file found");
+    //fi->status |= STATUS_NOCFG;
+
+    return -1;
+  }
+  if(!(fi->status & STATUS_GOTREFSTAT))
+  {
+    memcpy(&fi->refstat, &st_temp, sizeof(struct stat));
+    D("Setting refstat for %s",, fi->filename);
+    fi->status |= STATUS_GOTREFSTAT;
+  }
+  //found_cfg =1;
+  D("Getting cfg from fi on %s",, cfgname);
+  err = get_fi_from_cfg(cfgname, fi);
+  if(err != 0){
+    E("Error in parsing cfg");
+    return -1;
+  }
+  if(fi->status & STATUS_NOCFG)
+  {
+    D("A session has finished recording it seems");
+    fi->status &= ~STATUS_NOCFG;
+  }
+  fi->status |= STATUS_CFGPARSED;
+  if(fi->fileid == NULL)
+    fi->fileid = (DISKINDEX_INT*)malloc(sizeof(DISKINDEX_INT)*fi->n_files);
+  fi->allocated_files = fi->n_files;
+  D("Parsed cfg %s",, cfgname);
+
+  return 0;
+}
+int check_all_dirs_for_cfg(struct file_index * fi, struct vbs_state *vbs_data)
 {
   (void)fi;
   (void)vbs_data;
   return 0;
 }
-int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, int dirindex)
+int update_single_file_index(struct file_index *fi, const struct vbs_state *vbs_data)
+{
+  int err;
+  (void)fi;
+  (void)vbs_data;
+  D("Getting preliminary info from cfg-file");
+
+  err = get_fi_from_cfg(CFGFILE, fi);
+  if(err != 0){
+    E("error in reading cfg %s",, CFGFILE);
+    return -1;
+  }
+  err = parse_schedule_for_fi(fi);
+  if(err != 0)
+  {
+    D("No %s in schedule",, fi->filename);
+    //TODO the rest of this 
+  }
+
+  return 0;
+}
+int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, int dirindex, char * dirpath)
 {
   struct dirent * de;
   int err;
@@ -253,6 +378,23 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, int dir
 	E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
       else
       {
+	/* TODO Heres a potential nasty bug if the filesize is of the last file
+	 * or its from an unfinished file. This should be fixed on a read
+	 * command.	*/
+	if(fi->filesize == 0)
+	{
+	  char tempfilename[FILENAME_MAX];
+	  sprintf(tempfilename, "%s%c%s", dirpath, '/', de->d_name);
+	  struct stat temp_again;
+	  err = stat(tempfilename,  &temp_again);
+	  if(err != 0)
+	    E("Error in getting stat for %s",, tempfilename);
+	  else
+	  {
+	    D("Adding filesize as %ld for %s",, temp_again.st_size, tempfilename);
+	    fi->filesize =temp_again.st_size;
+	  }
+	}
 	D("Identified %s as %d",,start_of_index,  temp);
 	fi->fileid[temp] = (DISKINDEX_INT)dirindex;
       }
@@ -269,21 +411,19 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, int dir
 
   return 0;
 }
-#define CSFI_PREFAIL do { if(df != NULL){err = closedir(df);} if(err != 0){E("Error in closedir");} pthread_mutex_unlock(&(fi->augmentlock)); free(regstring); regfree(&regex); free(st_temp); }while(0)
+#define CSFI_PREFAIL do { if(df != NULL){err = closedir(df);} if(err != 0){E("Error in closedir");} pthread_mutex_unlock(&(fi->augmentlock)); regfree(&regex); }while(0)
 
 int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_data)
 {
   char temp[FILENAME_MAX];
-  char cfgname[FILENAME_MAX];
+  //char cfgname[FILENAME_MAX];
   int i,err;
   int found_atleast_one=0;
   //int found_cfg=0;
   regex_t regex;
   DIR *df;
   //struct dirent* de;
-  struct stat * st_temp = (struct stat*)malloc(sizeof(struct stat));
-  char* regstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  CHECK_ERR_NONNULL(regstring, "Malloc regexp string");
+  char regstring[FILENAME_MAX];
   sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", fi->filename);
   //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   err = regcomp(&regex, regstring, 0);
@@ -306,42 +446,15 @@ int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_
     {
       /* If we dont yet know about this cfg */
       /* The folder exists. Check if it has a cfg */
-      sprintf(cfgname, "%s%c%s%s", temp, '/', fi->filename, ".cfg");
-      D("Statting cfg %s",, cfgname);
-      err = stat(cfgname, st_temp);
-
-      if(err == -1){
-	if(errno != ENOENT)
-	{
-	  E("Not enoent, but worse!");
-	}
-	D("No cfg file found");
-	fi->status |= STATUS_NOCFG;
-
-	CSFI_PREFAIL;
-	return update_single_file_index(fi,vbs_data);
-      }
-      if(!(fi->status & STATUS_GOTREFSTAT))
-      {
-	memcpy(&fi->refstat, st_temp, sizeof(struct stat));
-	D("Setting refstat for %s",, fi->filename);
-	fi->status |= STATUS_GOTREFSTAT;
-      }
-      //found_cfg =1;
-      D("Getting cfg from fi on %s",, cfgname);
-      err = get_fi_from_cfg(cfgname, fi);
+      err = get_and_update_from_own_cfg(fi, temp);
       if(err != 0){
-	E("Error in parsing cfg");
+	fi->status |= STATUS_NOCFG;
 	CSFI_PREFAIL;
-	return -1;
+	return update_single_file_index(fi, vbs_data);
       }
-      fi->status |= STATUS_CFGPARSED;
-      fi->fileid = (DISKINDEX_INT*)malloc(sizeof(DISKINDEX_INT)*fi->n_files);
-      fi->allocated_files = fi->n_files;
-      D("Parsed cfg. Updating files for folder %s",, temp);
     }
 
-    err = fi_update_from_files(fi, df, &regex, i);
+    err = fi_update_from_files(fi, df, &regex, i, temp);
     if(err != 0){
       CSFI_PREFAIL;
       return -1;
@@ -355,13 +468,15 @@ int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_
   CSFI_PREFAIL;
   D("Disk loops done for %s",, fi->filename);
 
-  if (found_atleast_one == 0)
+  if (found_atleast_one == 0){
     E("%s Not found although in index!",, fi->filename);
+    fi->status |= STATUS_NOTVBS;
+    return -1;
+  }
   else{
     //fi->status &= ~STATUS_NOTINIT;
     fi->status |= STATUS_INITIALIZED;
   }
-
 
   return 0;
 }
@@ -407,11 +522,11 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     struct file_index *fi = &(vbs_data->fis[err]);
     D("Found file %s in index",, fi->filename);
 
-    if(!(fi->status & STATUS_INITIALIZED)){
+    if(!(fi->status & STATUS_INITIALIZED) && !(fi->status & STATUS_NOTVBS)){
       err = create_single_file_index(fi, vbs_data);
       if(err != 0){
 	E("Error in update stat");
-	return -1;
+	return -ENOENT;
       }
     }
     else if (fi->status & STATUS_NOCFG)
@@ -419,9 +534,11 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
       err = update_single_file_index(fi, vbs_data);
       if(err != 0){
 	E("Error in update stat");
-	return -1;
+	return -ENOENT;
       }
     }
+    if(fi->status & STATUS_NOTVBS)
+      return -ENOENT;
 
     err = update_stat(fi, statbuf);
     retstat = 0;
