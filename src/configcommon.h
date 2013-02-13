@@ -30,10 +30,9 @@
     }
 
 #define CHECK_IS_INT64 do{ if(config_setting_type(setting) != CONFIG_TYPE_INT64){\
-	E(#x" Type not correct");\
+	E("Int64 Type not correct");\
 	return -1;\
-      }\
-  }	while(0)
+  }}	while(0)
 
 #define CFG_CHK_UINT64(x) \
     if(check==1){\
