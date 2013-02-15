@@ -104,6 +104,7 @@ struct vbs_state{
   //char** datadirs;
   int n_datadirs;
   int n_files;
+  int offset;
   uint64_t max_files;
   //struct open_file* open_files;
   struct file_index* fis;
@@ -859,7 +860,33 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
 void * do_read(void* opts)
 {
   struct read_operator* ro = (struct read_operator*)opts;
+  struct vbs_state *vbs_data = fi->vbs_data;
+  int fd;
+  long n_iovec = 
+  struct iovec iov;
   ro->status = RO_STATUS_STARTED;
+  //TODO fillapttern 
+  /*
+    else{
+      FORM_FILEPATH(filename, filenum+i);
+      fds[i] = open(filename,finfo->flags);
+      if(fds[i] == -1){
+	E("Error in opening %s",, filename);
+	return -errno;
+      }
+      size_t amount;
+      struct iovec * iov = &(iov[i-reduce_files]);
+      if(partial_off + size > fi->filesize)
+	amount = fi->filesize - partial_off;
+      else
+	amount = size;
+      iov->fd = q
+      iov[i](fds[i], bufstart, amount, partial_off);
+      bufstart += amount;
+      partial_off = 0;
+    }
+  }
+  */
   //DO THE STUFF
   ro->status = RO_STATUS_FINISHED_AOK;
   return NULL;
@@ -872,6 +899,7 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   uint64_t fi_i;
   off_t filenum,partial_off;
   void* bufstart = buf;
+  size_t retval = size;
   int i, err, n_files_open,*fds, reduce_files=0;
   struct pthread_t* pts;
   struct read_operator * ropts;
@@ -909,6 +937,16 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   if(fi->filesize - partial_off  < size)
     n_files_open++;
 
+  int overshot = (filenum + n_files_open+1) - fi->n_files;
+  if(overshot > 0){
+    D("Overshot of %d files",, overshot);
+    n_files_open -= overshot;
+    retval = EOF;
+    while(overshot > 1)
+      size -= fi->filesize;
+    size -= (fi->filesize - partial_off);
+  }
+
   D("For %s start at file %lu, partial offset %lu n_files_open %d",, path, filenum, partial_off, n_files_open);
 
   /*
@@ -925,18 +963,42 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
 
   for(i=0;i<n_files_open;i++)
   {
+    struct read_operator *ro = ropts+i;
     if(fi->fileid[filenum+i] == -1){
       D("Missing %d:th file from %s",, filenum+i, path);
-      ropts[i].status = RO_STATUS_IDIDNTEVEN;
+      ro->status = RO_STATUS_IDIDNTEVEN;
     }
     else
     {
-      (ropts+i)->status = RO_STATUS_NOTSTARTED;
-      err = pthread_create(pts+i, NULL, &(do_read), ropts+i);
+      /*
+  struct file_index *fi;
+  void * buf;
+  char filename[FILENAME_MAX];
+  off_t offset;
+  size_t size;
+  int status;
+  struct vbs_state *vbs_data;
+       */
+      ro->fi = fi;
+      ro->buf = bufstart;
+      FORM_FILEPATH(ro->filename, filenum+i);
+      ro->offset = partial_off;
+      if(partial_off + size > fi->filesize)
+	amount = fi->filesize - partial_off;
+      else
+	amount = size;
+      ro->size = amount;
+      ro->vbs_data = vbs_data;
+      
+      ro->status = RO_STATUS_NOTSTARTED;
+      err = pthread_create(pts+i, NULL, &(do_read), ro);
       if(err != 0){
 	E("Error in pthread create");
-	(ropts+i)->status = RO_STATUS_IDIDNTEVEN;
+	ro->status = RO_STATUS_IDIDNTEVEN;
       }
+      bufstart += amount;
+      size -= amount;
+      partial_off = 0;
     }
   }
   for(i=0;i<n_files_open;i++)
@@ -947,28 +1009,12 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
       if( err != 0)
 	E("Error in pthread join");
     }
-  }
-  /*
-    else{
-      FORM_FILEPATH(filename, filenum+i);
-      fds[i] = open(filename,finfo->flags);
-      if(fds[i] == -1){
-	E("Error in opening %s",, filename);
-	return -errno;
-      }
-      size_t amount;
-      struct iovec * iov = &(iov[i-reduce_files]);
-      if(partial_off + size > fi->filesize)
-	amount = fi->filesize - partial_off;
-      else
-	amount = size;
-      iov->fd = q
-      iov[i](fds[i], bufstart, amount, partial_off);
-      bufstart += amount;
-      partial_off = 0;
+    if((ropts+i)->status != RO_STATUS_FINISHED_AOK)
+    {
+      E("Something went wrong with %d thread for file %s",, i, (ropts+i)->fi->filename);
     }
   }
-  */
+
 
 /*
   for(i=0;i<n_files_open;i++)
@@ -979,7 +1025,7 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   free(fds);
   */
   //free(iov);
-  return size;
+  return retval;
 }
 /*
    int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
