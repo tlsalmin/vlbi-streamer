@@ -493,7 +493,7 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	    D("Adding filesize as %ld for %s",, temp_again.st_size, tempfilename);
 	    fi->filesize =temp_again.st_size;
 	    if(fi->packet_size != 0)
-	      fi->filesize -= fi->filesize % fi->packet_size;
+	      fi->filesize -= fi->filesize % (fi->packet_size-vbs_data->offset);
 	    else
 	      E("Cant get correct filesize as packet size is not set!");
 	    if(!(fi->status & STATUS_GOTREFSTAT)){
@@ -609,7 +609,7 @@ int update_stat(struct file_index * fi, struct stat * statbuf)
     memcpy(statbuf, &(fi->refstat), sizeof(struct stat));
   else
     D("Update but no refstat");
-  statbuf->st_size = fi->n_packets*fi->packet_size;
+  statbuf->st_size = fi->n_packets*(fi->packet_size-vbs_data->offset);
   statbuf->st_blocks = statbuf->st_size / 512;
 
   return 0;
@@ -1091,6 +1091,14 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     D("created file index for %s",, path);
   }
 
+  if(vbs_data->offset != 0)
+  {
+    D("offset nonzero. Setting augmenting size from %ld to..",, size);
+    long n_packets_read = size/(fi->packet_size-vbs_data->offset);
+    size = n_packets_read * fi->packet_size;
+    D(".. %ld bytes",, size);
+  }
+
   off_t size_of_rec = fi->n_packets*(fi->packet_size-vbs_data->offset);
   if(offset >= size_of_rec)
   {
@@ -1360,6 +1368,7 @@ struct fuse_operations vbs_oper = {
 
 static struct fuse_opt vbs_opts[] = {
   MYFS_OPT("-r %s",             rootdir, 0),
+  MYFS_OPT("-f %d",             offset, 0),
   FUSE_OPT_END
     /*
        MYFS_OPT("mystring=%s",       mystring, 0),
@@ -1411,7 +1420,7 @@ int main (int argc, char ** argv){
   fuse_opt_parse(&args, vbs_data, vbs_opts, NULL);
   LOG("Fuse opt parse done\n");
 
-  LOG("Read rootdir as %s\n", vbs_data->rootdir);
+  LOG("Read rootdir as %s and offset as %d\n", vbs_data->rootdir, vbs_data->offset);
 
   LOG("about to call fuse_main\n");
   fuse_stat = fuse_main(args.argc, args.argv, &vbs_oper, vbs_data);
