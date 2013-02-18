@@ -111,7 +111,7 @@ struct vbs_state{
   int n_datadirs;
   int n_files;
   int offset;
-  uint64_t max_files;
+  int max_files;
   //struct open_file* open_files;
   struct file_index* fis;
   pthread_mutex_t  augmentlock;
@@ -151,7 +151,7 @@ uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data, int get_n
   int n_loops;
   void * keypointer;
   uint64_t sum=0;
-  uint64_t value;
+  int value;
   if(strlen(key) ==0){
     D("Empty key");
     return -1;
@@ -172,7 +172,7 @@ uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data, int get_n
 
   value = sum % vbs_data->max_files;
   if(vbs_data->fis[value].status == STATUS_SLOTFREE){
-    D("%ld Is a free slot!",, value);
+    D("%d Is a free slot!",, value);
     if(get_not_set == 1)
       value =-1;
   }
@@ -196,7 +196,7 @@ uint64_t vbs_hashfunction(const char* key, struct vbs_state *vbs_data, int get_n
       }
     }
   }
-  D("Got %ld for %s",, value, key);
+  D("Got %d for %s",, value, key);
 
   return value;
 }
@@ -815,16 +815,48 @@ void * vbs_init(struct fuse_conn_info *conn)
   D("init done");
   return (void*)vbs_data;
 }
+int mutex_free_rm_file_from_index(const int index,struct vbs_state * vbs_data)
+{
+  struct file_index* fi = &(vbs_data->fis[index]);
+
+  if(pthread_mutex_destroy(&fi->augmentlock) != 0)
+    E("Mutex destroy of %s",,fi->filename);
+  free(fi->filename);
+  fi->status = 0;
+  if(fi->fileid != NULL)
+    free(fi->fileid);
+  //TODO: Rest of the stuff
+  //removing file index int etc.
+
+  return 0;
+}
+int add_file_to_index(const char * filename, const int index,struct vbs_state * vbs_data)
+{
+  struct file_index* fi = &(vbs_data->fis[index]);
+
+  if(pthread_mutex_init(&(fi->augmentlock), NULL) != 0)
+    perror("Mutex init");
+  fi->filename = strdup(filename);
+  fi->status |= STATUS_FOUND;
+  //TODO: Rest of the stuff
+
+  return 0;
+}
 void vbs_destroy(void * vd)
 {
   int err;
+  int i;
   struct vbs_state * vbs_data = (struct vbs_state*)vd;
   err = pthread_mutex_destroy(&(vbs_data->augmentlock));
   if(err != 0)
     E("Error in pthread mutex destroy");
-  /* TODO: Free everything */
-  free(vbs_data->rootdir);
-  free(vbs_data->rootdir);
+  for(i=0;i<vbs_data->max_files;i++)
+  {
+    err = mutex_free_rm_file_from_index(i, vbs_data);
+    if(err != 0)
+      E("Error in closing %d",, i);
+  }
+  free(vbs_data->fis);
   free(vbs_data->rootdir);
 }
 static int vbs_open(const char *path, struct fuse_file_info * fi)
@@ -1059,6 +1091,19 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     D("created file index for %s",, path);
   }
 
+  off_t size_of_rec = fi->n_packets*(fi->packet_size-vbs_data->offset);
+  if(offset >= size_of_rec)
+  {
+    E("offset over recording length %ld when max is %ld",, offset, size_of_rec);
+    return -EINVAL;
+  }
+  if(offset+(off_t)size >= size_of_rec)
+  {
+    D("offset+size %ld + %ld is larger that size_of_rec %ld.",, offset, size, size_of_rec);
+    size = size_of_rec-offset;
+    retval = EOF;
+  }
+
   filenum = offset/fi->filesize;
   partial_off = offset % fi->filesize;
   n_files_open = size / fi->filesize;
@@ -1068,20 +1113,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   /* less than filesize => 0 n_files_open, larger => 1 n_files_open, so ++ing this */
   n_files_open++;
 
-  /* +1 here because filenum is index and n_files is a quantity */
-  int overshot = (filenum + n_files_open+1) - fi->n_files;
-  if(overshot > 0){
-    D("Overshot of %d files",, overshot);
-    n_files_open -= overshot;
-    retval = EOF;
-    while(overshot > 1){
-      size -= fi->filesize;
-      overshot--;
-      n_files_open--;
-    }
-    size -= (fi->filesize - partial_off);
-    n_files_open--;
-  }
 
   D("For %s start at file %lu, partial offset %lu n_files_open %d",, path, filenum, partial_off, n_files_open);
 
@@ -1189,31 +1220,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
    }
    }
    */
-int mutex_free_rm_file_from_index(const int index,struct vbs_state * vbs_data)
-{
-  struct file_index* fi = &(vbs_data->fis[index]);
-
-  if(pthread_mutex_destroy(&fi->augmentlock) != 0)
-    E("Mutex destroy of %s",,fi->filename);
-  free(fi->filename);
-  fi->status = 0;
-  //TODO: Rest of the stuff
-  //removing file index int etc.
-
-  return 0;
-}
-int add_file_to_index(const char * filename, const int index,struct vbs_state * vbs_data)
-{
-  struct file_index* fi = &(vbs_data->fis[index]);
-
-  if(pthread_mutex_init(&(fi->augmentlock), NULL) != 0)
-    perror("Mutex init");
-  fi->filename = strdup(filename);
-  fi->status |= STATUS_FOUND;
-  //TODO: Rest of the stuff
-
-  return 0;
-}
 int rebuild_file_index(){
   int err;
   char diskpoint[FILENAME_MAX];
@@ -1290,7 +1296,7 @@ static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off
 {
   LOG("Running readdir\n");
   int err;
-  uint64_t i;
+  int i;
   (void)offset;
   (void)fi;
   if (strcmp(path, "/") != 0)
