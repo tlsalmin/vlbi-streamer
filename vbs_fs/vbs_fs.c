@@ -1,10 +1,12 @@
 /*
  * Mucho gracias http://www.cs.nmsu.edu/~pfeiffer/fuse-tutorial/
  */
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
 #include <libgen.h>
@@ -38,17 +40,21 @@
 #define STATUS_FOUND		B(5)
 #define STATUS_CFGPARSED	B(6)
 
-#define RO_STATUS_NOTSTARTED	B(0);
-#define RO_STATUS_STARTED	B(1);
-#define RO_STATUS_ERROR		B(2);
-#define RO_STATUS_NOSUCHFILE	B(3);
-#define RO_STATUS_FINISHED_AOK	B(4);
-#define RO_STATUS_IDIDNTEVEN	B(5);
+#define RO_STATUS_NOTSTARTED	B(0)
+#define RO_STATUS_STARTED	B(1)
+#define RO_STATUS_ERROR		B(2)
+#define RO_STATUS_NOSUCHFILE	B(3)
+#define RO_STATUS_FINISHED_AOK	B(4)
+#define RO_STATUS_IDIDNTEVEN	B(5)
+#define RO_STATUS_DOREAD	B(6)
+#define RO_STATUS_DOWRITE	B(7)
 
 #define INITIAL_FILENUM		1024
 
 #define DISKINDEX_INT 		int8_t
 #define DISKINDEX_INITIAL_SIZE 	128
+
+#define MAX_PIPE_SIZE 1048576
 
 #define FILOCK(x) do {D("MUTEXNOTE: Locking file mutex"); pthread_mutex_lock(&(x));} while(0)
 #define FIUNLOCK(x) do {D("MUTEXNOTE: Unlocking file mutex"); pthread_mutex_unlock(&((x)));} while(0)
@@ -857,128 +863,259 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
   */
   return 0;
 }
-void * do_read(void* opts)
+#define OPERATION_WITH_SPLICE
+#define FLAGS_TO_ERROR_AND_RETURN_NULL ro->status &= ~RO_STATUS_STARTED; ro->status |= RO_STATUS_ERROR; return NULL
+
+void * do_operation(void* opts)
 {
   struct read_operator* ro = (struct read_operator*)opts;
-  struct vbs_state *vbs_data = fi->vbs_data;
-  int fd;
-  long n_iovec = 
-  struct iovec iov;
-  ro->status = RO_STATUS_STARTED;
-  //TODO fillapttern 
-  /*
-    else{
-      FORM_FILEPATH(filename, filenum+i);
-      fds[i] = open(filename,finfo->flags);
-      if(fds[i] == -1){
-	E("Error in opening %s",, filename);
-	return -errno;
+  struct vbs_state *vbs_data = ro->vbs_data;
+  int err;
+  long count=ro->size;
+  int pid;
+
+  int pipes[2];
+  pipes[0]=-1;
+  pipes[1]=-1;
+  err = pipe(pipes);
+  if(err != 0){
+    FLAGS_TO_ERROR_AND_RETURN_NULL;
+  }
+
+#ifdef F_SETPIPE_SZ
+  err = fcntl(pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
+  if(err < 0)
+    E("Error in setting pipe size");
+#endif
+
+
+  ro->status &= ~RO_STATUS_NOTSTARTED;
+  ro->status |= RO_STATUS_STARTED;
+  /*Fork here. parent does the memory side and child the file side */
+  pid =fork();
+  if(pid == 0){
+    D("Child pid for %s is alive",, ro->filename);
+    int fd=-1, flags, flags2;
+    if(ro->status & RO_STATUS_DOREAD){
+      flags2 = S_IRUSR;
+      flags = O_RDONLY;
+    }
+    else if (ro->status & RO_STATUS_DOWRITE){
+      flags = O_WRONLY;
+      flags = S_IWUSR;
+    }
+
+    fd = open(ro->filename, flags, flags2);
+    if(fd == -1){
+      E("Error in opening %s",, ro->filename);
+      ro->status &= ~RO_STATUS_STARTED;
+      if(errno == ENOENT){
+	E("No such file %s",, ro->filename);
+	ro->status |= RO_STATUS_NOSUCHFILE;
       }
-      size_t amount;
-      struct iovec * iov = &(iov[i-reduce_files]);
-      if(partial_off + size > fi->filesize)
-	amount = fi->filesize - partial_off;
       else
-	amount = size;
-      iov->fd = q
-      iov[i](fds[i], bufstart, amount, partial_off);
-      bufstart += amount;
-      partial_off = 0;
+	ro->status |= RO_STATUS_ERROR;
+      _exit(EXIT_FAILURE);
+    }
+    if(ro->offset != 0){
+      if (lseek(fd, ro->offset, SEEK_SET) < 0 ){
+	E("Error in seek");
+	close(fd);
+	close(pipes[1]);
+	_exit(EXIT_FAILURE);
+      }
+    }
+    while(count > 0)
+    {
+      err = splice(fd, NULL, pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
+      if(err < 0 ){
+	E("Error in splicing");
+	close(pipes[1]);
+	close(fd);
+	_exit(EXIT_FAILURE);
+      }
+      if(err == 0)
+      {
+	D("No more data to read");
+	count = 0;
+      }
+      else
+	count -= err;
+    }
+    close(pipes[1]);
+    close(fd);
+    _exit(EXIT_SUCCESS);
+  }
+  else{
+    D("father pid for %s is alive",, ro->filename);
+    struct iovec iov[2];
+    void* dummyspace = NULL;
+    int retval_forked = 0;
+    if(vbs_data->offset != 0)
+      dummyspace = malloc(vbs_data->offset);
+    while(count > 0)
+    {
+      if(vbs_data->offset != 0){
+	iov[0].iov_base = dummyspace;
+	iov[0].iov_len = vbs_data->offset;
+	iov[1].iov_base = ro->buf;
+	iov[1].iov_len = ro->fi->packet_size-vbs_data->offset;
+	err = vmsplice(pipes[0], iov, 2, SPLICE_F_MOVE|SPLICE_F_MORE);
+      }
+      else
+      {
+	iov[1].iov_base = ro->buf;
+	iov[1].iov_len = count;
+	err = vmsplice(pipes[0], iov+1, 1, SPLICE_F_MOVE|SPLICE_F_MORE);
+      }
+      if(err < 0){
+	E("Error in vmsplice");
+	close(pipes[0]);
+	close(pipes[1]);
+	free(dummyspace);
+	waitpid(pid, &retval_forked, 0);
+	FLAGS_TO_ERROR_AND_RETURN_NULL;
+      }
+      else if(err == 0)
+      {
+	D("No more to read and vmsplice");
+	close(pipes[0]);
+	count = 0;
+      }
+      else
+      {
+	count -= err;
+	if(vbs_data->offset != 0)
+	  ro->buf+=ro->fi->packet_size - vbs_data->offset;
+	else
+	  ro->buf+=err;
+      }
+    }
+    if(vbs_data->offset != 0)
+      free(dummyspace);
+    close(pipes[0]);
+    waitpid(pid, &retval_forked, 0);
+    if(retval_forked != EXIT_SUCCESS){
+      E("Other pid exited without success");
+      FLAGS_TO_ERROR_AND_RETURN_NULL;
     }
   }
-  */
-  //DO THE STUFF
+  /*
+     if(vbs_data->offset != 0){
+     n_iovec = ro->size/ro->fi->packet_size;
+     iov = (struct iovec*)malloc(sizeof(struct iovec)*n_iovec);
+     for(i=0;i<n_iovec;i++)
+     {
+     iov[i].iov_base = ro->offset + i*ro->fi->packet_size + vbs_data->offset;
+     iov[i].iov_len = ro->fi->packet_size - vbs_data->offset;
+     }
+     }
+     else{
+     n_iovec = 1;
+     iov = (struct iovec*)malloc(sizeof(struct iovec)*n_iovec);
+     iov->iov_base = vbs_data->offset;
+     iov->iov_len = ro->size;
+     }
+     */
   ro->status = RO_STATUS_FINISHED_AOK;
   return NULL;
 }
 /* We go though the hassle of open, but then vbs_read gives a path? wtf.. */
-static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
-    struct fuse_file_info *finfo){
+static int vbs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *finfo)
+{
   LOG("Running read\n");
-  (void)fi;
-  uint64_t fi_i;
+  int64_t fi_i;
+  (void)finfo;
   off_t filenum,partial_off;
   void* bufstart = buf;
   size_t retval = size;
-  int i, err, n_files_open,*fds, reduce_files=0;
-  struct pthread_t* pts;
+  int i, err, n_files_open;
+  pthread_t* pts;
   struct read_operator * ropts;
   struct file_index *fi;
-  char filename[FILENAME_MAX];
-  //struct open_file * of = NULL;
   struct vbs_state * vbs_data = VBS_DATA;
 
+  /* Check if in hash 			*/
   fi_i = vbs_hashfunction(path+1, vbs_data, 1);
   if(fi_i < 0){
     E("No such file %s",, path);
-    return -ENOENT;
+    return -EBADF;
   }
+  /* Check if its a vbs_recording	*/
   fi = &(vbs_data->fis[fi_i]);
   if(fi->status & STATUS_NOTVBS){
     E("File %s no vbs_data",, path);
-    return -ENOENT;
+    return -EBADF;
   }
 
+  /* Check if we've created the index	*/
   if(fi->filesize == 0){
     D("reading file with 0 filesize!");
     err = create_single_file_index(fi, vbs_data);
     if(err != 0){
-      E("Error in creating file index for %s", path);
+      E("Error in creating file index for %s",, path);
       return -1;
     }
-    D("created file index for %S",, path);
+    D("created file index for %s",, path);
   }
 
   filenum = offset/fi->filesize;
   partial_off = offset % fi->filesize;
   n_files_open = size / fi->filesize;
-  n_files_open++;
-  /* If we go over a file boundary */
-  if(fi->filesize - partial_off  < size)
+  /* Check if we go over a file boundary */
+  if(fi->filesize - partial_off  < size - n_files_open*fi->filesize)
     n_files_open++;
+  /* less than filesize => 0 n_files_open, larger => 1 n_files_open, so ++ing this */
+  n_files_open++;
 
+  /* +1 here because filenum is index and n_files is a quantity */
   int overshot = (filenum + n_files_open+1) - fi->n_files;
   if(overshot > 0){
     D("Overshot of %d files",, overshot);
     n_files_open -= overshot;
     retval = EOF;
-    while(overshot > 1)
+    while(overshot > 1){
       size -= fi->filesize;
+      overshot--;
+      n_files_open--;
+    }
     size -= (fi->filesize - partial_off);
+    n_files_open--;
   }
 
   D("For %s start at file %lu, partial offset %lu n_files_open %d",, path, filenum, partial_off, n_files_open);
 
   /*
-  fds = malloc(sizeof(int)*n_files_open);
-  CHECK_ERR_NONNULL(fds, "malloc fds");
-  memset(fds, 0, sizeof(int)*n_files_open);
-  */
+     fds = malloc(sizeof(int)*n_files_open);
+     CHECK_ERR_NONNULL(fds, "malloc fds");
+     memset(fds, 0, sizeof(int)*n_files_open);
+     */
 
-  pts = malloc(sizeof(struct pthread_t)*n_files_open);
+  pts = malloc(sizeof(pthread_t)*n_files_open);
   CHECK_ERR_NONNULL(pts, "pts malloc");
   ropts = malloc(sizeof(struct read_operator)*n_files_open);
-  CHECK_ERR_NONNULL_RN(ropts, "ropts malloc");
+  CHECK_ERR_NONNULL(ropts, "ropts malloc");
   memset(ropts, 0, sizeof(struct read_operator)*n_files_open);
 
   for(i=0;i<n_files_open;i++)
   {
     struct read_operator *ro = ropts+i;
     if(fi->fileid[filenum+i] == -1){
-      D("Missing %d:th file from %s",, filenum+i, path);
+      D("Missing %ld:th file from %s",, filenum+i, path);
       ro->status = RO_STATUS_IDIDNTEVEN;
     }
     else
     {
+      long amount;
       /*
-  struct file_index *fi;
-  void * buf;
-  char filename[FILENAME_MAX];
-  off_t offset;
-  size_t size;
-  int status;
-  struct vbs_state *vbs_data;
-       */
+	 struct file_index *fi;
+	 void * buf;
+	 char filename[FILENAME_MAX];
+	 off_t offset;
+	 size_t size;
+	 int status;
+	 struct vbs_state *vbs_data;
+	 */
       ro->fi = fi;
       ro->buf = bufstart;
       FORM_FILEPATH(ro->filename, filenum+i);
@@ -989,9 +1126,11 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
 	amount = size;
       ro->size = amount;
       ro->vbs_data = vbs_data;
-      
-      ro->status = RO_STATUS_NOTSTARTED;
-      err = pthread_create(pts+i, NULL, &(do_read), ro);
+
+      D("File n. %ld of %s being read for %ld with offset %ld",, filenum+i, fi->filename, amount, ro->offset);
+
+      ro->status = RO_STATUS_NOTSTARTED|RO_STATUS_DOREAD;
+      err = pthread_create(pts+i, NULL, &(do_operation), ro);
       if(err != 0){
 	E("Error in pthread create");
 	ro->status = RO_STATUS_IDIDNTEVEN;
@@ -1005,26 +1144,24 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset,
   {
     if(!((ropts+i)->status & RO_STATUS_IDIDNTEVEN))
     {
-      err = pthread_join(pts+i,NULL);
+      err = pthread_join(*(pts+i),NULL);
       if( err != 0)
 	E("Error in pthread join");
+      if((ropts+i)->status != RO_STATUS_FINISHED_AOK)
+      {
+	E("Something went wrong with %d thread for file %s",, i, (ropts+i)->fi->filename);
+	retval = -1;
+      }
+      else
+	D("%d file finished ok",, i);
     }
-    if((ropts+i)->status != RO_STATUS_FINISHED_AOK)
-    {
-      E("Something went wrong with %d thread for file %s",, i, (ropts+i)->fi->filename);
+    else{
+      D("File %d didnt exist so TODO: filler",, i);
     }
   }
+  free(ropts);
+  free(pts);
 
-
-/*
-  for(i=0;i<n_files_open;i++)
-  {
-    if(fds[i] != -1)
-      close(fds[i]);
-  }
-  free(fds);
-  */
-  //free(iov);
   return retval;
 }
 /*
