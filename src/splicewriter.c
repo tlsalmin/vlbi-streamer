@@ -101,9 +101,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #ifdef F_SETPIPE_SZ
   fcntl(sp->pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
   maxbytes_inpipe = fcntl(sp->pipes[1], F_GETPIPE_SZ);
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "SPLICEWRITER: Maximum pipe size set to %d\n", maxbytes_inpipe);
-#endif
+  D("SPLICEWRITER: Maximum pipe size set to %d",, maxbytes_inpipe);
 #else
   /* Old headers so can't query the size. presume its 64KB */
   maxbytes_inpipe = 65536;

@@ -33,6 +33,8 @@
 #define CHECK_ERRP_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);pthread_exit(NULL);}else{D(x);}}while(0)
 #define CHECK_ERRP(x) CHECK_ERRP_CUST(x,err)
 #define CHECK_ERR_NONNULL(val,mes) do{if(val==NULL){perror(mes);E(mes);return -1;}else{D(mes);}}while(0)
+#define CHECK_ERR_NONNULL_AUTO(val) do{if(val==NULL){perror("malloc "#val);E("malloc "#val);return -1;}else{D("malloc "#val);}}while(0)
+
 #define CHECK_ERR_NONNULL_RN(val) do{if(val==NULL){perror("malloc "#val);E("malloc "#val);return NULL;}else{D("malloc "#val);}}while(0)
 #define SILENT_CHECK_ERR_LTZ(x) do{if(err<0){perror(x);E(x);return -1;}}while(0)
 #define SILENT_CHECK_ERRP_LTZ(x) do{if(err<0){perror(x);E(x);pthread_exit(NULL);}}while(0)
