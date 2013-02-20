@@ -196,7 +196,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
 
   if(spec_ops->opt->device_name  !=NULL){
     //spec_ops->sin->sin_family = PF_PACKET;           
-    struct sockaddr_ll ll;
+    //struct sockaddr_ll ll;
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strcpy(ifr.ifr_name, spec_ops->opt->device_name);
@@ -204,12 +204,14 @@ int udps_bind_rx(struct udpopts * spec_ops){
     CHECK_ERR("SIOCGIFINDEX");
 
     //Bind to a socket
+    /*
     memset(&ll, 0, sizeof(ll));
     ll.sll_family = AF_PACKET;
     ll.sll_protocol = htons(ETH_P_ALL);
     ll.sll_ifindex = ifr.ifr_ifindex;
     err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
     CHECK_ERR("Bind to IF");
+    */
   }
 
   return 0;

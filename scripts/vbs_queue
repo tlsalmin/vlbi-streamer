@@ -14,6 +14,7 @@ OPTIONS:
       -r RATE		Expected network rate in MB(default: 10000)
       -s SOCKET	Socket number(Default: 2222)
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
+      -t		Use TCP-socket
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
       -v 		Verbose. Print stats on all transfers
       -y 		Force socket reaqcuire on error (Useful when recordings overlap)
@@ -55,6 +56,10 @@ do
       EXTRAOPS="$EXTRAOPS
       offset = ${2};"
       shift
+      ;;
+    -f)
+      EXTRAOPS="$EXTRAOPS
+      use_tcp_socket = 1;"
       ;;
     -l)
       EXTRAOPS="$EXTRAOPS

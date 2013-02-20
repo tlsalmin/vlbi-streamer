@@ -59,10 +59,12 @@ int read_file_to_pipe(struct options* opts,int pipe)
   fd = open(opts->filename, O_RDONLY, S_IRUSR);
   CHECK_LTZ("open", fd);
 
+  D("Splicing it up in open");
   do
   {
     count = splice(fd, NULL, pipe, NULL, opts->maxbytes_inpipe, SPLICE_F_MOVE|SPLICE_F_MORE);
   }while(count > 0);
+  D("Done splicing");
   CHECK_LTZ("final count", count);
 
   err = close(pipe);
@@ -73,7 +75,7 @@ int read_file_to_pipe(struct options* opts,int pipe)
 }
 int splice_to_socket(struct options* opts,int  pipe)
 {
-  int fd, err;
+  int fd, err, dummyfd;
   ssize_t count;
   struct hostent* target;
   struct sockaddr_in serv_addr;
@@ -84,6 +86,8 @@ int splice_to_socket(struct options* opts,int  pipe)
     dummyiov.iov_base = dummybuffer;
     dummyiov.iov_len = opts->offset;
   }
+  dummyfd = open("/dev/null", O_WRONLY);
+  CHECK_LTZ("dummyfd", dummyfd);
 
   memset(&serv_addr, 0, sizeof(struct sockaddr_in));
 
@@ -94,10 +98,11 @@ int splice_to_socket(struct options* opts,int  pipe)
   memcpy(&(serv_addr.sin_addr),target->h_addr_list[0], target->h_length);
   serv_addr.sin_port = htons(opts->port);
 
+  D("Target is %s according to gethostbyname",, target->h_addr_list[0]);
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   CHECK_LTZ("Socket", fd);
 
-  err = bind(fd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
+  err = connect(fd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
   CHECK_ERR("Bind");
 
   do
@@ -112,8 +117,22 @@ int splice_to_socket(struct options* opts,int  pipe)
 	E("count less than zero in vmsplice");
 	break;
       }
+      if(count != opts->offset)
+      {
+	E("dummy splice wrote only %ld when wanted %d",, count, opts->offset);
+      }
     }
+    do{
+      /* Busylooping */
+      count = tee(pipe, dummyfd, opts->packet_size, 0);
+    }while(count != opts->packet_size);
+    count = splice(pipe, NULL, fd, NULL, opts->packet_size, 0);
+    if(count >0 && count < opts->packet_size)
+      D("Sent %ld instead of packet_size",, count);
   }while(count > 0);
+
+  if(count < 0)
+    E("Error in splice to socket");
 
   if(dummybuffer != NULL)
     free(dummybuffer);
@@ -124,6 +143,8 @@ int splice_to_socket(struct options* opts,int  pipe)
   CHECK_ERR("Close socket");
   err = close(pipe);
   CHECK_ERR("Close pipe");
+  err = close(dummyfd);
+  CHECK_ERR("dummyfd");
   return 0;
 }
 
@@ -138,7 +159,7 @@ int main(int argc, char** argv)
   opts->packet_size = DEFAULT_PACKET_SIZE;
 
   D("Getting opts");
-  while((ret = getopt(argc, argv, "s:cf:p:")) != -1)
+  while((ret = getopt(argc, argv, "s:cf:p:r:")) != -1)
   {
     switch (ret){
       case 's':
@@ -147,32 +168,39 @@ int main(int argc, char** argv)
 	  E("Cant set port to %d",, opts->port);
 	  usage(argv[0]);
 	}
+	break;
       case 'c':
 	opts->opts |= OPTS_DO_COUNTER;
+	break;
       case 'f':
 	opts->offset = atoi(optarg);
+	break;
       case 'r':
 	
+	break;
       case 'p':
 	opts->packet_size = atoi(optarg);
 	if(opts->packet_size < 1 ||  opts->packet_size > 65536){
 	  E("Cant set packet size to %d",, opts->packet_size);
 	  usage(argv[0]);
 	}
+	break;
       default:
+	E("Unknown parameter %c",, ret);
 	usage(argv[0]);
     }
   }
   D("Opts gotten. Checking parameters");
   if(argc -optind != 2){
+    E("Wrong number of arguments. Expect 2, when got %d",, argc-optind);
     usage(argv[0]);
   }
   argv +=optind;
   argc -=optind;
 
   D("Parameters checked");
-  opts->filename = argv[1];
-  opts->target = argv[2];
+  opts->filename = argv[0];
+  opts->target = argv[1];
 
   err = pipe(pipes);
   CHECK_ERR("pipe");

@@ -109,6 +109,7 @@
 /* Next three empty */
 
 #define FORCE_SOCKET_REACQUIRE	B(40)
+#define USE_TCP_SOCKET		B(41)
 
 #define MEG			B(20)
 #define GIG			B(30)
