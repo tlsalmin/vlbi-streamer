@@ -26,7 +26,7 @@ SCRIPTNAME=vbs_daemon
 #Daemon is usually in /etc/init.d so just running
 #which 
 scriptPath=$(which $SCRIPTNAME)
-scriptPath=${scriptPath%${SCRIPTNAME}}
+scriptPath=${scriptPath%$SCRIPTNAME}
 #fi
 source ${scriptPath}vbs_common_functions
 
@@ -45,6 +45,8 @@ if [ -f "$DEBVARS" ]
 then
   . /lib/init/vars.sh
   DISTRO=DEBIAN
+else
+  VERBOSE=1
 fi
 
 #Doesnt work..
@@ -64,6 +66,30 @@ then
   DISTRO=DEBIAN
 fi
 
+#Hack to get init script work on non-debian system
+do_log()
+{
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    log_end_msg $1
+  else
+    if [ "$1" == "0" ]
+    then
+      echo "OK"
+    else
+      echo "ERROR"
+    fi
+  fi
+}
+do_log_daemon()
+{
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    log_daemon_msg $1 $2
+  else
+    echo "DAEMON" $1 $2
+  fi
+}
 # Function that starts the daemon/service
 #
 do_hugepages()
@@ -102,7 +128,7 @@ do_start()
       retval=$?
     else
       #TODO: -g ${group} doesn't work for some reason
-      sudo -u ${USER} $DAEMON &
+      sudo -u ${USER} $DAEMON &> $LOGFILE &
       retval=$?
       echo $! > $PIDFILE
     fi
@@ -112,7 +138,7 @@ do_start()
       then
 	#TODO: This is not the correct way
 	sleep 1
-	chrt -f -p $RTPRIO  $(cat $PIDFILE)
+	chrt -f -p $RTPRIO  $(cat $PIDFILE) |tee -a $LOGFILE
       fi
       #TODO: whats the right way to check if it started ok? 
       #TODO Doesn't work from service..
@@ -169,11 +195,11 @@ case "$1" in
   start)
     if [ "$DISTRO" == "DEBIAN" ]
     then
-      [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+      [ "$VERBOSE" != no ] && do_log_daemon "Starting $DESC" "$NAME"
       do_start
       case "$?" in
-	0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-      2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	0|1) [ "$VERBOSE" != no ] && do_log 0 ;;
+      2) [ "$VERBOSE" != no ] && do_log 1 ;;
     esac
   else
     echo "Not in debian so daemon start not logged"
@@ -181,45 +207,63 @@ case "$1" in
   fi
   ;;
 stop)
-  [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-  do_stop
-  case "$?" in
-    0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-  2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-esac
-;;
-  status)
-    status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-    ;;
-  #reload|force-reload)
-    #
-    # If do_reload() is not implemented then leave this commented out
-    # and leave 'force-reload' as an alias for 'restart'.
-    #
-    #log_daemon_msg "Reloading $DESC" "$NAME"
-    #do_reload
-    #log_end_msg $?
-    #;;
-  restart|force-reload)
-    #
-    # If the "reload" option is implemented then remove the
-    # 'force-reload' alias
-    #
-    log_daemon_msg "Restarting $DESC" "$NAME"
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    [ "$VERBOSE" != no ] && do_log_daemon "Stopping $DESC" "$NAME"
     do_stop
     case "$?" in
-      0|1)
-	do_start
+      0|1) [ "$VERBOSE" != no ] && do_log 0 ;;
+    2) [ "$VERBOSE" != no ] && do_log 1 ;;
+  esac
+else
+  echo "Doing stop on non-debian machine"
+  do_stop
+  if [ "$?" == "0" ]
+  then
+    echo "Exit OK"
+  else
+    echo "Error in vlbistreamer stop"
+  fi
+fi
+;;
+status)
+  status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+  ;;
+#reload|force-reload)
+  #
+  # If do_reload() is not implemented then leave this commented out
+  # and leave 'force-reload' as an alias for 'restart'.
+  #
+  #log_daemon_msg "Reloading $DESC" "$NAME"
+  #do_reload
+  #log_end_msg $?
+  #;;
+restart|force-reload)
+  #
+  # If the "reload" option is implemented then remove the
+  # 'force-reload' alias
+  #
+  if [ "$DISTRO" == "DEBIAN" ]
+  then
+    do_log_daemon "Restarting $DESC" "$NAME"
+  fi
+  do_stop
+  case "$?" in
+    0|1)
+      do_start
+      if [ "$DISTRO" == "DEBIAN" ]
+      then
 	case "$?" in
-	  0) log_end_msg 0 ;;
-	1) log_end_msg 1 ;; # Old process is still running
-      *) log_end_msg 1 ;; # Failed to start
+	  0) do_log 0 ;;
+	1) do_log 1 ;; # Old process is still running
+      *) do_log 1 ;; # Failed to start
     esac
-    ;;
-  *)
-    # Failed to stop
-    log_end_msg 1
-    ;;
+  fi
+  ;;
+*)
+  # Failed to stop
+do_log 1
+  ;;
 esac
 ;;
   *)

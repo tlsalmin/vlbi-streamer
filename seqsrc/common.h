@@ -12,7 +12,9 @@
 #define GRAB_AND_SHIFT(word,start,end) ((word & get_mask(start,end)) >> start)
 #define JUMPSIZE 1000
 #define SHIFTCHAR(x) ((((x) & 0x08) >> 3) | (((x) & 0x04) >> 1) | (((x) & 0x02) << 1) | (((x) & 0x01) << 3))
+#ifndef B
 #define B(x) (1 << x)
+#endif
 #define HEXMODE B(0)
 #define NETMODE B(1)
 #define ISAUTO	B(2)

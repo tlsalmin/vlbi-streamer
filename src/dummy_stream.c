@@ -185,7 +185,7 @@ void * dummy_receiver(void *streamo)
       break;
     }
     // RECEIVE
-    //usleep(5);
+    usleep(5);
     err = spec_ops->opt->packet_size;
     err = udps_handle_received_packet(se, resq, err);
     if(err != 0){

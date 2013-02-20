@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.5.1.2], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.5.1.3], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
@@ -67,16 +67,11 @@ AC_ARG_ENABLE(libfuse,
 AC_MSG_RESULT($enable_libfuse)
 AS_IF([test "x$enable_libfuse" != "xno"], [
        AC_CHECK_LIB([fuse],[fuse_main], [
-		     #AC_CHECK_LIB([fuse], [fuse_main],
-#	     [
 	      FUSE_LIBS=`pkg-config fuse --libs`
 	      FUSE_CFLAGS=`pkg-config fuse --cflags`
 	      AC_SUBST([FUSE_LIBS])
 	      AC_SUBST([FUSE_CFLAGS])
 	      AC_DEFINE(HAVE_LIBFUSE, 1, [Compile with added libaio backend])
-#	     ],
-#	     [AC_MSG_ERROR([FUSE library is missing])],
-#	     )
 		     ], [
 			 AC_MSG_WARN([Could not find library fuse])
 			 AC_MSG_WARN([fuse functionality disabled])
@@ -274,4 +269,4 @@ AM_INIT_AUTOMAKE([foreign parallel-tests color-tests])
 #AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADER([src/config.h])
 #AM_CONFIG_HEADER([utests/config.h])
-AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile utests/Makefile)
+AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile utests/Makefile vbs_fs/Makefile)

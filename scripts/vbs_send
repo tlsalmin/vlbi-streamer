@@ -10,12 +10,12 @@ EOF
 }
 
 SCRIPTNAME=vbs_send
-scriptPath=${0%${SCRIPTNAME}}
+scriptPath=${0%$SCRIPTNAME}
 if [ -z "$scriptPath" ]
 then
   #invoked from PATH
   scriptPath=$(which $0)
-  scriptPath=${${scriptPath}%${SCRIPTNAME}}
+  scriptPath=${scriptPath%$SCRIPTNAME}
 fi
 source ${scriptPath}vbs_common_functions
 
