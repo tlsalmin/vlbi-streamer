@@ -1272,6 +1272,11 @@ void get_udp_stats(void *sp, void *stats){
   stat->total_bytes += spec_ops->total_captured_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
+  if(spec_ops->opt->last_packet > 0){
+    stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
+  }
+  else
+    stat->progress = -1;
   //stat->files_exchanged = udps_get_fileprogress(spec_ops);
 }
 int close_udp_streamer(void *opt_own, void *stats){
