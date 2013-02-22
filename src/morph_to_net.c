@@ -22,6 +22,7 @@
 #define LOG_TO_FILE 0
 #endif
 #include "logging.h"
+#include "timer.h"
 
 #define DEFAULT_PORT 		2222
 #define DEFAULT_PACKET_SIZE	5016
@@ -39,8 +40,9 @@ struct options{
   int opts;
   int offset;
   uint64_t total_sent;
-  int packet_size;
-  int rate;
+  uint64_t packet_size;
+  uint64_t rate;
+  uint64_t wait_nano;
   int waitms;
   int status;
   void * buffer;
@@ -155,12 +157,18 @@ int do_sending(struct options* opts)
   uint64_t do_send=0;
   uint64_t sending = 0;
   uint64_t counter = 0;
+  int64_t sleeptime;
+  TIMERTYPE last_sent;
+  TIMERTYPE now;
+  TIMERTYPE sleepdo;
+  sleepdo.tv_sec =0;
   void * read_here = opts->buffer;
   int to_start =0;
   void * endofbuffer = opts->buffer + opts->buffermultiplier*opts->packet_size;
   uint32_t *end_of_counter = ((uint32_t*)(&counter))+1;
   struct iovec *iovs = malloc(sizeof(struct iovec)*2);
-  struct iovec *ciov = iovs+1;
+  struct iovec *ciov = iovs;
+  struct iovec *diov = iovs+1;
   int running = 1;
   if(opts->opts & OPTS_DO_COUNTER)
   {
@@ -185,7 +193,8 @@ int do_sending(struct options* opts)
   CHECK_ERR("Bind");
 
   err = 0;
-  iovs->iov_len = opts->packet_size;
+  diov->iov_len = opts->packet_size;
+  GETTIME(last_sent);
   while(running == 1)
   {
     LOCK;
@@ -212,9 +221,17 @@ int do_sending(struct options* opts)
     }
     for(sending=0;sending < do_send;sending++)
     {
-      iovs->iov_base = read_here;
+      diov->iov_base = read_here;
       if(opts->offset > 0)
-	iovs->iov_base +=opts->offset;
+	diov->iov_base +=opts->offset;
+
+      GETTIME(now);
+      sleeptime = opts->wait_nano - nanodiff(&last_sent, &now);
+      if(sleeptime > 0)
+      {
+	sleepdo.tv_nsec = sleeptime;
+	SLEEP_NANOS(sleepdo);
+      }
 
       if(opts->opts & OPTS_DO_COUNTER)
       {
@@ -222,14 +239,14 @@ int do_sending(struct options* opts)
 	(*end_of_counter)++;
       }
       else
-	err = writev(fd, iovs, 1);
+	err = writev(fd, diov, 1);
       if(err < 0){
 	E("Error in stuffing to socket");
 	opts->opts |= OPTS_ERR_IN_SEND;
 	running = 0;
 	break;
       }
-
+      GETTIME(last_sent);
       opts->total_sent += err;
       read_here += opts->packet_size;
     }
@@ -248,7 +265,7 @@ int main(int argc, char** argv)
   struct options * opts;
   opts = malloc(sizeof(struct options));
   memset(opts, 0,sizeof(struct options));
-  int err,  ret;
+  int err,  ret, recalc_rate=0;
   pthread_t reader;
   opts->opts |= OPTS_READING;
 
@@ -274,11 +291,13 @@ int main(int argc, char** argv)
 	opts->offset = atoi(optarg);
 	break;
       case 'r':
+	opts->rate = atoi(optarg);
+	recalc_rate=1;
 	break;
       case 'p':
 	opts->packet_size = atoi(optarg);
 	if(opts->packet_size < 1 ||  opts->packet_size > 65536){
-	  E("Cant set packet size to %d",, opts->packet_size);
+	  E("Cant set packet size to %ld",, opts->packet_size);
 	  usage(argv[0]);
 	}
 	break;
@@ -295,6 +314,8 @@ int main(int argc, char** argv)
   argv +=optind;
   argc -=optind;
 
+  if(recalc_rate==1)
+    opts->wait_nano = ((1000000000)*opts->packet_size*8)/(opts->rate*1024*1024);
   D("Parameters checked");
   opts->filename = argv[0];
   opts->target = argv[1];
@@ -312,6 +333,8 @@ int main(int argc, char** argv)
 
   err = pthread_join(reader,NULL);
   CHECK_ERR("pthread_join");
+
+  LOG("Sent %ld bytes\n)", opts->total_sent);
 
   pthread_mutex_destroy(&(opts->access));
   pthread_cond_destroy(&(opts->wait));
