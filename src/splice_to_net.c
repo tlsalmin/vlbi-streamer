@@ -115,10 +115,14 @@ int splice_to_socket(struct options* opts,int  pipe)
   CHECK_ERR("Bind");
 
   long totransfer=opts->packet_size-1;
+  size_t countermon;
 
   if(opts->opts & OPTS_DO_COUNTER)
   {
-    vmsplice(pipe, &ciov, 1, SPLICE_F_MORE);
+    D("Doing the counter one time!");
+    countermon = vmsplice(pipe, &ciov, 1, SPLICE_F_GIFT);
+    if(countermon != ciov.iov_len)
+      E("Counter didn't write %ld bytes",, ciov.iov_len);
     (*end_of_counter)++;
   }
 
