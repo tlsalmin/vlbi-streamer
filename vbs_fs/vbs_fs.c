@@ -929,10 +929,11 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
 long convert_from_woffset_to_truelength(const long amount, const struct file_index *fi,const struct vbs_state * vbs_data)
 {
   long truelength = 0;
-  long remainder = amount % fi->packet_size;
-  truelength = (amount/fi->packet_size)*(fi->packet_size+vbs_data->offset);
+  long remainder = amount % (fi->packet_size-vbs_data->offset);
+  truelength = (amount/(fi->packet_size-vbs_data->offset))*(fi->packet_size+vbs_data->offset);
   if(remainder > 0)
     truelength += vbs_data->offset + remainder;
+  D("Converted %ld in offset form to %ld in true length",, amount, truelength);
   return truelength;
 }
 long convert_from_truelength_to_woffset(const long amount,const struct file_index *fi,const struct vbs_state * vbs_data)
@@ -1044,7 +1045,20 @@ void * do_operation(void* opts)
     struct iovec iov[2];
     void* dummyspace = NULL;
     int retval_forked = 0;
-    if(vbs_data->offset != 0){
+    int to_boundary;
+    if(vbs_data->offset > 0){
+      if((to_boundary = ro->offset % ro->fi->packet_size)!= 0)
+      {
+	D("Cleaning up until packet boundary");
+	if(to_boundary > ro->fi->packet_size - vbs_data->offset)
+	{
+	  iov[0].iov_base = dummyspace;
+	  iov[0].iov_len = to_boundary - (ro->fi->packet_size-vbs_data->offset);
+	  iov[1].iov_base = ro->buf;
+	  iov[1].iov_len = to_boundary; /* END HERE */
+	}
+	iov[1].iov_len = to_boundary;
+      }
       dummyspace = malloc(vbs_data->offset);
       iov[0].iov_base = dummyspace;
       iov[0].iov_len = vbs_data->offset;
@@ -1084,7 +1098,7 @@ void * do_operation(void* opts)
 	count -= err;
 	if(vbs_data->offset != 0){
 	  //count -= (ro->fi->packet_size - vbs_data->offset);
-	  iov[1].iov_base += ro->fi->packet_size - vbs_data->offset;
+	  iov[1].iov_base += (ro->fi->packet_size - vbs_data->offset);
 	  iov[1].iov_len = MIN(count, ro->fi->packet_size-vbs_data->offset);
 	}
 	else
@@ -1198,7 +1212,7 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   n_files_open++;
 
 
-  D("For %s start at file %lu, partial offset %lu n_files_open %d",, path, filenum, partial_off, n_files_open);
+  D("For %s start at file %lu, partial offset %lu n_files_open %d count %ld",, path, filenum, partial_off, n_files_open, size);
 
   /*
      fds = malloc(sizeof(int)*n_files_open);
