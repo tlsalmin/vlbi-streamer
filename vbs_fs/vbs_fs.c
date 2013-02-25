@@ -21,6 +21,14 @@
 #include <sys/xattr.h>
 #include <libconfig.h>
 #include <regex.h> /* For regexp file matching */
+#define MAX(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+#define MIN(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
 
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
@@ -122,6 +130,9 @@ struct vbs_state *vbs_data;
 
 int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_data); 
 int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigned int dirindex, char * dirpath);
+int quickcheck_index_for_file(const char * file);
+int add_file_to_index(const char * filename, const int index,struct vbs_state * vbs_data);
+int quickcheck_n_folders();
 
 void init_vbs_state(struct vbs_state* vbsd)
 {
@@ -625,6 +636,7 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
   LOG("Running getattr\n");
   int retstat = 0;
   int err = 0;
+  int index;
   /* If its the root, just display all recordings */
   if (strcmp(path, "/") == 0) {
     statbuf->st_mode = S_IFDIR | 0755;
@@ -634,13 +646,26 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
   {
     /* Skipping the / from start */
     D("Looking up %s",, path+1);
-    err = vbs_hashfunction(path+1, VBS_DATA, 1);
-    if(err < 0)
+    index = vbs_hashfunction(path+1, VBS_DATA, 1);
+    if(index < 0)
     {
-      E("No such file");
-      return -ENOENT;
+      if(quickcheck_index_for_file(path+1) ==0){
+	D("Found non-indexed file in getattr");
+	index = vbs_hashfunction(path+1, VBS_DATA, 0);
+	err = add_file_to_index(path+1, index, vbs_data);
+	CHECK_ERR("add file to indeX");
+	/*
+	err = create_single_file_index(&(vbs_data->fis[index]), vbs_data);
+	CHECK_ERR("Create
+	*/
+      }
+      else
+      {
+	E("No such file");
+	return -ENOENT;
+      }
     }
-    struct file_index *fi = &(vbs_data->fis[err]);
+    struct file_index *fi = &(vbs_data->fis[index]);
     D("Found file %s in index",, fi->filename);
 
     if(!(fi->status & STATUS_INITIALIZED) && !(fi->status & STATUS_NOTVBS)){
@@ -807,6 +832,9 @@ void * vbs_init(struct fuse_conn_info *conn)
   vbs_data->fis = (struct file_index*)malloc(sizeof(struct file_index)*vbs_data->max_files);
   memset(vbs_data->fis, 0, sizeof(struct file_index)*vbs_data->max_files);
 
+  if(quickcheck_n_folders() != 0)
+    E("Error in folder quickcheck");
+
   /*
   vbs_data->open_files = (struct open_file*)malloc(sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
   memset(vbs_data->open_files, 0, sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
@@ -898,12 +926,32 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
 #define OPERATION_WITH_SPLICE
 #define FLAGS_TO_ERROR_AND_RETURN_NULL ro->status &= ~RO_STATUS_STARTED; ro->status |= RO_STATUS_ERROR; return NULL
 
+long convert_from_woffset_to_truelength(const long amount, const struct file_index *fi,const struct vbs_state * vbs_data)
+{
+  long truelength = 0;
+  long remainder = amount % fi->packet_size;
+  truelength = (amount/fi->packet_size)*(fi->packet_size+vbs_data->offset);
+  if(remainder > 0)
+    truelength += vbs_data->offset + remainder;
+  return truelength;
+}
+long convert_from_truelength_to_woffset(const long amount,const struct file_index *fi,const struct vbs_state * vbs_data)
+{
+  return (amount/fi->packet_size)*(fi->packet_size-vbs_data->offset);
+  }
+
 void * do_operation(void* opts)
 {
   struct read_operator* ro = (struct read_operator*)opts;
   struct vbs_state *vbs_data = ro->vbs_data;
   int err;
   long count=ro->size;
+  /*
+  if(vbs_data->offset > 0)
+  {
+    count = convert_from_woffset_to_truelength(count, vbs_data, ro->fi);
+  }
+  */
   int pid;
 
   int pipes[2];
@@ -950,6 +998,18 @@ void * do_operation(void* opts)
       _exit(EXIT_FAILURE);
     }
     if(ro->offset != 0){
+      /*
+      long effective_offset = ro->offset;
+      if(vbs_data->offset > 0)
+      {
+	long remainder = effective_offset % ro->fi->packet_size;
+	effective_offset = (effective_offset/ro->fi->packet_size)*(ro->fi->packet_size+vbs_data->offset);
+	if(remainder > 0){
+	  effective_offset+= vbs_data->offset + remainder;
+	}
+	D("Adjusted offset from %ld to %ld",, ro->offset, effective_offset);
+      }
+      */
       if (lseek(fd, ro->offset, SEEK_SET) < 0 ){
 	E("Error in seek");
 	close(fd);
@@ -971,8 +1031,9 @@ void * do_operation(void* opts)
 	D("No more data to read");
 	count = 0;
       }
-      else
+      else{
 	count -= err;
+      }
     }
     close(pipes[1]);
     close(fd);
@@ -983,22 +1044,26 @@ void * do_operation(void* opts)
     struct iovec iov[2];
     void* dummyspace = NULL;
     int retval_forked = 0;
-    if(vbs_data->offset != 0)
+    if(vbs_data->offset != 0){
       dummyspace = malloc(vbs_data->offset);
+      iov[0].iov_base = dummyspace;
+      iov[0].iov_len = vbs_data->offset;
+      iov[1].iov_base = ro->buf;
+      iov[1].iov_len = ro->fi->packet_size-vbs_data->offset;
+    }
+    else
+    {
+      iov[1].iov_base = ro->buf;
+      iov[1].iov_len = count;
+    }
     while(count > 0)
     {
       if(vbs_data->offset != 0){
-	iov[0].iov_base = dummyspace;
-	iov[0].iov_len = vbs_data->offset;
-	iov[1].iov_base = ro->buf;
-	iov[1].iov_len = ro->fi->packet_size-vbs_data->offset;
-	err = vmsplice(pipes[0], iov, 2, SPLICE_F_MOVE|SPLICE_F_MORE);
+	err = vmsplice(pipes[0], iov, 2,0);
       }
       else
       {
-	iov[1].iov_base = ro->buf;
-	iov[1].iov_len = count;
-	err = vmsplice(pipes[0], iov+1, 1, SPLICE_F_MOVE|SPLICE_F_MORE);
+	err = vmsplice(pipes[0], iov+1, 1,0);
       }
       if(err < 0){
 	E("Error in vmsplice");
@@ -1017,10 +1082,16 @@ void * do_operation(void* opts)
       else
       {
 	count -= err;
-	if(vbs_data->offset != 0)
-	  ro->buf+=ro->fi->packet_size - vbs_data->offset;
+	if(vbs_data->offset != 0){
+	  //count -= (ro->fi->packet_size - vbs_data->offset);
+	  iov[1].iov_base += ro->fi->packet_size - vbs_data->offset;
+	  iov[1].iov_len = MIN(count, ro->fi->packet_size-vbs_data->offset);
+	}
 	else
-	  ro->buf+=err;
+	{
+	  iov[1].iov_base += err;
+	  iov[1].iov_len = count;
+	}
       }
     }
     if(vbs_data->offset != 0)
@@ -1091,13 +1162,15 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     D("created file index for %s",, path);
   }
 
-  if(vbs_data->offset != 0)
-  {
-    D("offset nonzero. Setting augmenting size from %ld to..",, size);
-    long n_packets_read = size/(fi->packet_size-vbs_data->offset);
-    size = n_packets_read * fi->packet_size;
-    D(".. %ld bytes",, size);
-  }
+  /*
+     if(vbs_data->offset != 0)
+     {
+     D("offset nonzero. Setting augmenting size from %ld to..",, size);
+     long n_packets_read = size/(fi->packet_size-vbs_data->offset);
+     size = n_packets_read * fi->packet_size;
+     D(".. %ld bytes",, size);
+     }
+     */
 
   off_t size_of_rec = fi->n_packets*(fi->packet_size-vbs_data->offset);
   if(offset >= size_of_rec)
@@ -1112,11 +1185,14 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     retval = EOF;
   }
 
-  filenum = offset/fi->filesize;
-  partial_off = offset % fi->filesize;
-  n_files_open = size / fi->filesize;
+  unsigned long effective_filesize = convert_from_truelength_to_woffset(fi->filesize, fi, vbs_data);
+
+  filenum = offset/effective_filesize;
+  //partial_off = convert_from_woffset_to_truelength(offset % effective_filesize, fi, vbs_data);
+  partial_off = offset % effective_filesize;
+  n_files_open = size / effective_filesize;
   /* Check if we go over a file boundary */
-  if(fi->filesize - partial_off  < size - n_files_open*fi->filesize)
+  if(effective_filesize - partial_off  < size - n_files_open*effective_filesize)
     n_files_open++;
   /* less than filesize => 0 n_files_open, larger => 1 n_files_open, so ++ing this */
   n_files_open++;
@@ -1158,11 +1234,16 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
       ro->fi = fi;
       ro->buf = bufstart;
       FORM_FILEPATH(ro->filename, filenum+i);
-      ro->offset = partial_off;
-      if(partial_off + size > fi->filesize)
-	amount = fi->filesize - partial_off;
+      if(vbs_data->offset > 0)
+	ro->offset = convert_from_woffset_to_truelength(partial_off,fi,vbs_data);
+      else
+	ro->offset = partial_off;
+      if(partial_off + size > effective_filesize)
+	amount = effective_filesize - partial_off;
       else
 	amount = size;
+      if(vbs_data->offset > 0)
+	amount = convert_from_woffset_to_truelength(amount, fi, vbs_data);
       ro->size = amount;
       ro->vbs_data = vbs_data;
 
@@ -1228,6 +1309,88 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
    }
    }
    */
+int quickcheck_index_for_file(const char * file)
+{
+  int err;
+  char diskpoint[FILENAME_MAX];
+  int n_drives= 0;
+  struct dirent* de;
+  DIR *df;
+  struct vbs_state * vbs_data = VBS_DATA;
+  int drives_to_go = 1;
+
+  while(drives_to_go == 1)
+  {
+    memset(diskpoint, 0, sizeof(char)*FILENAME_MAX);
+    sprintf(diskpoint, "%s%d", vbs_data->rootdir, n_drives);
+    df = opendir(diskpoint); 
+    if(df ==NULL)
+    {
+      if(errno == ENOENT){
+	D("No more drivers to check");
+	drives_to_go = 0;
+      }
+      else
+      {
+	perror("Check drivers");
+	return -1;
+      }
+    }
+    else
+    {
+      D("%s is a valid drive",, diskpoint);
+      while((de = readdir(df)) != NULL)
+      {
+	if(strcmp(de->d_name, "..") == 0 || strcmp(de->d_name, ".") == 0)
+	  D("skipping dotties");
+	else
+	{
+	  if(strcmp(de->d_name,file) == 0){
+	    D("Found %s",, file);
+	    return 0;
+	  }
+	}
+      }
+      err = closedir(df);
+      CHECK_ERR("Close dir");
+    }
+    n_drives++;
+  }
+
+  return -1;
+}
+int quickcheck_n_folders()
+{
+  char diskpoint[FILENAME_MAX];
+  int n_drives= 0;
+  DIR *df;
+  struct vbs_state * vbs_data = VBS_DATA;
+  int drives_to_go = 1;
+
+  while(drives_to_go == 1)
+  {
+    memset(diskpoint, 0, sizeof(char)*FILENAME_MAX);
+    sprintf(diskpoint, "%s%d", vbs_data->rootdir, n_drives);
+    df = opendir(diskpoint); 
+    if(df ==NULL)
+    {
+      if(errno == ENOENT){
+	D("No more drivers to check");
+	drives_to_go = 0;
+      }
+      else
+      {
+	perror("Check drivers");
+	return -1;
+      }
+    }
+    else
+      n_drives++;
+  }
+  vbs_data->n_datadirs = n_drives-1;
+  return 0;
+}
+
 int rebuild_file_index(){
   int err;
   char diskpoint[FILENAME_MAX];
@@ -1237,7 +1400,6 @@ int rebuild_file_index(){
   DIR *df;
   struct vbs_state * vbs_data = VBS_DATA;
   int drives_to_go = 1;
-
 
   (void)fi;
 
