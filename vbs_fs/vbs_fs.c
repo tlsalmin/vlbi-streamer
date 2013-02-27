@@ -1,3 +1,4 @@
+
 /*
  * Mucho gracias http://www.cs.nmsu.edu/~pfeiffer/fuse-tutorial/
  */
@@ -31,7 +32,13 @@
      _a < _b ? _a : _b; })
 
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
+
+#define DEBUG_FROM_REMOTE
+#ifdef DEBUG_FROM_REMOTE
+#define STATEFILE "/home/kharn/sshfs/watt.vlbi.metsahovi.fi/usr/local/var/opt/vlbistreamer/schedule"
+#else
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+#endif
 
 #include "../src/configcommon.h"
 #include "../src/logging.h"
@@ -235,16 +242,19 @@ int parse_cfg(config_setting_t * root, struct file_index *fi)
     {
       CHECK_IS_INT64;
       fi->packet_size = config_setting_get_int64(setting);
+      D("Found packet size in cfg");
     }
     CFG_ELIF("cumul")
     {
       CHECK_IS_INT64;
       fi->n_files = config_setting_get_int64(setting);
+      D("Found n_files in cfg");
     }
     CFG_ELIF("total_packets")
     {
       CHECK_IS_INT64;
       fi->n_packets = config_setting_get_int64(setting);
+      D("Found n_packets in cfg");
     }
   }
   return 0;
@@ -288,6 +298,7 @@ int parse_schedule_for_fi(struct file_index *fi)
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
   config_setting_t *root, *setting, *inner_setting;
+  D("Checking schedule file %s for entry",, STATEFILE);
 
   root = config_root_setting(&cfg);
   if(root == NULL){
@@ -326,8 +337,12 @@ int parse_schedule_for_fi(struct file_index *fi)
     if(is_rec == 1 && filename_ok == 1){
       D("Found %s in schedule!",, fi->filename);
       D("Updating %s from schedule",, fi->filename);
-      parse_cfg(setting, fi);
-      retval = 0;
+      if(parse_cfg(setting, fi) != 0){
+	E("Error in parsecfg");
+	retval = -1;
+      }
+      else
+	retval = 0;
       break;
     }
     is_rec =0;
@@ -462,7 +477,9 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
     CHECK_ERR("update fi_from_files in no_cfg");
   }
 
-  regfree(&regex);
+  /* TODO: Why regfreeing this segfaults? */
+  //regfree(&regex);
+  D("Done updating nocfg");
   return 0;
 }
 int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigned int dirindex, char * dirpath)
@@ -485,8 +502,18 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
       //temp = atoi(the_index);
       int temp = atoi(start_of_index);
       if((unsigned long)temp >= fi->n_files)
-	E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
-      else
+      {
+	if(fi->status & STATUS_NOCFG && (!(fi->status & STATUS_NOTVBS)))
+	{
+	  fi->n_files = temp;
+	  D("New maximum found for live as %ld",, fi->n_files);
+	}
+	else
+	{
+	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
+	  continue;
+	}
+      }
       {
 	/* TODO Heres a potential nasty bug if the filesize is of the last file
 	 * or its from an unfinished file. This should be fixed on a read
@@ -620,6 +647,12 @@ int update_stat(struct file_index * fi, struct stat * statbuf)
     memcpy(statbuf, &(fi->refstat), sizeof(struct stat));
   else
     D("Update but no refstat");
+  if(fi->n_packets == 0)
+  {
+    // TODO not thread safe!
+    fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
+    D("Using a live recording so have to estimate n_packets as %ld from %ld files",, fi->n_packets, fi->n_files);
+  }
   statbuf->st_size = fi->n_packets*(fi->packet_size-vbs_data->offset);
   statbuf->st_blocks = statbuf->st_size / 512;
 
@@ -685,7 +718,7 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     }
     if(fi->status & STATUS_NOTVBS)
       return -ENOENT;
-
+    D("updating stats for %s",, fi->filename);
     err = update_stat(fi, statbuf);
     retstat = 0;
 
