@@ -475,7 +475,11 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
     D("Found dir %s",, dirname);
     err = fi_update_from_files(fi, df, &regex, i, dirname);
     CHECK_ERR("update fi_from_files in no_cfg");
+    if( closedir(df) != 0)
+      E("Closedir");
   }
+  fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
+  D("Updated n_packets to %ld",, fi->n_packets);
 
   /* TODO: Why regfreeing this segfaults? */
   //regfree(&regex);
@@ -647,12 +651,6 @@ int update_stat(struct file_index * fi, struct stat * statbuf)
     memcpy(statbuf, &(fi->refstat), sizeof(struct stat));
   else
     D("Update but no refstat");
-  if(fi->n_packets == 0)
-  {
-    // TODO not thread safe!
-    fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
-    D("Using a live recording so have to estimate n_packets as %ld from %ld files",, fi->n_packets, fi->n_files);
-  }
   statbuf->st_size = fi->n_packets*(fi->packet_size-vbs_data->offset);
   statbuf->st_blocks = statbuf->st_size / 512;
 
@@ -1223,6 +1221,12 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     D("created file index for %s",, path);
   }
 
+  if(fi->status & STATUS_NOCFG)
+  {
+    D("updating %s since its live",, fi->filename);
+    update_nocfg_index(fi, vbs_data);
+  }
+
   /*
      if(vbs_data->offset != 0)
      {
@@ -1432,6 +1436,7 @@ int quickcheck_index_for_file(const char * file)
 }
 int quickcheck_n_folders()
 {
+  D("Quickcheking n drives");
   char diskpoint[FILENAME_MAX];
   int n_drives= 0;
   DIR *df;
@@ -1455,36 +1460,39 @@ int quickcheck_n_folders()
 	return -1;
       }
     }
-    else
+    else{
       n_drives++;
+      if(closedir(df) != 0)
+	E("closedir");
+    }
   }
-  vbs_data->n_datadirs = n_drives-1;
+  vbs_data->n_datadirs = n_drives;
+  D("Found %d drives",, vbs_data->n_datadirs);
   return 0;
 }
 
 int rebuild_file_index(){
   int err;
   char diskpoint[FILENAME_MAX];
-  int n_drives= 0;
   struct dirent* de;
   struct file_index* fi;
+  int i;
   DIR *df;
   struct vbs_state * vbs_data = VBS_DATA;
-  int drives_to_go = 1;
 
   (void)fi;
 
   FILOCK(MAINLOCK);
-  while(drives_to_go == 1)
+  for(i=0;i<vbs_data->n_datadirs;i++)
   {
     memset(diskpoint, 0, sizeof(char)*FILENAME_MAX);
-    sprintf(diskpoint, "%s%d", vbs_data->rootdir, n_drives);
+    sprintf(diskpoint, "%s%d", vbs_data->rootdir,i);
     df = opendir(diskpoint); 
     if(df ==NULL)
     {
       if(errno == ENOENT){
-	D("No more drivers to check");
-	drives_to_go = 0;
+	D("No more drivers to check. Drive number %d not found",, i);
+	break;
       }
       else
       {
@@ -1525,10 +1533,8 @@ int rebuild_file_index(){
       err = closedir(df);
       CHECK_ERR("Close dir");
     }
-    n_drives++;
   }
   FIUNLOCK(MAINLOCK);
-  vbs_data->n_datadirs = n_drives-1;
 
   return 0;
 }
