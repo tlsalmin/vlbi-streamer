@@ -546,8 +546,8 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	  }
 	}
 	D("Identified %s as %d",,start_of_index,  temp);
-	if(dirindex >= fi->allocated_files){
-	  while(dirindex >= fi->allocated_files)
+	if((unsigned)temp >= fi->allocated_files){
+	  while((unsigned)temp >= fi->allocated_files)
 	    fi->allocated_files = fi->allocated_files << 1;
 	  if((fi->fileid = realloc(fi->fileid, fi->allocated_files*sizeof(DISKINDEX_INT))) == NULL)
 	  {
@@ -555,8 +555,8 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	    return -1;
 	  }
 	}
-	if(dirindex >= fi->n_files)
-	  fi->n_files = dirindex+1;
+	if((unsigned)temp >= fi->n_files)
+	  fi->n_files = temp+1;
 
 	fi->fileid[temp] = (DISKINDEX_INT)dirindex;
       }
@@ -700,6 +700,7 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     D("Found file %s in index",, fi->filename);
 
     if(!(fi->status & STATUS_INITIALIZED) && !(fi->status & STATUS_NOTVBS)){
+      D("Creating file index for %s",, fi->filename);
       err = create_single_file_index(fi, vbs_data);
       if(err != 0){
 	E("Error in update stat");
@@ -921,20 +922,43 @@ void vbs_destroy(void * vd)
 static int vbs_open(const char *path, struct fuse_file_info * fi)
 {
   LOG("Running open\n");
+  int err;
   (void)fi;
   struct vbs_state* vbs_data = VBS_DATA;
   //struct open_file* of;
   //int retval = -EMFILE;
   int64_t index_of_fi;
+  struct file_index * fifi;
 
   index_of_fi = vbs_hashfunction(path+1, vbs_data, 1);
   if(index_of_fi == -1){
     D("No file %s in vbs",, path);
     return -ENOENT;
   }
-  if(vbs_data->fis[index_of_fi].status & STATUS_NOTVBS){
+  fifi = &vbs_data->fis[index_of_fi];
+  if(fifi->status & STATUS_NOTVBS){
     D("File %s not vbs-file",, path);
     return -ENOENT;
+  }
+
+  /* Check if we've created the index	*/
+  if(!(fifi->status & STATUS_INITIALIZED))
+  {
+    D("reading file with 0 filesize!");
+    err = create_single_file_index(fifi, vbs_data);
+    if(err != 0){
+      E("Error in creating file index for %s",, path);
+      return -ENOENT;
+    }
+    D("created file index for %s",, path);
+  }
+  else if(fifi->status & STATUS_NOCFG)
+  {
+    D("updating %s since its live",, fifi->filename);
+    if(update_nocfg_index(fifi, vbs_data)!= 0){
+      E("Error in update");
+      return -ENOENT;
+    }
   }
 
   /*
@@ -1210,22 +1234,7 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     return -EBADF;
   }
 
-  /* Check if we've created the index	*/
-  if(fi->filesize == 0){
-    D("reading file with 0 filesize!");
-    err = create_single_file_index(fi, vbs_data);
-    if(err != 0){
-      E("Error in creating file index for %s",, path);
-      return -1;
-    }
-    D("created file index for %s",, path);
-  }
 
-  if(fi->status & STATUS_NOCFG)
-  {
-    D("updating %s since its live",, fi->filename);
-    update_nocfg_index(fi, vbs_data);
-  }
 
   /*
      if(vbs_data->offset != 0)
