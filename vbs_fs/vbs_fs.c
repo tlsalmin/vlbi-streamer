@@ -930,7 +930,8 @@ long convert_from_woffset_to_truelength(const long amount, const struct file_ind
 {
   long truelength = 0;
   long remainder = amount % (fi->packet_size-vbs_data->offset);
-  truelength = (amount/(fi->packet_size-vbs_data->offset))*(fi->packet_size+vbs_data->offset);
+  //truelength = (amount/(fi->packet_size-vbs_data->offset))*(fi->packet_size+vbs_data->offset);
+  truelength = (amount/(fi->packet_size-vbs_data->offset))*(fi->packet_size);
   if(remainder > 0)
     truelength += vbs_data->offset + remainder;
   D("Converted %ld in offset form to %ld in true length",, amount, truelength);
@@ -946,13 +947,14 @@ void * do_operation(void* opts)
   struct read_operator* ro = (struct read_operator*)opts;
   struct vbs_state *vbs_data = ro->vbs_data;
   int err;
-  long count=ro->size;
+  uint64_t count=ro->size;
+  uint64_t nondummy_transacted = 0;
   /*
-  if(vbs_data->offset > 0)
-  {
-    count = convert_from_woffset_to_truelength(count, vbs_data, ro->fi);
-  }
-  */
+     if(vbs_data->offset > 0)
+     {
+     count = convert_from_woffset_to_truelength(count, vbs_data, ro->fi);
+     }
+     */
   int pid;
 
   int pipes[2];
@@ -999,18 +1001,7 @@ void * do_operation(void* opts)
       _exit(EXIT_FAILURE);
     }
     if(ro->offset != 0){
-      /*
-      long effective_offset = ro->offset;
-      if(vbs_data->offset > 0)
-      {
-	long remainder = effective_offset % ro->fi->packet_size;
-	effective_offset = (effective_offset/ro->fi->packet_size)*(ro->fi->packet_size+vbs_data->offset);
-	if(remainder > 0){
-	  effective_offset+= vbs_data->offset + remainder;
-	}
-	D("Adjusted offset from %ld to %ld",, ro->offset, effective_offset);
-      }
-      */
+      D("Seeking to %ld in splicer",, ro->offset);
       if (lseek(fd, ro->offset, SEEK_SET) < 0 ){
 	E("Error in seek");
 	close(fd);
@@ -1018,6 +1009,7 @@ void * do_operation(void* opts)
 	_exit(EXIT_FAILURE);
       }
     }
+    D("Starting splicing");
     while(count > 0)
     {
       err = splice(fd, NULL, pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
@@ -1036,80 +1028,116 @@ void * do_operation(void* opts)
 	count -= err;
       }
     }
+    D("Splicer done");
     close(pipes[1]);
     close(fd);
     _exit(EXIT_SUCCESS);
   }
-  else{
+  else
+  {
     D("father pid for %s is alive",, ro->filename);
-    struct iovec iov[2];
-    void* dummyspace = NULL;
     int retval_forked = 0;
-    int to_boundary;
     if(vbs_data->offset > 0){
-      if((to_boundary = ro->offset % ro->fi->packet_size)!= 0)
-      {
-	D("Cleaning up until packet boundary");
-	if(to_boundary > ro->fi->packet_size - vbs_data->offset)
-	{
-	  iov[0].iov_base = dummyspace;
-	  iov[0].iov_len = to_boundary - (ro->fi->packet_size-vbs_data->offset);
-	  iov[1].iov_base = ro->buf;
-	  iov[1].iov_len = to_boundary; /* END HERE */
-	}
-	iov[1].iov_len = to_boundary;
-      }
+      struct iovec iov[2];
+      size_t from_boundary;
+      size_t transacted = 0;
+      void* dummyspace = NULL;
       dummyspace = malloc(vbs_data->offset);
       iov[0].iov_base = dummyspace;
-      iov[0].iov_len = vbs_data->offset;
       iov[1].iov_base = ro->buf;
-      iov[1].iov_len = ro->fi->packet_size-vbs_data->offset;
-    }
-    else
-    {
-      iov[1].iov_base = ro->buf;
-      iov[1].iov_len = count;
-    }
-    while(count > 0)
-    {
-      if(vbs_data->offset != 0){
-	err = vmsplice(pipes[0], iov, 2,0);
-      }
-      else
+      D("Starting offset vmsplice for %ld",, count);
+      while(count > 0 )
       {
-	err = vmsplice(pipes[0], iov+1, 1,0);
-      }
-      if(err < 0){
-	E("Error in vmsplice");
-	close(pipes[0]);
-	close(pipes[1]);
-	free(dummyspace);
-	waitpid(pid, &retval_forked, 0);
-	FLAGS_TO_ERROR_AND_RETURN_NULL;
-      }
-      else if(err == 0)
-      {
-	D("No more to read and vmsplice");
-	close(pipes[0]);
-	count = 0;
-      }
-      else
-      {
-	count -= err;
-	if(vbs_data->offset != 0){
-	  //count -= (ro->fi->packet_size - vbs_data->offset);
-	  iov[1].iov_base += (ro->fi->packet_size - vbs_data->offset);
-	  iov[1].iov_len = MIN(count, ro->fi->packet_size-vbs_data->offset);
+	  D("Count is %ld",, count);
+	from_boundary = ((ro->offset+transacted) % ro->fi->packet_size);
+
+	if(count <= (unsigned)vbs_data->offset){
+	  D("No need to read offset bytes %ld to buffer",, from_boundary);
+	  count = 0;
+	  break;
+	}
+	/* We will rewind up to a packet boundary so the loop after this can be	*/
+	/* more simple								*/
+	/* Have to do this in a loop, since writev might return with less 	*/
+	/* read than commanded to read						*/
+	D("Cleaning up until packet boundary. %ld from boundary",, from_boundary);
+
+	if(from_boundary < (unsigned)vbs_data->offset)
+	{
+	  iov[0].iov_len = vbs_data->offset - from_boundary;
+	  iov[1].iov_len = MIN(count-iov[0].iov_len, (unsigned)(ro->fi->packet_size-vbs_data->offset));
+	  D("Doing doublesplice with %ld to dummy and %ld to buffer",, iov[0].iov_len, iov[1].iov_len);
+	  err = vmsplice(pipes[0], iov, 2,0);
 	}
 	else
 	{
-	  iov[1].iov_base += err;
-	  iov[1].iov_len = count;
+	  iov[0].iov_len = 0;
+	  iov[1].iov_len = MIN(count, (unsigned)(ro->fi->packet_size - from_boundary));
+	  D("Doing singlespice with %ld to buffer",, iov[1].iov_len);
+	  err = vmsplice(pipes[0], iov+1, 1,0);
+	}
+
+	if(err < 0){
+	  E("Error in vmsplice");
+	  close(pipes[0]);
+	  close(pipes[1]);
+	  free(dummyspace);
+	  waitpid(pid, &retval_forked, 0);
+	  FLAGS_TO_ERROR_AND_RETURN_NULL;
+	}
+	else if(err == 0)
+	{
+	  D("No more to read and vmsplice");
+	  //close(pipes[0]);
+	  count = 0;
+	  break;
+	}
+	else
+	{
+	  count-=err;
+	  transacted+=err;
+	  iov[1].iov_base += err - iov[0].iov_len;
+	  nondummy_transacted+=err-iov[0].iov_len;
+	}
+
+      }
+      free(dummyspace);
+      D("offset vmsplice finished");
+    }
+    else
+    {
+      struct iovec iov;
+      iov.iov_len = count;
+      iov.iov_base = ro->buf;
+
+      D("Starting simple vmsplice. count is %ld",, count);
+      while(count > 0)
+      {
+	err = vmsplice(pipes[0], &iov, 1,0);
+	if(err < 0){
+	  E("Error in vmsplice");
+	  close(pipes[0]);
+	  close(pipes[1]);
+	  waitpid(pid, &retval_forked, 0);
+	  FLAGS_TO_ERROR_AND_RETURN_NULL;
+	}
+	else if(err == 0)
+	{
+	  D("No more to read and vmsplice");
+	  count = 0;
+	}
+	else
+	{
+	  count -= err;
+	  iov.iov_base += err;
+	  iov.iov_len = count;
+	  nondummy_transacted += err;
+	  /* Closing here so won't do double close on err = 0 */
 	}
       }
+      D("Simple vmsplice finished");
     }
-    if(vbs_data->offset != 0)
-      free(dummyspace);
+    D("Done and freeing up in vmsplice end");
     close(pipes[0]);
     waitpid(pid, &retval_forked, 0);
     if(retval_forked != EXIT_SUCCESS){
@@ -1117,27 +1145,10 @@ void * do_operation(void* opts)
       FLAGS_TO_ERROR_AND_RETURN_NULL;
     }
   }
-  /*
-     if(vbs_data->offset != 0){
-     n_iovec = ro->size/ro->fi->packet_size;
-     iov = (struct iovec*)malloc(sizeof(struct iovec)*n_iovec);
-     for(i=0;i<n_iovec;i++)
-     {
-     iov[i].iov_base = ro->offset + i*ro->fi->packet_size + vbs_data->offset;
-     iov[i].iov_len = ro->fi->packet_size - vbs_data->offset;
-     }
-     }
-     else{
-     n_iovec = 1;
-     iov = (struct iovec*)malloc(sizeof(struct iovec)*n_iovec);
-     iov->iov_base = vbs_data->offset;
-     iov->iov_len = ro->size;
-     }
-     */
   ro->status = RO_STATUS_FINISHED_AOK;
-  return NULL;
+  D("Read finished. Non dummy transacted %ld",,nondummy_transacted);
+  pthread_exit(NULL);
 }
-/* We go though the hassle of open, but then vbs_read gives a path? wtf.. */
 static int vbs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *finfo)
 {
   LOG("Running read\n");
@@ -1145,12 +1156,15 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   (void)finfo;
   off_t filenum,partial_off;
   void* bufstart = buf;
-  size_t retval = size;
+  int retval = size;
   int i, err, n_files_open;
+  /*
   pthread_t* pts;
   struct read_operator * ropts;
+  */
   struct file_index *fi;
   struct vbs_state * vbs_data = VBS_DATA;
+  uint64_t effective_filesize;
 
   /* Check if in hash 			*/
   fi_i = vbs_hashfunction(path+1, vbs_data, 1);
@@ -1199,7 +1213,11 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     retval = EOF;
   }
 
-  unsigned long effective_filesize = convert_from_truelength_to_woffset(fi->filesize, fi, vbs_data);
+
+  if(vbs_data->offset > 0) 
+    effective_filesize = convert_from_truelength_to_woffset(fi->filesize, fi, vbs_data);
+  else
+    effective_filesize = fi->filesize;
 
   filenum = offset/effective_filesize;
   //partial_off = convert_from_woffset_to_truelength(offset % effective_filesize, fi, vbs_data);
@@ -1220,82 +1238,88 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
      memset(fds, 0, sizeof(int)*n_files_open);
      */
 
+  /*
   pts = malloc(sizeof(pthread_t)*n_files_open);
   CHECK_ERR_NONNULL(pts, "pts malloc");
   ropts = malloc(sizeof(struct read_operator)*n_files_open);
   CHECK_ERR_NONNULL(ropts, "ropts malloc");
   memset(ropts, 0, sizeof(struct read_operator)*n_files_open);
-
-  for(i=0;i<n_files_open;i++)
+  */
   {
-    struct read_operator *ro = ropts+i;
-    if(fi->fileid[filenum+i] == -1){
-      D("Missing %ld:th file from %s",, filenum+i, path);
-      ro->status = RO_STATUS_IDIDNTEVEN;
-    }
-    else
+    pthread_t pts[n_files_open];
+    struct read_operator ropts[n_files_open];
+    memset(&ropts, 0, sizeof(struct read_operator)*n_files_open);
+
+    for(i=0;i<n_files_open;i++)
     {
-      long amount;
-      /*
-	 struct file_index *fi;
-	 void * buf;
-	 char filename[FILENAME_MAX];
-	 off_t offset;
-	 size_t size;
-	 int status;
-	 struct vbs_state *vbs_data;
-	 */
-      ro->fi = fi;
-      ro->buf = bufstart;
-      FORM_FILEPATH(ro->filename, filenum+i);
-      if(vbs_data->offset > 0)
-	ro->offset = convert_from_woffset_to_truelength(partial_off,fi,vbs_data);
-      else
-	ro->offset = partial_off;
-      if(partial_off + size > effective_filesize)
-	amount = effective_filesize - partial_off;
-      else
-	amount = size;
-      if(vbs_data->offset > 0)
-	amount = convert_from_woffset_to_truelength(amount, fi, vbs_data);
-      ro->size = amount;
-      ro->vbs_data = vbs_data;
-
-      D("File n. %ld of %s being read for %ld with offset %ld",, filenum+i, fi->filename, amount, ro->offset);
-
-      ro->status = RO_STATUS_NOTSTARTED|RO_STATUS_DOREAD;
-      err = pthread_create(pts+i, NULL, &(do_operation), ro);
-      if(err != 0){
-	E("Error in pthread create");
+      struct read_operator *ro = &ropts[i];
+      if(fi->fileid[filenum+i] == -1){
+	D("Missing %ld:th file from %s",, filenum+i, path);
 	ro->status = RO_STATUS_IDIDNTEVEN;
       }
-      bufstart += amount;
-      size -= amount;
-      partial_off = 0;
-    }
-  }
-  for(i=0;i<n_files_open;i++)
-  {
-    if(!((ropts+i)->status & RO_STATUS_IDIDNTEVEN))
-    {
-      err = pthread_join(*(pts+i),NULL);
-      if( err != 0)
-	E("Error in pthread join");
-      if((ropts+i)->status != RO_STATUS_FINISHED_AOK)
-      {
-	E("Something went wrong with %d thread for file %s",, i, (ropts+i)->fi->filename);
-	retval = -1;
-      }
       else
-	D("%d file finished ok",, i);
+      {
+	long amount;
+	/*
+	   struct file_index *fi;
+	   void * buf;
+	   char filename[FILENAME_MAX];
+	   off_t offset;
+	   size_t size;
+	   int status;
+	   struct vbs_state *vbs_data;
+	   */
+	ro->fi = fi;
+	ro->buf = bufstart;
+	FORM_FILEPATH(ro->filename, filenum+i);
+	if(vbs_data->offset > 0)
+	  ro->offset = convert_from_woffset_to_truelength(partial_off,fi,vbs_data);
+	else
+	  ro->offset = partial_off;
+	if(partial_off + size > effective_filesize)
+	  amount = effective_filesize - partial_off;
+	else
+	  amount = size;
+	if(vbs_data->offset > 0)
+	  amount = convert_from_woffset_to_truelength(amount, fi, vbs_data);
+	ro->size = amount;
+	ro->vbs_data = vbs_data;
+
+	D("File n. %ld of %s being read for %ld with offset %ld",, filenum+i, fi->filename, amount, ro->offset);
+
+	ro->status = RO_STATUS_NOTSTARTED|RO_STATUS_DOREAD;
+	err = pthread_create(&(pts[i]), NULL, &(do_operation), ro);
+	if(err != 0){
+	  E("Error in pthread create");
+	  ro->status = RO_STATUS_IDIDNTEVEN;
+	}
+	bufstart += amount;
+	size -= amount;
+	partial_off = 0;
+      }
     }
-    else{
-      D("File %d didnt exist so TODO: filler",, i);
+    for(i=0;i<n_files_open;i++)
+    {
+      if(!((ropts[i]).status & RO_STATUS_IDIDNTEVEN))
+      {
+	err = pthread_join(pts[i],NULL);
+	if( err != 0)
+	  E("Error in pthread join");
+	if(ropts[i].status != RO_STATUS_FINISHED_AOK)
+	{
+	  E("Something went wrong with %d thread for file %s",, i, ropts[i].fi->filename);
+	  retval = -1;
+	}
+	else
+	  D("%d file finished ok",, i);
+      }
+      else{
+	D("File %d didnt exist so TODO: filler",, i);
+      }
     }
   }
-  free(ropts);
-  free(pts);
-
+  D("Quitting read. Retval is %d",, retval);
+  //retval=size;
   return retval;
 }
 /*
