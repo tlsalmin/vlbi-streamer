@@ -32,7 +32,7 @@
      _a < _b ? _a : _b; })
 
 
-#define DEBUG_FROM_REMOTE
+//#define DEBUG_FROM_REMOTE
 #ifdef DEBUG_FROM_REMOTE
 #define CFGFILE "/home/kharn/sshfs/watt.vlbi.metsahovi.fi/usr/local/etc/vlbistreamer.conf"
 #define STATEFILE "/home/kharn/sshfs/watt.vlbi.metsahovi.fi/usr/local/var/opt/vlbistreamer/schedule"
