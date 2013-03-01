@@ -144,6 +144,7 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 int quickcheck_index_for_file(const char * file);
 int add_file_to_index(const char * filename, const int index,struct vbs_state * vbs_data);
 int quickcheck_n_folders();
+int rebuild_file_index(struct vbs_state *vbs_data);
 
 void init_vbs_state(struct vbs_state* vbsd)
 
@@ -556,12 +557,11 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
     clear_recording(fi);
     return -1;
   }
+  SINGLELOCK;
   if(fi->status & STATUS_NOCFG)
   {
-    SINGLELOCK;
     fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
     D("Updated n_packets to %ld",, fi->n_packets);
-    SINGLEUNLOCK;
   }
 
   if(!(fi->status & STATUS_INITIALIZED))
@@ -569,6 +569,7 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
     fi->status |= STATUS_INITIALIZED;
     D("%s is now initialized",, fi->filename);
   }
+  SINGLEUNLOCK;
 
   /* TODO: Why regfreeing this segfaults? */
   //regfree(&regex);
@@ -744,6 +745,7 @@ int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_
   }
   else{
     //fi->status &= ~STATUS_NOTINIT;
+    D("%s looks like a recording. It is now initialized",, fi->filename);
     fi->status |= STATUS_INITIALIZED;
   }
 
@@ -966,6 +968,12 @@ void * vbs_init(struct fuse_conn_info *conn)
      vbs_data->open_files = (struct open_file*)malloc(sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
      memset(vbs_data->open_files, 0, sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
      */
+
+  if(rebuild_file_index(vbs_data) != 0){
+    E("Error in creating file index");
+    return NULL;
+  }
+
 
   D("init done");
   return (void*)vbs_data;
@@ -1511,14 +1519,14 @@ int quickcheck_n_folders()
   return 0;
 }
 
-int rebuild_file_index(){
+int rebuild_file_index(struct vbs_state *vbs_data){
   int err;
   char diskpoint[FILENAME_MAX];
   struct dirent* de;
   struct file_index* fi;
   int i;
   DIR *df;
-  struct vbs_state * vbs_data = VBS_DATA;
+  //struct vbs_state * vbs_data = VBS_DATA;
 
   (void)fi;
 
@@ -1555,10 +1563,20 @@ int rebuild_file_index(){
 	  {
 	    if(vbs_data->fis[err].status == STATUS_SLOTFREE)
 	    {
+	      int index =err;
 	      D("new file %s",, de->d_name);
-	      err = add_file_to_index(de->d_name, err, vbs_data);
+	      err = add_file_to_index(de->d_name, index, vbs_data);
 	      if(err != 0)
 		E("Err in add file to index");
+	      err = create_single_file_index(&vbs_data->fis[index], vbs_data);
+	      if(err != 0)
+		E("Error in creating index for %s",, vbs_data->fis[index].filename);
+	      /*
+		 if(de->d_type != DT_DIR){
+		 vbs_data->fis[err].status |= STATUS_NOTVBS;
+	      //D("%s is not a dir so setting as notvbs",, vbs_data->fis[err].filename);
+	      }
+	      */
 	    }
 	    else
 	    {
@@ -1587,18 +1605,21 @@ static int vbs_readdir(const char *path, void * buf, fuse_fill_dir_t filler, off
   if (strcmp(path, "/") != 0)
     return -ENOENT;
 
-  err = rebuild_file_index();
+  err = rebuild_file_index(vbs_data);
   if(err != 0){
     E("Error in rebuilding index for %s",, path);
   }
 
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
+  D("Starting filling");
   for(i=0;i<vbs_data->max_files;i++)
   {
     struct file_index * fi = &(vbs_data->fis[i]);
-    if(fi->status != STATUS_SLOTFREE && !(fi->status & STATUS_NOTVBS))
+    if(fi->status != STATUS_SLOTFREE && !(fi->status & STATUS_NOTVBS)){
+      D("filling with %s",, fi->filename);
       filler(buf, fi->filename, NULL, 0);
+    }
   }
 
   return 0;
