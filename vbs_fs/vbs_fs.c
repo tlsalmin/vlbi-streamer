@@ -31,12 +31,13 @@
        __typeof__ (b) _b = (b); \
      _a < _b ? _a : _b; })
 
-#define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 
 #define DEBUG_FROM_REMOTE
 #ifdef DEBUG_FROM_REMOTE
+#define CFGFILE "/home/kharn/sshfs/watt.vlbi.metsahovi.fi/usr/local/etc/vlbistreamer.conf"
 #define STATEFILE "/home/kharn/sshfs/watt.vlbi.metsahovi.fi/usr/local/var/opt/vlbistreamer/schedule"
 #else
+#define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
 #endif
 
@@ -94,6 +95,7 @@ struct file_index{
   char *filename;
   int status;
   int packet_size;
+  int filesizemb;
   unsigned long filesize;
   unsigned long n_packets;
   long unsigned n_files;
@@ -272,6 +274,12 @@ int parse_cfg(config_setting_t * root, struct file_index *fi)
       fi->n_packets = config_setting_get_int64(setting);
       D("Found n_packets in cfg");
     }
+    CFG_ELIF("filesizemb")
+    {
+      CHECK_IS_INT;
+      fi->filesizemb = config_setting_get_int(setting);
+      D("Found filesizemb in cfg");
+    }
   }
   return 0;
 }
@@ -294,13 +302,11 @@ int get_fi_from_cfg(char * path, struct file_index * fi)
   }
   else
   {
-    SINGLELOCK;
     err = parse_cfg(root, fi);
     if(err != 0){
       E("Error in parse cfg");
       retval = -1;
     }
-    SINGLEUNLOCK;
   }
   config_destroy(&cfg);
 
@@ -526,6 +532,13 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
     }
   }
 
+  if(fi->filesize == 0 && fi->filesizemb != 0)
+  {
+    fi->filesize = fi->filesizemb * B(20);
+    fi->filesize -= fi->filesize % fi->packet_size;
+    D("Updated filesize of %s to %ld from filesizemb",, fi->filename, fi->filesize);
+  }
+
   if(fi->fileid == NULL){
     SINGLELOCK;
     fi->fileid = malloc(sizeof(DISKINDEX_INT)*DISKINDEX_INITIAL_SIZE);
@@ -598,7 +611,7 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	/* TODO Heres a potential nasty bug if the filesize is of the last file
 	 * or its from an unfinished file. This should be fixed on a read
 	 * command.	*/
-	if(fi->filesize == 0)
+	if(fi->filesize == 0 || !(fi->status & STATUS_GOTREFSTAT))
 	{
 	  char tempfilename[FILENAME_MAX];
 	  sprintf(tempfilename, "%s%c%s", dirpath, '/', de->d_name);
@@ -608,17 +621,20 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	    E("Error in getting stat for %s",, tempfilename);
 	  else
 	  {
-	    D("Adding filesize as %ld for %s",, temp_again.st_size, tempfilename);
-	    fi->filesize =temp_again.st_size;
-	    if(fi->packet_size != 0){
-	      //fi->filesize -= fi->filesize % (fi->packet_size-vbs_data->offset);
-	      /* Extra byte stripping not related to offset */
-	      fi->filesize -= fi->filesize % (fi->packet_size);
-	      D("Augmented filesize to %ld to fit packet size %d",, fi->filesize, fi->packet_size);
-	    }
-	    else
-	      E("Cant get correct filesize as packet size is not set!");
+	    if(fi->filesize == 0)
+	    {
+	      D("Adding filesize as %ld for %s",, temp_again.st_size, tempfilename);
+	      fi->filesize =temp_again.st_size;
+	      if(fi->packet_size != 0){
+		//fi->filesize -= fi->filesize % (fi->packet_size-vbs_data->offset);
+		/* Extra byte stripping not related to offset */
+		fi->filesize -= fi->filesize % (fi->packet_size);
+		D("Augmented filesize to %ld to fit packet size %d",, fi->filesize, fi->packet_size);
+	      }
+	      else
+		E("Cant get correct filesize as packet size is not set!");
 
+	    }
 	    if(!(fi->status & STATUS_GOTREFSTAT)){
 	      D("updating refstat for %s",, fi->filename);
 	      memcpy(&fi->refstat, &temp_again, sizeof(struct stat));
@@ -1319,7 +1335,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     retval = EOF;
   }
 
-
   if(vbs_data->offset > 0) {
     effective_filesize = convert_from_truelength_to_woffset(fi->filesize, fi, vbs_data);
     D("Effective filesize as %ld and real as %ld",, effective_filesize, fi->filesize);
@@ -1651,6 +1666,7 @@ static struct fuse_opt vbs_opts[] = {
 int main (int argc, char ** argv){
   //struct vbs_state* vbs_data;
   int fuse_stat;
+  D("Starting vbs_fs");
 
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
