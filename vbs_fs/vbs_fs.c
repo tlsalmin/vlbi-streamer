@@ -88,6 +88,8 @@
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
 
 
+#define DEBUF_FI(fi) D("filename:\t%s\tpacket_size:\t%d\tfilesize:\t%ld\tn_packets:\t%ld\tn_files:\t%ld\talloc:\t%ld",,fi->filename, fi->packet_size, fi->filesize, fi->n_packets, fi->n_files, fi->allocated_files)
+
 struct file_index{
   char *filename;
   int status;
@@ -142,6 +144,7 @@ int add_file_to_index(const char * filename, const int index,struct vbs_state * 
 int quickcheck_n_folders();
 
 void init_vbs_state(struct vbs_state* vbsd)
+
 {
   memset(vbsd, 0,sizeof(struct vbs_state));
 }
@@ -150,6 +153,19 @@ void vbs_usage()
     E("usage:  vbs_fuse [FUSE and mount options] rootdir mountPoint");
     exit(-1);
 }
+int clear_recording(struct file_index *fi)
+{
+  D("Removing %s from recording",, fi->filename);
+  if(pthread_mutex_destroy(&(fi->augmentlock)) != 0)
+    E("Error in clearing %s mutex",, fi->filename);
+  if(fi->fileid != NULL)
+    free(fi->fileid);
+  if(fi->filename != NULL)
+    free(fi->filename);
+  memset(fi,0,sizeof(struct file_index));
+  return 0;
+}
+
 int strip_last(char * original, char * stripped)
 {
   char * lrindex;
@@ -278,11 +294,13 @@ int get_fi_from_cfg(char * path, struct file_index * fi)
   }
   else
   {
+    SINGLELOCK;
     err = parse_cfg(root, fi);
     if(err != 0){
       E("Error in parse cfg");
       retval = -1;
     }
+    SINGLEUNLOCK;
   }
   config_destroy(&cfg);
 
@@ -352,14 +370,21 @@ int parse_schedule_for_fi(struct file_index *fi)
   config_destroy(&cfg);
   return retval;
 }
-int get_and_update_from_own_cfg(struct file_index *fi, char *dir)
+int get_and_update_from_own_cfg(struct file_index *fi, char *dir, int not_dir_but_straight)
 {
   int err;
   struct stat st_temp;
-  char cfgname[FILENAME_MAX];
-  sprintf(cfgname, "%s%c%s%s", dir, '/', fi->filename, ".cfg");
-  D("Statting cfg %s",, cfgname);
-  err = stat(cfgname, &st_temp);
+  char * target;
+  if(not_dir_but_straight == 1)
+    target = dir;
+  else
+  {
+    char cfgname[FILENAME_MAX];
+    sprintf(cfgname, "%s%c%s%s", dir, '/', fi->filename, ".cfg");
+    target = cfgname;
+  }
+  D("Statting cfg %s",, target);
+  err = stat(target, &st_temp);
 
   if(err == -1){
     if(errno != ENOENT)
@@ -378,28 +403,36 @@ int get_and_update_from_own_cfg(struct file_index *fi, char *dir)
     fi->status |= STATUS_GOTREFSTAT;
   }
   //found_cfg =1;
-  D("Getting cfg from fi on %s",, cfgname);
-  err = get_fi_from_cfg(cfgname, fi);
+  D("Getting cfg from fi on %s",, target);
+  err = get_fi_from_cfg(target, fi);
   if(err != 0){
     E("Error in parsing cfg");
     return -1;
   }
+  if(fi->fileid == NULL){
+    fi->fileid = (DISKINDEX_INT*)malloc(sizeof(DISKINDEX_INT)*fi->n_files);
+    memset(fi->fileid, -1, sizeof(DISKINDEX_INT)*fi->n_files);
+    fi->allocated_files = fi->n_files;
+  }
   if(fi->status & STATUS_NOCFG)
   {
+    if(fi->allocated_files != fi->n_files)
+    {
+      D("stats finalized for %s so updating n_files to %ld",, fi->filename, fi->n_files);
+      if((fi->fileid = (DISKINDEX_INT*)realloc(fi->fileid, fi->n_files*sizeof(DISKINDEX_INT))) == NULL)
+	E("Error in realloc of %s",, fi->filename);
+      fi->allocated_files = fi->n_files;
+    }
     D("A session has finished recording it seems");
     fi->status &= ~STATUS_NOCFG;
   }
   fi->status |= STATUS_CFGPARSED;
-  if(fi->fileid == NULL){
-    fi->fileid = (DISKINDEX_INT*)malloc(sizeof(DISKINDEX_INT)*fi->n_files);
-    memset(fi->fileid, -1, sizeof(DISKINDEX_INT)*fi->n_files);
-  }
-  fi->allocated_files = fi->n_files;
-  D("Parsed cfg %s",, cfgname);
+
+  D("Parsed cfg %s",, target);
 
   return 0;
 }
-int check_all_dirs_for_cfg(const struct file_index * fi, const struct vbs_state *vbs_data)
+int check_all_dirs_for_cfg(const struct file_index * fi, const struct vbs_state *vbs_data, char * copyto)
 {
   char temp[FILENAME_MAX];
   int i;
@@ -407,57 +440,30 @@ int check_all_dirs_for_cfg(const struct file_index * fi, const struct vbs_state 
   int found=-1;
   for(i=0;i<vbs_data->n_datadirs;i++)
   {
-    sprintf(temp, "%s%d%c%s%s", vbs_data->rootdir, i, '/', fi->filename, ".cfg");
+    sprintf(temp, "%s%d/%s/%s%s", vbs_data->rootdir, i,  fi->filename, fi->filename, ".cfg");
     if (stat(temp, &st) != 0)
       D("Not in %s",, temp);
     else{
+      D("Found %s",, temp);
+      if(copyto != NULL)
+	strcpy(copyto, temp);
       found=0;
       break;
     }
   }
   return found;
 }
-int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
+int generic_do_to_each_subfolder(struct file_index *fi, const struct vbs_state *vbs_data, int(*do_to_folder)(struct file_index*, DIR*, regex_t *, unsigned int , char* ))
 {
   int err,i;
-  D("Getting preliminary info from cfg-file");
-
-  err = get_fi_from_cfg(CFGFILE, fi);
-  if(err != 0){
-    E("error in reading cfg %s",, CFGFILE);
-    return -1;
-  }
-  err = parse_schedule_for_fi(fi);
-  if(err != 0)
-  {
-    D("No %s in schedule",, fi->filename);
-    if(check_all_dirs_for_cfg(fi, vbs_data) != 0){
-      D("%s not found in schedule nor folders. Setting as non-vlbistreamer file",, fi->filename);
-      SINGLELOCK;
-      fi->status |= STATUS_NOTVBS;
-      SINGLEUNLOCK;
-      return 0;
-    }
-    else{
-      D("%s seems to have finished",, fi->filename);
-      SINGLELOCK;
-      fi->status &= ~STATUS_NOCFG;
-      SINGLEUNLOCK;
-      return create_single_file_index(fi,vbs_data);
-    }
-  }
-
-  if(fi->fileid == NULL){
-    fi->fileid = malloc(sizeof(DISKINDEX_INT)*DISKINDEX_INITIAL_SIZE);
-    fi->allocated_files = DISKINDEX_INITIAL_SIZE;
-    memset(fi->fileid, -1, sizeof(DISKINDEX_INT)*fi->allocated_files);
-  }
-
   regex_t regex;
   char regstring[FILENAME_MAX];
   sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", fi->filename);
   err = regcomp(&regex, regstring, 0);
   CHECK_ERR("Regcomp");
+
+  /* Found service is included */
+  fi->status &= ~STATUS_FOUND;
 
   for(i=0;i<vbs_data->n_datadirs;i++)
   {
@@ -473,13 +479,83 @@ int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
       continue;
     }
     D("Found dir %s",, dirname);
-    err = fi_update_from_files(fi, df, &regex, i, dirname);
-    CHECK_ERR("update fi_from_files in no_cfg");
-    if( closedir(df) != 0)
-      E("Closedir");
+    fi->status |= STATUS_FOUND;
+    if(do_to_folder != NULL)
+    {
+      err = do_to_folder(fi, df, &regex, i, dirname);
+      //err = fi_update_from_files(fi, df, &regex, i, dirname);
+      CHECK_ERR("update fi_from_files in no_cfg");
+      if( closedir(df) != 0)
+	E("Closedir");
+    }
   }
-  fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
-  D("Updated n_packets to %ld",, fi->n_packets);
+  return 0;
+}
+int update_nocfg_index(struct file_index *fi, const struct vbs_state *vbs_data)
+{
+  int err;
+  D("Getting preliminary info from cfg-file");
+
+  err = get_fi_from_cfg(CFGFILE, fi);
+  if(err != 0){
+    E("error in reading cfg %s",, CFGFILE);
+    return -1;
+  }
+  err = parse_schedule_for_fi(fi);
+  if(err != 0)
+  {
+    D("No %s in schedule",, fi->filename);
+    char temp[FILENAME_MAX];
+    if(check_all_dirs_for_cfg(fi, vbs_data, temp) != 0){
+      D("%s not found in schedule nor folders. Setting as non-vlbistreamer file",, fi->filename);
+      /* TODO: Check if file has been deleted */
+      SINGLELOCK;
+      fi->status |= STATUS_NOTVBS;
+      SINGLEUNLOCK;
+      return 0;
+    }
+    else{
+      D("%s seems to have finished",, fi->filename);
+      err = get_and_update_from_own_cfg(fi, temp, 1);
+      CHECK_ERR("get_fi");
+      /*
+	 SINGLELOCK;
+	 fi->status &= ~STATUS_NOCFG;
+	 SINGLEUNLOCK;
+	 */
+    }
+  }
+
+  if(fi->fileid == NULL){
+    SINGLELOCK;
+    fi->fileid = malloc(sizeof(DISKINDEX_INT)*DISKINDEX_INITIAL_SIZE);
+    fi->allocated_files = DISKINDEX_INITIAL_SIZE;
+    memset(fi->fileid, -1, sizeof(DISKINDEX_INT)*fi->allocated_files);
+    SINGLEUNLOCK;
+  }
+
+  err = generic_do_to_each_subfolder(fi, vbs_data, &fi_update_from_files);
+  CHECK_ERR("Do to each subfolder");
+
+  if(!(fi->status & STATUS_FOUND))
+  {
+    D("Recording %s seems to have been removed",, fi->filename);
+    clear_recording(fi);
+    return -1;
+  }
+  if(fi->status & STATUS_NOCFG)
+  {
+    SINGLELOCK;
+    fi->n_packets = (fi->n_files * fi->filesize)/fi->packet_size;
+    D("Updated n_packets to %ld",, fi->n_packets);
+    SINGLEUNLOCK;
+  }
+
+  if(!(fi->status & STATUS_INITIALIZED))
+  {
+    fi->status |= STATUS_INITIALIZED;
+    D("%s is now initialized",, fi->filename);
+  }
 
   /* TODO: Why regfreeing this segfaults? */
   //regfree(&regex);
@@ -534,10 +610,15 @@ int fi_update_from_files(struct file_index *fi, DIR *df, regex_t *regex, unsigne
 	  {
 	    D("Adding filesize as %ld for %s",, temp_again.st_size, tempfilename);
 	    fi->filesize =temp_again.st_size;
-	    if(fi->packet_size != 0)
-	      fi->filesize -= fi->filesize % (fi->packet_size-vbs_data->offset);
+	    if(fi->packet_size != 0){
+	      //fi->filesize -= fi->filesize % (fi->packet_size-vbs_data->offset);
+	      /* Extra byte stripping not related to offset */
+	      fi->filesize -= fi->filesize % (fi->packet_size);
+	      D("Augmented filesize to %ld to fit packet size %d",, fi->filesize, fi->packet_size);
+	    }
 	    else
 	      E("Cant get correct filesize as packet size is not set!");
+
 	    if(!(fi->status & STATUS_GOTREFSTAT)){
 	      D("updating refstat for %s",, fi->filename);
 	      memcpy(&fi->refstat, &temp_again, sizeof(struct stat));
@@ -603,19 +684,28 @@ int create_single_file_index(struct file_index *fi, const struct vbs_state *vbs_
       continue;
     }
     D("Found dir %s",, temp);
-    found_atleast_one = 1;
     if(!(fi->status & STATUS_CFGPARSED))
     {
       /* If we dont yet know about this cfg */
       /* The folder exists. Check if it has a cfg */
-      err = get_and_update_from_own_cfg(fi, temp);
+      err = get_and_update_from_own_cfg(fi, temp, 0);
       if(err != 0){
 	fi->status |= STATUS_NOCFG;
 	CSFI_PREFAIL;
 	D("Presuming %s is an active recording",, fi->filename);
 	return update_nocfg_index(fi, vbs_data);
+	/*
+	   if(update_nocfg_index(fi, vbs_data) != 0){
+	   E("FAiled to update %s so presuming its non-vbs",, fi->filename);
+	   return -1;
+	   }
+	   else
+	   return 0;
+	   */
       }
     }
+
+    found_atleast_one = 1;
 
     err = fi_update_from_files(fi, df, &regex, i, temp);
     if(err != 0){
@@ -686,9 +776,9 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
 	err = add_file_to_index(path+1, index, vbs_data);
 	CHECK_ERR("add file to indeX");
 	/*
-	err = create_single_file_index(&(vbs_data->fis[index]), vbs_data);
-	CHECK_ERR("Create
-	*/
+	   err = create_single_file_index(&(vbs_data->fis[index]), vbs_data);
+	   CHECK_ERR("Create
+	   */
       }
       else
       {
@@ -699,7 +789,12 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     struct file_index *fi = &(vbs_data->fis[index]);
     D("Found file %s in index",, fi->filename);
 
-    if(!(fi->status & STATUS_INITIALIZED) && !(fi->status & STATUS_NOTVBS)){
+    if(fi->status & STATUS_NOTVBS){
+      D("%s marked as not vbs-file",, fi->filename);
+      return -ENOENT;
+    }
+    if(!(fi->status & STATUS_INITIALIZED))
+    {
       D("Creating file index for %s",, fi->filename);
       err = create_single_file_index(fi, vbs_data);
       if(err != 0){
@@ -709,34 +804,18 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     }
     else if (fi->status & STATUS_NOCFG)
     {
+      D("%s is nocfg so updating index",, fi->filename);
       err = update_nocfg_index(fi, vbs_data);
       if(err != 0){
 	E("Error in update stat");
 	return -ENOENT;
       }
     }
-    if(fi->status & STATUS_NOTVBS)
-      return -ENOENT;
     D("updating stats for %s",, fi->filename);
     err = update_stat(fi, statbuf);
     retstat = 0;
 
-    /*
-       char fpath[PATH_MAX];
-
-       LOG("\nvbs_getattr(path=\"%s\")\n",path);
-       vbs_fullpath(fpath, path);
-
-       LOG("\nvbs_getattr(path=\"%s\"), fullpath=\"%s\"\n", path,fpath);
-       retstat = lstat(fpath, statbuf);
-       if (retstat != 0){
-       retstat = -1;
-       E("vbs_getattr lstat");
-       }
-       */
   }
-
-  //log_stat(statbuf);
 
   return retstat;
 }
@@ -868,9 +947,9 @@ void * vbs_init(struct fuse_conn_info *conn)
     E("Error in folder quickcheck");
 
   /*
-  vbs_data->open_files = (struct open_file*)malloc(sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
-  memset(vbs_data->open_files, 0, sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
-  */
+     vbs_data->open_files = (struct open_file*)malloc(sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
+     memset(vbs_data->open_files, 0, sizeof(struct open_file)*MAX_OPEN_FILES_IN_VBS_FS);
+     */
 
   D("init done");
   return (void*)vbs_data;
@@ -960,22 +1039,19 @@ static int vbs_open(const char *path, struct fuse_file_info * fi)
       return -ENOENT;
     }
   }
-
-  /*
-  for(i=0;i<MAX_OPEN_FILES_IN_VBS_FS;i++)
+  else
   {
-    of = vbs_data->open_files+i;
-    if(of == NULL)
-    {
-      D("Still space to open %s",, path);
-
-      of->fi = &(vbs_data->fis[index_of_fi]);
-      of->flags = fi->flags;
-      //retval = i;
-      break;
+    D("Running just generic check on  %s",, fifi->filename);
+    err = generic_do_to_each_subfolder(fifi, vbs_data, NULL);
+    if(!(fifi->status & STATUS_FOUND)){
+      D("%s seems to have been removed",, fifi->filename);
+      clear_recording(fifi);
+      return -ENOENT;
     }
   }
-  */
+
+  DEBUF_FI(fifi);
+
   return 0;
 }
 #define OPERATION_WITH_SPLICE
@@ -995,7 +1071,7 @@ long convert_from_woffset_to_truelength(const long amount, const struct file_ind
 long convert_from_truelength_to_woffset(const long amount,const struct file_index *fi,const struct vbs_state * vbs_data)
 {
   return (amount/fi->packet_size)*(fi->packet_size-vbs_data->offset);
-  }
+}
 
 void * do_operation(void* opts)
 {
@@ -1103,7 +1179,7 @@ void * do_operation(void* opts)
       D("Starting offset vmsplice for %ld",, count);
       while(count > 0 )
       {
-	  D("Count is %ld",, count);
+	D("Count is %ld",, count);
 	from_boundary = ((ro->offset+transacted) % ro->fi->packet_size);
 
 	if(count <= (unsigned)vbs_data->offset){
@@ -1213,10 +1289,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   void* bufstart = buf;
   int retval = size;
   int i, err, n_files_open;
-  /*
-  pthread_t* pts;
-  struct read_operator * ropts;
-  */
   struct file_index *fi;
   struct vbs_state * vbs_data = VBS_DATA;
   uint64_t effective_filesize;
@@ -1234,18 +1306,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
     return -EBADF;
   }
 
-
-
-  /*
-     if(vbs_data->offset != 0)
-     {
-     D("offset nonzero. Setting augmenting size from %ld to..",, size);
-     long n_packets_read = size/(fi->packet_size-vbs_data->offset);
-     size = n_packets_read * fi->packet_size;
-     D(".. %ld bytes",, size);
-     }
-     */
-
   off_t size_of_rec = fi->n_packets*(fi->packet_size-vbs_data->offset);
   if(offset >= size_of_rec)
   {
@@ -1260,10 +1320,13 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   }
 
 
-  if(vbs_data->offset > 0) 
+  if(vbs_data->offset > 0) {
     effective_filesize = convert_from_truelength_to_woffset(fi->filesize, fi, vbs_data);
+    D("Effective filesize as %ld and real as %ld",, effective_filesize, fi->filesize);
+  }
   else
     effective_filesize = fi->filesize;
+
 
   filenum = offset/effective_filesize;
   //partial_off = convert_from_woffset_to_truelength(offset % effective_filesize, fi, vbs_data);
@@ -1278,19 +1341,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
 
   D("For %s start at file %lu, partial offset %lu n_files_open %d count %ld",, path, filenum, partial_off, n_files_open, size);
 
-  /*
-     fds = malloc(sizeof(int)*n_files_open);
-     CHECK_ERR_NONNULL(fds, "malloc fds");
-     memset(fds, 0, sizeof(int)*n_files_open);
-     */
-
-  /*
-  pts = malloc(sizeof(pthread_t)*n_files_open);
-  CHECK_ERR_NONNULL(pts, "pts malloc");
-  ropts = malloc(sizeof(struct read_operator)*n_files_open);
-  CHECK_ERR_NONNULL(ropts, "ropts malloc");
-  memset(ropts, 0, sizeof(struct read_operator)*n_files_open);
-  */
   {
     pthread_t pts[n_files_open];
     struct read_operator ropts[n_files_open];
@@ -1306,15 +1356,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
       else
       {
 	long amount;
-	/*
-	   struct file_index *fi;
-	   void * buf;
-	   char filename[FILENAME_MAX];
-	   off_t offset;
-	   size_t size;
-	   int status;
-	   struct vbs_state *vbs_data;
-	   */
 	ro->fi = fi;
 	ro->buf = bufstart;
 	FORM_FILEPATH(ro->filename, filenum+i);
@@ -1331,7 +1372,7 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
 	ro->size = amount;
 	ro->vbs_data = vbs_data;
 
-	D("File n. %ld of %s being read for %ld with offset %ld",, filenum+i, fi->filename, amount, ro->offset);
+	D("File n. %ld of %s being read for %ld with offset %ld",, filenum+i, fi->filename, ro->size, ro->offset);
 
 	ro->status = RO_STATUS_NOTSTARTED|RO_STATUS_DOREAD;
 	err = pthread_create(&(pts[i]), NULL, &(do_operation), ro);
@@ -1368,31 +1409,6 @@ static int vbs_read(const char *path, char *buf, size_t size, off_t offset, stru
   //retval=size;
   return retval;
 }
-/*
-   int add_or_check_in_index(char* filename, struct vbs_state *vbs_data)
-   {
-   int i;
-   int found=0;
-   for(i=0;i<vbs_data->n_files;i++)
-   {
-   if(strcmp(vbs_data->fis[i].filename,filename) == 0)
-   {
-   D("Found %s in index",, filename);
-   found=1;
-   vbs_data->fis[i].status |= STATUS_FOUND;
-   break; 
-   }
-   }
-   if(found == 0)
-   {
-   D("New file %s in index",, de->d_name);
-   for(i=0;i<vbs_data->n_files;i++)
-   {
-   }
-
-   }
-   }
-   */
 int quickcheck_index_for_file(const char * file)
 {
   int err;
@@ -1535,8 +1551,6 @@ int rebuild_file_index(){
 	    }
 
 	  }
-	  //CHECK_ERR("add or check");
-	  //TODO: adding
 	}
       }
       err = closedir(df);
