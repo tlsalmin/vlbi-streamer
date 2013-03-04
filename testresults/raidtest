@@ -1528,7 +1528,911 @@ Same with 1024Mb size files..
 
 sdl is borked! Using sdi
 
+for i in sd{b..s} ; do parted /dev/$i mklabel gpt  ;  parted /dev/$i rm 1 ; parted /dev/$i mkpart p 0GB 500GB ;done
+for i in sd{b..s} ; do mkfs.ext4 /dev/${i}1 ; tune2fs -o journal_data_writeback /dev/${i}1 ; tune2fs -O ^has_journal /dev/${i}1 ; done
+MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"; N=0 for i in  sd{b..s} ; do mount -o ${MOUNT_OPTS} /dev/${i}1 /mnt/disk${N} ; N=$((N+1)) ; done
+N=0; for i in sd{b..s} ; do chown oper /mnt/disk${N} ; N=$((N+1)) ; done
+
+Results without raid on dummy receive
+
+UDP_STREAMER: Starting stream capture
+2013-03-04 10:29:59+02:00: Added recording named testspeed to record for 60 s starting at UTC:  2013-03-04 08:29:59+00:00 
+Time:	1362385800
+Event:	testspeed	Network:	169Mb/s	Dropped 18	Incomplete 4471193668
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385801
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385802
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385803
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4095MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385804
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385805
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	36863MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385806
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385807
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385808
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385809
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385810
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385811
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385812
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+
+Time:	1362385813
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385814
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385815
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385816
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	32767MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+
+----------------------------------------
+Time:	1362385817
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385818
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4095MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385819
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385820
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385821
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385822
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385823
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385824
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385825
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385826
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385827
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385828
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	28671MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385829
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385830
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385831
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4095MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385832
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385833
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385834
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385835
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385836
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385837
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385838
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385839
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385840
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385841
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385842
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385843
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385844
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385845
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385846
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385847
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385848
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385849
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385850
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	28671MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385851
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385852
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4095MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385853
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385854
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385855
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	24575MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385856
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	20479MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385857
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385858
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385859
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385860
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+UDP_STREAMER: Closing receiver thread
+STREAMER: Threads finished. Getting stats
+Blocking until owned buffers are released
+Time:	1362385861
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	28671MB/s
+Ringbuffers: Free:	5	Busy:	19	Loaded:	0
+Recpoints: Free:	0	Busy:	18	Loaded:	0
+----------------------------------------
+Time:	1362385862
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	8	Busy:	16	Loaded:	0
+Recpoints: Free:	2	Busy:	16	Loaded:	0
+----------------------------------------
+Time:	1362385863
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	10	Busy:	14	Loaded:	0
+Recpoints: Free:	4	Busy:	14	Loaded:	0
+----------------------------------------
+Time:	1362385864
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	14	Busy:	10	Loaded:	0
+Recpoints: Free:	8	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1362385865
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	17	Busy:	7	Loaded:	0
+Recpoints: Free:	11	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1362385866
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	16383MB/s
+Ringbuffers: Free:	21	Busy:	3	Loaded:	0
+Recpoints: Free:	15	Busy:	3	Loaded:	0
+----------------------------------------
+Time:	1362385867
+Event:	testspeed	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	23	Busy:	1	Loaded:	0
+Recpoints: Free:	17	Busy:	1	Loaded:	0
+----------------------------------------
+Buffers finished
+Recording testspeed finished OK
+DUMMY_STREAM: Closed
+Stats for testspeed 
+Packets: 17338884
+Bytes: 130995268620
+Dropped: 0
+Incomplete: 0
+Written: 130995503104
+Recvtime: 60
+Files: 244
+HD-failures: 0
+Net receive Speed: 16656Mb/s
+HD write Speed: 16656Mb/s
+Updated config file and removed testspeed
+
+
+
 for i in sdc sdd sde sdf sdg sdh sdl sdn sdo sdq sdr sds sdt ; do parted /dev/$i rm 1 ; parted /dev/$i mkpart p 0GB 500GB ;done
 
-mdadm --create --verbose /dev/md0 --level=5 --raid-devices=14 /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1 /dev/sdf1 /dev/sdg1 /dev/sdh1 /dev/sdi1 /dev/sdn1 /dev/sdo1 /dev/sdq1 /dev/sdr1 /dev/sds1 /dev/sdt1
+for i in sd{b..s} ; do 
+
+DRIVES="/dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1 /dev/sdg1 /dev/sdh1 /dev/sdi1 /dev/sdj1 /dev/sdk1 /dev/sdl1 /dev/sdm1 /dev/sdn1 /dev/sdo1 /dev/sdp1 /dev/sdq1 /dev/sdr1 /dev/sds1 /dev/sdt1"
+
+mdadm --create --verbose /dev/md0 --level=0 --raid-devices=18 $DRIVES
+mkfs.ext4 /dev/md0; tune2fs -o journal_data_writeback /dev/md0; tune2fs -O ^has_journal /dev/md0
+MOUNT_OPTS="defaults,data=writeback,noatime,nodiratime"; mount /dev/md0 -o ${MOUNT_OPTS} /mnt/disk0
+
+2013-03-04 10:54:41+02:00: Added recording named testspeed_raid0_nogran to record for 60 s starting at UTC:  2013-03-04 08:54:41+00:00 
+Time:	1362387282
+Event:	testspeed_raid0_nogran	Network:	264Mb/s	Dropped 1	Incomplete 4471193668
+HD-Speed:	0MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387283
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387284
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387285
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387286
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387287
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387288
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387289
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387290
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387291
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387292
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387293
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387294
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387295
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387296
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387297
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387298
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387299
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387300
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387301
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387302
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387303
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387304
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387305
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387306
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387307
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387308
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387309
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387310
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387311
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387312
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387313
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387314
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387315
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387316
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387317
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387318
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387319
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387320
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387321
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387322
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387323
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387324
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387325
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387326
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387327
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387328
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387329
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387330
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387331
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387332
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387333
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387334
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387335
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387336
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387337
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387338
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387339
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387340
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387341
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387342
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	0	Busy:	24	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+UDP_STREAMER: Closing receiver thread
+STREAMER: Threads finished. Getting stats
+Blocking until owned buffers are released
+Time:	1362387343
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	1	Busy:	23	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387344
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	4	Busy:	20	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387345
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	6	Busy:	18	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387346
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	9	Busy:	15	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387347
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	12	Busy:	12	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387348
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	15	Busy:	9	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387349
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	18	Busy:	6	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387350
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12287MB/s
+Ringbuffers: Free:	21	Busy:	3	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1362387351
+Event:	testspeed_raid0_nogran	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8191MB/s
+Ringbuffers: Free:	23	Busy:	1	Loaded:	0
+Recpoints: Free:	0	Busy:	1	Loaded:	0
+----------------------------------------
+Buffers finished
+Recording testspeed_raid0_nogran finished OK
+DUMMY_STREAM: Closed
+Stats for testspeed_raid0_nogran 
+Packets: 13501590
+Bytes: 102004512450
+Dropped: 0
+Incomplete: 0
+Written: 102004695040
+Recvtime: 60
+Files: 190
+HD-failures: 0
+Net receive Speed: 12970Mb/s
+HD write Speed: 12970Mb/s
+Updated config file and removed testspeed_raid0_nogran
+
+oper@ara:~/src/vlbi-streamer$ scripts/test_volumespeeds 4096
+Generating testfile for 4096 MB. This will take a while..
+Generation done. Testing each disk individually
+Testing Write to /mnt/testdata
+Testing read from /mnt/testdata
+Testing read+write on /mnt/testdata
+Disk /mnt/testdata 	- W: 107 MB/s R: 119 MB/s RW: 58 MB/s
+Testing Write to /mnt/disk0
+Testing read from /mnt/disk0
+Testing read+write on /mnt/disk0
+Disk /mnt/disk0 	- W: 762 MB/s R: 904 MB/s RW: 548 MB/s
+Testing parallel writes to all disks
+Testing parallel reads on all disks
+Testing parallel reads+writes to all disks
+All Disks accumulated: 	- W: 869 MB/s R: 1023 MB/s RW: 606 MB/s
+All Disks parallel: 	- W: 210 MB/s R: 236 MB/s RW: 116 MB/s
+Cleaning up
 

@@ -43,7 +43,7 @@
 
 #include "../src/configcommon.h"
 #include "../src/logging.h"
-#define DEBUG_OUTPUT 0
+#define DEBUG_OUTPUT 1
 #define B(x) (1l << x)
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
@@ -1133,6 +1133,7 @@ void * do_operation(void* opts)
   pid =fork();
   if(pid == 0){
     D("Child pid for %s is alive",, ro->filename);
+    close(pipes[0]);
     int fd=-1, flags, flags2;
     if(ro->status & RO_STATUS_DOREAD){
       flags2 = S_IRUSR;
@@ -1191,6 +1192,7 @@ void * do_operation(void* opts)
   else
   {
     D("father pid for %s is alive",, ro->filename);
+    close(pipes[1]);
     int retval_forked = 0;
     if(vbs_data->offset > 0){
       struct iovec iov[2];

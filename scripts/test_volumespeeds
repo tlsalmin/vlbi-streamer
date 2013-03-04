@@ -8,7 +8,7 @@ do
   CUR=$((CUR+1))
 done
 #DRIVES=(/mnt/disk13 /mnt/disk1 /mnt/disk2 /mnt/disk3 /mnt/disk4 /mnt/disk5 /mnt/disk6 /mnt/disk7 /mnt/disk8 /mnt/disk9 /mnt/disk10 /mnt/disk11 /mnt/disk12 /mnt/disk0)
-DABS=1048576
+DABS=1073741824
 SHM=/dev/shm
 TESTMEGS=$1
 CONVFLAGS=fdatasync
