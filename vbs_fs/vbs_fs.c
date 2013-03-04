@@ -43,7 +43,7 @@
 
 #include "../src/configcommon.h"
 #include "../src/logging.h"
-#define DEBUG_OUTPUT 1
+#define DEBUG_OUTPUT 0
 #define B(x) (1l << x)
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 

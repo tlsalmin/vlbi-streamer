@@ -23,7 +23,7 @@
 #ifndef SIMPLEBUF_H
 #define SIMPLEBUF_H
 #include "streamer.h"
-#define MMAP_NOT_SHMGET
+//#define MMAP_NOT_SHMGET
 struct simplebuf{
   struct opt_s *opt;
   /* Migrated diffs to work as number of bytes */

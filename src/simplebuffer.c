@@ -32,6 +32,7 @@
 #if(HAVE_HUGEPAGES)
 #include <sys/mman.h>
 #endif
+#include <sys/stat.h>
 #include "resourcetree.h"
 #include "simplebuffer.h"
 #include "streamer.h"
@@ -46,6 +47,7 @@
 
 extern FILE* logfile;
 
+#define SHMIDENT "/simplebuf_"
 #define HAVE_ASSERT 1
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
@@ -289,16 +291,24 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 	D("mmapped to hugepages");
       }
 #else
-      sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE|SHM_W|SHM_R);
+      /* Grabbed from http://www.codemaestro.com/reviews/11 	*/
+      /* Used to share resources with vbs_fs			*/
+      char shmstring[FILENAME_MAX];
+      sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
+      sbuf->shmid = shm_open(shmstring, (O_CREAT | O_RDWR),  (S_IREAD | S_IWRITE));
+      //sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE|SHM_W|SHM_R);
       if(sbuf->shmid <0){
 	E("Shmget failed");
 	perror("shmget");
 	return -1;
       }
-      sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
+
+      ftruncate(sbuf->shmid, hog_memory);
+      //sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
+      sbuf->buffer = mmap(NULL, hog_memory, (PROT_READ | PROT_WRITE), MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB|MAP_NORESERVE, sbuf->shmid, 0);
       if((long)sbuf->buffer == (long)-1){
-	E("shmat failed");
-	perror("shmat");
+	E("mmap failed");
+	perror("mmap");
 	return -1;
       }
 #endif
@@ -350,7 +360,14 @@ int sbuf_close(struct buffer_entity* be, void *stats)
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+#ifdef MMAP_NOT_SHMGET
       munmap(sbuf->buffer, sbuf->opt->filesize);
+#else
+      char shmstring[FILENAME_MAX];
+      sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
+      shm_unlink(shmstring);
+      close(sbuf->shmid);
+#endif
     }
     else
 #endif /* HAVE_HUGEPAGES */

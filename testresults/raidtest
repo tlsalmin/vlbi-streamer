@@ -1970,7 +1970,7 @@ Updated config file and removed testspeed
 
 for i in sdc sdd sde sdf sdg sdh sdl sdn sdo sdq sdr sds sdt ; do parted /dev/$i rm 1 ; parted /dev/$i mkpart p 0GB 500GB ;done
 
-for i in sd{b..s} ; do 
+for i in $DRIVES ; do mkfs.ext4 $i ;  tune2fs -o journal_data_writeback $i; tune2fs -O ^has_journal $i ; done
 
 DRIVES="/dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1 /dev/sdg1 /dev/sdh1 /dev/sdi1 /dev/sdj1 /dev/sdk1 /dev/sdl1 /dev/sdm1 /dev/sdn1 /dev/sdo1 /dev/sdp1 /dev/sdq1 /dev/sdr1 /dev/sds1 /dev/sdt1"
 
@@ -2435,4 +2435,85 @@ Testing parallel reads+writes to all disks
 All Disks accumulated: 	- W: 869 MB/s R: 1023 MB/s RW: 606 MB/s
 All Disks parallel: 	- W: 210 MB/s R: 236 MB/s RW: 116 MB/s
 Cleaning up
+
+with offset 8:
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=33554432 count=512 of=/dev/null 
+512+0 tietuetta sisään
+512+0 tietuetta ulos
+17179869184 tavua (17 GB) kopioitu 69,7336 sekunnissa, 246 MB/s
+
+real	1m9.858s
+user	0m0.000s
+sys	0m11.161s
+
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=1073741824 count=4 of=/dev/shm/testfile conv=fdatasync
+4+0 tietuetta sisään
+4+0 tietuetta ulos
+4294967296 tavua (4,3 GB) kopioitu 21,5501 sekunnissa, 199 MB/s
+
+real	0m21.622s
+user	0m0.000s
+sys	0m5.075s
+
+without offset:
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=33554432 count=512 of=/dev/null
+512+0 tietuetta sisään
+512+0 tietuetta ulos
+17179869184 tavua (17 GB) kopioitu 71,2595 sekunnissa, 241 MB/s
+
+real	1m11.273s
+user	0m0.001s
+sys	0m10.677s
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=1073741824 count=4 of=/dev/shm/testfile conv=fdatasync
+4+0 tietuetta sisään
+4+0 tietuetta ulos
+4294967296 tavua (4,3 GB) kopioitu 21,5851 sekunnissa, 199 MB/s
+
+real	0m21.677s
+user	0m0.000s
+sys	0m5.477s
+
+Straight from disk:
+oper@ara:~/src/vlbi-streamer$ time dd if=/mnt/disk0/dummydata_combine bs=1048576 count=4096 of=/dev/null iflag=direct
+4096+0 tietuetta sisään
+4096+0 tietuetta ulos
+4294967296 tavua (4,3 GB) kopioitu 11,885 sekunnissa, 361 MB/s
+
+real	0m11.915s
+user	0m0.001s
+sys	0m0.290s
+
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=1073741824 count=4 of=/dev/shm/testfile conv=fdatasync iflag=direct
+4+0 tietuetta sisään
+4+0 tietuetta ulos
+4294967296 tavua (4,3 GB) kopioitu 28,0962 sekunnissa, 153 MB/s
+
+real	0m28.162s
+user	0m0.002s
+sys	0m3.271s
+
+oper@ara:~/src/vlbi-streamer$ time dd if=/mnt/disk0/dummydata_combine bs=33554432 count=512 of=/dev/null iflag=direct
+512+0 tietuetta sisään
+512+0 tietuetta ulos
+17179869184 tavua (17 GB) kopioitu 18,498 sekunnissa, 929 MB/s
+
+real	0m18.525s
+user	0m0.002s
+sys	0m1.078s
+
+multiple disks:
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=33554432 count=512 of=/dev/null
+512+0 tietuetta sisään
+512+0 tietuetta ulos
+17179869184 tavua (17 GB) kopioitu 158,112 sekunnissa, 109 MB/s
+
+real	2m38.126s
+user	0m0.002s
+sys	0m10.622s
+
+
+
+
+
+
 
