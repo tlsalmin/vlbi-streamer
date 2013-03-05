@@ -1248,6 +1248,7 @@ int main(int argc, char **argv)
   if(opt->status != STATUS_STOPPED)
   {
     E("Thread didnt finish nicely with STATUS_STOPPED");
+    //TODO: WHy is this not STATUS_ERROR?
     opt->status |= STATUS_FINISHED;
   }
   else
@@ -1342,7 +1343,9 @@ int init_branches(struct opt_s *opt){
   return 0;
 }
 void shutdown_thread(struct opt_s *opt){
-  if(opt->streamer_ent != NULL && opt->streamer_ent->stop != NULL){
+  if(opt->optbits & CAPTURE_W_LOCALSOCKET)
+    ls_shutdown((void*)opt);
+  else if(opt->streamer_ent != NULL && opt->streamer_ent->stop != NULL){
     opt->streamer_ent->stop(opt->streamer_ent);
   }
 }

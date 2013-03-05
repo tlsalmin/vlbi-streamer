@@ -69,6 +69,7 @@
 #define CAPTURE_W_DISK2FILE	B(15)
 
 #define CAPTURE_W_DUMMY		B(16)
+#define CAPTURE_W_LOCALSOCKET	B(17)
 /*Three empty here */
 
 /* How fanout works */
@@ -298,6 +299,8 @@ struct opt_s
   void * first_packet;
   void * resqut;
 
+  int localsocket;
+
   /* Used to skip writing of some headers */
   int offset;
   /* Used when reading a stripped recording. File size will be same	*/
@@ -454,7 +457,6 @@ struct scheduled_event{
   struct opt_s * opt;
   //struct scheduled_event* next;
   struct stats* stats;
-  uint8_t type;
   char * idstring;
   int socketnumber;
   void (*shutdown_thread)(struct opt_s*);

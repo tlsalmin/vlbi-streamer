@@ -31,13 +31,12 @@
 #include <string.h> /* MEMSET */
 #include <poll.h>
 #include <signal.h>
-
-#include "config.h"
-#if(HAVE_LOCALSOCKET)
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/types.h>
-#endif
+
+#include "config.h"
+#include "localsocket_service.h"
 #include "streamer.h"
 #include "confighelper.h"
 #include "server.h"
@@ -70,7 +69,6 @@ void zero_schedevnt(struct scheduled_event* ev){
   //ev->father = NULL;
   //ev->child = NULL;
   ev->socketnumber = 0;
-  ev->type = 0;
   ev->stats =NULL;
   ev->pt =0;
   ev->found=0;
@@ -157,14 +155,13 @@ int start_event(struct scheduled_event *ev)
 {
   int err;
 
-  /*
-     err = prep_filenames(ev->opt);
-     CHECK_ERR("Prep filenames");
-     */
-  err = init_cfg(ev->opt);
-  if(err != 0){
-    E("Error in cfg init");
-    return -1;
+  if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
+  {
+    err = init_cfg(ev->opt);
+    if(err != 0){
+      E("Error in cfg init");
+      return -1;
+    }
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -175,9 +172,15 @@ int start_event(struct scheduled_event *ev)
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
   if(err != 0)
     E("error in priority prep! Wont stop though..");
-  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
+  if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
+    err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
+  else
+    err = pthread_create(&(ev->pt), &(ev->opt->pta), localsocket_service,(void*)ev->opt);
 #else
-  err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
+  if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
+    err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
+  else
+    err = pthread_create(&ev->pt, NULL, localsocket_service, (void*)ev->opt); 
 #endif
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
@@ -311,35 +314,45 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
 
   clear_pointers(opt);
 
-  if(root != NULL)
-    se->type = SCHEDTYPE_STREAM;
-  else if(socketinterface != 0)
-    se->type = SCHEDTYPE_LOCALSOCKET;
+  if(socketinterface != 0)
+  {
+    D("New event is a local socket interface");
+    se->opt->optbits &= ~LOCKER_CAPTURE;
+    se->opt->optbits |= CAPTURE_W_LOCALSOCKET;
+    se->opt->optbits |= READMODE;
+    se->opt->localsocket = socketinterface;
+  }
 
   /*
-  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  *opt->cumul = 0;
-  */
+     opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+   *opt->cumul = 0;
+   */
 
-  config_init(&(opt->cfg));
+  if(root != NULL)
+    config_init(&(opt->cfg));
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  se->idstring = (char*)malloc(sizeof(char)*24);
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
-  //strcpy(opt->filename, config_setting_name(root));
-  strcpy(se->idstring, config_setting_name(root));
-
-  LOG("Adding new request with id string: %s\n", se->idstring);
-
-  /* Get the rest of the opts		*/
-  err = set_from_root(opt, root, 0,0);
-  if(err != 0){
-    E("Broken schedule config. Not scheduling %s",, se->idstring);
-    free_and_close(se);
-    return 0;
+  opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(opt->disk2fileoutput, "disk2fileoutput for opt malloc");
+  if(!(se->opt->optbits == CAPTURE_W_LOCALSOCKET))
+  {
+    se->idstring = (char*)malloc(sizeof(char)*24);
+    CHECK_ERR_NONNULL(se->idstring, "idstring malloc");
+    //strcpy(opt->filename, config_setting_name(root));
+    strcpy(se->idstring, config_setting_name(root));
+    LOG("Adding new request with id string: %s\n", se->idstring);
+    /* Get the rest of the opts		*/
+    err = set_from_root(opt, root, 0,0);
+    if(err != 0){
+      E("Broken schedule config. Not scheduling %s",, se->idstring);
+      free_and_close(se);
+      return 0;
+    }
   }
+
+
 
   /* Wont need disk2file output if CAPTURE_W_DISK2FILE set */
   if (!(opt->optbits & CAPTURE_W_DISK2FILE)){
@@ -362,15 +375,18 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
     D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
   }
 
-  LOG("New request is for session: %s\n", opt->filename);
-  D("Opts checked, port is %d",, opt->port);
-  //config_init(&(opt->cfg));
-
-  //Special case if some old buggers in sched file
-  //TODO: Check packet sizes and handle buffers accordingly
+  if(!(se->opt->optbits & CAPTURE_W_LOCALSOCKET))
+  {
+    LOG("New request is for session: %s\n", opt->filename);
+    D("Opts checked, port is %d",, opt->port);
+  }
 
   //add_to_end(&(sched->scheduled_head), se);
   add_to_entlist(&(sched->br), le);
+  if(se->opt->optbits & CAPTURE_W_LOCALSOCKET)
+  {
+    start_event(se);
+  }
   D("Schedevent added");
   sched->n_scheduled++;
   return 0;

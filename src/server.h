@@ -12,9 +12,6 @@
 #define IDSTRING_LENGTH 24
 #define CHAR_BUFF_SIZE ((sizeof(struct inotify_event)+FILENAME_MAX)*MAX_INOTIFY_EVENTS)
 
-#define SCHEDTYPE_STREAM	B(0)
-#define SCHEDTYPE_LOCALSOCKET	B(1)
-
 #define POLLINTERVAL 100
 #define STATTIME 1000
 
