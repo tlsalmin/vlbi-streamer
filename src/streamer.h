@@ -272,7 +272,7 @@ struct opt_s
   char *filename;
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
-  long unsigned *cumul;
+  long unsigned cumul;
   /* Used in read to determine how many we actually found 		*/
   long unsigned cumul_found;
   long unsigned last_packet;
@@ -454,7 +454,9 @@ struct scheduled_event{
   struct opt_s * opt;
   //struct scheduled_event* next;
   struct stats* stats;
+  uint8_t type;
   char * idstring;
+  int socketnumber;
   void (*shutdown_thread)(struct opt_s*);
   pthread_t pt;
   int found;

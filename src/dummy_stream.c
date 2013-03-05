@@ -168,7 +168,7 @@ void * dummy_receiver(void *streamo)
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
@@ -209,7 +209,7 @@ void * dummy_receiver(void *streamo)
     }
 
     se->be->set_ready(se->be);
-    (*spec_ops->opt->cumul)++;
+    spec_ops->opt->cumul++;
   }
   LOCK(se->be->headlock);
   pthread_cond_signal(se->be->iosignal);
@@ -217,7 +217,7 @@ void * dummy_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets, spec_ops->opt->filename);
+  D("Saved %lu files and %lu packets for recname %s",, spec_ops->opt->cumul, spec_ops->opt->total_packets, spec_ops->opt->filename);
   LOG("UDP_STREAMER: Closing receiver thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */

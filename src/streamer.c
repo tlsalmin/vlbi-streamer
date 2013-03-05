@@ -334,7 +334,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, *opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
     if(opts->time == 0)
@@ -351,7 +351,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	  "HD-failures: %d\n"
 	  "Net receive Speed: %luMb/s\n"
 	  "HD write Speed: %luMb/s\n"
-	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, *opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
 /* Defensive stuff to check we're not copying stuff from default	*/
@@ -360,7 +360,6 @@ int clear_pointers(struct opt_s* opt){
   opt->device_name = NULL;
   opt->hostname = NULL;
   opt->cfgfile = NULL;
-  opt->cumul = NULL;
   opt->disk2fileoutput = NULL;
   return 0;
 }
@@ -427,7 +426,7 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   //opt->cumul = NULL;
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
-  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+  //opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
   //opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
 
@@ -701,7 +700,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   else
     opt->time = atoi(argv[1]);
 #endif
-  //*opt->cumul = 0;
 
   struct rlimit rl;
   /* Query max size */
@@ -829,8 +827,6 @@ int close_opts(struct opt_s *opt){
 #if(PPRIORITY)
   pthread_attr_destroy(&(opt->pta));
 #endif
-  if(opt->cumul != NULL)
-    free(opt->cumul);
   /*
   if(opt->total_packets != NULL)
     free(opt->total_packets);
@@ -1082,7 +1078,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCONFIG_H
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
-    LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, *opt->cumul, get_n_files(opt->fi));
+    LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, opt->cumul, get_n_files(opt->fi));
   }
 #endif //HAVE_LIBCONFIG_H
 

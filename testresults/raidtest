@@ -2510,6 +2510,16 @@ oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata bs=33554432 count=512
 real	2m38.126s
 user	0m0.002s
 sys	0m10.622s
+8MB files
+oper@ara:~/src/vlbi-streamer$ time dd if=tempvbs/dummydata2 bs=33554432 count=512 of=/dev/null
+512+0 tietuetta sisään
+512+0 tietuetta ulos
+17179869184 tavua (17 GB) kopioitu 139,469 sekunnissa, 123 MB/s
+
+real	2m19.486s
+user	0m0.004s
+sys	0m10.908s
+
 
 
 

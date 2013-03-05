@@ -24,6 +24,16 @@ AS_IF([test "x$enable_hugepages" != "xno"],[
   AC_DEFINE(HAVE_HUGEPAGES, 1, [Compile with hugepage support])
   ])
 
+AC_MSG_CHECKING(--enable-localsocket argument)
+AC_ARG_ENABLE(localsocket,
+    [  --enable-localsocket         Enable support for localsocket.],
+    [enable_localsocket=$enableval],
+    [enable_localsocket="yes"])
+AC_MSG_RESULT($enable_localsocket)
+AS_IF([test "x$enable_localsocket" != "xno"],[
+  AC_DEFINE(HAVE_LOCALSOCKET, 1, [Compile with localsocket support])
+  ])
+
 # Checks for libraries.
 ADD_LIBS=""
 OK=1
