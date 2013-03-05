@@ -303,7 +303,9 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 	return -1;
       }
 
-      ftruncate(sbuf->shmid, hog_memory);
+      err = ftruncate(sbuf->shmid, hog_memory);
+      if(err != 0)
+	E("Error in ftruncate");
       //sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
       sbuf->buffer = mmap(NULL, hog_memory, (PROT_READ | PROT_WRITE), MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB|MAP_NORESERVE, sbuf->shmid, 0);
       if((long)sbuf->buffer == (long)-1){
