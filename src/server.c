@@ -172,10 +172,12 @@ int start_event(struct scheduled_event *ev)
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
   if(err != 0)
     E("error in priority prep! Wont stop though..");
-  if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
-    err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
-  else
+  if(ev->opt->optbits & CAPTURE_W_LOCALSOCKET){
+    D("Creating local socket thread");
     err = pthread_create(&(ev->pt), &(ev->opt->pta), localsocket_service,(void*)ev->opt);
+  }
+  else
+    err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
 #else
   if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
     err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
@@ -336,7 +338,7 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
   opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(opt->disk2fileoutput, "disk2fileoutput for opt malloc");
-  if(!(se->opt->optbits == CAPTURE_W_LOCALSOCKET))
+  if(!(se->opt->optbits & CAPTURE_W_LOCALSOCKET))
   {
     se->idstring = (char*)malloc(sizeof(char)*24);
     CHECK_ERR_NONNULL(se->idstring, "idstring malloc");
@@ -385,10 +387,23 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
   add_to_entlist(&(sched->br), le);
   if(se->opt->optbits & CAPTURE_W_LOCALSOCKET)
   {
-    start_event(se);
+    err = start_event(se);
+    if(err != 0){
+      E("Something went wrong in recording %s start",, se->opt->filename);
+      //remove_recording(le,sched->br.freelist);
+      remove_from_branch(&sched->br, le, MUTEX_FREE);
+    }
+    else{
+      //change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
+      mutex_free_change_branch(&sched->br.freelist, &sched->br.busylist, le);
+      sched->n_running++;
+    }
+  }
+  else
+  {
+    sched->n_scheduled++;
   }
   D("Schedevent added");
-  sched->n_scheduled++;
   return 0;
 }
 void zerofound(struct schedule *sched){
@@ -522,10 +537,8 @@ int main(int argc, char **argv)
     exit(-1);
   }
 #endif
-#if(HAVE_LOCALSOCKET)
   struct sockaddr_un lsock_name;
   int local_sock;
-#endif
 #if(PPRIORITY)
   //pid_t ourpid;
   struct sched_param schedp;
@@ -597,12 +610,11 @@ int main(int argc, char **argv)
   err = parse_options(argc,argv,sched->default_opt);
   CHECK_ERR("parse options");
 
-#if(HAVE_LOCALSOCKET)
   memset(&lsock_name, 0, SUN_LEN(&lsock_name));
   lsock_name.sun_family = AF_UNIX; 
   sprintf(lsock_name.sun_path, "%s", LSOCKNAME);
 
-  local_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+  local_sock = socket(PF_UNIX, SOCK_STREAM, 0);
   if(local_sock < 0){
     E("Error in creating local socket. vlbistreamer not listening");
   }
@@ -627,7 +639,6 @@ int main(int argc, char **argv)
       }
     }
   }
-#endif
 
   LOG("Running in daemon mode\n");
 
@@ -667,18 +678,13 @@ int main(int argc, char **argv)
 
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
-#if(HAVE_LOCALSOCKET)
   struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd)*2);
   CHECK_ERR_NONNULL(pfd, "pollfd malloc");
   memset(pfd, 0,sizeof(pfd));
 
   (pfd+1)->fd = local_sock;
   (pfd+1)->events = POLLIN|POLLERR;
-#else
-  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));
-  CHECK_ERR_NONNULL(pfd, "pollfd malloc");
-  memset(pfd, 0,sizeof(pfd));
-#endif
+
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;
 
@@ -708,11 +714,7 @@ int main(int argc, char **argv)
     if(err != 0)
       running = 0;
     /* Check for changes 						*/
-#if(HAVE_LOCALSOCKET)
     err = poll(pfd, 2, POLLINTERVAL);
-#else
-    err = poll(pfd, 1, POLLINTERVAL);
-#endif
     if(err < 0){
       perror("Poll");
       running = 0;
@@ -735,7 +737,6 @@ int main(int argc, char **argv)
 	E("Error in polling for schedule file");
 	running = 0;
       }
-#if(HAVE_LOCALSOCKET)
       if ((pfd+1)->revents & POLLERR)
       {
 	E("Error in polling for local socket");
@@ -748,7 +749,6 @@ int main(int argc, char **argv)
 	if(err != 0)
 	  E("Error in handling local socket");
       }
-#endif
       //CHECK_ERR("Checked schedule");
     }
     //Else timeout expired
@@ -811,10 +811,8 @@ int main(int argc, char **argv)
   close_recp(sched->default_opt,stats_full);
   D("Membranch and diskbranch shut down");
 
-#if(HAVE_LOCALSOCKET)
   unlink(lsock_name.sun_path);
   close(local_sock);
-#endif
 
   //TODO: Full stats not used yet
   free(stats_full);

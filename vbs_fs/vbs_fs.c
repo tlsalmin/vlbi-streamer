@@ -21,6 +21,8 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 #include <libconfig.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 #include <regex.h> /* For regexp file matching */
 #define MAX(a,b) \
    ({ __typeof__ (a) _a = (a); \
@@ -39,11 +41,12 @@
 #else
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+#define LSOCKNAME LOCALSTATEDIR "/opt/vlbistreamer/local_socket"
 #endif
 
 #include "../src/configcommon.h"
 #include "../src/logging.h"
-#define DEBUG_OUTPUT 0
+#define DEBUG_OUTPUT 1
 #define B(x) (1l << x)
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
 
@@ -85,6 +88,7 @@
 
 #define INDEXING_LENGTH 8
 #define MAX_OPEN_FILES_IN_VBS_FS 32
+#define LSOCK_BSIZE 128
 
 #define FUSE_ARGS_INIT(argc, argv) { argc, argv, 0 }
 
@@ -131,6 +135,8 @@ struct vbs_state{
   int n_files;
   int offset;
   int max_files;
+  int localsocket;
+  char socketbuffer[LSOCK_BSIZE];
   //struct open_file* open_files;
   struct file_index* fis;
   pthread_mutex_t  augmentlock;
@@ -973,7 +979,32 @@ void * vbs_init(struct fuse_conn_info *conn)
     E("Error in creating file index");
     return NULL;
   }
+  memset(vbs_data->socketbuffer, 0, sizeof(char)*LSOCK_BSIZE);
+  vbs_data->localsocket = socket(PF_UNIX, SOCK_STREAM, 0);
+  if(vbs_data->localsocket <= 0)
+    E("Error in getting local socket");
+  else
+  {
+    struct sockaddr_un lsock;
+    memset(&lsock, 0, SUN_LEN(&lsock));
+    lsock.sun_family = AF_UNIX;
+    sprintf(lsock.sun_path, "%s", LSOCKNAME);
 
+    if(connect(vbs_data->localsocket, (struct sockaddr*)&lsock, sizeof(struct sockaddr_un)) != 0){
+      E("Connect failed. Disabling socket connection to vlbistreamer");
+      close(vbs_data->localsocket);
+      vbs_data->localsocket = 0;
+    }
+    else
+    {
+      D("Connection established with vlbistreamer");
+      int nbytes = snprintf(vbs_data->socketbuffer, 64, "Hello from client!");
+      if(send(vbs_data->localsocket, vbs_data->socketbuffer, nbytes, 0) < 0)
+	E("Error in saying hello");
+      else
+	D("Sent hello!");
+    }
+  }
 
   D("init done");
   return (void*)vbs_data;

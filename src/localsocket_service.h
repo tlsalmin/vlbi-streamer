@@ -1,5 +1,5 @@
 #include "streamer.h"
 #include "config.h"
 
-void * localsocket_service(void* arg);
-void ls_shutdown(void* arg);
+void * localsocket_service(void* opts);
+void ls_shutdown(void* opts);

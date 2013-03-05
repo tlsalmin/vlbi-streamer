@@ -6,32 +6,37 @@
 #include "localsocket_service.h"
 #define BUFFER_SIZE 1024
 
-void* localsocket_service(void* arg)
+extern FILE* logfile;
+
+void* localsocket_service(void* opts)
 {
-  int err;
+  int err=0;
   int alreadyshutdown=0;
   char inputbuffer[BUFFER_SIZE];
   memset(inputbuffer,0,sizeof(char)*BUFFER_SIZE);
-  struct opt_s* opt = (struct opt_s*)arg;
+  struct opt_s* opt = (struct opt_s*)opts;
 
-  while(opt->status == STATUS_RUNNING);
+  LOG("Local socket service started\n");
+  while(opt->status == STATUS_RUNNING)
   {
     err = recv(opt->localsocket, (void*)inputbuffer, BUFFER_SIZE-1, 0);
     if(err < 0){
       E("Error in receiving from local socket");
       opt->status = STATUS_ERROR;
     }
-    if(err == 0){
-      LOG("local socket shut down");
+    else if(err == 0){
+      LOG("local socket shutdown\n");
       opt->status = STATUS_FINISHED;
       alreadyshutdown=1;
     }
     else
     {
-      LOG("local socket says %s",, inputbuffer);
+      D("local socket says %s",, inputbuffer);
+      memset(inputbuffer, 0, sizeof(char)*BUFFER_SIZE);
     }
-    memset(localsocket, 0, sizeof(char)*BUFFER_SIZE);
   }
+  //opt->status = STATUS_FINISHED;
+  LOG("Local listening socket shuttind down\n");
 
   if(alreadyshutdown == 0)
     shutdown(opt->localsocket, SHUT_RDWR);
