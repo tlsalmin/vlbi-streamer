@@ -392,18 +392,18 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     {
       spec_ops->fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
       D("Socket initialized as AF_INET");
-      if(!(opt->optbits & READMODE) && opt->filename != NULL){
-	spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-	if (spec_ops->fd_send < 0) {
-	  perror("socket for simusend");
-	  //INIT_ERROR
-	}
-	else{
-	  err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
-	  CHECK_ERR("Simusend init");
-	}
-      }
       break;
+    }
+    if(!(opt->optbits & READMODE) && opt->filename != NULL){
+      spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+      if (spec_ops->fd_send < 0) {
+	perror("socket for simusend");
+	//INIT_ERROR
+      }
+      else{
+	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
+	CHECK_ERR("Simusend init");
+      }
     }
   }
   //if(!(spec_ops->optbits & READMODE))
