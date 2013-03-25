@@ -380,29 +380,30 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     char port[12];
     memset(port, 0,sizeof(char)*12);
     struct addrinfo hints, *servinfo, *p;
+    /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE;
-    /* Legacy thingie from before I saw the light from Beej network guide	 */
+    /* Port as integer is legacy from before I saw the light from Beej network guide	*/
     sprintf(port,"%d", spec_ops->opt->port);
     err = getaddrinfo(NULL, port, &hints, &servinfo);
     CHECK_ERR("Getting address info");
     for(p = servinfo; p != NULL; p = p->ai_next)
     {
-      spec_ops->fd = socket(AF_INET, SOCK_DGRAM, 0);
+      spec_ops->fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
       D("Socket initialized as AF_INET");
-      if(!(opt->optbits & READMODE) && opt->filename != NULL){
-	spec_ops->fd_send = socket(AF_INET, SOCK_DGRAM, 0);
-	if (spec_ops->fd_send < 0) {
-	  perror("socket for simusend");
-	  //INIT_ERROR
-	}
-	else{
-	  err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
-	  CHECK_ERR("Simusend init");
-	}
-      }
       break;
+    }
+    if(!(opt->optbits & READMODE) && opt->filename != NULL){
+      spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+      if (spec_ops->fd_send < 0) {
+	perror("socket for simusend");
+	//INIT_ERROR
+      }
+      else{
+	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
+	CHECK_ERR("Simusend init");
+      }
     }
   }
   //if(!(spec_ops->optbits & READMODE))
