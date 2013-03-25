@@ -1365,8 +1365,12 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
       ev->opt->get_stats((void*)ev->opt, (void*)&tempstats);
       neg_stats(&tempstats, ev->stats);
       LOG("Event:\t%s\t", ev->opt->filename);
-      LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu\n"
+	LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu"
 	  ,BYTES_TO_MBITSPS(tempstats.total_bytes),tempstats.dropped, tempstats.incomplete);
+      if(tempstats.progress != -1){
+	LOG("\tProgress %02d%%", tempstats.progress);
+      }
+      LOG("\n");
       add_stats(ev->stats, &tempstats);
     }
     le = le->child;

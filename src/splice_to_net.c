@@ -64,6 +64,7 @@ int read_file_to_pipe(struct options* opts,int pipe)
   {
     count = splice(fd, NULL, pipe, NULL, opts->maxbytes_inpipe, SPLICE_F_MOVE|SPLICE_F_MORE);
   }while(count > 0);
+
   D("Done splicing");
   CHECK_LTZ("final count", count);
 
@@ -80,6 +81,14 @@ int splice_to_socket(struct options* opts,int  pipe)
   struct hostent* target;
   struct sockaddr_in serv_addr;
   void *dummybuffer = NULL;
+  uint64_t counter = 0;
+  uint32_t *end_of_counter = ((uint32_t*)(&counter))+1;
+  struct iovec ciov;
+  if(opts->opts & OPTS_DO_COUNTER)
+  {
+    ciov.iov_base = &counter;
+    ciov.iov_len = sizeof(uint64_t);
+  }
   struct iovec dummyiov;
   if (opts->offset != 0){
     dummybuffer = malloc(opts->offset);
@@ -105,8 +114,21 @@ int splice_to_socket(struct options* opts,int  pipe)
   err = connect(fd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
   CHECK_ERR("Bind");
 
+  long totransfer=opts->packet_size-1;
+  size_t countermon;
+
+  if(opts->opts & OPTS_DO_COUNTER)
+  {
+    D("Doing the counter one time!");
+    countermon = vmsplice(pipe, &ciov, 1, SPLICE_F_GIFT);
+    if(countermon != ciov.iov_len)
+      E("Counter didn't write %ld bytes",, ciov.iov_len);
+    (*end_of_counter)++;
+  }
+
   do
   {
+    /*
     if(opts->offset != 0){
       count = vmsplice(pipe, &dummyiov, 1, 0);
       if(count == 0){
@@ -122,13 +144,35 @@ int splice_to_socket(struct options* opts,int  pipe)
 	E("dummy splice wrote only %ld when wanted %d",, count, opts->offset);
       }
     }
-    do{
-      /* Busylooping */
-      count = tee(pipe, dummyfd, opts->packet_size, 0);
-    }while(count != opts->packet_size);
-    count = splice(pipe, NULL, fd, NULL, opts->packet_size, 0);
+    */
+    count = splice(pipe, NULL, fd, NULL, totransfer, SPLICE_F_MORE);
+    if(count <= 0)
+    {
+      D("Err or exit in original splice");
+      break;
+    }
+    totransfer-=count;
+
+    /* Check if we have a full package */
+    if(totransfer == 0){
+      /* I know i know.. Not very elegant! */
+      count = splice(pipe, NULL, fd, NULL, 1, 0);
+      if(count < 0){
+	E("error in finishing splice");
+	break;
+      }
+      if(opts->opts & OPTS_DO_COUNTER)
+      {
+	vmsplice(pipe, &ciov, 1, SPLICE_F_MORE);
+	(*end_of_counter)++;
+      }
+      totransfer=opts->packet_size-1;
+      count = 1;
+    }
+    /*
     if(count >0 && count < opts->packet_size)
       D("Sent %ld instead of packet_size",, count);
+      */
   }while(count > 0);
 
   if(count < 0)
@@ -228,12 +272,22 @@ int main(int argc, char** argv)
     D("Child exit");
     _exit(EXIT_SUCCESS);
   }
-  err = splice_to_socket(opts, pipes[0]);
-  if(err != 0){
-    E("Error in splicing");
-    retval = -1;
+  else
+  {
+    err = splice_to_socket(opts, pipes[0]);
+    if(err != 0){
+      E("Error in splicing");
+      retval = -1;
+    }
+    D("Waiting for childpid %d",, childpid);
+    if(waitpid(childpid, &retval, WNOHANG) == 0)
+    {
+      D("Pid not exited. Lets close the other pipe end. Maybe it'll wake up");
+      close(pipes[1]);
+    }
+    waitpid(childpid, &retval, 0);
+    D("Ok now it exited");
   }
-  waitpid(childpid, &retval, 0);
 
   return retval;
 }

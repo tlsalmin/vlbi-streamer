@@ -1302,10 +1302,40 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     LOG("UDP_STREAMER: Closed\n");
 
-    if(!(spec_ops->opt->optbits & USE_RX_RING))
-      free(spec_ops->sin);
-    free(spec_ops);
-    return 0;
+  pthread_exit(NULL);
+}
+/*
+   unsigned long udps_get_fileprogress(struct udpopts* spec_ops){
+   if(spec_ops->opt->optbits & READMODE)
+   return spec_ops->files_sent;
+   else
+   return spec_ops->opt->cumul;
+   }
+   */
+void get_udp_stats(void *sp, void *stats){
+  struct stats *stat = (struct stats * ) stats;
+  struct udpopts *spec_ops = (struct udpopts*)sp;
+  //if(spec_ops->opt->optbits & USE_RX_RING)
+  stat->total_packets += spec_ops->opt->total_packets;
+  stat->total_bytes += spec_ops->total_captured_bytes;
+  stat->incomplete += spec_ops->incomplete;
+  stat->dropped += spec_ops->missing;
+  if(spec_ops->opt->last_packet > 0){
+    stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
+  }
+  else
+    stat->progress = -1;
+  //stat->files_exchanged = udps_get_fileprogress(spec_ops);
+}
+int close_udp_streamer(void *opt_own, void *stats){
+  struct udpopts *spec_ops = (struct udpopts *)opt_own;
+  int err;
+  get_udp_stats(opt_own,  stats);
+  if(!(spec_ops->opt->optbits & READMODE)){
+    err = set_from_root(spec_ops->opt, NULL, 0,1);
+    CHECK_ERR("update_cfg");
+    err = write_cfgs_to_disks(spec_ops->opt);
+    CHECK_ERR("write_cfg");
   }
   void udps_stop(struct streamer_entity *se){
     D("Stopping loop");
