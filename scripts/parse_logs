@@ -24,7 +24,7 @@ do
     then
       HDSPEEDS[$I]=`echo $line | awk '{print $2}' |cut -d'M' -f1`
     elif [ "$DASTART" = "Event" ] ; then
-      NAME=`echo $line | awk '{print $2}'`
+      NAME=`echo $line | awk '{print $2}' | sed 's/\./_/g'`
       found=0
       arcount=0
       arindex=0
@@ -46,6 +46,7 @@ do
 	do
 	  #declare -a ${STREAMNAMES[$NUMNAMES]}={0..$I}
 	  printf -v $NAME[$HUR] 0
+	  #eval \$NAME[$HUR]=0
 	  HUR=$(($HUR+1))
 	done
 	NUMNAMES=$(($NUMNAMES + 1))
@@ -53,6 +54,7 @@ do
       VALUE=`echo $line | awk '{print $4}' | cut -d'M' -f1`
       NETSUM=$(($NETSUM+$VALUE))
       printf -v $NAME[$I] $VALUE
+
       #echo $(eval echo \${$NAME[@]})
     elif [ "$DASTART" = "Ringbuffers" ] ; then
       BUFFERS_FREE+=(`echo $line|awk '{print $3}'`)
