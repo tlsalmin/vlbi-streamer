@@ -1317,10 +1317,13 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     //stat->files_exchanged = udps_get_fileprogress(spec_ops);
   }
   int close_udp_streamer(void *opt_own, void *stats){
+    D("Closing udp-streamer");
     struct udpopts *spec_ops = (struct udpopts *)opt_own;
     int err;
     get_udp_stats(opt_own,  stats);
+    D("Got stats");
     if(!(spec_ops->opt->optbits & READMODE)){
+      D("setting cfg");
       err = set_from_root(spec_ops->opt, NULL, 0,1);
       CHECK_ERR("update_cfg");
       err = write_cfgs_to_disks(spec_ops->opt);
@@ -1332,9 +1335,12 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     LOG("UDP_STREAMER: Closed\n");
 
+    /*
     if(!(spec_ops->opt->optbits & USE_RX_RING))
       free(spec_ops->sin);
+      */
     free(spec_ops);
+    D("Returning");
     return 0;
   }
   void udps_stop(struct streamer_entity *se){

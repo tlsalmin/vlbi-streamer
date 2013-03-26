@@ -1241,10 +1241,13 @@ int main(int argc, char **argv)
 #endif
 }
 int close_streamer(struct opt_s *opt){
+  D("Closing streamer");
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
   init_stats(stats_full);
+  D("stats ready");
   if(opt->streamer_ent != NULL)
     opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
+  D("Closed streamer_ent");
 #if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
