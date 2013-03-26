@@ -170,6 +170,7 @@ fi
 
 if [ $RECORD -eq 0 ]
 then
+  DUR=$arg_2
   CONFSTART="hostname = \"$arg_2\";
   record = 0;"
 else
