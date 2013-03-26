@@ -106,50 +106,25 @@ void udps_close_socket(struct streamer_entity *se){
 }
 int udps_bind_port(struct udpopts * spec_ops){
   int err=0;
-  //prep port
-  //struct sockaddr_in *addr = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  spec_ops->sin = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-  CHECK_ERR_NONNULL(spec_ops->sin, "sin malloc");
-  //socklen_t len = sizeof(struct sockaddr_in);
-  memset(spec_ops->sin, 0, sizeof(struct sockaddr_in));   
-  spec_ops->sin->sin_family = AF_INET;           
-  spec_ops->sin->sin_port = htons(spec_ops->opt->port);    
-  //TODO: check if IF binding helps
-  if(spec_ops->opt->optbits & READMODE){
-    D("Connecting to %s",, spec_ops->opt->hostname);
-    spec_ops->sin->sin_addr.s_addr = spec_ops->opt->serverip;
-    spec_ops->sinsize = sizeof(struct sockaddr_in);
+  struct addrinfo *p;
 
-    /*
-       err = inet_aton(opt->hostname, &(spec_ops->sin->sin_addr));
-       if(err ==0){
-       perror("UDP_STREAMER: Inet aton");
-       return NULL;
-       }
-       */
-    //err = connect(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //err = bind(spec_ops->fd, (struct sockaddr*) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //spec_ops->sin = addr;
-  }
-  if(!(spec_ops->opt->optbits & READMODE)){
-    if(spec_ops->opt->hostname != NULL){
-      spec_ops->sin_send = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in));
-      memset(spec_ops->sin_send, 0, sizeof(struct sockaddr_in));   
-      spec_ops->sin_send->sin_family = AF_INET;           
-      spec_ops->sin_send->sin_port = htons(spec_ops->opt->port);    
-      /* Were resending this stream at the same time */
-      spec_ops->sin_send->sin_addr.s_addr = spec_ops->opt->serverip;
-      spec_ops->sinsize = sizeof(struct sockaddr_in);
+  /* TODO: this needs to be done earlier */
+  for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
+  {
+    err = bind(spec_ops->fd, p->ai_addr, p->ai_addrlen);
+    if(err != 0)
+    {
+      E("bind socket");
+      //close(sockfd);
+      continue;
     }
-    D("Binding to port %d",, spec_ops->opt->port);
-    spec_ops->sin->sin_addr.s_addr = INADDR_ANY;
-    //if(!(spec_ops->opt->optbits & USE_RX_RING))
-    err = bind(spec_ops->fd, (struct sockaddr *) spec_ops->sin, sizeof(*(spec_ops->sin)));
-    //free(addr);
-    CHECK_ERR("Bind or connect");
+    break;
+  }
+  if(err != 0){
+    E("Cant bind");
+    return -1;
   }
 
-  //Bind to a socket
   return 0;
 }
 int udps_bind_rx(struct udpopts * spec_ops){
@@ -377,36 +352,67 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   }
   else
   {
+    /* Setting to -1 to check if loop is done at all 	*/
+    spec_ops->fd = -1;
     char port[12];
     memset(port, 0,sizeof(char)*12);
-    struct addrinfo hints, *servinfo, *p;
+    struct addrinfo hints, *p;
     /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE;
     /* Port as integer is legacy from before I saw the light from Beej network guide	*/
     sprintf(port,"%d", spec_ops->opt->port);
-    err = getaddrinfo(NULL, port, &hints, &servinfo);
+    if(spec_ops->opt->optbits & READMODE)
+      err = getaddrinfo(opt->hostname, port, &hints, &(spec_ops->servinfo));
+    else
+      err = getaddrinfo(NULL, port, &hints, &(spec_ops->servinfo));
     CHECK_ERR("Getting address info");
-    for(p = servinfo; p != NULL; p = p->ai_next)
+    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
     {
       spec_ops->fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-      D("Socket initialized as AF_INET");
+      D("Socket initialized");
+      if(spec_ops->fd < 0 ){
+	E("Cant bind to %s. Trying next",, p->ai_canonname);
+	continue;
+      }
       break;
     }
-    if(!(opt->optbits & READMODE) && opt->filename != NULL){
-      spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-      if (spec_ops->fd_send < 0) {
-	perror("socket for simusend");
-	//INIT_ERROR
-      }
-      else{
-	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
-	CHECK_ERR("Simusend init");
-      }
+    if(spec_ops->fd < 0){
+      E("Couldn't get socket at all. Exiting as failed");
+      return -1;
     }
   }
-  //if(!(spec_ops->optbits & READMODE))
+  if(!(opt->optbits & READMODE) && opt->hostname != NULL){
+    char port[12];
+    memset(port, 0,sizeof(char)*12);
+    struct addrinfo hints, *p;
+    /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE;
+    /* Port as integer is legacy from before I saw the light from Beej network guide	*/
+    sprintf(port,"%d", spec_ops->opt->port);
+    err = getaddrinfo(opt->hostname, port, &hints, &(spec_ops->servinfo));
+    if(err < 0){
+      E("Getaddrinfo failed for %s. Non-fatal so continuing",, opt->hostname);
+      free(opt->hostname);
+      opt->hostname = NULL;
+    }
+    else
+    {
+    p = spec_ops->servinfo;
+    spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (spec_ops->fd_send < 0) {
+      perror("socket for simusend");
+      //INIT_ERROR
+    }
+    else{
+      err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
+      CHECK_ERR("Simusend init");
+    }
+    }
+  }
   opt->socket = spec_ops->fd;
 
 

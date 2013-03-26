@@ -39,6 +39,7 @@ struct options{
   int port;
   int opts;
   int offset;
+  uint64_t file_offset;
   uint64_t total_sent;
   uint64_t packet_size;
   uint64_t rate;
@@ -65,6 +66,7 @@ int usage(char * bin)
   LOG( "Usage: %s <file> <target> [OPTIONS]\n\
       -s <PORT>		Set target port to PORT \n\
       -c		Append mark5b packet counter \n\
+      -a <BYTES>	Start after BYTES bytes \n\
       -f <OFFSET>	strip OFFSET from each packet \n\
       -r <RATE>		Send rate in Mb/s\n\
       -p <PACKET_SIZE>	Default 5016 \n", bin);
@@ -90,6 +92,17 @@ void* start_reading(void* optss)
     E("Error in open");
     opts->opts &= ~OPTS_READING;
     opts->opts |= OPTS_ERR_IN_READ;
+  }
+
+  if(opts->file_offset != 0)
+  {
+    long lerr = lseek(fd, opts->file_offset, SEEK_SET);
+    if(lerr != (long)opts->file_offset){
+      if(lerr < 0)
+	E("Error in seek");
+      else
+	LOG("offset only %ld when wanted %ld\n", lerr, opts->file_offset);
+    }
   }
 
   err = 0;
@@ -274,7 +287,7 @@ int main(int argc, char** argv)
   opts->buffermultiplier = DEFAULT_BUFFERMULT;
 
   D("Getting opts");
-  while((ret = getopt(argc, argv, "s:cf:p:r:")) != -1)
+  while((ret = getopt(argc, argv, "s:cf:p:r:a:")) != -1)
   {
     switch (ret){
       case 's':
@@ -289,6 +302,9 @@ int main(int argc, char** argv)
 	break;
       case 'f':
 	opts->offset = atoi(optarg);
+	break;
+      case 'a':
+	opts->file_offset = atol(optarg);
 	break;
       case 'r':
 	opts->rate = atoi(optarg);

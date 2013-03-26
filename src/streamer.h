@@ -339,7 +339,6 @@ struct opt_s
   int taken_rpoints;
   int tid;
   char * hostname;
-  unsigned long serverip;
   //pthread_cond_t signal;
   //struct hostent he;
   //int f_flags;
@@ -486,8 +485,6 @@ void arrange_by_id(struct opt_s* opt);
 int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);
 void shutdown_thread(struct opt_s *opt);
-//int prep_filenames(struct opt_s * opt);
-int prep_hostname(struct opt_s * opt);
 int prep_priority(struct opt_s * opt, int priority);
 int prep_streamer(struct opt_s * opt);
 #if(DAEMON)

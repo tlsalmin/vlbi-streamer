@@ -401,8 +401,8 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       CFG_FULL_INT(opt->buf_num_elems, "buf_num_elems")
       CFG_FULL_INT(opt->buf_division, "buf_division")
       CFG_FULL_STR(hostname)
-      CFG_FULL_UINT64(opt->serverip, "serverip")
       CFG_FULL_UINT64(opt->total_packets, "total_packets")
+//CFG_FULL_UINT64(opt->serverip, "serverip")
 
       setting = config_setting_get_elem(root,++index);
   }

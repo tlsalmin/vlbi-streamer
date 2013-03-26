@@ -940,24 +940,6 @@ int prep_streamer(struct opt_s* opt){
   }
   return 0;
 }
-int prep_hostname(struct opt_s* opt){
-  if(opt->hostname == NULL){
-    E("Hostname is null!");
-    return -1;
-  }
-  struct hostent *hostptr;
-
-  hostptr = gethostbyname(opt->hostname);
-  if(hostptr == NULL){
-    perror("Hostname");
-    //STREAMER_ERROR_EXIT;
-    return -1;
-  }
-  memcpy(&(opt->serverip), (char *)hostptr->h_addr, sizeof(opt->serverip));
-
-  D("Resolved hostname");
-  return 0;
-}
 int init_recp(struct opt_s *opt){
   int err, i;
   opt->recs = (struct recording_entity*)malloc(sizeof(struct recording_entity)*opt->n_drives);
@@ -1089,16 +1071,6 @@ int main(int argc, char **argv)
 
   /* Handle hostname etc */
   /* TODO: Whats the best way that accepts any format? */
-  if(opt->hostname != NULL){
-    err = prep_hostname(opt);
-    if(err != 0){
-      E("Error determining hostname");
-      STREAMER_ERROR_EXIT;
-    }
-    D("Got hostname");
-  }
-  else if(opt->optbits & READMODE)
-    D("No hostname set for readmode!");
   
   err = prep_streamer(opt);
   if(err != 0){

@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <assert.h>
 #include <string.h>
 #include <sys/mman.h>
 #include "../src/datatypes_common.h"

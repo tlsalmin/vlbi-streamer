@@ -57,6 +57,8 @@ struct udpopts
   //long unsigned int * cumul;
   struct sockaddr_in *sin;
   struct sockaddr_in *sin_send;
+  struct addrinfo *servinfo;
+  struct addrinfo *servinfo_simusend;
   size_t sinsize;
   int wrongsizeerrors;
 
