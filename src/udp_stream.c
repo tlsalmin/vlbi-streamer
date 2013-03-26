@@ -357,6 +357,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     char port[12];
     memset(port, 0,sizeof(char)*12);
     struct addrinfo hints, *p;
+    memset(&hints, 0, sizeof(struct addrinfo));
     /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
@@ -366,8 +367,14 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     if(spec_ops->opt->optbits & READMODE)
       err = getaddrinfo(opt->hostname, port, &hints, &(spec_ops->servinfo));
     else
+    {
+      D("Getting address info on binding to listen");
       err = getaddrinfo(NULL, port, &hints, &(spec_ops->servinfo));
-    CHECK_ERR("Getting address info");
+    }
+    if(err != 0){
+      E("Error in getting address info %s",, gai_strerror(err));
+      return -1;
+    }
     for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
     {
       spec_ops->fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
@@ -387,6 +394,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     char port[12];
     memset(port, 0,sizeof(char)*12);
     struct addrinfo hints, *p;
+    memset(&hints,0,sizeof(struct addrinfo));
     /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
