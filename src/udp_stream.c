@@ -598,7 +598,9 @@ void * udp_sender(void *streamo){
   /* Data won't be instantaneous so get min_sleep here! */
   unsigned long minsleep = get_min_sleeptime();
   LOG("Can sleep max %lu microseconds on average\n", minsleep);
+#if!(PREEMPTKERNEL)
   st.minsleep = minsleep;
+#endif
 
   buf = se->be->simple_get_writebuf(se->be, &inc);
 
