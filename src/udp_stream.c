@@ -80,7 +80,6 @@ extern FILE* logfile;
 #define SLEEP_ON_BUFFERS_TO_LOAD
 #define RATE_LIMITING_FROM_SOCKETSIZE
 /* Using this until solved properly */
-//#define UGLY_BUSYLOOP_ON_TIMER
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
 /// Offset of data from start of frame
@@ -108,7 +107,7 @@ int udps_bind_port(struct udpopts * spec_ops){
   int err=0;
   struct addrinfo *p;
 
-  if(! spec_ops->opt->optbits & READMODE)
+  if(!(spec_ops->opt->optbits & READMODE))
   {
     /* TODO: this needs to be done earlier */
     for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
@@ -473,7 +472,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
 {
   long wait;
-  int err;
+  //int err;
 #ifdef HAVE_RATELIMITER
   if(opt->wait_nanoseconds > 0)
   {
@@ -500,11 +499,11 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
       fprintf(st->out, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st->req));
 #endif
 #endif	
-#ifdef UGLY_BUSYLOOP_ON_TIMER
+#if!(PREEMPTKERNEL)
       /* First->sleep in minsleep sleeps to get rid of the bulk		*/
-      while((unsigned long)GETNANOS(st->req) > minsleep){
+      while((unsigned long)GETNANOS(st->req) > st->minsleep){
 	SLEEP_NANOS(st->onenano);
-	SETNANOS(st->req,GETNANOS(st->req)-minsleep);
+	SETNANOS(st->req,GETNANOS(st->req)-st->minsleep);
       }
       GETTIME(st->now);
 
@@ -517,9 +516,9 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
 	E("cant sleep");
 	return -1;
       }
-#endif /*UGLY_BUSYLOOP_ON_TIMER */
 
       GETTIME(st->now);
+#endif /*PREEMPTKERNEL */
 
 #if(SEND_DEBUG)
 #if(PLOTTABLE_SEND_DEBUG)
@@ -597,6 +596,7 @@ void * udp_sender(void *streamo){
   /* Data won't be instantaneous so get min_sleep here! */
   unsigned long minsleep = get_min_sleeptime();
   LOG("Can sleep max %lu microseconds on average\n", minsleep);
+  st.minsleep = minsleep;
 
   buf = se->be->simple_get_writebuf(se->be, &inc);
 

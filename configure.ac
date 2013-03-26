@@ -84,6 +84,17 @@ AS_IF([test "x$enable_debug" != "xno"], [
 		     ], AC_DEFINE(DEBUG_OUTPUT, 0, [Print debug_output to stdout]))
 AM_CONDITIONAL([DEBUG_OUTPUT], [test "${enable_debug}" = "yes"])
 
+AC_MSG_CHECKING([--enable-preemptkernel argument])
+AC_ARG_ENABLE(preemptkernel,
+    [  --enable-preemptkernel         Enable pre-empt kernel sparing a busyloop on rated sending.],
+    [enable_preemptkernel=$enableval],
+    [enable_preemptkernel="no"])
+AC_MSG_RESULT($enable_preemptkernel)
+AS_IF([test "x$enable_preemptkernel" != "xno"], [
+		     AC_DEFINE(PREEMPTKERNEL, 1, [Use nanosleep])
+		     ], AC_DEFINE(PREEMPTKERNEL, 0, [use busyloop]))
+AM_CONDITIONAL([PREEMPTKERNEL], [test "${enable_preemptkernel}" = "yes"])
+
 AC_MSG_CHECKING([--enable-logtofile argument])
 AC_ARG_ENABLE(logtofile,
 	      [  --enable-logtofile         Enable logging to file.],

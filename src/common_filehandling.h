@@ -23,8 +23,9 @@ struct sender_tracking{
 #if(SEND_DEBUG)
   TIMERTYPE reference;
 #endif
-#ifdef UGLY_BUSYLOOP_ON_TIMER
+#if!(PREEMPTKERNEL)
   TIMERTYPE onenano;
+  unsigned long minsleep;
 #endif
   TIMERTYPE req;
 };

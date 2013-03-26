@@ -185,7 +185,7 @@ void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st)
   (void)opt;
   memset(st, 0,sizeof(struct sender_tracking));
 
-#ifdef UGLY_BUSYLOOP_ON_TIMER
+#if!(PREEMPTKERNEL)
   //TIMERTYPE onenano;
   ZEROTIME(st->onenano);
   SETONE(st->onenano);

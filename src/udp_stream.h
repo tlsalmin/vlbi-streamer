@@ -55,6 +55,7 @@ struct udpopts
   int fd_send;
   struct opt_s* opt;
   //long unsigned int * cumul;
+  //TODO: REmove these two
   struct sockaddr_in *sin;
   struct sockaddr_in *sin_send;
   struct addrinfo *p;
