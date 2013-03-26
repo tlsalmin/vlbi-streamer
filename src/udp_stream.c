@@ -108,21 +108,45 @@ int udps_bind_port(struct udpopts * spec_ops){
   int err=0;
   struct addrinfo *p;
 
-  /* TODO: this needs to be done earlier */
-  for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
+  if(! spec_ops->opt->optbits & READMODE)
   {
-    err = bind(spec_ops->fd, p->ai_addr, p->ai_addrlen);
-    if(err != 0)
+    /* TODO: this needs to be done earlier */
+    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
     {
-      E("bind socket");
-      //close(sockfd);
-      continue;
+      err = bind(spec_ops->fd, p->ai_addr, p->ai_addrlen);
+      if(err != 0)
+      {
+	E("bind socket");
+	//close(sockfd);
+	continue;
+      }
+      break;
     }
-    break;
+    if(err != 0){
+      E("Cant bind");
+      return -1;
+    }
   }
-  if(err != 0){
-    E("Cant bind");
-    return -1;
+  else
+  {
+    D("TODO: Add connect flag");
+    /*
+    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
+    {
+      err = connect(spec_ops->fd, p->ai_addr, p->ai_addrlen);
+      if(err != 0)
+      {
+	E("connect socket");
+	//close(sockfd);
+	continue;
+      }
+      break;
+    }
+    if(err != 0){
+      E("Cant connect");
+      return -1;
+    }
+    */
   }
 
   return 0;
@@ -180,13 +204,13 @@ int udps_bind_rx(struct udpopts * spec_ops){
 
     //Bind to a socket
     /*
-    memset(&ll, 0, sizeof(ll));
-    ll.sll_family = AF_PACKET;
-    ll.sll_protocol = htons(ETH_P_ALL);
-    ll.sll_ifindex = ifr.ifr_ifindex;
-    err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
-    CHECK_ERR("Bind to IF");
-    */
+       memset(&ll, 0, sizeof(ll));
+       ll.sll_family = AF_PACKET;
+       ll.sll_protocol = htons(ETH_P_ALL);
+       ll.sll_ifindex = ifr.ifr_ifindex;
+       err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
+       CHECK_ERR("Bind to IF");
+       */
   }
 
   return 0;
@@ -220,103 +244,103 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
   }
   /*
 #ifdef BAUD_LIMITING
-  if(spec_ops->opt->optbits & WAIT_BETWEEN){
-    struct ifreq ifr;
-    //Get the interface index
-    memset(&ifr, 0, sizeof(ifr));
-    ifr.ifr_ifru.ifru_ivalue = ((1000000000L)*spec_ops->opt->wait_nanoseconds)*8*spec_ops->opt->packet_size;
-    err = ioctl(spec_ops->fd, SIOCSCANBAUDRATE, &ifr);
-    CHECK_ERR("Baud Rater");
-  }
+if(spec_ops->opt->optbits & WAIT_BETWEEN){
+struct ifreq ifr;
+//Get the interface index
+memset(&ifr, 0, sizeof(ifr));
+ifr.ifr_ifru.ifru_ivalue = ((1000000000L)*spec_ops->opt->wait_nanoseconds)*8*spec_ops->opt->packet_size;
+err = ioctl(spec_ops->fd, SIOCSCANBAUDRATE, &ifr);
+CHECK_ERR("Baud Rater");
+}
 #endif
 */
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-  //Stolen from http://seclists.org/tcpdump/2010/q2/99
-  struct hwtstamp_config hwconfig;
-  //struct ifreq ifr;
+//Stolen from http://seclists.org/tcpdump/2010/q2/99
+struct hwtstamp_config hwconfig;
+//struct ifreq ifr;
 
-  memset(&hwconfig, 0, sizeof(hwconfig));
-  hwconfig.tx_type = HWTSTAMP_TX_ON;
-  hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
+memset(&hwconfig, 0, sizeof(hwconfig));
+hwconfig.tx_type = HWTSTAMP_TX_ON;
+hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
-  memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, opt->device_name);
-  ifr.ifr_data = (void *)&hwconfig;
+memset(&ifr, 0, sizeof(ifr));
+strcpy(ifr.ifr_name, opt->device_name);
+ifr.ifr_data = (void *)&hwconfig;
 
-  err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
-  CHECK_ERR_LTZ("HW timestamping");
+err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
+CHECK_ERR_LTZ("HW timestamping");
 #endif
-  /* TODO: Drop bad size packets as in */
-  /* ret = setsockopt(iface->fd, SOL_PACKET, PACKET_LOSS, &val, sizeof(val)); */
-  //NOTE: Has no effect
-  /* set SO_RCVLOWAT , the minimum amount received to return from recv*/
-  /*
-  //socklen_t optlen = BUFSIZE;
-  buflength = BUFSIZE;
-  setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
-  */
-  /*
-   * Setting the default receive buffer size. Taken from libhj create_udp_socket
-   */
-  len = sizeof(def);
-  def=0;
-  if(mode & READMODE){
-    err = 0;
-    D("Doing the double sndbuf-loop");
-    def = opt->packet_size;
-    while(err == 0){
-      //D("RCVBUF size is %d",,def);
-      def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
-      if(err == 0){
-	D("Trying SNDBUF size %d",, def);
-      }
-      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
-      if(defcheck != (def << 1)){
-	D("Limit reached. Final size is %d Bytes",,defcheck);
-	break;
-      }
+/* TODO: Drop bad size packets as in */
+/* ret = setsockopt(iface->fd, SOL_PACKET, PACKET_LOSS, &val, sizeof(val)); */
+//NOTE: Has no effect
+/* set SO_RCVLOWAT , the minimum amount received to return from recv*/
+/*
+//socklen_t optlen = BUFSIZE;
+buflength = BUFSIZE;
+setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
+*/
+/*
+ * Setting the default receive buffer size. Taken from libhj create_udp_socket
+ */
+len = sizeof(def);
+def=0;
+if(mode & READMODE){
+  err = 0;
+  D("Doing the double sndbuf-loop");
+  def = opt->packet_size;
+  while(err == 0){
+    //D("RCVBUF size is %d",,def);
+    def  = def << 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+    if(err == 0){
+      D("Trying SNDBUF size %d",, def);
+    }
+    err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+    if(defcheck != (def << 1)){
+      D("Limit reached. Final size is %d Bytes",,defcheck);
+      break;
     }
   }
-  else{
-    err=0;
-    /*
-    err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
-    CHECK_ERR("RCVBUF size");
-    */
-    D("Doing the double rcvbuf-loop");
-    def = opt->packet_size;
-    while(err == 0){
-      //D("RCVBUF size is %d",,def);
-      def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
-      if(err == 0){
-	D("Trying RCVBUF size %d",, def);
-      }
-      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
-      if(defcheck != (def << 1)){
-	D("Limit reached. Final size is %d Bytes",,defcheck);
-	break;
-      }
+}
+else{
+  err=0;
+  /*
+     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
+     CHECK_ERR("RCVBUF size");
+     */
+  D("Doing the double rcvbuf-loop");
+  def = opt->packet_size;
+  while(err == 0){
+    //D("RCVBUF size is %d",,def);
+    def  = def << 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+    if(err == 0){
+      D("Trying RCVBUF size %d",, def);
+    }
+    err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+    if(defcheck != (def << 1)){
+      D("Limit reached. Final size is %d Bytes",,defcheck);
+      break;
     }
   }
+}
 
 #ifdef SO_NO_CHECK
-  if(mode & READMODE){
-    const int sflag = 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
-    CHECK_ERR("UDPCHECKSUM");
-  }
+if(mode & READMODE){
+  const int sflag = 1;
+  err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
+  CHECK_ERR("UDPCHECKSUM");
+}
 #endif
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-  //set hardware timestamping
-  int req = 0;
-  req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-  err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
-  CHECK_ERR("HWTIMESTAMP");
+//set hardware timestamping
+int req = 0;
+req |= SOF_TIMESTAMPING_SYS_HARDWARE;
+err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
+CHECK_ERR("HWTIMESTAMP");
 #endif
-  return 0;
+return 0;
 }
 
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
@@ -330,21 +354,21 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
   spec_ops->opt = opt;
 
   /*
-  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-    if(spec_ops->opt->optbits & DATATYPE_VDIF)
-      spec_ops->calc_bufpos = calc_bufpos_vdif;
-    else if(spec_ops->opt->optbits & DATATYPE_MARK5B)
-      spec_ops->calc_bufpos = calc_bufpos_mark5b;
-    else if(spec_ops->opt->optbits & DATATYPE_UDPMON)
-      spec_ops->calc_bufpos = calc_bufpos_general;
-    else{
-      spec_ops->calc_bufpos = NULL;
-      E("Unknown datatype not set, but no other either!");
-    }
-  }
-  else
-    spec_ops->calc_bufpos = NULL;
-    */
+     if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+     if(spec_ops->opt->optbits & DATATYPE_VDIF)
+     spec_ops->calc_bufpos = calc_bufpos_vdif;
+     else if(spec_ops->opt->optbits & DATATYPE_MARK5B)
+     spec_ops->calc_bufpos = calc_bufpos_mark5b;
+     else if(spec_ops->opt->optbits & DATATYPE_UDPMON)
+     spec_ops->calc_bufpos = calc_bufpos_general;
+     else{
+     spec_ops->calc_bufpos = NULL;
+     E("Unknown datatype not set, but no other either!");
+     }
+     }
+     else
+     spec_ops->calc_bufpos = NULL;
+     */
 
   if(spec_ops->opt->optbits & USE_RX_RING){
     spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
@@ -389,6 +413,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
       E("Couldn't get socket at all. Exiting as failed");
       return -1;
     }
+    spec_ops->p=p;
   }
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
     char port[12];
@@ -409,16 +434,16 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     }
     else
     {
-    p = spec_ops->servinfo;
-    spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    if (spec_ops->fd_send < 0) {
-      perror("socket for simusend");
-      //INIT_ERROR
-    }
-    else{
-      err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
-      CHECK_ERR("Simusend init");
-    }
+      p = spec_ops->servinfo;
+      spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+      if (spec_ops->fd_send < 0) {
+	perror("socket for simusend");
+	//INIT_ERROR
+      }
+      else{
+	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
+	CHECK_ERR("Simusend init");
+      }
     }
   }
   opt->socket = spec_ops->fd;
@@ -608,7 +633,7 @@ void * udp_sender(void *streamo){
 #ifdef DUMMYSOCKET
     err = spec_ops->opt->packet_size;
 #else
-    err = sendto(spec_ops->fd, (buf+sentinc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->sin,spec_ops->sinsize);
+    err = sendto(spec_ops->fd, (buf+sentinc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
 #endif
 
 
@@ -910,455 +935,455 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	return NULL;
       }
       //SOMsdf
-else
-      {
-	D("Packet behind order, but inside this buffer.");
-	(*(resq->inc))+=spec_ops->opt->packet_size;
-
-	resq->usebuf = (resq->bufstart + ((diff_from_start)*spec_ops->opt->packet_size));
-	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
-
-	return NULL;
-      }
-    }
-      // seqnum > current
-    else
-    {
-      D("Seqnum larger than current: %ld, old seqnum: %ld",, seqnum, resq->current_seq);
-      if (diff_from_start >= spec_ops->opt->buf_num_elems){
-	D("Packet ahead of time beyond this buffer!");
-	if(diff_from_start >= spec_ops->opt->buf_num_elems*2){
-	  D("Packet is way beyond buffer after. Dropping!");
-	  spec_ops->missing++;
-	  return NULL;
-	}
-	/* Need to jump to next buffer in this case */
-
-	long i_from_next_seqstart = diff_from_start - (long)spec_ops->opt->buf_num_elems;
-	/* Save pointer to packet		*/
-	void* origbuf = resq->buf;
-
-	int err = jump_to_next_buf(se, resq);
-	if(err != 0){
-	  E("Jump to next failed");
-	  return NULL;
-	}
-
-	resq->usebuf = resq->bufstart + (i_from_next_seqstart)*spec_ops->opt->packet_size;
-	memcpy(resq->usebuf, origbuf, spec_ops->opt->packet_size);
-
-	//(*(resq->inc))++;
-	(*(resq->inc))+=spec_ops->opt->packet_size;
-
-	/* Move diff up as thought we'd be receiving normally at the new position 	*/
-	resq->current_seq = seqnum;
-	/* Since i_from_next_seqstart counts also 0 , we need to add 1 here		*/
-	resq->i+=i_from_next_seqstart+1;
-	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
-
-	return NULL;
-      }
-      else{
-	D("Packet ahead of time but in this buffer!");
-	//(*(resq->inc))++;
-	(*(resq->inc))+=spec_ops->opt->packet_size;
-	/* Jump to this position. This way we dont have to keep a bitmap of what we have etc.  */
-
-	//resq->usebuf = resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size;
-	resq->usebuf = resq->bufstart + (((unsigned long)diff_from_start)*(spec_ops->opt->packet_size));
-	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
-	//void * temp = memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
-
-	/*
-	   D("memcpy copied stuff to %lu from start, when diff was %ld",, (long unsigned)((temp-resq->bufstart)/spec_ops->opt->packet_size), diff_from_start);
-	   D("Indabuff %lu",, be64toh(*((unsigned long*)temp)));
-	   D("Indabuff usebuf %lu",, be64toh(*((unsigned long*)resq->usebuf)));
-	   D("Indabuff shoulda %lu",, be64toh(*((unsigned long*)resq->bufstart + (((unsigned long)diff_from_start)*spec_ops->opt->packet_size))));
-
-*/
-	//assert(be64toh(*((unsigned long*)resq->bufstart +((seqnum - resq->seqstart_current)*((unsigned long)spec_ops->opt->packet_size)))) == (unsigned long)seqnum);
-
-	/* Since diff_to_current is current_seqnum - seqnum and current_seqnum is for	*/
-	/* the packet received before this, we need to add one here. 			*/
-	resq->i+= diff_to_current;
-	resq->current_seq = seqnum;
-	resq->buf = resq->usebuf + spec_ops->opt->packet_size;
-
-	return NULL;
-      }
-    }
-  }
-  return NULL;
-}
-inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received)
-{
-  int err;
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  if(received < 0){
-    if(received == EINTR)
-      LOG("UDP_STREAMER: Main thread has shutdown socket\n");
-    else{
-      perror("RECV error");
-      E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
-      fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
-      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
-      }
-    }
-    //spec_ops->running = 0;
-    se->stop(se);
-    spec_ops->opt->status = STATUS_ERROR;
-    return -1;
-  }
-  else if((long unsigned)received != spec_ops->opt->packet_size){
-    if(spec_ops->opt->status & STATUS_RUNNING){
-      E("Received packet of size %d, when expected %lu",, received, spec_ops->opt->packet_size);
-      spec_ops->incomplete++;
-      spec_ops->wrongsizeerrors++;
-      if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
-	E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
-	se->stop(se);
-	spec_ops->opt->status = STATUS_ERROR;
-	return -1;
-      }
-    }
-  }
-  /* Success! */
-  else if(spec_ops->opt->status & STATUS_RUNNING){
-    if(spec_ops->opt->hostname != NULL){
-      int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->sin_send,spec_ops->sinsize);
-      if(senderr <0 ){
-	perror("send error");
-	E("Send er");
-      }
-      else if((unsigned long)senderr != spec_ops->opt->packet_size)
-	E("Different size sent onward. NOT HANDLED");
-    }
-    assert(resq->i < spec_ops->opt->buf_num_elems);
-    /* i has to keep on running, so we always change	*/
-    /* the buffer at a correct spot			*/
-
-    /* Check if we have a func for checking the	*/
-    /* correct sequence from the header		*/
-    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-
-      if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
-      {
-	int temperr=0;
-	err = get_sec_dif_from_buf(resq->buf, &(resq->tm_s), spec_ops->opt,&temperr);
-	if(temperr == NONEVEN_PACKET){
-	  //D("Noneven packet");
-	  return 0;
-	}
-	else if(temperr != 0){
-	  E("Error in getting metadata");
-	  return -1;
-	}
-	else if(err > 0)
-	{
-	  //D("Still waiting on start");
-	  return 0;
-	}
 	else
 	{
-	  LOG("Got first packet in correct metadata second. Starting recording! diff was %d seconds\n", err);
-	  spec_ops->opt->optbits &= ~WAIT_START_ON_METADATA;
-	  D("Updating our start time according to metadata");
-	  TIMERTYPE temptime;
-	  GETTIME(temptime);
-	  GETSECONDS(spec_ops->opt->starting_time) = GETSECONDS(temptime);
+	  D("Packet behind order, but inside this buffer.");
+	  (*(resq->inc))+=spec_ops->opt->packet_size;
+
+	  resq->usebuf = (resq->bufstart + ((diff_from_start)*spec_ops->opt->packet_size));
+	  memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
+	  return NULL;
 	}
       }
-
-      /* Calc the position we should have		*/
-      if(spec_ops->opt->first_packet == NULL)
+      // seqnum > current
+      else
       {
-	err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
-	if (err != 0)
-	{
-	  E("First metadata malloc failed!");
+	D("Seqnum larger than current: %ld, old seqnum: %ld",, seqnum, resq->current_seq);
+	if (diff_from_start >= spec_ops->opt->buf_num_elems){
+	  D("Packet ahead of time beyond this buffer!");
+	  if(diff_from_start >= spec_ops->opt->buf_num_elems*2){
+	    D("Packet is way beyond buffer after. Dropping!");
+	    spec_ops->missing++;
+	    return NULL;
+	  }
+	  /* Need to jump to next buffer in this case */
+
+	  long i_from_next_seqstart = diff_from_start - (long)spec_ops->opt->buf_num_elems;
+	  /* Save pointer to packet		*/
+	  void* origbuf = resq->buf;
+
+	  int err = jump_to_next_buf(se, resq);
+	  if(err != 0){
+	    E("Jump to next failed");
+	    return NULL;
+	  }
+
+	  resq->usebuf = resq->bufstart + (i_from_next_seqstart)*spec_ops->opt->packet_size;
+	  memcpy(resq->usebuf, origbuf, spec_ops->opt->packet_size);
+
+	  //(*(resq->inc))++;
+	  (*(resq->inc))+=spec_ops->opt->packet_size;
+
+	  /* Move diff up as thought we'd be receiving normally at the new position 	*/
+	  resq->current_seq = seqnum;
+	  /* Since i_from_next_seqstart counts also 0 , we need to add 1 here		*/
+	  resq->i+=i_from_next_seqstart+1;
+	  resq->buf = resq->usebuf + spec_ops->opt->packet_size;
+
+	  return NULL;
 	}
 	else{
-	  err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
-	  if(err != 0)
-	  {
-	    E("First metadata copying failed!");
-	  }
-	  spec_ops->opt->resqut = resq;
+	  D("Packet ahead of time but in this buffer!");
+	  //(*(resq->inc))++;
+	  (*(resq->inc))+=spec_ops->opt->packet_size;
+	  /* Jump to this position. This way we dont have to keep a bitmap of what we have etc.  */
+
+	  //resq->usebuf = resq->bufstart + (diff_from_start)*spec_ops->opt->packet_size;
+	  resq->usebuf = resq->bufstart + (((unsigned long)diff_from_start)*(spec_ops->opt->packet_size));
+	  memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+	  //void * temp = memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
+
+	  /*
+	     D("memcpy copied stuff to %lu from start, when diff was %ld",, (long unsigned)((temp-resq->bufstart)/spec_ops->opt->packet_size), diff_from_start);
+	     D("Indabuff %lu",, be64toh(*((unsigned long*)temp)));
+	     D("Indabuff usebuf %lu",, be64toh(*((unsigned long*)resq->usebuf)));
+	     D("Indabuff shoulda %lu",, be64toh(*((unsigned long*)resq->bufstart + (((unsigned long)diff_from_start)*spec_ops->opt->packet_size))));
+
+*/
+	  //assert(be64toh(*((unsigned long*)resq->bufstart +((seqnum - resq->seqstart_current)*((unsigned long)spec_ops->opt->packet_size)))) == (unsigned long)seqnum);
+
+	  /* Since diff_to_current is current_seqnum - seqnum and current_seqnum is for	*/
+	  /* the packet received before this, we need to add one here. 			*/
+	  resq->i+= diff_to_current;
+	  resq->current_seq = seqnum;
+	  resq->buf = resq->usebuf + spec_ops->opt->packet_size;
+
+	  return NULL;
 	}
       }
-      calc_bufpos_general(resq->buf, se, resq);
     }
-    else{
-      resq->buf+=spec_ops->opt->packet_size;
-      (*(resq->inc))+=spec_ops->opt->packet_size;
-      resq->i++;
-
-    }
-    assert((unsigned)*resq->inc <= spec_ops->opt->filesize);
-    spec_ops->total_captured_bytes +=(unsigned int) received;
-    spec_ops->opt->total_packets++;
-    if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
-      LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
-      spec_ops->opt->status = STATUS_FINISHED;
-    }
+    return NULL;
   }
-  return 0;
-}
-int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
-{
-  int err;
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  if(resq->i == spec_ops->opt->buf_num_elems)
+  inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received)
   {
-    D("Buffer filled, Getting another");
-    if(spec_ops->opt->fi != NULL){
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-      D("N packets is now %lu",, n_now);
+    int err;
+    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    if(received < 0){
+      if(received == EINTR)
+	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
+      else{
+	perror("RECV error");
+	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
+	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
+	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
+	}
+      }
+      //spec_ops->running = 0;
+      se->stop(se);
+      spec_ops->opt->status = STATUS_ERROR;
+      return -1;
     }
-
-    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-      D("Jumping to next buffer normally");
-      err = jump_to_next_buf(se, resq);
-      if(err < 0){
-	E("Error in jump to next");
-	//spec_ops->running = 0;
-	spec_ops->opt->status = STATUS_ERROR;
-	return -1;
+    else if((long unsigned)received != spec_ops->opt->packet_size){
+      if(spec_ops->opt->status & STATUS_RUNNING){
+	E("Received packet of size %d, when expected %lu",, received, spec_ops->opt->packet_size);
+	spec_ops->incomplete++;
+	spec_ops->wrongsizeerrors++;
+	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
+	  E("Too many wrong size packets received. Please adjust packet size correctly. Exiting");
+	  se->stop(se);
+	  spec_ops->opt->status = STATUS_ERROR;
+	  return -1;
+	}
       }
     }
-    else{
-      D("Datatype unknown!");
-      resq->i=0;
-      (*spec_ops->opt->cumul)++;
+    /* Success! */
+    else if(spec_ops->opt->status & STATUS_RUNNING){
+      if(spec_ops->opt->hostname != NULL){
+	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
+	if(senderr <0 ){
+	  perror("send error");
+	  E("Send er");
+	}
+	else if((unsigned long)senderr != spec_ops->opt->packet_size)
+	  E("Different size sent onward. NOT HANDLED");
+      }
+      assert(resq->i < spec_ops->opt->buf_num_elems);
+      /* i has to keep on running, so we always change	*/
+      /* the buffer at a correct spot			*/
+
+      /* Check if we have a func for checking the	*/
+      /* correct sequence from the header		*/
+      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+
+	if(spec_ops->opt->optbits & WAIT_START_ON_METADATA)
+	{
+	  int temperr=0;
+	  err = get_sec_dif_from_buf(resq->buf, &(resq->tm_s), spec_ops->opt,&temperr);
+	  if(temperr == NONEVEN_PACKET){
+	    //D("Noneven packet");
+	    return 0;
+	  }
+	  else if(temperr != 0){
+	    E("Error in getting metadata");
+	    return -1;
+	  }
+	  else if(err > 0)
+	  {
+	    //D("Still waiting on start");
+	    return 0;
+	  }
+	  else
+	  {
+	    LOG("Got first packet in correct metadata second. Starting recording! diff was %d seconds\n", err);
+	    spec_ops->opt->optbits &= ~WAIT_START_ON_METADATA;
+	    D("Updating our start time according to metadata");
+	    TIMERTYPE temptime;
+	    GETTIME(temptime);
+	    GETSECONDS(spec_ops->opt->starting_time) = GETSECONDS(temptime);
+	  }
+	}
+
+	/* Calc the position we should have		*/
+	if(spec_ops->opt->first_packet == NULL)
+	{
+	  err = init_header(&(spec_ops->opt->first_packet), spec_ops->opt);
+	  if (err != 0)
+	  {
+	    E("First metadata malloc failed!");
+	  }
+	  else{
+	    err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
+	    if(err != 0)
+	    {
+	      E("First metadata copying failed!");
+	    }
+	    spec_ops->opt->resqut = resq;
+	  }
+	}
+	calc_bufpos_general(resq->buf, se, resq);
+      }
+      else{
+	resq->buf+=spec_ops->opt->packet_size;
+	(*(resq->inc))+=spec_ops->opt->packet_size;
+	resq->i++;
+
+      }
+      assert((unsigned)*resq->inc <= spec_ops->opt->filesize);
+      spec_ops->total_captured_bytes +=(unsigned int) received;
+      spec_ops->opt->total_packets++;
+      if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
+	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
+	spec_ops->opt->status = STATUS_FINISHED;
+      }
+    }
+    return 0;
+  }
+  int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
+  {
+    int err;
+    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    if(resq->i == spec_ops->opt->buf_num_elems)
+    {
+      D("Buffer filled, Getting another");
+      if(spec_ops->opt->fi != NULL){
+	unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+	D("N packets is now %lu",, n_now);
+      }
+
+      if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+	D("Jumping to next buffer normally");
+	err = jump_to_next_buf(se, resq);
+	if(err < 0){
+	  E("Error in jump to next");
+	  //spec_ops->running = 0;
+	  spec_ops->opt->status = STATUS_ERROR;
+	  return -1;
+	}
+      }
+      else{
+	D("Datatype unknown!");
+	resq->i=0;
+	(*spec_ops->opt->cumul)++;
 #ifdef FORCE_WRITE_TO_FILESIZE
-      (*resq->inc) = spec_ops->opt->filesize;
+	(*resq->inc) = spec_ops->opt->filesize;
 #endif
 
-      D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
-      free_the_buf(se->be);
-      /* Get a new buffer */
-      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
-      CHECK_AND_EXIT(se->be);
-      D("Got new free be. Grabbing buffer");
-      resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+	D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
+	free_the_buf(se->be);
+	/* Get a new buffer */
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
+	CHECK_AND_EXIT(se->be);
+	D("Got new free be. Grabbing buffer");
+	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+      }
     }
+    return 0;
   }
-  return 0;
-}
-void reset_udpopts_stats(struct udpopts *spec_ops)
-{
-  spec_ops->wrongsizeerrors = 0;
-  spec_ops->total_captured_bytes = 0;
-  spec_ops->opt->total_packets = 0;
-  spec_ops->out_of_order = 0;
-  spec_ops->incomplete = 0;
-  spec_ops->missing = 0;
-}
-int force_reacquire(struct udpopts *spec_ops)
-{
-  int err =1;
-  //TODO: Is this even sensible?
-  TIMERTYPE temptimer;
-  GETTIME(temptimer);
-  while(GETSECONDS(temptimer) < (GETSECONDS(spec_ops->opt->starting_time) + (long)spec_ops->opt->time) && err != 0)
+  void reset_udpopts_stats(struct udpopts *spec_ops)
   {
-    sleep(1);
+    spec_ops->wrongsizeerrors = 0;
+    spec_ops->total_captured_bytes = 0;
+    spec_ops->opt->total_packets = 0;
+    spec_ops->out_of_order = 0;
+    spec_ops->incomplete = 0;
+    spec_ops->missing = 0;
+  }
+  int force_reacquire(struct udpopts *spec_ops)
+  {
+    int err =1;
+    //TODO: Is this even sensible?
+    TIMERTYPE temptimer;
     GETTIME(temptimer);
-    err = udps_bind_port(spec_ops);
-  }
-  if(err != 0){
-    E("Still couldn't get the port. Exiting");
-    return -1;
-  }
-  return 0;
-}
-/*
- * Receiver for UDP-data
- */
-void* udp_receiver(void *streamo)
-{
-  int err = 0;
-
-  struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
-  memset(resq, 0, sizeof(struct resq_info));
-
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
-
-
-  reset_udpopts_stats(spec_ops);
-
-  LOG("UDP_STREAMER: Starting stream capture\n");
-  err = udps_bind_port(spec_ops);
-  if(err != 0){
-    E("Error in port binding");
-    if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
+    while(GETSECONDS(temptimer) < (GETSECONDS(spec_ops->opt->starting_time) + (long)spec_ops->opt->time) && err != 0)
     {
-      LOG("Force acquiring\n");
-      err = force_reacquire(spec_ops);
-      if(err != 0){
-	E("Force reacquire failed");
+      sleep(1);
+      GETTIME(temptimer);
+      err = udps_bind_port(spec_ops);
+    }
+    if(err != 0){
+      E("Still couldn't get the port. Exiting");
+      return -1;
+    }
+    return 0;
+  }
+  /*
+   * Receiver for UDP-data
+   */
+  void* udp_receiver(void *streamo)
+  {
+    int err = 0;
+
+    struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
+    memset(resq, 0, sizeof(struct resq_info));
+
+    struct streamer_entity *se =(struct streamer_entity*)streamo;
+    struct udpopts *spec_ops = (struct udpopts *)se->opt;
+
+
+    reset_udpopts_stats(spec_ops);
+
+    LOG("UDP_STREAMER: Starting stream capture\n");
+    err = udps_bind_port(spec_ops);
+    if(err != 0){
+      E("Error in port binding");
+      if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
+      {
+	LOG("Force acquiring\n");
+	err = force_reacquire(spec_ops);
+	if(err != 0){
+	  E("Force reacquire failed");
+	  spec_ops->opt->status = STATUS_ERROR;
+	  pthread_exit(NULL);
+	}
+      }
+      else{
 	spec_ops->opt->status = STATUS_ERROR;
 	pthread_exit(NULL);
       }
     }
+
+    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+    CHECK_AND_EXIT(se->be);
+
+    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+
+    /* If we have packet resequencing	*/
+    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+      init_resq(resq);
+      if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
+	gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
+      }
+    }
+
+
+
+    while(spec_ops->opt->status & STATUS_RUNNING){
+      err = handle_buffer_switch(se,resq);
+      if(err != 0){
+	LOG("Done or error!");
+	spec_ops->opt->status = STATUS_ERROR;
+	break;
+      }
+
+      err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
+
+      err = udps_handle_received_packet(se, resq, err);
+      if(err !=0){
+	E("Error in packet receive. Stopping loop!");
+	spec_ops->opt->status = STATUS_ERROR;
+	break;
+      }
+    }
+    /* Release last used buffer */
+    if(resq->before != NULL){
+      //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
+      *(resq->inc_before) = spec_ops->opt->filesize;
+      free_the_buf(resq->before);
+    }
+    if(*(resq->inc) == 0)
+      se->be->cancel_writebuf(se->be);
     else{
-      spec_ops->opt->status = STATUS_ERROR;
-      pthread_exit(NULL);
+      if(spec_ops->opt->fi != NULL){
+	unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+	D("N packets is now %lu",, n_now);
+      }
+      se->be->set_ready(se->be);
+      (*spec_ops->opt->cumul)++;
+    }
+    LOCK(se->be->headlock);
+    pthread_cond_signal(se->be->iosignal);
+    UNLOCK(se->be->headlock);
+    /* Set total captured packets as saveable. This should be changed to just */
+    /* Use opts total packets anyway.. */
+    //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
+    D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
+    LOG("UDP_STREAMER: Closing streamer thread\n");
+    //spec_ops->running = 0;
+    //spec_ops->opt->status = STATUS_STOPPED;
+    /* Main thread will free if we have a real datatype */
+    if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
+      free(resq);
+    err = close(spec_ops->fd);
+    if(err != 0)
+      E("Error in closing socket");
+
+    pthread_exit(NULL);
+  }
+  void get_udp_stats(void *sp, void *stats){
+    struct stats *stat = (struct stats * ) stats;
+    struct udpopts *spec_ops = (struct udpopts*)sp;
+    //if(spec_ops->opt->optbits & USE_RX_RING)
+    stat->total_packets += spec_ops->opt->total_packets;
+    stat->total_bytes += spec_ops->total_captured_bytes;
+    stat->incomplete += spec_ops->incomplete;
+    stat->dropped += spec_ops->missing;
+    if(spec_ops->opt->last_packet > 0){
+      stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
+    }
+    else
+      stat->progress = -1;
+    //stat->files_exchanged = udps_get_fileprogress(spec_ops);
+  }
+  int close_udp_streamer(void *opt_own, void *stats){
+    struct udpopts *spec_ops = (struct udpopts *)opt_own;
+    int err;
+    get_udp_stats(opt_own,  stats);
+    if(!(spec_ops->opt->optbits & READMODE)){
+      err = set_from_root(spec_ops->opt, NULL, 0,1);
+      CHECK_ERR("update_cfg");
+      err = write_cfgs_to_disks(spec_ops->opt);
+      CHECK_ERR("write_cfg");
+    } 
+    if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
+      close(spec_ops->fd_send);
+      free(spec_ops->sin_send);
+    }
+    LOG("UDP_STREAMER: Closed\n");
+
+    if(!(spec_ops->opt->optbits & USE_RX_RING))
+      free(spec_ops->sin);
+    free(spec_ops);
+    return 0;
+  }
+  void udps_stop(struct streamer_entity *se){
+    D("Stopping loop");
+    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    spec_ops->opt->status = STATUS_STOPPED;
+    if(!(spec_ops->opt->optbits & READMODE)){
+      udps_close_socket(se);
     }
   }
-
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
-  CHECK_AND_EXIT(se->be);
-
-  resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-
-  /* If we have packet resequencing	*/
-  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-    init_resq(resq);
-    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
-      gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
-    }
-  }
-
-
-
-  while(spec_ops->opt->status & STATUS_RUNNING){
-    err = handle_buffer_switch(se,resq);
-    if(err != 0){
-      LOG("Done or error!");
-      spec_ops->opt->status = STATUS_ERROR;
-      break;
-    }
-
-    err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
-
-    err = udps_handle_received_packet(se, resq, err);
-    if(err !=0){
-      E("Error in packet receive. Stopping loop!");
-      spec_ops->opt->status = STATUS_ERROR;
-      break;
-    }
-  }
-  /* Release last used buffer */
-  if(resq->before != NULL){
-    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = spec_ops->opt->filesize;
-    free_the_buf(resq->before);
-  }
-  if(*(resq->inc) == 0)
-    se->be->cancel_writebuf(se->be);
-  else{
-    if(spec_ops->opt->fi != NULL){
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-      D("N packets is now %lu",, n_now);
-    }
-    se->be->set_ready(se->be);
-    (*spec_ops->opt->cumul)++;
-  }
-  LOCK(se->be->headlock);
-  pthread_cond_signal(se->be->iosignal);
-  UNLOCK(se->be->headlock);
-  /* Set total captured packets as saveable. This should be changed to just */
-  /* Use opts total packets anyway.. */
-  //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
-  LOG("UDP_STREAMER: Closing streamer thread\n");
-  //spec_ops->running = 0;
-  //spec_ops->opt->status = STATUS_STOPPED;
-  /* Main thread will free if we have a real datatype */
-  if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
-    free(resq);
-  err = close(spec_ops->fd);
-  if(err != 0)
-    E("Error in closing socket");
-
-  pthread_exit(NULL);
-}
-void get_udp_stats(void *sp, void *stats){
-  struct stats *stat = (struct stats * ) stats;
-  struct udpopts *spec_ops = (struct udpopts*)sp;
-  //if(spec_ops->opt->optbits & USE_RX_RING)
-  stat->total_packets += spec_ops->opt->total_packets;
-  stat->total_bytes += spec_ops->total_captured_bytes;
-  stat->incomplete += spec_ops->incomplete;
-  stat->dropped += spec_ops->missing;
-  if(spec_ops->opt->last_packet > 0){
-    stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
-  }
-  else
-    stat->progress = -1;
-  //stat->files_exchanged = udps_get_fileprogress(spec_ops);
-}
-int close_udp_streamer(void *opt_own, void *stats){
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  int err;
-  get_udp_stats(opt_own,  stats);
-  if(!(spec_ops->opt->optbits & READMODE)){
-    err = set_from_root(spec_ops->opt, NULL, 0,1);
-    CHECK_ERR("update_cfg");
-    err = write_cfgs_to_disks(spec_ops->opt);
-    CHECK_ERR("write_cfg");
-  } 
-  if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
-    close(spec_ops->fd_send);
-    free(spec_ops->sin_send);
-  }
-  LOG("UDP_STREAMER: Closed\n");
-
-  if(!(spec_ops->opt->optbits & USE_RX_RING))
-    free(spec_ops->sin);
-  free(spec_ops);
-  return 0;
-}
-void udps_stop(struct streamer_entity *se){
-  D("Stopping loop");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  spec_ops->opt->status = STATUS_STOPPED;
-  if(!(spec_ops->opt->optbits & READMODE)){
-    udps_close_socket(se);
-  }
-}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-int udps_is_blocked(struct streamer_entity *se){
-  return ((struct udpopts *)(se->opt))->is_blocked;
-}
+  int udps_is_blocked(struct streamer_entity *se){
+    return ((struct udpopts *)(se->opt))->is_blocked;
+  }
 #endif
-/*
-   unsigned long udps_get_max_packets(struct streamer_entity *se){
-   return ((struct opts*)(se->opt))->max_num_packets;
-   }
-   */
-void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
-{
-  (void)opt;
-  se->init = setup_udp_socket;
-  se->close = close_udp_streamer;
-  se->get_stats = get_udp_stats;
-  se->close_socket = udps_close_socket;
-  //se->get_max_packets = udps_get_max_packets;
-}
+  /*
+     unsigned long udps_get_max_packets(struct streamer_entity *se){
+     return ((struct opts*)(se->opt))->max_num_packets;
+     }
+     */
+  void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
+  {
+    (void)opt;
+    se->init = setup_udp_socket;
+    se->close = close_udp_streamer;
+    se->get_stats = get_udp_stats;
+    se->close_socket = udps_close_socket;
+    //se->get_max_packets = udps_get_max_packets;
+  }
 
-int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  if(opt->optbits & USE_RX_RING)
-    se->start = udp_rxring;
-  else
-    se->start = udp_receiver;
-  se->stop = udps_stop;
+    udps_init_default(opt,se);
+    if(opt->optbits & USE_RX_RING)
+      se->start = udp_rxring;
+    else
+      se->start = udp_receiver;
+    se->stop = udps_stop;
 
-  return se->init(opt, se);
-}
+    return se->init(opt, se);
+  }
 
-int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  se->start = udp_sender;
-  se->stop = udps_stop;
-  return se->init(opt, se);
+    udps_init_default(opt,se);
+    se->start = udp_sender;
+    se->stop = udps_stop;
+    return se->init(opt, se);
 
-}
+  }
