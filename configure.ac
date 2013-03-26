@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.5.1.3], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.5.1.4], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.

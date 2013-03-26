@@ -1,6 +1,6 @@
 bin_PROGRAMS = vlbistreamer groupsend sleeptest stream_multiplier splice_to_net morph_to_net
 #vlbistreamer_SOURCES = fanout.h fanout.c common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h ringbuf.c ringbuf.h defwriter.h defwriter.c sendfile_streamer.h sendfile_streamer.c splicewriter.h splicewriter.c
-vlbistreamer_SOURCES = common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h defwriter.h defwriter.c splicewriter.h splicewriter.c simplebuffer.h simplebuffer.c fanout.h fanout.c resourcetree.h resourcetree.c confighelper.h confighelper.c timer.h timer.c timekeeper.h timekeeper.c disk2file.c disk2file.h common_filehandling.h common_filehandling.c  writev_writer.c writev_writer.h active_file_index.c active_file_index.h datatypes.h datatypes.c dummywriter.h dummywriter.c dummy_stream.c dummy_stream.h datatypes_common.h datatypes_common.c
+vlbistreamer_SOURCES = common_wrt.h common_wrt.c udp_stream.c udp_stream.h streamer.c streamer.h defwriter.h defwriter.c splicewriter.h splicewriter.c simplebuffer.h simplebuffer.c fanout.h fanout.c resourcetree.h resourcetree.c confighelper.h confighelper.c timer.h timer.c timekeeper.h timekeeper.c disk2file.c disk2file.h common_filehandling.h common_filehandling.c  writev_writer.c writev_writer.h active_file_index.c active_file_index.h datatypes.h datatypes.c dummywriter.h dummywriter.c dummy_stream.c dummy_stream.h datatypes_common.h datatypes_common.c logging.h
 if DAEMON
   vlbistreamer_SOURCES += server.c server.h
 endif
