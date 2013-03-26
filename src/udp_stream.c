@@ -472,7 +472,9 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
 {
   long wait;
-  //int err;
+#if(PREEMPTKERNEL)
+  int err;
+#endif
 #ifdef HAVE_RATELIMITER
   if(opt->wait_nanoseconds > 0)
   {
