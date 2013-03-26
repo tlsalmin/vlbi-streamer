@@ -91,12 +91,14 @@ EOF
       ;;
     NET)
       THREADS=($(cat $FILE | head -n 1|cut -b 62-))
+      #echo ${THREADS[@]}
       kk=0
       for dodo in ${THREADS[@]}
       do
-	ADDPLOT="$ADDPLOT,\"$FILE\" using 1:$((8+$kk)) with line title \"$dodo\""
+	ADDPLOT="$ADDPLOT,\"$FILE\" using 1:$((9+$kk)) with line title \"$dodo\""
 	kk=$(($kk+1))
       done
+      #echo $ADDPLOT
       gnuplot -persist <<-EOF
       set title "NET-speed"
       set xlabel "Time(s)"
