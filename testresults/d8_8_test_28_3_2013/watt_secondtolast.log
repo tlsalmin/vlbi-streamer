@@ -1,0 +1,3755 @@
+Starting event oye001_ef_no0007.m5b
+Config found on /mnt/disk0/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk1/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk2/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk3/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk4/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk5/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk6/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk7/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk8/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk9/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk10/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk11/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk12/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk13/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk14/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk15/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk16/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk17/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk18/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk19/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk20/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk21/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk22/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk23/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk24/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk25/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk26/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk27/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk28/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk29/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk30/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk31/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk32/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk33/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk34/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config found on /mnt/disk35/oye001_ef_no0007.m5b/oye001_ef_no0007.m5b.cfg
+Config file reading finished
+For recording oye001_ef_no0007.m5b: 230 files were found out of 230 total. file index shows 230 files
+STREAMER: In main, starting sending thread 
+Time:	1364462252
+Event:	oye001_ef_no0007.m5b	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4224MB/s
+Ringbuffers: Free:	27	Busy:	5	Loaded:	0
+Recpoints: Free:	31	Busy:	5	Loaded:	0
+----------------------------------------
+Time:	1364462253
+Event:	oye001_ef_no0007.m5b	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	5376MB/s
+Ringbuffers: Free:	27	Busy:	5	Loaded:	0
+Recpoints: Free:	31	Busy:	5	Loaded:	0
+----------------------------------------
+Time:	1364462254
+Event:	oye001_ef_no0007.m5b	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	5504MB/s
+Ringbuffers: Free:	27	Busy:	5	Loaded:	0
+Recpoints: Free:	31	Busy:	5	Loaded:	0
+----------------------------------------
+Time:	1364462255
+Event:	oye001_ef_no0007.m5b	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	5504MB/s
+Ringbuffers: Free:	27	Busy:	5	Loaded:	0
+Recpoints: Free:	31	Busy:	5	Loaded:	0
+----------------------------------------
+Can sleep max 2174 microseconds on average
+UDP_STREAMER: Starting stream capture
+Time:	1364462256
+Event:	oye001_ef_no0007.m5b	Network:	1028Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	3456MB/s
+Ringbuffers: Free:	27	Busy:	1	Loaded:	4
+Recpoints: Free:	36	Busy:	0	Loaded:	0
+----------------------------------------
+Time:	1364462257
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	27	Busy:	1	Loaded:	4
+Recpoints: Free:	36	Busy:	0	Loaded:	0
+----------------------------------------
+Time:	1364462258
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	512MB/s
+Ringbuffers: Free:	27	Busy:	2	Loaded:	3
+Recpoints: Free:	35	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1364462259
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1024MB/s
+Ringbuffers: Free:	27	Busy:	2	Loaded:	3
+Recpoints: Free:	35	Busy:	1	Loaded:	0
+----------------------------------------
+Time:	1364462260
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1664MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462261
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462262
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1664MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462263
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462264
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462265
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462266
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462267
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462268
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462269
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462270
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462271
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462272
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462273
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462274
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462275
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462276
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462277
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462278
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462279
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462280
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462281
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462282
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462283
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462284
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462285
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462286
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462287
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462288
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462289
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462290
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462291
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462292
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462293
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462294
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462295
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462296
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462297
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462298
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462299
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462300
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462301
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462302
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1664MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462303
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462304
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462305
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462306
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462307
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462308
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1664MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462309
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462310
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462311
+Event:	oye001_ef_no0007.m5b	Network:	2007Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462312
+Event:	oye001_ef_no0007.m5b	Network:	1976Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1792MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462313
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	27	Busy:	3	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+2013-03-28 11:18:34+02:00 Recording already exists! Renaming to stresser_0
+2013-03-28 11:18:34+02:00 Recording already exists! Renaming to stresser_1
+Adding new request with id string: UiSeBIDvtgbL
+New request is for session: stresser_1
+2013-03-28 11:18:34+02:00: Added recording named stresser_1 to record for 5000 s starting at UTC:  2013-03-28 09:18:34+00:00 
+Starting event stresser_1
+STREAMER: In main, starting receiver thread 
+UDP_STREAMER: Starting stream capture
+Time:	1364462314
+Event:	oye001_ef_no0007.m5b	Network:	1922Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1664MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462315
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2304MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462316
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462317
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2048MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462318
+Event:	oye001_ef_no0007.m5b	Network:	2035Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1920MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462319
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	72Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	26	Busy:	4	Loaded:	2
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462320
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2176MB/s
+Ringbuffers: Free:	25	Busy:	5	Loaded:	2
+Recpoints: Free:	33	Busy:	3	Loaded:	0
+----------------------------------------
+Time:	1364462321
+Event:	oye001_ef_no0007.m5b	Network:	2031Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	4224MB/s
+Ringbuffers: Free:	23	Busy:	7	Loaded:	2
+Recpoints: Free:	31	Busy:	5	Loaded:	0
+----------------------------------------
+Time:	1364462322
+Event:	oye001_ef_no0007.m5b	Network:	1282Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7369Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	5632MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462323
+Event:	oye001_ef_no0007.m5b	Network:	842Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7340Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462324
+Event:	oye001_ef_no0007.m5b	Network:	1796Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7470Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462325
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462326
+Event:	oye001_ef_no0007.m5b	Network:	1657Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7387Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462327
+Event:	oye001_ef_no0007.m5b	Network:	1997Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462328
+Event:	oye001_ef_no0007.m5b	Network:	1998Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462329
+Event:	oye001_ef_no0007.m5b	Network:	2000Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462330
+Event:	oye001_ef_no0007.m5b	Network:	1598Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7323Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462332
+Event:	oye001_ef_no0007.m5b	Network:	1597Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8514Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462333
+Event:	oye001_ef_no0007.m5b	Network:	1483Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462334
+Event:	oye001_ef_no0007.m5b	Network:	1850Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462335
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7391Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462336
+Event:	oye001_ef_no0007.m5b	Network:	1627Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7248Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462337
+Event:	oye001_ef_no0007.m5b	Network:	798Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7381Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462338
+Event:	oye001_ef_no0007.m5b	Network:	781Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7549Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462339
+Event:	oye001_ef_no0007.m5b	Network:	1202Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7463Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462340
+Event:	oye001_ef_no0007.m5b	Network:	847Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7467Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462341
+Event:	oye001_ef_no0007.m5b	Network:	1055Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7383Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462342
+Event:	oye001_ef_no0007.m5b	Network:	1023Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7284Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462343
+Event:	oye001_ef_no0007.m5b	Network:	1629Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7387Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462344
+Event:	oye001_ef_no0007.m5b	Network:	1797Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462345
+Event:	oye001_ef_no0007.m5b	Network:	1432Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7235Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462346
+Event:	oye001_ef_no0007.m5b	Network:	805Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7051Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462347
+Event:	oye001_ef_no0007.m5b	Network:	1282Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7837Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462348
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462349
+Event:	oye001_ef_no0007.m5b	Network:	2036Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462350
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462351
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462352
+Event:	oye001_ef_no0007.m5b	Network:	2034Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462353
+Event:	oye001_ef_no0007.m5b	Network:	2025Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462354
+Event:	oye001_ef_no0007.m5b	Network:	2028Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462355
+Event:	oye001_ef_no0007.m5b	Network:	2025Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462356
+Event:	oye001_ef_no0007.m5b	Network:	2024Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462357
+Event:	oye001_ef_no0007.m5b	Network:	2035Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462358
+Event:	oye001_ef_no0007.m5b	Network:	2034Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462359
+Event:	oye001_ef_no0007.m5b	Network:	2036Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10880MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462360
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462361
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462362
+Event:	oye001_ef_no0007.m5b	Network:	2033Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462363
+Event:	oye001_ef_no0007.m5b	Network:	2020Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462364
+Event:	oye001_ef_no0007.m5b	Network:	2015Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462365
+Event:	oye001_ef_no0007.m5b	Network:	2017Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462366
+Event:	oye001_ef_no0007.m5b	Network:	2023Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462367
+Event:	oye001_ef_no0007.m5b	Network:	2024Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462368
+Event:	oye001_ef_no0007.m5b	Network:	2021Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462369
+Event:	oye001_ef_no0007.m5b	Network:	2013Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462370
+Event:	oye001_ef_no0007.m5b	Network:	2009Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462371
+Event:	oye001_ef_no0007.m5b	Network:	2023Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462372
+Event:	oye001_ef_no0007.m5b	Network:	2021Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462373
+Event:	oye001_ef_no0007.m5b	Network:	2021Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462374
+Event:	oye001_ef_no0007.m5b	Network:	2033Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462375
+Event:	oye001_ef_no0007.m5b	Network:	2026Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462376
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462377
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462378
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462379
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462380
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462381
+Event:	oye001_ef_no0007.m5b	Network:	2023Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462382
+Event:	oye001_ef_no0007.m5b	Network:	2016Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462383
+Event:	oye001_ef_no0007.m5b	Network:	2016Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462384
+Event:	oye001_ef_no0007.m5b	Network:	2023Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462385
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462386
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462387
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462388
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462389
+Event:	oye001_ef_no0007.m5b	Network:	2035Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462390
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462391
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462392
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462393
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462394
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462395
+Event:	oye001_ef_no0007.m5b	Network:	2033Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462396
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462397
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462398
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462399
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462400
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462401
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462402
+Event:	oye001_ef_no0007.m5b	Network:	2011Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462403
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462404
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462405
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462406
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462407
+Event:	oye001_ef_no0007.m5b	Network:	2031Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462408
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462409
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462410
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462411
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462412
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462413
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462414
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462415
+Event:	oye001_ef_no0007.m5b	Network:	2011Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462416
+Event:	oye001_ef_no0007.m5b	Network:	2032Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462417
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462418
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462419
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462420
+Event:	oye001_ef_no0007.m5b	Network:	2032Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462421
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462422
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462423
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462424
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462425
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462426
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462427
+Event:	oye001_ef_no0007.m5b	Network:	2022Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462428
+Event:	oye001_ef_no0007.m5b	Network:	2019Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462429
+Event:	oye001_ef_no0007.m5b	Network:	2014Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462430
+Event:	oye001_ef_no0007.m5b	Network:	2034Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10880MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462431
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462432
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462433
+Event:	oye001_ef_no0007.m5b	Network:	2022Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462434
+Event:	oye001_ef_no0007.m5b	Network:	2035Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462435
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462436
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462437
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462438
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462439
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462440
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462441
+Event:	oye001_ef_no0007.m5b	Network:	2006Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462442
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462443
+Event:	oye001_ef_no0007.m5b	Network:	1806Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462444
+Event:	oye001_ef_no0007.m5b	Network:	1878Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462445
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7329Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462446
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7456Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462447
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462448
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462449
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462450
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462451
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462452
+Event:	oye001_ef_no0007.m5b	Network:	958Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7239Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462453
+Event:	oye001_ef_no0007.m5b	Network:	1552Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7471Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462454
+Event:	oye001_ef_no0007.m5b	Network:	1421Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462455
+Event:	oye001_ef_no0007.m5b	Network:	1282Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462456
+Event:	oye001_ef_no0007.m5b	Network:	1490Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462457
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462458
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462459
+Event:	oye001_ef_no0007.m5b	Network:	1724Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462460
+Event:	oye001_ef_no0007.m5b	Network:	1518Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462461
+Event:	oye001_ef_no0007.m5b	Network:	1836Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462462
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462463
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462464
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462465
+Event:	oye001_ef_no0007.m5b	Network:	1721Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7159Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462466
+Event:	oye001_ef_no0007.m5b	Network:	890Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7433Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462467
+Event:	oye001_ef_no0007.m5b	Network:	1026Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7012Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462468
+Event:	oye001_ef_no0007.m5b	Network:	1165Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8977Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462469
+Event:	oye001_ef_no0007.m5b	Network:	873Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7706Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462470
+Event:	oye001_ef_no0007.m5b	Network:	1703Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7335Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462471
+Event:	oye001_ef_no0007.m5b	Network:	930Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7102Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462472
+Event:	oye001_ef_no0007.m5b	Network:	1311Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7391Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462473
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462474
+Event:	oye001_ef_no0007.m5b	Network:	1848Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7319Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462475
+Event:	oye001_ef_no0007.m5b	Network:	808Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7011Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462476
+Event:	oye001_ef_no0007.m5b	Network:	1009Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7128Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462477
+Event:	oye001_ef_no0007.m5b	Network:	1998Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462478
+Event:	oye001_ef_no0007.m5b	Network:	1280Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462479
+Event:	oye001_ef_no0007.m5b	Network:	1325Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7285Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462480
+Event:	oye001_ef_no0007.m5b	Network:	1048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7296Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462481
+Event:	oye001_ef_no0007.m5b	Network:	904Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6965Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462482
+Event:	oye001_ef_no0007.m5b	Network:	1389Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462483
+Event:	oye001_ef_no0007.m5b	Network:	1752Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7499Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462484
+Event:	oye001_ef_no0007.m5b	Network:	1194Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6960Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462485
+Event:	oye001_ef_no0007.m5b	Network:	1368Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6906Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462486
+Event:	oye001_ef_no0007.m5b	Network:	1082Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6679Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462487
+Event:	oye001_ef_no0007.m5b	Network:	1156Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6766Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462488
+Event:	oye001_ef_no0007.m5b	Network:	1885Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5722Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462489
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8333Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462490
+Event:	oye001_ef_no0007.m5b	Network:	1233Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6650Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462491
+Event:	oye001_ef_no0007.m5b	Network:	1136Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6453Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462492
+Event:	oye001_ef_no0007.m5b	Network:	1148Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6224Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462493
+Event:	oye001_ef_no0007.m5b	Network:	970Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7349Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462494
+Event:	oye001_ef_no0007.m5b	Network:	1079Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462495
+Event:	oye001_ef_no0007.m5b	Network:	1212Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6402Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462496
+Event:	oye001_ef_no0007.m5b	Network:	1230Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6512Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462497
+Event:	oye001_ef_no0007.m5b	Network:	1803Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7497Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462498
+Event:	oye001_ef_no0007.m5b	Network:	1322Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6862Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462499
+Event:	oye001_ef_no0007.m5b	Network:	1546Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6181Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462500
+Event:	oye001_ef_no0007.m5b	Network:	1721Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7088Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462501
+Event:	oye001_ef_no0007.m5b	Network:	1480Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6456Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462502
+Event:	oye001_ef_no0007.m5b	Network:	1308Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6277Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462504
+Event:	oye001_ef_no0007.m5b	Network:	2434Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	10063Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	11904MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462505
+Event:	oye001_ef_no0007.m5b	Network:	1301Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6297Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462506
+Event:	oye001_ef_no0007.m5b	Network:	1539Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8765Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	11648MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462507
+Event:	oye001_ef_no0007.m5b	Network:	1511Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5682Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462508
+Event:	oye001_ef_no0007.m5b	Network:	2109Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7793Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462509
+Event:	oye001_ef_no0007.m5b	Network:	1081Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462510
+Event:	oye001_ef_no0007.m5b	Network:	1563Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5809Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462511
+Event:	oye001_ef_no0007.m5b	Network:	1501Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5702Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462512
+Event:	oye001_ef_no0007.m5b	Network:	1781Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6402Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462513
+Event:	oye001_ef_no0007.m5b	Network:	2010Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5817Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462514
+Event:	oye001_ef_no0007.m5b	Network:	1664Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7177Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462515
+Event:	oye001_ef_no0007.m5b	Network:	1381Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6306Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462516
+Event:	oye001_ef_no0007.m5b	Network:	1687Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6058Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462518
+Event:	oye001_ef_no0007.m5b	Network:	2324Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8561Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462519
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462520
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462521
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462522
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462523
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462524
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462525
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462526
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7401Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462527
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462528
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462529
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462530
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462531
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462532
+Event:	oye001_ef_no0007.m5b	Network:	2020Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462533
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462534
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462535
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462536
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10880MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462537
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462538
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462539
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462540
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462541
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462542
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462543
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462544
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462545
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462546
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462547
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462548
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462549
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462550
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462551
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462552
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462553
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10752MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462554
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462555
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462556
+Event:	oye001_ef_no0007.m5b	Network:	2030Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462557
+Event:	oye001_ef_no0007.m5b	Network:	2030Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462558
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462559
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462560
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462561
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462562
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462563
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462564
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10880MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462565
+Event:	oye001_ef_no0007.m5b	Network:	2032Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7401Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462566
+Event:	oye001_ef_no0007.m5b	Network:	2034Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462567
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462568
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462569
+Event:	oye001_ef_no0007.m5b	Network:	2036Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462570
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462571
+Event:	oye001_ef_no0007.m5b	Network:	2032Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462572
+Event:	oye001_ef_no0007.m5b	Network:	2038Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	11	Loaded:	3
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462573
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462574
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462575
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462576
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462577
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462578
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462579
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462580
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462581
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462582
+Event:	oye001_ef_no0007.m5b	Network:	2036Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462583
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462584
+Event:	oye001_ef_no0007.m5b	Network:	2006Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462585
+Event:	oye001_ef_no0007.m5b	Network:	2031Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462586
+Event:	oye001_ef_no0007.m5b	Network:	2038Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462587
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7401Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462588
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462589
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462590
+Event:	oye001_ef_no0007.m5b	Network:	2031Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462591
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462592
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462593
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462594
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462595
+Event:	oye001_ef_no0007.m5b	Network:	1513Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6821Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462596
+Event:	oye001_ef_no0007.m5b	Network:	1295Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6068Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462597
+Event:	oye001_ef_no0007.m5b	Network:	1950Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	9043Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462598
+Event:	oye001_ef_no0007.m5b	Network:	1812Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7519Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10752MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462599
+Event:	oye001_ef_no0007.m5b	Network:	1719Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6148Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462600
+Event:	oye001_ef_no0007.m5b	Network:	1537Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5799Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462601
+Event:	oye001_ef_no0007.m5b	Network:	1584Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5550Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462602
+Event:	oye001_ef_no0007.m5b	Network:	1410Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6720Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	21	Busy:	8	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462603
+Event:	oye001_ef_no0007.m5b	Network:	1256Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6256Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462604
+Event:	oye001_ef_no0007.m5b	Network:	1153Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7632Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462605
+Event:	oye001_ef_no0007.m5b	Network:	1342Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6315Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462606
+Event:	oye001_ef_no0007.m5b	Network:	1628Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7242Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462607
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462608
+Event:	oye001_ef_no0007.m5b	Network:	1374Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7181Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462609
+Event:	oye001_ef_no0007.m5b	Network:	1095Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6481Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462611
+Event:	oye001_ef_no0007.m5b	Network:	2235Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	10728Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	13824MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462612
+Event:	oye001_ef_no0007.m5b	Network:	1635Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7714Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462613
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7524Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462614
+Event:	oye001_ef_no0007.m5b	Network:	1606Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6434Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462615
+Event:	oye001_ef_no0007.m5b	Network:	1146Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6196Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462616
+Event:	oye001_ef_no0007.m5b	Network:	1310Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6026Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462617
+Event:	oye001_ef_no0007.m5b	Network:	2020Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6839Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462618
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7192Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462619
+Event:	oye001_ef_no0007.m5b	Network:	2024Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6609Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462620
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462621
+Event:	oye001_ef_no0007.m5b	Network:	1831Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6808Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462622
+Event:	oye001_ef_no0007.m5b	Network:	1863Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8131Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	12288MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462623
+Event:	oye001_ef_no0007.m5b	Network:	1423Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6201Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462624
+Event:	oye001_ef_no0007.m5b	Network:	1747Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7182Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462625
+Event:	oye001_ef_no0007.m5b	Network:	1528Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5894Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	21	Busy:	8	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462626
+Event:	oye001_ef_no0007.m5b	Network:	1628Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6257Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462627
+Event:	oye001_ef_no0007.m5b	Network:	1664Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7007Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462628
+Event:	oye001_ef_no0007.m5b	Network:	1642Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462629
+Event:	oye001_ef_no0007.m5b	Network:	2006Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462630
+Event:	oye001_ef_no0007.m5b	Network:	1993Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6898Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462631
+Event:	oye001_ef_no0007.m5b	Network:	1771Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5003Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462633
+Event:	oye001_ef_no0007.m5b	Network:	2212Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8595Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462634
+Event:	oye001_ef_no0007.m5b	Network:	981Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8704MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462635
+Event:	oye001_ef_no0007.m5b	Network:	1719Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5192Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462636
+Event:	oye001_ef_no0007.m5b	Network:	1365Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5893Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462637
+Event:	oye001_ef_no0007.m5b	Network:	1689Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5387Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	21	Busy:	8	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462638
+Event:	oye001_ef_no0007.m5b	Network:	2030Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	4354Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6528MB/s
+Ringbuffers: Free:	21	Busy:	8	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462640
+Event:	oye001_ef_no0007.m5b	Network:	5111Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	15370Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	17920MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462641
+Event:	oye001_ef_no0007.m5b	Network:	1885Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7389Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462642
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7386Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462643
+Event:	oye001_ef_no0007.m5b	Network:	1803Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5075Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462645
+Event:	oye001_ef_no0007.m5b	Network:	2254Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	8748Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462646
+Event:	oye001_ef_no0007.m5b	Network:	2052Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462647
+Event:	oye001_ef_no0007.m5b	Network:	2031Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5587Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462648
+Event:	oye001_ef_no0007.m5b	Network:	3431Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	9250Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	15232MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462649
+Event:	oye001_ef_no0007.m5b	Network:	1270Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5958Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462651
+Event:	oye001_ef_no0007.m5b	Network:	2284Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5805Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	21	Busy:	8	Loaded:	3
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462658
+Event:	oye001_ef_no0007.m5b	Network:	13759Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	37829Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	48000MB/s
+Ringbuffers: Free:	21	Busy:	10	Loaded:	1
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462659
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462660
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462661
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462662
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462663
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462664
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462665
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462666
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462667
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462668
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462669
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10496MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462670
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462671
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10752MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462672
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462673
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462674
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462675
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462676
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462677
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462678
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462679
+Event:	oye001_ef_no0007.m5b	Network:	2038Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462680
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8192MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462681
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462682
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462683
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462684
+Event:	oye001_ef_no0007.m5b	Network:	1575Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462685
+Event:	oye001_ef_no0007.m5b	Network:	1395Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6441Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462686
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7047Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462687
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462688
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462689
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462690
+Event:	oye001_ef_no0007.m5b	Network:	1933Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7363Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8448MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462691
+Event:	oye001_ef_no0007.m5b	Network:	1631Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462692
+Event:	oye001_ef_no0007.m5b	Network:	1415Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462693
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462694
+Event:	oye001_ef_no0007.m5b	Network:	1972Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10752MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462695
+Event:	oye001_ef_no0007.m5b	Network:	1531Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462696
+Event:	oye001_ef_no0007.m5b	Network:	1729Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462697
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462698
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462699
+Event:	oye001_ef_no0007.m5b	Network:	1787Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462700
+Event:	oye001_ef_no0007.m5b	Network:	2000Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462701
+Event:	oye001_ef_no0007.m5b	Network:	1965Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462702
+Event:	oye001_ef_no0007.m5b	Network:	1713Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462703
+Event:	oye001_ef_no0007.m5b	Network:	1757Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462704
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462705
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462706
+Event:	oye001_ef_no0007.m5b	Network:	2004Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462707
+Event:	oye001_ef_no0007.m5b	Network:	1978Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462708
+Event:	oye001_ef_no0007.m5b	Network:	2025Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	6536Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8320MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462709
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462710
+Event:	oye001_ef_no0007.m5b	Network:	1916Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7383Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462711
+Event:	oye001_ef_no0007.m5b	Network:	2017Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	5669Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	20	Busy:	12	Loaded:	0
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462712
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462713
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462714
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462715
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462716
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462717
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462718
+Event:	oye001_ef_no0007.m5b	Network:	2047Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462719
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462720
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8960MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462721
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462722
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9856MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462723
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462724
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7400Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462725
+Event:	oye001_ef_no0007.m5b	Network:	2051Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462726
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462727
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462728
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462729
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462730
+Event:	oye001_ef_no0007.m5b	Network:	2038Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462731
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	20	Busy:	10	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462732
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8576MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462733
+Event:	oye001_ef_no0007.m5b	Network:	2049Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8832MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462734
+Event:	oye001_ef_no0007.m5b	Network:	2046Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9216MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462735
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9984MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462736
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	19	Busy:	13	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462737
+Event:	oye001_ef_no0007.m5b	Network:	2040Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10624MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462738
+Event:	oye001_ef_no0007.m5b	Network:	2014Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10112MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462739
+Event:	oye001_ef_no0007.m5b	Network:	2039Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9600MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462740
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462741
+Event:	oye001_ef_no0007.m5b	Network:	2050Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9344MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462742
+Event:	oye001_ef_no0007.m5b	Network:	2043Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462743
+Event:	oye001_ef_no0007.m5b	Network:	2042Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	19	Busy:	11	Loaded:	2
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462744
+Event:	oye001_ef_no0007.m5b	Network:	2044Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9088MB/s
+Ringbuffers: Free:	18	Busy:	13	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462745
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9728MB/s
+Ringbuffers: Free:	20	Busy:	11	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462746
+Event:	oye001_ef_no0007.m5b	Network:	2048Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10368MB/s
+Ringbuffers: Free:	20	Busy:	12	Loaded:	0
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462747
+Event:	oye001_ef_no0007.m5b	Network:	1974Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	11136MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	26	Busy:	10	Loaded:	0
+----------------------------------------
+Time:	1364462748
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	10240MB/s
+Ringbuffers: Free:	19	Busy:	12	Loaded:	1
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462749
+Event:	oye001_ef_no0007.m5b	Network:	2037Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	9472MB/s
+Ringbuffers: Free:	18	Busy:	12	Loaded:	2
+Recpoints: Free:	27	Busy:	9	Loaded:	0
+----------------------------------------
+Time:	1364462750
+Event:	oye001_ef_no0007.m5b	Network:	2041Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8626MB/s
+Ringbuffers: Free:	19	Busy:	10	Loaded:	3
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462751
+Event:	oye001_ef_no0007.m5b	Network:	2034Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	20	Busy:	9	Loaded:	3
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462752
+Event:	oye001_ef_no0007.m5b	Network:	2020Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7040MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462753
+Event:	oye001_ef_no0007.m5b	Network:	2022Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	8064MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462754
+Event:	oye001_ef_no0007.m5b	Network:	2030Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7392Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	21	Busy:	9	Loaded:	2
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462755
+Event:	oye001_ef_no0007.m5b	Network:	2036Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	22	Busy:	9	Loaded:	1
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462756
+Event:	oye001_ef_no0007.m5b	Network:	2045Mb/s	Dropped 0	Incomplete 0
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	23	Busy:	8	Loaded:	1
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+STREAMER: Threads finished. Getting stats
+Blocking until owned buffers are released
+Buffers finished
+Recording oye001_ef_no0007.m5b finished OK
+UDP_STREAMER: Closed
+Stats for oye001_ef_no0007.m5b 
+Packets: 49049600
+Bytes: 123016396800
+Read: 123017179136
+Sendtime: 504s
+Files: 230
+HD-failures: 0
+Updated config file and removed oye001_ef_no0007.m5b
+Time:	1364462757
+Event:	stresser_1	Network:	6679Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6016MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462758
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	23	Busy:	9	Loaded:	0
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462759
+Event:	stresser_1	Network:	7393Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	23	Busy:	9	Loaded:	0
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462760
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462761
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462762
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462763
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462764
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462765
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	25	Busy:	7	Loaded:	0
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462766
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462767
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462768
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6912MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462769
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462770
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462771
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462772
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7168MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462773
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462774
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	23	Busy:	9	Loaded:	0
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462775
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7936MB/s
+Ringbuffers: Free:	25	Busy:	7	Loaded:	0
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462776
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7040MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462777
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7040MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462778
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462779
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	23	Busy:	9	Loaded:	0
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462780
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462781
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462782
+Event:	stresser_1	Network:	7394Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7040MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462783
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462784
+Event:	stresser_1	Network:	7399Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462785
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462786
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7040MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462787
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7552MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462788
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7808MB/s
+Ringbuffers: Free:	23	Busy:	9	Loaded:	0
+Recpoints: Free:	28	Busy:	8	Loaded:	0
+----------------------------------------
+Time:	1364462789
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6912MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462790
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462791
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462792
+Event:	stresser_1	Network:	7396Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462793
+Event:	stresser_1	Network:	7398Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462794
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462795
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462796
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6912MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462797
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7296MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462798
+Event:	stresser_1	Network:	7395Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7680MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462799
+Event:	stresser_1	Network:	7397Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	7424MB/s
+Ringbuffers: Free:	24	Busy:	8	Loaded:	0
+Recpoints: Free:	29	Busy:	7	Loaded:	0
+----------------------------------------
+Time:	1364462800
+Event:	stresser_1	Network:	2585Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	6784MB/s
+Ringbuffers: Free:	25	Busy:	7	Loaded:	0
+Recpoints: Free:	30	Busy:	6	Loaded:	0
+----------------------------------------
+Time:	1364462801
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	5120MB/s
+Ringbuffers: Free:	28	Busy:	4	Loaded:	0
+Recpoints: Free:	33	Busy:	3	Loaded:	0
+----------------------------------------
+Time:	1364462802
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	2816MB/s
+Ringbuffers: Free:	29	Busy:	3	Loaded:	0
+Recpoints: Free:	34	Busy:	2	Loaded:	0
+----------------------------------------
+Time:	1364462803
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	1024MB/s
+Ringbuffers: Free:	31	Busy:	1	Loaded:	0
+Recpoints: Free:	36	Busy:	0	Loaded:	0
+----------------------------------------
+Time:	1364462804
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	31	Busy:	1	Loaded:	0
+Recpoints: Free:	36	Busy:	0	Loaded:	0
+----------------------------------------
+Time:	1364462805
+Event:	stresser_1	Network:	0Mb/s	Dropped 0	Incomplete 0
+HD-Speed:	0MB/s
+Ringbuffers: Free:	31	Busy:	1	Loaded:	0
+Recpoints: Free:	36	Busy:	0	Loaded:	0
+----------------------------------------
+2013-03-28 11:26:45+02:00 Manually cleared schedule
+Recording stresser_1 removed from schedule
+Thread shut down
+Recording stresser_1 cancelled
+UDP_STREAMER: Closing streamer thread
+STREAMER: Threads finished. Getting stats
+Blocking until owned buffers are released
+Buffers finished
+UDP_STREAMER: Closed
+Stats for stresser_1 
+Packets: 50676849
+Bytes: 450415833912
+Dropped: 0
+Incomplete: 0
+Written: 450382413824
+Recvtime: 5000
+Files: 839
+HD-failures: 0
+Net receive Speed: 687Mb/s
+HD write Speed: 687Mb/s
+Cant remove cfg as its already removed.
+Adding new request with id string: GJUjiDNvXAxo
+New request is for session: oye001_ef_no0007.m5b

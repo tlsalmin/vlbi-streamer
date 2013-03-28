@@ -1,0 +1,47 @@
+[evlbi@tank-03 ~]$ tracepath 192.42.120.101
+ 1:  tank-srt.ira.inaf.it (90.147.132.12)                   0.073ms pmtu 9000
+ 1:  vlbi-gw.ira.inaf.it (90.147.132.62)                    0.465ms 
+ 1:  vlbi-gw.ira.inaf.it (90.147.132.62)                    0.396ms 
+ 2:  ru-inaf-ira-bo-rx1-bo3.bo3.garr.net (193.206.128.61)   0.506ms 
+ 3:  rx1-bo3-rx1-bo1.bo1.garr.net (90.147.80.49)            4.862ms asymm  8 
+ 4:  rx1-bo1-rx1-mi1.mi1.garr.net (90.147.80.109)           4.826ms 
+ 5:  rx1-mi1-r-mi1.mi1.garr.net (90.147.80.93)              4.449ms asymm  6 
+ 6:  garr.rt1.mil.it.geant.net (62.40.124.129)              5.629ms asymm  7 
+ 7:  as0.rt1.gen.ch.geant2.net (62.40.112.33)              11.119ms asymm  8 
+ 8:  ae3.mx1.gen.ch.geant.net (62.40.112.14)               12.271ms 
+ 9:  ae1.mx1.fra.de.geant.net (62.40.98.109)               20.000ms 
+10:  ae4.rt1.fra.de.geant.net (62.40.98.135)               20.400ms asymm 11 
+11:  so-4-0-0.rt1.ams.nl.geant2.net (62.40.112.10)         27.337ms asymm 12 
+12:  surfnet-gw.rt1.ams.nl.geant.net (62.40.124.158)       53.485ms asymm 13 
+13:  AE2.500.JNR01.Asd001A.surf.net (145.145.80.78)        26.512ms asymm 14 
+14:  jive-router.Customer.surf.net (145.145.2.170)         33.158ms 
+15:  aribox.jive.nl (192.42.120.101)                       30.877ms reached
+     Resume: pmtu 9000 hops 15 back 50 
+
+trtlsalmin@kare:~$ tracepath 192.42.120.101
+ 1:  kare.local                                            0.165ms pmtu 9000
+ 1:  130.242.10.1                                         16.448ms asymm  2 
+ 1:  130.242.10.1                                          8.331ms asymm  2 
+ 2:  192.42.120.177                                       36.060ms 
+ 3:  aribox.jive.nl                                       34.540ms reached
+     Resume: pmtu 9000 hops 3 back 62 
+
+tlsalmin@jbnexpres3:~$ traceroute 192.42.120.101
+traceroute to 192.42.120.101 (192.42.120.101), 30 hops max, 60 byte packets
+ 1  * * *
+ 2  aribox.jive.nl (192.42.120.101)  34.434 ms  34.446 ms  34.443 ms
+
+oper@watt:/$ tracepath 192.42.120.101
+ 1:  watt.metsahovi.fi                                     0.060ms pmtu 9000
+ 1:  csc-gw.metsahovi.fi                                  11.555ms 
+ 1:  csc-gw.metsahovi.fi                                   0.968ms 
+ 2:  se-fre.nordu.net                                      8.440ms 
+ 3:  dk-ore.nordu.net                                     17.082ms asymm  4 
+ 4:  nl-sar.nordu.net                                     32.768ms asymm  5 
+ 5:  GE-1-0-0.3630.JNR02.Asd001A.surf.net                 50.607ms asymm  7 
+ 6:  AE2.500.JNR01.Asd001A.surf.net                       32.783ms asymm  8 
+ 7:  jive-router.Customer.surf.net                        37.470ms asymm  8 
+ 8:  aribox.jive.nl                                       36.999ms reached
+     Resume: pmtu 9000 hops 8 back 56 
+
+
