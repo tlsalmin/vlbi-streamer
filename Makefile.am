@@ -6,14 +6,13 @@ EXTRA_DIST=vlbistreamer.conf
 cfgdir = $(sysconfdir)/
 cfg_DATA = vlbistreamer.conf
 rundir = $(localstatedir)/opt/vlbistreamer
-run_DATA = schedule
 logdir = $(localstatedir)/log
-log_DATA = vlbistreamer.log
 dist_bin_SCRIPTS = scripts/*
 
 #TODO  Set all stuff to load vbs_common_functions first like in nfilepreview
 #so we can delete all the extra stuff!
 install-data-hook:
+	touch $(rundir)/schedule
 	chown -R @USER@:@GROUP@ $(rundir)
 	chmod -R u+rw $(rundir)
 	chown @USER@:@GROUP@ $(cfgdir)/vlbistreamer.conf
