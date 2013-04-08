@@ -63,6 +63,7 @@
 #include "timer.h"
 #include "confighelper.h"
 #include "common_filehandling.h"
+#include "sockethandling.h"
 
 extern FILE* logfile;
 
@@ -79,51 +80,6 @@ void udps_close_socket(struct streamer_entity *se){
   int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
   if(ret <0)
     perror("Socket shutdown");
-}
-//int udps_bind_port(struct udpopts * spec_ops){
-int udps_bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
-  int err=0;
-  struct addrinfo *p;
-
-  if(readmode == 1)
-  {
-    /* TODO: this needs to be done earlier */
-    for(p = si; p != NULL; p = p->ai_next)
-    {
-      err = bind(fd, p->ai_addr, p->ai_addrlen);
-      if(err != 0)
-      {
-	E("bind socket");
-	//close(sockfd);
-	continue;
-      }
-      break;
-    }
-    if(err != 0){
-      E("Cant bind");
-      return -1;
-    }
-  }
-  else if(do_connect == 1)
-  {
-    for(p = si; p != NULL; p = p->ai_next)
-    {
-      err = connect(fd, p->ai_addr, p->ai_addrlen);
-      if(err != 0)
-      {
-	E("connect socket");
-	//close(sockfd);
-	continue;
-      }
-      break;
-    }
-    if(err != 0){
-      E("Cant connect");
-      return -1;
-    }
-  }
-
-  return 0;
 }
 int udps_bind_rx(struct udpopts * spec_ops){
   struct tpacket_req req;
@@ -281,40 +237,6 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
 #endif
   return 0;
 }
-int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used)
-{
-  int err;
-  struct addrinfo hints, *p;
-  memset(&hints, 0, sizeof(struct addrinfo));
-  /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = socktype;
-  hints.ai_flags = AI_PASSIVE;
-  /* Port as integer is legacy from before I saw the light from Beej network guide	*/
-  err = getaddrinfo(hostname, port, &hints, servinfo);
-  if(err != 0){
-    E("Error in getting address info %s",, gai_strerror(err));
-    return -1;
-  }
-  for(p = *servinfo; p != NULL; p = p->ai_next)
-  {
-    *fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    D("Socket initialized");
-    if(*fd < 0 ){
-      E("Cant bind to %s. Trying next",, p->ai_canonname);
-      continue;
-    }
-    if(used != NULL)
-      *used = p;
-    break;
-  }
-  if(*fd < 0){
-    E("Couldn't get socket at all. Exiting as failed");
-    return -1;
-  }
-  return 0;
-}
-
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
@@ -510,7 +432,7 @@ void * udp_sender(void *streamo){
   D("Starting stream send");
 
   LOG("UDP_STREAMER: Starting stream capture\n");
-  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
   if(err != 0)
   {
     E("Error in getting buffer");
@@ -1090,7 +1012,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     {
       sleep(1);
       GETTIME(temptimer);
-  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
     }
     if(err != 0){
       E("Still couldn't get the port. Exiting");
@@ -1115,7 +1037,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     reset_udpopts_stats(spec_ops);
 
     LOG("UDP_STREAMER: Starting stream capture\n");
-  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
     if(err != 0){
       E("Error in port binding");
       if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
