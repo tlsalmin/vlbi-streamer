@@ -5,6 +5,7 @@ cat << EOF
 OPTIONS:
       -a MYY		Wait MYY microseconds between packet sends
       -c CFGFILE	Load config from cfg-file CFGFILE
+      -C 		Run connect before starting send on UDP-packets.
       -i INTERFACE	Which interface to bind to(Not required)(Requires root)
       -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
@@ -45,6 +46,11 @@ do
     -c)
       EXTRAOPS="$EXTRAOPS
       cfgfile = \"$2\";"
+      shift
+      ;;
+    -C)
+      EXTRAOPS="$EXTRAOPS
+      connect_before_sending = 1;"
       shift
       ;;
     -i)

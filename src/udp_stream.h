@@ -59,6 +59,7 @@ struct udpopts
   struct sockaddr_in *sin;
   struct sockaddr_in *sin_send;
   struct addrinfo *p;
+  struct addrinfo *p_send;
   struct addrinfo *servinfo;
   struct addrinfo *servinfo_simusend;
   size_t sinsize;

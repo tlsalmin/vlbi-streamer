@@ -1,5 +1,5 @@
 /*
- * udpstream.c -- UDP packet receiver and sender for vlbi-streamer
+ * udpstream.c -- TCP packet receiver and sender for vlbi-streamer
  *
  * Written by Tomi Salminen (tlsalmin@gmail.com)
  * Copyright 2012 Metsähovi Radio Observatory, Aalto University.
@@ -64,21 +64,8 @@
 #include "confighelper.h"
 #include "common_filehandling.h"
 
-//#define FORCE_WRITE_TO_FILESIZE
-
 extern FILE* logfile;
 
-//#define SAUGMENTLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_lock(spec_ops->opt->augmentlock);}}while(0)
-
-//#define SAUGMENTUNLOCK do{if(spec_ops->opt->optbits & (LIVE_SENDING | LIVE_RECEIVING)){pthread_spin_unlock(spec_ops->opt->augmentlock);}}while(0)
-
-#define FULL_COPY_ON_PEEK
-
-#define UDPMON_SEQNUM_BYTES 8
-//#define DUMMYSOCKET
-#define BAUD_LIMITING
-#define SLEEP_ON_BUFFERS_TO_LOAD
-#define RATE_LIMITING_FROM_SOCKETSIZE
 /* Using this until solved properly */
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
@@ -86,33 +73,24 @@ extern FILE* logfile;
 #define PKT_OFFSET      (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + \
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
-//#define SHOW_PACKET_METADATA;
 
-//#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->total_captured_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->running = 0;pthread_exit(NULL);}while(0)
-
-//Gatherer specific options
-int phandler_sequence(struct streamer_entity * se, void * buffer){
-  // TODO
-  (void)se;
-  (void)buffer;
-  return 0;
-}
 void udps_close_socket(struct streamer_entity *se){
   D("Closing socket");
   int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
   if(ret <0)
     perror("Socket shutdown");
 }
-int udps_bind_port(struct udpopts * spec_ops){
+//int udps_bind_port(struct udpopts * spec_ops){
+int udps_bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
   int err=0;
   struct addrinfo *p;
 
-  if(!(spec_ops->opt->optbits & READMODE))
+  if(readmode == 1)
   {
     /* TODO: this needs to be done earlier */
-    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
+    for(p = si; p != NULL; p = p->ai_next)
     {
-      err = bind(spec_ops->fd, p->ai_addr, p->ai_addrlen);
+      err = bind(fd, p->ai_addr, p->ai_addrlen);
       if(err != 0)
       {
 	E("bind socket");
@@ -126,13 +104,11 @@ int udps_bind_port(struct udpopts * spec_ops){
       return -1;
     }
   }
-  else
+  else if(do_connect == 1)
   {
-    D("TODO: Add connect flag");
-    /*
-    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
+    for(p = si; p != NULL; p = p->ai_next)
     {
-      err = connect(spec_ops->fd, p->ai_addr, p->ai_addrlen);
+      err = connect(fd, p->ai_addr, p->ai_addrlen);
       if(err != 0)
       {
 	E("connect socket");
@@ -145,7 +121,6 @@ int udps_bind_port(struct udpopts * spec_ops){
       E("Cant connect");
       return -1;
     }
-    */
   }
 
   return 0;
@@ -201,15 +176,6 @@ int udps_bind_rx(struct udpopts * spec_ops){
     err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
     CHECK_ERR("SIOCGIFINDEX");
 
-    //Bind to a socket
-    /*
-       memset(&ll, 0, sizeof(ll));
-       ll.sll_family = AF_PACKET;
-       ll.sll_protocol = htons(ETH_P_ALL);
-       ll.sll_ifindex = ifr.ifr_ifindex;
-       err = bind(spec_ops->fd, (struct sockaddr *) &ll, sizeof(ll));
-       CHECK_ERR("Bind to IF");
-       */
   }
 
   return 0;
@@ -223,8 +189,6 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     D("Mode from opts");
     mode = opt->optbits;
   }
-  //struct udpopts * spec_ops = se->opt;
-
 
   if(opt->device_name != NULL){
     //struct sockaddr_ll ll;
@@ -241,133 +205,126 @@ int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
 
 
   }
-  /*
-#ifdef BAUD_LIMITING
-if(spec_ops->opt->optbits & WAIT_BETWEEN){
-struct ifreq ifr;
-//Get the interface index
-memset(&ifr, 0, sizeof(ifr));
-ifr.ifr_ifru.ifru_ivalue = ((1000000000L)*spec_ops->opt->wait_nanoseconds)*8*spec_ops->opt->packet_size;
-err = ioctl(spec_ops->fd, SIOCSCANBAUDRATE, &ifr);
-CHECK_ERR("Baud Rater");
-}
-#endif
-*/
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-//Stolen from http://seclists.org/tcpdump/2010/q2/99
-struct hwtstamp_config hwconfig;
-//struct ifreq ifr;
+  //Stolen from http://seclists.org/tcpdump/2010/q2/99
+  struct hwtstamp_config hwconfig;
+  //struct ifreq ifr;
 
-memset(&hwconfig, 0, sizeof(hwconfig));
-hwconfig.tx_type = HWTSTAMP_TX_ON;
-hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
+  memset(&hwconfig, 0, sizeof(hwconfig));
+  hwconfig.tx_type = HWTSTAMP_TX_ON;
+  hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
-memset(&ifr, 0, sizeof(ifr));
-strcpy(ifr.ifr_name, opt->device_name);
-ifr.ifr_data = (void *)&hwconfig;
+  memset(&ifr, 0, sizeof(ifr));
+  strcpy(ifr.ifr_name, opt->device_name);
+  ifr.ifr_data = (void *)&hwconfig;
 
-err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
-CHECK_ERR_LTZ("HW timestamping");
+  err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
+  CHECK_ERR_LTZ("HW timestamping");
 #endif
-/* TODO: Drop bad size packets as in */
-/* ret = setsockopt(iface->fd, SOL_PACKET, PACKET_LOSS, &val, sizeof(val)); */
-//NOTE: Has no effect
-/* set SO_RCVLOWAT , the minimum amount received to return from recv*/
-/*
-//socklen_t optlen = BUFSIZE;
-buflength = BUFSIZE;
-setsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVLOWAT, (char*)&buflength, sizeof(buflength));
-*/
-/*
- * Setting the default receive buffer size. Taken from libhj create_udp_socket
- */
-len = sizeof(def);
-def=0;
-if(mode & READMODE){
-  err = 0;
-  D("Doing the double sndbuf-loop");
-  def = opt->packet_size;
-  while(err == 0){
-    //D("RCVBUF size is %d",,def);
-    def  = def << 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
-    if(err == 0){
-      D("Trying SNDBUF size %d",, def);
-    }
-    err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
-    if(defcheck != (def << 1)){
-      D("Limit reached. Final size is %d Bytes",,defcheck);
-      break;
-    }
-  }
-}
-else{
-  err=0;
+
   /*
-     err = getsockopt(spec_ops->fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t *) &len);
-     CHECK_ERR("RCVBUF size");
-     */
-  D("Doing the double rcvbuf-loop");
-  def = opt->packet_size;
-  while(err == 0){
-    //D("RCVBUF size is %d",,def);
-    def  = def << 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
-    if(err == 0){
-      D("Trying RCVBUF size %d",, def);
-    }
-    err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+   * Setting the default receive buffer size. Taken from libhj create_udp_socket
+   */
+  len = sizeof(def);
+  def=0;
+  if(mode & READMODE){
+    err = 0;
+    D("Doing the double sndbuf-loop");
+    def = opt->packet_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying SNDBUF size %d",, def);
+      }
+      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
     if(defcheck != (def << 1)){
       D("Limit reached. Final size is %d Bytes",,defcheck);
       break;
     }
+    }
   }
-}
+  else{
+    err=0;
+    D("Doing the double rcvbuf-loop");
+    def = opt->packet_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying RCVBUF size %d",, def);
+      }
+      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+      if(defcheck != (def << 1)){
+	D("Limit reached. Final size is %d Bytes",,defcheck);
+	break;
+      }
+    }
+  }
 
 #ifdef SO_NO_CHECK
-if(mode & READMODE){
-  const int sflag = 1;
-  err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
-  CHECK_ERR("UDPCHECKSUM");
-}
+  if(mode & READMODE){
+    const int sflag = 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
+    CHECK_ERR("UDPCHECKSUM");
+  }
 #endif
 
 #ifdef HAVE_LINUX_NET_TSTAMP_H
-//set hardware timestamping
-int req = 0;
-req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
-CHECK_ERR("HWTIMESTAMP");
+  //set hardware timestamping
+  int req = 0;
+  req |= SOF_TIMESTAMPING_SYS_HARDWARE;
+  err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
+  CHECK_ERR("HWTIMESTAMP");
 #endif
-return 0;
+  return 0;
+}
+int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used)
+{
+  int err;
+  struct addrinfo hints, *p;
+  memset(&hints, 0, sizeof(struct addrinfo));
+  /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = socktype;
+  hints.ai_flags = AI_PASSIVE;
+  /* Port as integer is legacy from before I saw the light from Beej network guide	*/
+  err = getaddrinfo(hostname, port, &hints, servinfo);
+  if(err != 0){
+    E("Error in getting address info %s",, gai_strerror(err));
+    return -1;
+  }
+  for(p = *servinfo; p != NULL; p = p->ai_next)
+  {
+    *fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    D("Socket initialized");
+    if(*fd < 0 ){
+      E("Cant bind to %s. Trying next",, p->ai_canonname);
+      continue;
+    }
+    if(used != NULL)
+      *used = p;
+    break;
+  }
+  if(*fd < 0){
+    E("Couldn't get socket at all. Exiting as failed");
+    return -1;
+  }
+  return 0;
 }
 
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
+  memset(spec_ops, 0, sizeof(struct udpopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
   //spec_ops->running = 1;
   se->opt = (void*)spec_ops;
 
   spec_ops->opt = opt;
-
-  /*
-     if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-     if(spec_ops->opt->optbits & DATATYPE_VDIF)
-     spec_ops->calc_bufpos = calc_bufpos_vdif;
-     else if(spec_ops->opt->optbits & DATATYPE_MARK5B)
-     spec_ops->calc_bufpos = calc_bufpos_mark5b;
-     else if(spec_ops->opt->optbits & DATATYPE_UDPMON)
-     spec_ops->calc_bufpos = calc_bufpos_general;
-     else{
-     spec_ops->calc_bufpos = NULL;
-     E("Unknown datatype not set, but no other either!");
-     }
-     }
-     else
-     spec_ops->calc_bufpos = NULL;
-     */
 
   if(spec_ops->opt->optbits & USE_RX_RING){
     spec_ops->fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
@@ -379,71 +336,17 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     spec_ops->fd = -1;
     char port[12];
     memset(port, 0,sizeof(char)*12);
-    struct addrinfo hints, *p;
-    memset(&hints, 0, sizeof(struct addrinfo));
-    /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;
-    /* Port as integer is legacy from before I saw the light from Beej network guide	*/
     sprintf(port,"%d", spec_ops->opt->port);
-    if(spec_ops->opt->optbits & READMODE)
-      err = getaddrinfo(opt->hostname, port, &hints, &(spec_ops->servinfo));
-    else
-    {
-      D("Getting address info on binding to listen");
-      err = getaddrinfo(NULL, port, &hints, &(spec_ops->servinfo));
-    }
-    if(err != 0){
-      E("Error in getting address info %s",, gai_strerror(err));
-      return -1;
-    }
-    for(p = spec_ops->servinfo; p != NULL; p = p->ai_next)
-    {
-      spec_ops->fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-      D("Socket initialized");
-      if(spec_ops->fd < 0 ){
-	E("Cant bind to %s. Trying next",, p->ai_canonname);
-	continue;
-      }
-      break;
-    }
-    if(spec_ops->fd < 0){
-      E("Couldn't get socket at all. Exiting as failed");
-      return -1;
-    }
-    spec_ops->p=p;
+    err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p));
+    CHECK_ERR("Create socket");
   }
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
     char port[12];
     memset(port, 0,sizeof(char)*12);
-    struct addrinfo hints, *p;
-    memset(&hints,0,sizeof(struct addrinfo));
-    /* Great ipv6 guide http://beej.us/guide/bgnet/					*/
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;
-    /* Port as integer is legacy from before I saw the light from Beej network guide	*/
     sprintf(port,"%d", spec_ops->opt->port);
-    err = getaddrinfo(opt->hostname, port, &hints, &(spec_ops->servinfo));
-    if(err < 0){
-      E("Getaddrinfo failed for %s. Non-fatal so continuing",, opt->hostname);
-      free(opt->hostname);
-      opt->hostname = NULL;
-    }
-    else
-    {
-      p = spec_ops->servinfo;
-      spec_ops->fd_send = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-      if (spec_ops->fd_send < 0) {
-	perror("socket for simusend");
-	//INIT_ERROR
-      }
-      else{
-	err = udps_common_init_stuff(spec_ops->opt, (spec_ops->opt->optbits|READMODE), &(spec_ops->fd_send));
-	CHECK_ERR("Simusend init");
-      }
-    }
+    err = create_socket(&(spec_ops->fd_send), port, &(spec_ops->servinfo_simusend), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p_send));
+    if(err != 0)
+      E("Error in creating simusend socket. Not quitting");
   }
   opt->socket = spec_ops->fd;
 
@@ -607,7 +510,7 @@ void * udp_sender(void *streamo){
   D("Starting stream send");
 
   LOG("UDP_STREAMER: Starting stream capture\n");
-  err = udps_bind_port(spec_ops);
+  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
   if(err != 0)
   {
     E("Error in getting buffer");
@@ -874,13 +777,6 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     D("Got first packet with seqnum %ld",, seqnum);
     return header;
   }
-  /*
-     long seqnum = *((long*)header);
-     seqnum = be64toh(seqnum);
-     */
-
-  //int err;
-  //memcpy(&seqnum, header, UDPMON_SEQNUM_BYTES); 
 
   /* Preliminary case					*/
   /* Packet in order					*/
@@ -1055,7 +951,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     /* Success! */
     else if(spec_ops->opt->status & STATUS_RUNNING){
       if(spec_ops->opt->hostname != NULL){
-	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
+	int senderr = sendto(spec_ops->fd_send, resq->buf, spec_ops->opt->packet_size, 0, spec_ops->p_send->ai_addr,spec_ops->p_send->ai_addrlen);
 	if(senderr <0 ){
 	  perror("send error");
 	  E("Send er");
@@ -1194,7 +1090,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     {
       sleep(1);
       GETTIME(temptimer);
-      err = udps_bind_port(spec_ops);
+  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
     }
     if(err != 0){
       E("Still couldn't get the port. Exiting");
@@ -1219,7 +1115,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     reset_udpopts_stats(spec_ops);
 
     LOG("UDP_STREAMER: Starting stream capture\n");
-    err = udps_bind_port(spec_ops);
+  err = udps_bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
     if(err != 0){
       E("Error in port binding");
       if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
@@ -1337,12 +1233,16 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       close(spec_ops->fd_send);
       free(spec_ops->sin_send);
     }
+    if(spec_ops->servinfo != NULL)
+      freeaddrinfo(spec_ops->servinfo);
+    if(spec_ops->servinfo_simusend != NULL)
+      freeaddrinfo(spec_ops->servinfo_simusend);
     LOG("UDP_STREAMER: Closed\n");
 
     /*
-    if(!(spec_ops->opt->optbits & USE_RX_RING))
-      free(spec_ops->sin);
-      */
+       if(!(spec_ops->opt->optbits & USE_RX_RING))
+       free(spec_ops->sin);
+       */
     free(spec_ops);
     D("Returning");
     return 0;

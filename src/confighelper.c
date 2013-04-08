@@ -380,6 +380,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_BOOLEAN(WAIT_START_ON_METADATA, "wait_start_on_metadata")
     CFG_FULL_BOOLEAN(FORCE_SOCKET_REACQUIRE, "force_socket_reacquire")
     CFG_FULL_BOOLEAN(USE_TCP_SOCKET, "use_tcp_socket")
+    CFG_FULL_BOOLEAN(CONNECT_BEFORE_SENDING, "connect_before_sending")
     CFG_FULL_STR(filename)
     /* Could have done these with concatenation .. */
       CFG_FULL_UINT64((*opt->cumul),"cumul")

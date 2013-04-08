@@ -401,6 +401,8 @@ int check_schedule(struct schedule *sched){
       sched->n_scheduled--;
 
     //err =  remove_recording(temp, &(sched->scheduled_head));
+    if(temp->stats != NULL)
+      free(temp->stats);
     remove_from_branch(&sched->br, le, MUTEX_FREE);
     //CHECK_ERR("Remove recording");
   }
@@ -418,7 +420,7 @@ int check_finished(struct schedule* sched){
   for(le = sched->br.busylist;le!=NULL;){
     struct listed_entity *letemp = le->child;
     ev = (struct scheduled_event*)le->entity;
-    if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED)){
+    if(ev->opt->status & (STATUS_FINISHED | STATUS_ERROR |STATUS_CANCELLED | STATUS_STOPPED)){
       //err = close_recording(sched, ev);
       if(ev->opt->optbits & VERBOSE)
 	free(ev->stats);

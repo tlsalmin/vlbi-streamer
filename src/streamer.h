@@ -110,6 +110,7 @@
 
 #define FORCE_SOCKET_REACQUIRE	B(40)
 #define USE_TCP_SOCKET		B(41)
+#define CONNECT_BEFORE_SENDING	B(42)
 
 #define MEG			B(20)
 #define GIG			B(30)
