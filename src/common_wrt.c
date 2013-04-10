@@ -105,7 +105,10 @@ int common_open_new_file(void * recco, void *opti,void* acq){
     }
     if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE){
       ioi->opt->singlefile_fd = ioi->fd;
-      ioi->filesize = ioi->opt->filesize;
+      if(ioi->opt->optbits & READMODE)
+	ioi->filesize = (ioi->opt->buf_num_elems * (ioi->opt->packet_size - ioi->opt->offset_onwrite));
+      else
+	ioi->filesize = (ioi->opt->buf_num_elems * (ioi->opt->packet_size - ioi->opt->offset));
     }
     else if(ioi->opt->optbits & READMODE)
     {
@@ -470,12 +473,39 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   //struct recording_entity **temprecer;
   struct common_io_info * ioi = re->opt;
   struct opt_s* opt = (struct opt_s*)opt_ss;
+
+  if(opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    char filename[FILENAME_MAX];
+    struct stat statbuf;
+    sprintf(filename, "%s%i/%s/%s", ROOTDIRS, ioi->id, opt->filename,  opt->filename); 
+    D("Writing/reading to/from single file %s",, filename);
+    err = stat(filename, &statbuf);
+    CHECK_ERR("Stat main data file");
+
+    FILOCK(opt->fi);
+    struct fileholder* fh = opt->fi->files;
+    n_files = get_n_files(opt->fi);
+    for(i=0;i<n_files;i++)
+    {
+      fh->status &= ~FH_MISSING;
+      fh->status |= FH_ONDISK;
+      fh->diskid = ioi->id;
+      opt->cumul_found++;
+      fh++;
+    }
+    FIUNLOCK(opt->fi);
+    return 0;
+  }
+
   char * dirname = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(dirname, "Dirname malloc");
   regex_t regex;
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
   D("Checking for files and updating fileholders on %s",, dirname);
+
+
   /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
   char* regstring = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL(regstring, "Malloc regexp string");
@@ -483,13 +513,6 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   err = regcomp(&regex, regstring, 0);
   CHECK_ERR("Regcomp");
-
-
-  //DIR *dir;
-
-  //struct dirent *ent; //= malloc(sizeof(struct dirent));
-  //dir = opendir(dirname);
-  //if (dir != NULL) {
 
   /* print all the files and directories within directory */
   struct dirent **namelist;
@@ -522,45 +545,10 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	else
 	{
 	  D("Identified %s as %d",,start_of_index,  temp);
-	  /* Update pointer at correct spot */
-	  /* This is a bit slow, but required for supporting live sending */
-	  /*
-	     if(opt->optbits & LIVE_SENDING){
-	     pthread_spin_lock(opt->augmentlock);
-	  //fh = opt->fileholders;
-	  if(fh == NULL){
-	  opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));
-	  fh = opt->fileholders;
-	  }
-	  else{
-	  while(fh->next != NULL){
-	  fh = fh->next;
-	  }
-	  fh->next = (struct fileholder*) malloc(sizeof(struct fileholder));
-	  fh = fh->next;
-	  }
-	  zero_fileholder(fh);
-	  fh->id = temp;
-	  if(get_lingering(opt->membranch, opt, fh, 1) != NULL){
-	  D("Also found a lingering match for %lu on %s",, fh->id, opt->filename); 
-	  fh->status |= FH_INMEM;
-	  }
-	  else
-	  D("Didnt' find lingering match");
-	  pthread_spin_unlock(opt->augmentlock);
-	  }
-	  else{
-	  fh = opt->fileholders;
-	  for(j=0;j<temp;j++){
-	  //ASSERT(fh->next != NULL);
-	  fh = fh->next;
-	  }
-	  */
 	  fh = &(opt->fi->files[temp]);
 	  fh->status &= ~FH_MISSING;
 	  fh->status |= FH_ONDISK;
 	  fh->diskid = ioi->id;
-	  //opt->fileholders[temp] = ioi->id;
 	  opt->cumul_found++;
 	}
 	}

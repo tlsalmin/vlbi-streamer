@@ -425,6 +425,18 @@ int check_schedule(struct schedule *sched){
   return 0;
 }
 
+int check_default_options_for_nonlogicals(struct opt_s* opt)
+{
+  if(opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    if(WRITEND_USES_DIRECTIO(opt)){
+      E("Cant run with WRITE_TO_SINGLE_FILE without write backend as either WRITEV or SPLICER");
+      return -1;
+    }
+  }
+  return 0;
+}
+
 int check_finished(struct schedule* sched){
   struct scheduled_event *ev;
   struct listed_entity *le;
@@ -539,6 +551,10 @@ int main(int argc, char **argv)
 
   err = parse_options(argc,argv,sched->default_opt);
   CHECK_ERR("parse options");
+
+  /* Check for correct options */
+  err = check_default_options_for_nonlogicals(sched->default_opt);
+  CHECK_ERR("Check for nonlogicals in default opt");
 
   LOG("Running in daemon mode\n");
 

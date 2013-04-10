@@ -198,6 +198,8 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define FILE_SPLIT_TO_BLOCKS B(29)l
 #define MIN(x,y) (x < y ? x : y)
 
+#define WRITEND_USES_DIRECTIO(x) ((x)->optbits &(REC_AIO|REC_DEF))
+
 #include <pthread.h>
 #include <config.h>
 #ifdef HAVE_LIBCONFIG_H

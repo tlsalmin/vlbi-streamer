@@ -452,7 +452,7 @@ int simple_write_bytes(struct buffer_entity *be)
   if(count > limit){
     count = limit;
   }
-  if (limit != count){
+  if (limit != count && WRITEND_USES_DIRECTIO(sbuf->opt)){
     D("Only need to finish transaction. limit %lu, count %lu",, limit, count);
     return simple_end_transaction(be);
   }
