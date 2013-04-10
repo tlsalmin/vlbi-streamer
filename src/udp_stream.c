@@ -483,7 +483,7 @@ void * udp_sender(void *streamo){
       st.packets_sent++;
       spec_ops->total_captured_bytes +=(unsigned int) err;
       //spec_ops->total_captured_packets++;
-      spec_ops->opt->total_packets++;
+      //spec_ops->opt->total_packets++;
       //buf += spec_ops->opt->packet_size;
       sentinc += spec_ops->opt->packet_size;
       packetcounter++;
