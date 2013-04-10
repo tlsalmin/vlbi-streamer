@@ -27,4 +27,9 @@
 long splice_write(struct recording_entity * re, void * start, size_t count);
 //int splice_close(struct recording_entity * re, void * stats);
 int splice_init_splice(struct opt_s *opt, struct recording_entity *re);
+void * partnerloop(void* opts);
+#define PSTATUS_RUN 		1
+#define PSTATUS_JOBTODO		2
+#define PSTATUS_END 		0
+#define PSTATUS_ERROR 		-1
 #endif

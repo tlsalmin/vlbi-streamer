@@ -41,6 +41,11 @@
 
 extern FILE* logfile;
 
+#define SP_LOCKIT do{ if(pthread_mutex_lock(&(sp->pmutex)) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+
+#define SP_UNLOCKIT do {if(pthread_mutex_unlock(&sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+
+#define SP_WAIT do{ if(pthread_cond_wait(&sp->pcond, &sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
 
 //#define PIPE_STUFF_IN_WRITELOOP
 #define IOVEC_SPLIT_TO_IOV_MAX
@@ -50,40 +55,68 @@ extern FILE* logfile;
 //#define USE_FOPEN
 //#define MAX_IOVEC 16
 
-//#define DISABLE_WRITE
-
 struct splice_ops{
   struct iovec* iov;
   int pipes[2];
   int max_pipe_length;
   int pagesize;
+  off_t tosplice;
+  pthread_t partner;
+  pthread_mutex_t pmutex;
+  pthread_cond_t pcond;
+  int pstatus;
 #ifdef USE_FOPEN
   FILE* fd;
 #endif
 };
-/*
-int splice_all(int from, int to, long long bytes){
-  long long bytes_remaining;
-  long result;
+void * partnerloop(void* opts)
+{
+  struct common_io_info *ioi = (struct common_io_info*)opts;
+  struct splice_ops * sp = (struct splice_ops*)ioi->extra_param;
+  long temp_tosplice;
+  int err;
+  SP_LOCKIT;
+  while(sp->pstatus > 0)
+  {
+    while(sp->pstatus == 1)
+      SP_WAIT;
+    temp_tosplice = sp->tosplice;
+    SP_UNLOCKIT;
 
-  bytes_remaining = bytes;
-  while (bytes_remaining > 0) {
-    result = splice(
-	from, NULL,
-	to, NULL,
-	bytes_remaining,
-	SPLICE_F_MOVE | SPLICE_F_MORE
-	);
+    while(temp_tosplice > 0)
+    {
+      if(ioi->opt->optbits & READMODE)
+      {
+#ifdef USE_FOPEN
+	err = splice(fileno(sp->fd), NULL, sp->pipes[1], NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
+#else
+	err = splice(ioi->fd, NULL, sp->pipes[1], NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
+#endif
+      }
+      else
+      {
+      }
+      if(err < 0)
+      {
+	E("Error in splice partner");
+	SP_LOCKIT;
+	sp->pstatus = -1;
+	SP_UNLOCKIT;
+	return NULL;
+      }
+      temp_tosplice-=err;
+    }
 
-    if (result == -1)
-      break;
-
-    bytes_remaining -= result;
+    SP_LOCKIT;
+    if(sp->pstatus >0)
+      sp->pstatus = 1;
   }
-  return result;
+  sp->pstatus =0;
+  SP_UNLOCKIT;
+  return NULL;
 }
-*/
 int init_splice(struct opt_s *opts, struct recording_entity * re){
+  int err;
   int ret = common_w_init(opts, re);
   int maxbytes_inpipe;
   if(ret < 0)
@@ -131,6 +164,16 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 
   ioi->extra_param = (void*)sp;
 
+  err = pthread_mutex_init(&sp->pmutex, NULL);
+  CHECK_ERR("pmutex init");
+  err = pthread_cond_init(&sp->pcond, NULL);
+  CHECK_ERR("pcond init");
+
+  sp->pstatus = PSTATUS_RUN;
+
+  err = pthread_create(&(sp->partner), NULL, partnerloop, (void*)ioi);
+  CHECK_ERR("partner create");
+
   return 0;
 }
 
@@ -160,11 +203,11 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
   ret = count;
   /* TODO: Bidirectional
-  if(ioi->read)
-    ret = splice_all(ioi->fd, start, count);
-  else
-    ret = splice_all(start, ioi->fd, count);
-    */
+     if(ioi->read)
+     ret = splice_all(ioi->fd, start, count);
+     else
+     ret = splice_all(start, ioi->fd, count);
+     */
 
 #ifdef DISABLE_WRITE
   total_w = count;
@@ -197,11 +240,6 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
     /* NOTE: SPLICE_F_MORE not *yet* used on vmsplice */
     if(ioi->opt->optbits & READMODE)
     {
-#ifdef USE_FOPEN
-      ret = splice(fileno(sp->fd), NULL, sp->pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
-#else
-      ret = splice(ioi->fd, NULL, sp->pipes[1], NULL, count, SPLICE_F_MOVE|SPLICE_F_MORE);
-#endif
     }
     else
       ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
@@ -273,10 +311,10 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   ioi->bytes_exchanged += total_w;
 #if(DAEMON)
   //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
-    //E("augmentlock");
+  //E("augmentlock");
   ioi->opt->bytes_exchanged += total_w;
   //if(pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
-    //E("augmentlock");
+  //E("augmentlock");
 #endif
   //ioi->opt->bytes_exchanged += total_w;
   return total_w;
@@ -290,8 +328,22 @@ int splice_get_r_fflags(){
   return O_RDONLY|O_NOATIME;
 }
 int splice_close(struct recording_entity *re, void *stats){
+  int err;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct splice_ops * sp = (struct splice_ops*)ioi->extra_param;
+  err = pthread_mutex_lock(&(sp->pmutex));
+  if(err != 0)
+    E("Error in mutex lock");
+  sp->pstatus = PSTATUS_END;
+  err = pthread_cond_signal(&sp->pcond);
+  if(err != 0)
+    E("error in signal");
+  err = pthread_mutex_unlock(&sp->pmutex);
+  if(err != 0)
+    E("Error in mutex unlock");
+  err = pthread_join(sp->partner, NULL);
+  if(err != 0)
+    E("Error in partner join");
   close(sp->pipes[0]);
   close(sp->pipes[1]);
   free(sp->iov);

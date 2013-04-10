@@ -86,7 +86,8 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   //if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
     //E("Spinlock unlock");
 #endif
-  ioi->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
+  ioi->bytes_exchanged += total_i*(ioi->opt->packet_size - ioi->opt->offset);
+
   D("Writev wrote %lu for %s",, total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
   fdatasync(ioi->fd);
   if(posix_fadvise(ioi->fd, lseek(ioi->fd, 0, SEEK_CUR)-count, count, POSIX_FADV_DONTNEED)!= 0)
