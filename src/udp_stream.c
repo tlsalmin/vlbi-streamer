@@ -1023,199 +1023,199 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   /*
    * Receiver for UDP-data
    */
-  void* udp_receiver(void *streamo)
-  {
-    int err = 0;
+void* udp_receiver(void *streamo)
+{
+  int err = 0;
 
-    struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
-    memset(resq, 0, sizeof(struct resq_info));
+  struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
+  memset(resq, 0, sizeof(struct resq_info));
 
-    struct streamer_entity *se =(struct streamer_entity*)streamo;
-    struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct streamer_entity *se =(struct streamer_entity*)streamo;
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
 
 
-    reset_udpopts_stats(spec_ops);
+  reset_udpopts_stats(spec_ops);
 
-    LOG("UDP_STREAMER: Starting stream capture\n");
-  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
-    if(err != 0){
-      E("Error in port binding");
-      if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
-      {
-	LOG("Force acquiring\n");
-	err = force_reacquire(spec_ops);
-	if(err != 0){
-	  E("Force reacquire failed");
-	  spec_ops->opt->status = STATUS_ERROR;
-	  pthread_exit(NULL);
-	}
-      }
-      else{
+  LOG("UDP_STREAMER: Starting stream capture\n");
+  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  if(err != 0){
+    E("Error in port binding");
+    if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
+    {
+      LOG("Force acquiring\n");
+      err = force_reacquire(spec_ops);
+      if(err != 0){
+	E("Force reacquire failed");
 	spec_ops->opt->status = STATUS_ERROR;
 	pthread_exit(NULL);
       }
     }
-
-    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
-    CHECK_AND_EXIT(se->be);
-
-    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-
-    /* If we have packet resequencing	*/
-    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-      init_resq(resq);
-      if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
-	gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
-      }
-    }
-
-
-
-    while(spec_ops->opt->status & STATUS_RUNNING){
-      err = handle_buffer_switch(se,resq);
-      if(err != 0){
-	LOG("Done or error!");
-	spec_ops->opt->status = STATUS_ERROR;
-	break;
-      }
-
-      err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
-
-      err = udps_handle_received_packet(se, resq, err);
-      if(err !=0){
-	E("Error in packet receive. Stopping loop!");
-	spec_ops->opt->status = STATUS_ERROR;
-	break;
-      }
-    }
-    /* Release last used buffer */
-    if(resq->before != NULL){
-      //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-      *(resq->inc_before) = spec_ops->opt->filesize;
-      free_the_buf(resq->before);
-    }
-    if(*(resq->inc) == 0)
-      se->be->cancel_writebuf(se->be);
     else{
-      if(spec_ops->opt->fi != NULL){
-	unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-	D("N packets is now %lu",, n_now);
-      }
-      se->be->set_ready(se->be);
-      (*spec_ops->opt->cumul)++;
+      spec_ops->opt->status = STATUS_ERROR;
+      pthread_exit(NULL);
     }
-    LOCK(se->be->headlock);
-    pthread_cond_signal(se->be->iosignal);
-    UNLOCK(se->be->headlock);
-    /* Set total captured packets as saveable. This should be changed to just */
-    /* Use opts total packets anyway.. */
-    //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-    D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
-    LOG("UDP_STREAMER: Closing streamer thread\n");
-    //spec_ops->running = 0;
-    //spec_ops->opt->status = STATUS_STOPPED;
-    /* Main thread will free if we have a real datatype */
-    if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
-      free(resq);
-    err = close(spec_ops->fd);
-    if(err != 0)
-      E("Error in closing socket");
+  }
 
-    pthread_exit(NULL);
-  }
-  void get_udp_stats(void *sp, void *stats){
-    struct stats *stat = (struct stats * ) stats;
-    struct udpopts *spec_ops = (struct udpopts*)sp;
-    //if(spec_ops->opt->optbits & USE_RX_RING)
-    stat->total_packets += spec_ops->opt->total_packets;
-    stat->total_bytes += spec_ops->total_captured_bytes;
-    stat->incomplete += spec_ops->incomplete;
-    stat->dropped += spec_ops->missing;
-    if(spec_ops->opt->last_packet > 0){
-      stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
-    }
-    else
-      stat->progress = -1;
-    //stat->files_exchanged = udps_get_fileprogress(spec_ops);
-  }
-  int close_udp_streamer(void *opt_own, void *stats){
-    D("Closing udp-streamer");
-    struct udpopts *spec_ops = (struct udpopts *)opt_own;
-    int err;
-    get_udp_stats(opt_own,  stats);
-    D("Got stats");
-    if(!(spec_ops->opt->optbits & READMODE)){
-      D("setting cfg");
-      err = set_from_root(spec_ops->opt, NULL, 0,1);
-      CHECK_ERR("update_cfg");
-      err = write_cfgs_to_disks(spec_ops->opt);
-      CHECK_ERR("write_cfg");
-    } 
-    if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
-      close(spec_ops->fd_send);
-      free(spec_ops->sin_send);
-    }
-    if(spec_ops->servinfo != NULL)
-      freeaddrinfo(spec_ops->servinfo);
-    if(spec_ops->servinfo_simusend != NULL)
-      freeaddrinfo(spec_ops->servinfo_simusend);
-    LOG("UDP_STREAMER: Closed\n");
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  CHECK_AND_EXIT(se->be);
 
-    /*
-       if(!(spec_ops->opt->optbits & USE_RX_RING))
-       free(spec_ops->sin);
-       */
-    free(spec_ops);
-    D("Returning");
-    return 0;
-  }
-  void udps_stop(struct streamer_entity *se){
-    D("Stopping loop");
-    struct udpopts* spec_ops = (struct udpopts*)se->opt;
-    spec_ops->opt->status = STATUS_STOPPED;
-    if(!(spec_ops->opt->optbits & READMODE)){
-      udps_close_socket(se);
+  resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+
+  /* If we have packet resequencing	*/
+  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+    init_resq(resq);
+    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
+      gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
     }
   }
-#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-  int udps_is_blocked(struct streamer_entity *se){
-    return ((struct udpopts *)(se->opt))->is_blocked;
+
+
+
+  while(spec_ops->opt->status & STATUS_RUNNING){
+    err = handle_buffer_switch(se,resq);
+    if(err != 0){
+      LOG("Done or error!");
+      spec_ops->opt->status = STATUS_ERROR;
+      break;
+    }
+
+    err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
+
+    err = udps_handle_received_packet(se, resq, err);
+    if(err !=0){
+      E("Error in packet receive. Stopping loop!");
+      spec_ops->opt->status = STATUS_ERROR;
+      break;
+    }
   }
-#endif
+  /* Release last used buffer */
+  if(resq->before != NULL){
+    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
+    *(resq->inc_before) = spec_ops->opt->filesize;
+    free_the_buf(resq->before);
+  }
+  if(*(resq->inc) == 0)
+    se->be->cancel_writebuf(se->be);
+  else{
+    if(spec_ops->opt->fi != NULL){
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+      D("N packets is now %lu",, n_now);
+    }
+    se->be->set_ready(se->be);
+    (*spec_ops->opt->cumul)++;
+  }
+  LOCK(se->be->headlock);
+  pthread_cond_signal(se->be->iosignal);
+  UNLOCK(se->be->headlock);
+  /* Set total captured packets as saveable. This should be changed to just */
+  /* Use opts total packets anyway.. */
+  //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
+  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
+  LOG("UDP_STREAMER: Closing streamer thread\n");
+  //spec_ops->running = 0;
+  //spec_ops->opt->status = STATUS_STOPPED;
+  /* Main thread will free if we have a real datatype */
+  if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
+    free(resq);
+  err = close(spec_ops->fd);
+  if(err != 0)
+    E("Error in closing socket");
+
+  pthread_exit(NULL);
+}
+void get_udp_stats(void *sp, void *stats){
+  struct stats *stat = (struct stats * ) stats;
+  struct udpopts *spec_ops = (struct udpopts*)sp;
+  //if(spec_ops->opt->optbits & USE_RX_RING)
+  stat->total_packets += spec_ops->opt->total_packets;
+  stat->total_bytes += spec_ops->total_captured_bytes;
+  stat->incomplete += spec_ops->incomplete;
+  stat->dropped += spec_ops->missing;
+  if(spec_ops->opt->last_packet > 0){
+    stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
+  }
+  else
+    stat->progress = -1;
+  //stat->files_exchanged = udps_get_fileprogress(spec_ops);
+}
+int close_udp_streamer(void *opt_own, void *stats){
+  D("Closing udp-streamer");
+  struct udpopts *spec_ops = (struct udpopts *)opt_own;
+  int err;
+  get_udp_stats(opt_own,  stats);
+  D("Got stats");
+  if(!(spec_ops->opt->optbits & READMODE)){
+    D("setting cfg");
+    err = set_from_root(spec_ops->opt, NULL, 0,1);
+    CHECK_ERR("update_cfg");
+    err = write_cfgs_to_disks(spec_ops->opt);
+    CHECK_ERR("write_cfg");
+  } 
+  if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
+    close(spec_ops->fd_send);
+    free(spec_ops->sin_send);
+  }
+  if(spec_ops->servinfo != NULL)
+    freeaddrinfo(spec_ops->servinfo);
+  if(spec_ops->servinfo_simusend != NULL)
+    freeaddrinfo(spec_ops->servinfo_simusend);
+  LOG("UDP_STREAMER: Closed\n");
+
   /*
-     unsigned long udps_get_max_packets(struct streamer_entity *se){
-     return ((struct opts*)(se->opt))->max_num_packets;
-     }
+     if(!(spec_ops->opt->optbits & USE_RX_RING))
+     free(spec_ops->sin);
      */
-  void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
-  {
-    (void)opt;
-    se->init = setup_udp_socket;
-    se->close = close_udp_streamer;
-    se->get_stats = get_udp_stats;
-    se->close_socket = udps_close_socket;
-    //se->get_max_packets = udps_get_max_packets;
+  free(spec_ops);
+  D("Returning");
+  return 0;
+}
+void udps_stop(struct streamer_entity *se){
+  D("Stopping loop");
+  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  spec_ops->opt->status = STATUS_STOPPED;
+  if(!(spec_ops->opt->optbits & READMODE)){
+    udps_close_socket(se);
   }
+}
+#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
+int udps_is_blocked(struct streamer_entity *se){
+  return ((struct udpopts *)(se->opt))->is_blocked;
+}
+#endif
+/*
+   unsigned long udps_get_max_packets(struct streamer_entity *se){
+   return ((struct opts*)(se->opt))->max_num_packets;
+   }
+   */
+void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
+{
+  (void)opt;
+  se->init = setup_udp_socket;
+  se->close = close_udp_streamer;
+  se->get_stats = get_udp_stats;
+  se->close_socket = udps_close_socket;
+  //se->get_max_packets = udps_get_max_packets;
+}
 
-  int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
-  {
+int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
+{
 
-    udps_init_default(opt,se);
-    if(opt->optbits & USE_RX_RING)
-      se->start = udp_rxring;
-    else
-      se->start = udp_receiver;
-    se->stop = udps_stop;
+  udps_init_default(opt,se);
+  if(opt->optbits & USE_RX_RING)
+    se->start = udp_rxring;
+  else
+    se->start = udp_receiver;
+  se->stop = udps_stop;
 
-    return se->init(opt, se);
-  }
+  return se->init(opt, se);
+}
 
-  int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
-  {
+int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
+{
 
-    udps_init_default(opt,se);
-    se->start = udp_sender;
-    se->stop = udps_stop;
-    return se->init(opt, se);
+  udps_init_default(opt,se);
+  se->start = udp_sender;
+  se->stop = udps_stop;
+  return se->init(opt, se);
 
-  }
+}

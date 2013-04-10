@@ -365,21 +365,17 @@ int clear_pointers(struct opt_s* opt){
   return 0;
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
-  //int i;
   memset(opt, 0, sizeof(struct opt_s));
+  /*
   opt->filename = NULL;
   opt->device_name = NULL;
   opt->cfgfile = NULL;
   opt->hostname = NULL;
   opt->streamer_ent = NULL;
-  /*
-  for(i=0;i<MAX_OPEN_FILES;i++){
-    opt->filenames[i] = NULL;
-  }
-  */
 
   opt->diskids = 0;
   opt->hd_failures = 0;
+  */
   opt->filesize = FILESIZE;
 #if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
@@ -389,11 +385,8 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
     config_init(&(opt->cfg));
 
   /* Opts using optbits */
-  //opt->capture_type = CAPTURE_W_FANOUT;
   opt->optbits |= CAPTURE_W_UDPSTREAM;
   opt->do_w_stuff_every = HD_MIN_WRITE_SIZE;
-  //opt->fanout_type = PACKET_FANOUT_LB;
-  //opt->optbits |= PACKET_FANOUT_LB;
   opt->root_pid = getpid();
   opt->port = 2222;
   opt->n_threads = 0;
@@ -403,32 +396,18 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->cumul_found = 0;
   opt->last_packet = 0;
 
-  //opt->optbits |=USE_RX_RING;
-  //TODO: Add option for choosing backend
-  //opt->buf_type = BUFFER_RINGBUF;
   opt->optbits |= BUFFER_SIMPLE;
-  /* Calculated automatically when aligment is calculated */
-  //opt->filesize = FILE_SPLIT_TO_BLOCKS;
-  //opt->rec_type= REC_DEF;
   opt->optbits |= REC_DEF;
-  opt->taken_rpoints = 0;
   opt->rate = 10000;
   opt->minmem = MIN_MEM_GIG;
   opt->maxmem = MAX_MEM_GIG;
-  //opt->handle = 0;
-  //opt->read = 0;
-  opt->tid = 0;
-  //opt->async = 0;
-  //opt->optbits = 0xff000000;
   opt->optbits |= SIMPLE_BUFFER;
   opt->socket = 0;
   memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
 
-  //opt->cumul = NULL;
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
   opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  //opt->total_packets = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
 
 
@@ -825,6 +804,19 @@ int close_opts(struct opt_s *opt){
     free(opt->hostname);
   if(opt->filename != NULL)
     free(opt->filename);
+  if(opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    if(opt->writequeue != NULL){
+      pthread_mutex_destroy(opt->writequeue);
+      free(opt->writequeue);
+    }
+    if(opt->writequeue_signal != NULL){
+      pthread_cond_destroy(opt->writequeue_signal);
+      free(opt->writequeue_signal);
+    }
+    if(opt->singlefile_fd > 0)
+      close(opt->singlefile_fd);
+  }
   config_destroy(&(opt->cfg));
 #if(PPRIORITY)
   pthread_attr_destroy(&(opt->pta));

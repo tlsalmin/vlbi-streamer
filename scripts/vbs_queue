@@ -13,7 +13,8 @@ OPTIONS:
       -p SIZE		Expect SIZE size payload on packets. Reject everything else.
       -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,mark5bnet)
       -r RATE		Expected network rate in MB(default: 10000)
-      -s SOCKET	Socket number(Default: 2222)
+      -s SOCKET		Socket number(Default: 2222)
+      -S 		Write to a single file (bottlenecks unless used with a raid)
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
       -t		Use TCP-socket
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)

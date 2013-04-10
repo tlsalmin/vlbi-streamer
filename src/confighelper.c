@@ -381,6 +381,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_BOOLEAN(FORCE_SOCKET_REACQUIRE, "force_socket_reacquire")
     CFG_FULL_BOOLEAN(USE_TCP_SOCKET, "use_tcp_socket")
     CFG_FULL_BOOLEAN(CONNECT_BEFORE_SENDING, "connect_before_sending")
+    CFG_FULL_BOOLEAN(WRITE_TO_SINGLE_FILE, "write_to_single_file")
     CFG_FULL_STR(filename)
     /* Could have done these with concatenation .. */
       CFG_FULL_UINT64((*opt->cumul),"cumul")

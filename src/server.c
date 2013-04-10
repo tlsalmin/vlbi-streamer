@@ -159,6 +159,18 @@ int start_event(struct scheduled_event *ev)
     ev->stats = (struct stats*)malloc(sizeof(struct stats));
     init_stats(ev->stats);
   }
+  if(ev->opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    D("Write to single file set");
+    ev->opt->writequeue = malloc(sizeof(pthread_mutex_t));
+    CHECK_ERR_NONNULL_AUTO(ev->opt->writequeue);
+    err = pthread_mutex_init(ev->opt->writequeue, NULL);
+    CHECK_ERR("init writequeue");
+    ev->opt->writequeue_signal = malloc(sizeof(pthread_cond_t));
+    CHECK_ERR_NONNULL_AUTO(ev->opt->writequeue_signal);
+    err = pthread_cond_init(ev->opt->writequeue_signal, NULL);
+    CHECK_ERR("init writequeue signal");
+  }
 #if(PPRIORITY)
   err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
   if(err != 0)

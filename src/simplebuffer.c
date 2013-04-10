@@ -256,29 +256,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
-      /* Init fd for hugetlbfs					*/
-      /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
-
-      /*
-      char hugefs[FILENAME_MAX];
-      find_hugetlbfs(hugefs, FILENAME_MAX);
-
-      sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
-#endif
-
-      common_open_file(&(sbuf->huge_fd), O_RDWR,hugefs,0);
-      */
-      //sbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
-
-      /* TODO: Check other flags aswell				*/
-      /* TODO: Not sure if shared needed as threads share id 	*/
-      //sbuf->buffer = mmap(NULL, (sbuf->opt->buf_num_elems)*(sbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, sbuf->huge_fd,0);
-      //assert(hog_memory%sysconf(_SC_PAGESIZE) == 0);
 #ifdef MMAP_NOT_SHMGET
       sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
-      //sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_NORESERVE, sbuf->huge_fd,0);
       if(sbuf->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
@@ -564,6 +543,16 @@ int write_buffer(struct buffer_entity *be)
   if(be->recer == NULL){
     ret = 0;
     D("Getting rec entity for buffer");
+
+    if(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE)
+    {
+      pthread_mutex_lock(sbuf->opt->writequeue);
+      while(sbuf->opt->next_fd_id_to_write < sbuf->fileid){
+	D("Waiting for file seq %ld to come up. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
+	pthread_cond_wait(sbuf->opt->writequeue_signal, sbuf->opt->writequeue);
+      }
+      pthread_mutex_unlock(sbuf->opt->writequeue);
+    }
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
       //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
@@ -713,44 +702,40 @@ void *sbuf_simple_write_loop(void *buffo)
 	}
       }
     }
+    }
+    D("Finished on id %d",,sbuf->bufnum);
+    pthread_exit(NULL);
   }
-  D("Finished on id %d",,sbuf->bufnum);
-  pthread_exit(NULL);
-}
-void sbuf_cancel_writebuf(struct buffer_entity *be)
-{
-  D("Cancelling request for buffer");
-  struct simplebuf *sbuf = be->opt;
-  sbuf->ready_to_act = 0;
-  set_free(sbuf->opt->membranch, be->self);
-}
-void sbuf_stop_running(struct buffer_entity *be)
-{
-  D("Stopping sbuf thread");
-  ((struct simplebuf*)be->opt)->running = 0;
-  LOCK(be->headlock);
-  pthread_cond_signal(be->iosignal);
-  UNLOCK(be->headlock);
-  D("Stopped and signalled");
-}
-void sbuf_set_ready(struct buffer_entity *be)
-{
-  ((struct simplebuf*)be->opt)->ready_to_act = 1;
-}
-int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
-{
-  be->init = sbuf_init;
-  //be->write = sbuf_aio_write;
-  //be->get_writebuf = sbuf_get_buf_to_write;
-  be->simple_get_writebuf = sbuf_getbuf;
-  //be->get_inc = sbuf_getinc;
-  //be->wait = sbuf_wait;
-  be->close = sbuf_close;
-  be->write_loop = sbuf_simple_write_loop;
-  be->stop = sbuf_stop_running;
-  be->set_ready = sbuf_set_ready;
-  be->acquire = sbuf_acquire;
-  be->cancel_writebuf = sbuf_cancel_writebuf;
+  void sbuf_cancel_writebuf(struct buffer_entity *be)
+  {
+    D("Cancelling request for buffer");
+    struct simplebuf *sbuf = be->opt;
+    sbuf->ready_to_act = 0;
+    set_free(sbuf->opt->membranch, be->self);
+  }
+  void sbuf_stop_running(struct buffer_entity *be)
+  {
+    D("Stopping sbuf thread");
+    ((struct simplebuf*)be->opt)->running = 0;
+    LOCK(be->headlock);
+    pthread_cond_signal(be->iosignal);
+    UNLOCK(be->headlock);
+    D("Stopped and signalled");
+  }
+  void sbuf_set_ready(struct buffer_entity *be)
+  {
+    ((struct simplebuf*)be->opt)->ready_to_act = 1;
+  }
+  int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
+  {
+    be->init = sbuf_init;
+    be->simple_get_writebuf = sbuf_getbuf;
+    be->close = sbuf_close;
+    be->write_loop = sbuf_simple_write_loop;
+    be->stop = sbuf_stop_running;
+    be->set_ready = sbuf_set_ready;
+    be->acquire = sbuf_acquire;
+    be->cancel_writebuf = sbuf_cancel_writebuf;
 
-  return be->init(opt,be); 
-}
+    return be->init(opt,be); 
+  }

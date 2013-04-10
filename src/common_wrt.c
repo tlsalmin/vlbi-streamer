@@ -48,77 +48,102 @@ int common_getid(struct recording_entity*re){
   return ((struct common_io_info*)re->opt)->id;
 }
 int common_open_new_file(void * recco, void *opti,void* acq){
-  //(void)sbuf_still_running;
   int err;
   int tempflags;
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   D("Acquiring new recorder and changing opt");
   ioi->opt = (struct opt_s*)opti;
-  if(ioi->opt->optbits & READMODE)
-    tempflags = re->get_r_flags();
-  else
-    tempflags = re->get_w_flags();
+
   if(acq != NULL)
     ioi->file_seqnum = *((unsigned long*)acq);
   else
   {
     E("Getting free, but not setting file_seqnum. Something weird happending");
   }
+  if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    sprintf(ioi->curfilename, "%s%i%s%s%s%s", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename); 
+    D("Ready to read/write %ld from/to continuous file %s",, ioi->file_seqnum, ioi->curfilename);
+  }
+  else{
+    sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
+  }
 
-  //ioi->curfilename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  //CHECK_ERR_NONNULL(ioi->curfilename, "new filename malloc");
-  sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
+  if(ioi->opt->optbits & READMODE)
+    tempflags = re->get_r_flags();
+  else
+    tempflags = re->get_w_flags();
+
 
   D("Opening file %s",,ioi->curfilename);
-  err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
-  if(err!=0){
-    /* Situation where the directory doesn't yet exist but we're 	*/
-    /* writing so this shouldn't be a failure 				*/
-    if((err & (ENOTDIR|ENOENT)) && !(ioi->opt->optbits & READMODE)){
-      D("Directory doesn't exist. Creating it");
-      err = init_directory(re);
-      CHECK_ERR("Init directory");
-      err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
-      if(err!=0){
+
+  if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE && ioi->opt->singlefile_fd != 0){
+    ioi->fd = ioi->opt->singlefile_fd;
+    D("Copying old fd %d for use",, ioi->fd);
+  }
+  else
+  {
+    err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
+    if(err!=0){
+      /* Situation where the directory doesn't yet exist but we're 	*/
+      /* writing so this shouldn't be a failure 				*/
+      if((err & (ENOTDIR|ENOENT)) && !(ioi->opt->optbits & READMODE)){
+	D("Directory doesn't exist. Creating it");
+	err = init_directory(re);
+	CHECK_ERR("Init directory");
+	err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
+	if(err!=0){
+	  fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
+	  return err;
+	}
+      }
+      else{
 	fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
 	return err;
       }
     }
-    else{
-      fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
-      return err;
+    if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE){
+      ioi->opt->singlefile_fd = ioi->fd;
+      ioi->filesize = ioi->opt->filesize;
+    }
+    else if(ioi->opt->optbits & READMODE)
+    {
+      struct stat statinfo;
+      err = stat(ioi->curfilename, &statinfo);
+      ioi->filesize = statinfo.st_size;
+      D("Filesize is %lu",, ioi->filesize);
     }
   }
-  if(ioi->opt->optbits & READMODE)
-  {
-    struct stat statinfo;
-    err = stat(ioi->curfilename, &statinfo);
-    ioi->filesize = statinfo.st_size;
-    D("Filesize is %lu",, ioi->filesize);
-  }
 
-  /* Special for libaio stuff */
-  /*
-  if(ioi->opt->optbits & REC_AIO){
-    err = aiow_reset_file(re);
-    CHECK_ERR("aiow reset");
-  }
-  */
   /* Doh this might be used by other write methods aswell */
-  ioi->offset = 0;
+  if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
+    ioi->offset = (ioi->opt->buf_num_elems*(ioi->opt->packet_size - ioi->opt->offset))*ioi->file_seqnum;
+  else
+    ioi->offset = 0;
 
   return 0;
 }
 int common_finish_file(void *recco){
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
-  int ret = close(ioi->fd);
-  if(ret != 0)
-    E("Error in closing file!");
+  int ret=0;
+  if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
+  {
+    pthread_mutex_lock(ioi->opt->writequeue);
+    ioi->opt->next_fd_id_to_write++;
+    D("Increased filenum to %ld",, ioi->opt->next_fd_id_to_write);
+    pthread_cond_broadcast(ioi->opt->writequeue_signal);
+    pthread_mutex_unlock(ioi->opt->writequeue);
+  }
   else
-    D("File closed");
-  //free(ioi->curfilename);
+  {
+    ret = close(ioi->fd);
+    if(ret != 0)
+      E("Error in closing file!");
+    else
+      D("File closed");
+  }
   memset(ioi->curfilename, 0, sizeof(char)*FILENAME_MAX);
   ioi->opt = NULL;
   return ret;
@@ -500,36 +525,36 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  /* Update pointer at correct spot */
 	  /* This is a bit slow, but required for supporting live sending */
 	  /*
-	  if(opt->optbits & LIVE_SENDING){
-	    pthread_spin_lock(opt->augmentlock);
-	    //fh = opt->fileholders;
-	    if(fh == NULL){
-	      opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));
-	      fh = opt->fileholders;
-	    }
-	    else{
-	      while(fh->next != NULL){
-		fh = fh->next;
-	      }
-	      fh->next = (struct fileholder*) malloc(sizeof(struct fileholder));
-	      fh = fh->next;
-	    }
-	    zero_fileholder(fh);
-	    fh->id = temp;
-	    if(get_lingering(opt->membranch, opt, fh, 1) != NULL){
-	      D("Also found a lingering match for %lu on %s",, fh->id, opt->filename); 
-	      fh->status |= FH_INMEM;
-	    }
-	    else
-	      D("Didnt' find lingering match");
-	    pthread_spin_unlock(opt->augmentlock);
+	     if(opt->optbits & LIVE_SENDING){
+	     pthread_spin_lock(opt->augmentlock);
+	  //fh = opt->fileholders;
+	  if(fh == NULL){
+	  opt->fileholders = (struct fileholder*) malloc(sizeof(struct fileholder));
+	  fh = opt->fileholders;
 	  }
 	  else{
-	    fh = opt->fileholders;
-	    for(j=0;j<temp;j++){
-	      //ASSERT(fh->next != NULL);
-	      fh = fh->next;
-	    }
+	  while(fh->next != NULL){
+	  fh = fh->next;
+	  }
+	  fh->next = (struct fileholder*) malloc(sizeof(struct fileholder));
+	  fh = fh->next;
+	  }
+	  zero_fileholder(fh);
+	  fh->id = temp;
+	  if(get_lingering(opt->membranch, opt, fh, 1) != NULL){
+	  D("Also found a lingering match for %lu on %s",, fh->id, opt->filename); 
+	  fh->status |= FH_INMEM;
+	  }
+	  else
+	  D("Didnt' find lingering match");
+	  pthread_spin_unlock(opt->augmentlock);
+	  }
+	  else{
+	  fh = opt->fileholders;
+	  for(j=0;j<temp;j++){
+	  //ASSERT(fh->next != NULL);
+	  fh = fh->next;
+	  }
 	  */
 	  fh = &(opt->fi->files[temp]);
 	  fh->status &= ~FH_MISSING;
@@ -538,32 +563,32 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  //opt->fileholders[temp] = ioi->id;
 	  opt->cumul_found++;
 	}
+	}
+	else if( err == REG_NOMATCH ){
+	  D("Regexp didn't match %s",, namelist[i]->d_name);
+	}
+	else{
+	  char msgbuf[100];
+	  regerror(err, &regex, msgbuf, sizeof(msgbuf));
+	  E("Regex match failed: %s",, msgbuf);
+	  //exit(1);
+	}
+	free(namelist[i]);
       }
-      else if( err == REG_NOMATCH ){
-	D("Regexp didn't match %s",, namelist[i]->d_name);
-      }
-      else{
-	char msgbuf[100];
-	regerror(err, &regex, msgbuf, sizeof(msgbuf));
-	E("Regex match failed: %s",, msgbuf);
-	//exit(1);
-      }
-      free(namelist[i]);
+      free(namelist);
+      FIUNLOCK(opt->fi);
     }
-    free(namelist);
-    FIUNLOCK(opt->fi);
-  }
-  //closedir (dir);
-  D("Finished reading files in dir");
-  /*
-     } else {
-     }
-     */
-  //free(ent);
-  free(regstring);
-  free(dirname);
-  regfree(&regex);
-  return retval;
+    //closedir (dir);
+    D("Finished reading files in dir");
+    /*
+       } else {
+       }
+       */
+    //free(ent);
+    free(regstring);
+    free(dirname);
+    regfree(&regex);
+    return retval;
 }
 void common_init_common_functions(struct opt_s * opt, struct recording_entity *re){
   (void)opt;

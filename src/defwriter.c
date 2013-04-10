@@ -34,9 +34,7 @@
 #include "streamer.h"
 #include "defwriter.h"
 #include "common_wrt.h"
-#ifdef MADVISE_INSTEAD_OF_O_DIRECT
 #include <sys/mman.h>
-#endif
 
 extern FILE* logfile;
 
@@ -95,6 +93,12 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #endif
     }
   }
+  if(ioi->opt->optbits & READMODE)
+  {
+    if(posix_madvise(start, total_w, POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED) != 0)
+      E("Error in posix_madvise");
+  }
+  /*
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
 	if(ioi->opt->optbits & READMODE){
 	  ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
@@ -104,6 +108,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 	  ret = posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED);
 	}
 #endif
+*/
   return total_w;
 }
 int def_get_w_fflags(){

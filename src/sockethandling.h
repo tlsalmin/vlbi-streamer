@@ -4,7 +4,7 @@ int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
   int err=0;
   struct addrinfo *p;
 
-  if(readmode == 1)
+  if(readmode == 0)
   {
     /* TODO: this needs to be done earlier */
     for(p = si; p != NULL; p = p->ai_next)

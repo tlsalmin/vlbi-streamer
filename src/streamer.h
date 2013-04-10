@@ -111,6 +111,7 @@
 #define FORCE_SOCKET_REACQUIRE	B(40)
 #define USE_TCP_SOCKET		B(41)
 #define CONNECT_BEFORE_SENDING	B(42)
+#define WRITE_TO_SINGLE_FILE	B(43)
 
 #define MEG			B(20)
 #define GIG			B(30)
@@ -153,13 +154,6 @@
 /* frame. If get_spot is negative, it belongs to the previous	*/
 /* buffer. If larger than buf, belongs to the next		*/
 
-//Moved to HAVE_HUGEPAGES
-//#define HAVE_HUGEPAGES
-//#define WRITE_WHOLE_BUFFER
-//
-//#define ROOTDIRS "/mnt/disk"
-//#define LOG_TO_FILE
-//
 #define FILESIZE (FILESIZEMB*MEG)
 
 #define INITIAL_N_FILES B(7)
@@ -177,8 +171,6 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define MAX_MEM_GIG 12l
   /* TODO query this */
 #define BLOCK_ALIGN 4096
-  //#define MAX_MEM_GIG 8
-
   /* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
 
@@ -192,16 +184,6 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define DEF_BUF_ELEM_SIZE 8192
   //#define BUF_ELEM_SIZE 32768
 #define MAX_OPEN_FILES 48
-  //#define MADVISE_INSTEAD_OF_O_DIRECT
-
-  /* Send stuff to log file if daemon mode defined 	*/
-
-
-
-
-
-  //Moved to configure
-  //#define DEBUG_OUTPUT
   //Magic number TODO: Refactor so we won't need this
 #define WRITE_COMPLETE_DONT_SLEEP 1337
   /* The length of our indices. A week at 10Gb/s is 99090432000 packets for one thread*/
@@ -211,36 +193,11 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   /* Moving the rbuf-stuff to its own thread */
 #define SPLIT_RBUF_AND_IO_TO_THREAD
 
-  //#define TUNE_AFFINITY
-  //#define PRIORITY_SETTINGS
-
-
-  /* Enable if you don't want extra messaging to nonblocked processes */
-  //#define CHECK_FOR_BLOCK_BEFORE_SIGNAL
-
-  //NOTE: Weird behaviour of libaio. With small integer here. Returns -22 for operation not supported
-  //But this only happens on buffer size > (atleast) 30000
-  //Lets make it write every 65536 KB(4096 byte aligned)(TODO: Increase when using write and read at the same time)
-  //Default write size as 16MB
 #define HD_MIN_WRITE_SIZE 16777216
   //Default file size as 500MB
 #define FILE_SPLIT_TO_BLOCKS B(29)l
-  //#define HD_MIN_WRITE_SIZE 1048576
-  /* Size of current default huge page */
-  //#define HD_MIN_WRITE_SIZE 2097152
-  //#define HD_MIN_WRITE_SIZE 134217728
-  //#define HD_MIN_WRITE_SIZE 33554432
-  //#define HD_MIN_WRITE_SIZE 262144
-  //#define HD_WRITE_SIZE 524288
-  //#define HD_MIN_WRITE_SIZE 65536
-  /* Tested with misc/bytaligntest.c that dividing the buffer 	*/
-  /* to 16 blocks gives a good byte aling and only doesn't work	*/
-  /* on crazy sized packets like 50kB+ */
-  //#define MAGIC_BUFFERDIVISION 16
 #define MIN(x,y) (x < y ? x : y)
 
-  //#define DO_W_STUFF_EVERY (HD_WRITE_SIZE/BUF_ELEM_SIZE)
-  //etc for packet handling
 #include <pthread.h>
 #include <config.h>
 #ifdef HAVE_LIBCONFIG_H
@@ -312,38 +269,21 @@ struct opt_s
 #ifdef HAVE_LIBCONFIG_H
   config_t cfg;
 #endif
-
   unsigned long do_w_stuff_every;
 #ifdef HAVE_RATELIMITER
   int wait_nanoseconds;
   /* TODO: move this to spec_ops or similar */
   TIMERTYPE wait_last_sent;
 #endif
-  //unsigned long max_num_packets;
-  //char * filenames[MAX_OPEN_FILES];
   TIMERTYPE starting_time;
   unsigned long filesize;
-
-  /* Moved to optbits */
-  //int capture_type;
-  //int buf_type;
-  //int rec_type;
-  //int fanout_type;
-  //int async;
-  //int read;
-  //int handle;
 
   /* Bloat TODO Find alternative place for this */
   INDEX_FILE_TYPE packet_size;
   int buf_num_elems;
   int buf_division;
   //These two are a bit silly. Should be moved to use as a parameter
-  int taken_rpoints;
-  int tid;
   char * hostname;
-  //pthread_cond_t signal;
-  //struct hostent he;
-  //int f_flags;
 #if(DAEMON)
   void (*get_stats)(void*, void*);
   long unsigned bytes_exchanged;
@@ -359,12 +299,21 @@ struct opt_s
 #ifdef TUNE_AFFINITY
   cpu_set_t cpuset;
 #endif
+  /* Used for writing to a single continuous file	*/
+  int singlefile_fd;
+  long unsigned next_fd_id_to_write;
+  /* Used to sleep while waiting for write to finish	*/
+  /* on previous file size chunk			*/
+  pthread_mutex_t * writequeue;
+  pthread_cond_t * writequeue_signal;
+  
   int status;
   struct streamer_entity * streamer_ent;
 };
 int parse_options(int argc, char **argv, struct opt_s* opt);
 int clear_and_default(struct opt_s* opt, int create_cfg);
 int clear_pointers(struct opt_s* opt);
+
 struct buffer_entity
 {
   void * opt;
@@ -379,7 +328,7 @@ struct buffer_entity
   //int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);
-  int (*wait)(struct buffer_entity *);
+  //int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
   void* (*write_loop)(void *);
   void (*stop)(struct buffer_entity*);
@@ -387,15 +336,8 @@ struct buffer_entity
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct buffer_entity*);
 #endif
-  //int (*handle_packet)(struct buffer_entity*, void *);
   struct recording_entity * recer;
-  //struct streamer_entity * se;
-  /* used to set the writer to free */
   struct listed_entity * self;
-  //struct entity_list_branch *membranch;
-  //struct entity_list_branch *diskbranch;
-  //struct rec_point * rp;
-
   LOCKTYPE *headlock;
   pthread_cond_t *iosignal;
 };

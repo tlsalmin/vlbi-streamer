@@ -8,6 +8,7 @@
 #include <fcntl.h>
 /* FOR IOV_MAX */
 #include <limits.h>
+#include <sys/mman.h>
 
 #include "streamer.h"
 #include "common_wrt.h"
@@ -88,6 +89,11 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   ioi->bytes_exchanged += total_i*(ioi->opt->packet_size- ioi->opt->offset);
   D("Writev wrote %lu for %s",, total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
   fdatasync(ioi->fd);
+  if(posix_fadvise(ioi->fd, lseek(ioi->fd, 0, SEEK_CUR)-count, count, POSIX_FADV_DONTNEED)!= 0)
+    E("Error in posix_fadvise");
+  if(posix_madvise(start, count, POSIX_MADV_DONTNEED) != 0)
+    E("Error in posix_madvise");
+
 
   /* Returning count since simplebuffer sdhouln't think about these things */
   return count;
