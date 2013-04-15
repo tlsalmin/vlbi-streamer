@@ -225,7 +225,7 @@ int start_scheduled(struct schedule *sched){
       }
       else{
 	//change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
-	mutex_free_change_branch(&sched->br.freelist, &sched->br.busylist, le);
+	mutex_free_change_branch(&sched->br.busylist, le);
 	sched->n_running++;
       }
       /* Reset the search, since le has disappeared from freelist */
@@ -388,7 +388,7 @@ int check_schedule(struct schedule *sched){
   /* If one that was there is now missing, remove it from schedule	*/
   /* else just set the events found to 1				*/
   for(setting=config_setting_get_elem(root,i);setting != NULL;setting=config_setting_get_elem(root,++i)){
-    le = get_from_all(&(sched->br), config_setting_name(setting), NULL, CHECK_BY_IDSTRING, MUTEX_FREE);
+    le = get_from_all(&(sched->br), config_setting_name(setting), NULL, CHECK_BY_IDSTRING, MUTEX_FREE, NULL);
     //temp = get_event_by_name(config_setting_name(setting), sched);
     /* New scheduled recording! 					*/
     if(le == NULL){
@@ -402,7 +402,7 @@ int check_schedule(struct schedule *sched){
       temp->found = 1;
     }
   }
-  while((le = get_from_all(&sched->br, NULL, NULL, CHECK_BY_NOTFOUND, 1)) != NULL){
+  while((le = get_from_all(&sched->br, NULL, NULL, CHECK_BY_NOTFOUND, 1, NULL)) != NULL){
     temp = (struct scheduled_event*)le->entity;
     LOG("Recording %s removed from schedule\n", temp->opt->filename);
     if(temp->opt->status == STATUS_RUNNING){

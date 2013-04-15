@@ -209,6 +209,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   D("Adding simplebuf to membranch");
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
   CHECK_ERR_NONNULL(le, "malloc listed_entity");
+  memset(le,0,sizeof(struct listed_entity));
   le->entity = (void*)be;
   le->child = NULL;
   le->father = NULL;
@@ -221,6 +222,11 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   be->self = le;
   add_to_entlist(sbuf->opt->membranch, be->self);
   D("Ringbuf added to membranch");
+
+  err = pthread_mutex_init(&le->waitlock, NULL);
+  CHECK_ERR("Waitlock init");
+  err = pthread_cond_init(&le->waitsig, NULL);
+  CHECK_ERR("Waitsig init");
 
   
   /* Main arg for bidirectionality of the functions 		*/
@@ -338,6 +344,11 @@ int sbuf_close(struct buffer_entity* be, void *stats)
   }
   else
     D("Not freeing mem. Done in main");
+
+  if(pthread_mutex_destroy(&(be->self->waitlock)) != 0)
+    E("Error in waitlock destroy");
+  if(pthread_cond_destroy(&(be->self->waitsig)) != 0)
+    E("Error in waitsig destroy");
   D("Freeing structs");
   free(sbuf);
   //free(be);

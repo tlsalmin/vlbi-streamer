@@ -123,7 +123,7 @@ int simple_test_change_branches(){
   D("Entities added");
 
   for(j=0;j<100;j++){
-    mutex_free_change_branch(&root, &root2, &entities[j]);
+    mutex_free_change_branch(&root2, &entities[j]);
   }
 
   D("Changed branch");

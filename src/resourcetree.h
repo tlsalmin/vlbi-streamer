@@ -34,6 +34,12 @@
 #define CHECK_LOADED B(1)
 #define CHECK_BUSY B(2)
 #define CHECK_FREE B(3)
+
+#define GOT_FROM_FREE 		1
+#define GOT_FROM_BUSY 		2
+#define GOT_FROM_LOADED 	3
+
+
 //#define CHECK_ANY_FREE 4
 #if(SPINLOCK)
 #define LOCKTYPE pthread_spinlock_t
@@ -44,12 +50,16 @@
 #define LOCK_FREE(x) (void)x
 #else
 #define LOCKTYPE pthread_mutex_t
-#define LOCK(x) pthread_mutex_lock(x)
-#define UNLOCK(x) pthread_mutex_unlock(x)
+#define LOCK(x) do{if(pthread_mutex_lock(x) != 0){E("Error in mutex lock");}}while(0)
+#define UNLOCK(x) do{if(pthread_mutex_unlock(x) != 0){E("Error in unlock");}}while(0)
+#define WAIT_FOR_IT(x,y) do{if(pthread_cond_wait(x,y) != 0){E("Error in cond wait");}}while(0)
+#define SIGNAL(x) do{if(pthread_cond_signal(x) != 0){E("Error in signaling");}}while(0)
 #define LOCK_INIT(x) pthread_mutex_init((x), NULL)
 #define LOCK_DESTROY(x) pthread_mutex_destroy(x)
 #define LOCK_FREE(x) free(x)
 #endif
+
+#define ADD_SAFELY_INT16T(x) do{ if((x) == INT16_MAX){(x) = 0;}else{(x)++;}}while(0)
 //#include <pthread.h>
 
 /* This holds any entity, which can be set to either 	*/
@@ -60,6 +70,7 @@ struct listed_entity
 {
   struct listed_entity* child;
   struct listed_entity* father;
+  struct listed_entity** current_branch;
   int (*acquire)(void*,void*,void*);
   int (*check)(void*, void*);
   /* 0 for not this, 1 for identified */
@@ -68,7 +79,12 @@ struct listed_entity
   void* (*getopt)(void*);
   int (*close)(void*);
   int (*release)(void*);
+  //int (*wait_for_me)(void*);
   void (*notfreeafterthis)(void*, void*);
+  int16_t waiters_head;
+  int16_t waiters_bottom;
+  pthread_mutex_t waitlock;
+  pthread_cond_t waitsig;
   void* entity;
 };
 /* Holds all the listed_entits of a common type		*/
@@ -112,10 +128,10 @@ void oper_to_all(struct entity_list_branch *be,int operation ,void* param);
 void print_br_stats(struct entity_list_branch *br);
 /* Blocks until no more entities are busy with this element	*/
 void block_until_free(struct entity_list_branch *br, void* val1);
-struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free);
+struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free, int * gotfrom);
 struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, void* val2, int iden_type);
 
-int mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en);
+int mutex_free_change_branch(struct listed_entity **to, struct listed_entity *en);
 
 /* Checks if theres anything in the tree */
 int check_if_alive(struct entity_list_branch* br);

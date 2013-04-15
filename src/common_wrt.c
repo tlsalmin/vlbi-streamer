@@ -297,7 +297,14 @@ void* recpoint_getopt(void* red)
   return (void*)(((struct common_io_info*)(re->opt))->opt);
 }
 int common_close_and_free(void* recco){
-  (void)recco;
+  int err;
+  struct recording_entity* re = (struct recording_entity*)recco;
+  err = pthread_mutex_destroy(&(re->self->waitlock));
+  if(err != 0)
+    E("Error in mutex destroy of waitlock");
+  err = pthread_cond_destroy(&(re->self->waitsig));
+  if(err != 0)
+    E("Error in waitsig destroy");
   return 0;
 }
 int init_directory(struct recording_entity *re){
@@ -377,6 +384,7 @@ int check_if_suitable(void * le, void* other)
   return 0;
 }
 int common_w_init(struct opt_s* opt, struct recording_entity *re){
+  int err;
   //void * errpoint;
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   re->get_stats = get_io_stats;
@@ -399,6 +407,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   /* Only after everything ok add to the diskbranches */
   D("Adding writer %d to diskbranch",,ioi->id);
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
+  memset(le, 0, sizeof(struct listed_entity));
   le->entity = (void*)re;
   le->child = NULL;
   le->father = NULL;
@@ -409,6 +418,13 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   le->infostring = common_infostring;
   le->close = common_close_and_free;
   re->self= le;
+
+  err = pthread_mutex_init(&le->waitlock, NULL);
+  CHECK_ERR("Waitlock init");
+  err = pthread_cond_init(&le->waitsig, NULL);
+  CHECK_ERR("Waitsig init");
+
+
   add_to_entlist(opt->diskbranch, le);
   D("Writer added to diskbranch");
   return 0;

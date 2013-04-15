@@ -24,6 +24,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "config.h"
 #include "resourcetree.h"
@@ -51,6 +52,7 @@ void add_to_next(struct listed_entity **root, struct listed_entity *toadd, int (
 {
   toadd->child = NULL;
   toadd->father = NULL;
+  toadd->current_branch = root;
   if(*root == NULL){
     (*root) = toadd;
   }
@@ -86,10 +88,13 @@ void add_to_entlist(struct entity_list_branch* br, struct listed_entity* en)
   if(br->mutex_free == 0)
     UNLOCK(&(br->branchlock));
 }
-int mutex_free_change_branch(struct listed_entity **from, struct listed_entity **to, struct listed_entity *en)
+int mutex_free_change_branch(struct listed_entity **to, struct listed_entity *en)
 {
-  /* TODO: It would be nice to check if en exists in from, but would it waste	*/
-  /* too much resources? */
+  struct listed_entity **from = en->current_branch;
+  /* entity has its own pointer to its branch so adding this check	*/
+  if(from == to)
+    return 0;
+
   if(en == *from){
     *from = en->child;
     if(en->child != NULL)
@@ -107,23 +112,38 @@ int mutex_free_change_branch(struct listed_entity **from, struct listed_entity *
 /* Set this entity into the free to use list		*/
 void set_free(struct entity_list_branch *br, struct listed_entity* en)
 {
+  D("Set free called on entity");
   LOCK(&(br->branchlock));
   //Only special case if the entity is at the start of the list
-  D("Changing entity from busy to free");
-  mutex_free_change_branch(&(br->busylist), &(br->freelist), en);
   if(en->release != NULL){
     D("Running release on entity");
     int ret = en->release(en->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
-  D("Entity free'd. Signaling");
-  pthread_cond_broadcast(&(br->busysignal));
-  UNLOCK(&(br->branchlock));
+  if(en->waiters_bottom != en->waiters_head)
+  {
+    UNLOCK(&(br->branchlock));
+    D("We have waiters for us");
+
+    LOCK(&(en->waitlock));
+    D("Currently bottom is %d and top is %d",, en->waiters_bottom, en->waiters_head);
+    ADD_SAFELY_INT16T(en->waiters_bottom);
+    pthread_cond_signal(&(en->waitsig));
+    UNLOCK(&(en->waitlock));
+  }
+  else
+  {
+    D("Changing entity from busy to free");
+    mutex_free_change_branch(&(br->freelist), en);
+    D("Entity free'd. Signaling");
+    pthread_cond_signal(&(br->busysignal));
+    UNLOCK(&(br->branchlock));
+  }
 }
 void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en)
 {
-  mutex_free_change_branch(&(br->freelist),&(br->busylist), en);
+  mutex_free_change_branch(&(br->busylist), en);
 }
 void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
 {
@@ -186,24 +206,50 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en)
 {
   D("Setting entity to loaded");
   LOCK(&(br->branchlock));
-  mutex_free_change_branch(&(br->busylist), &(br->loadedlist), en);
-  pthread_cond_broadcast(&(br->busysignal));
-  UNLOCK(&(br->branchlock));
+  if(en->waiters_head != en->waiters_bottom)
+  {
+    LOCK(&(en->waitlock));
+    UNLOCK(&(br->branchlock));
+    ADD_SAFELY_INT16T(en->waiters_bottom);
+    SIGNAL(&(en->waitsig));
+    UNLOCK(&(en->waitlock));
+  }
+  else
+  {
+    mutex_free_change_branch(&(br->loadedlist), en);
+    //pthread_cond_broadcast(&(br->busysignal));
+    UNLOCK(&(br->branchlock));
+  }
 }
 void* get_loaded(struct entity_list_branch *br, long unsigned seq, void* opt)
 {
+  int gotfrom= 0;
   D("Querying for loaded entity %lu",, seq);
   LOCK(&(br->branchlock));
-  struct listed_entity * temp = get_w_check(br, CHECK_LOADED ,seq,  opt);
+  //struct listed_entity * temp = get_w_check(br, CHECK_LOADED ,seq,  opt);
+  struct listed_entity * temp = get_from_all(br, &seq,  opt, CHECK_BY_SEQ, MUTEX_FREE, &gotfrom);
 
   if (temp == NULL){
     D("Nothing to return!");
     UNLOCK(&(br->branchlock));
     return NULL;
   }
-
-  mutex_free_change_branch(&(br->loadedlist), &(br->busylist), temp);
-  UNLOCK(&(br->branchlock));
+  assert(gotfrom != GOT_FROM_FREE);
+  if(gotfrom == GOT_FROM_BUSY)
+  {
+    LOCK(&(temp->waitlock));
+    UNLOCK(&(br->branchlock));
+    ADD_SAFELY_INT16T(temp->waiters_head);
+    int16_t myqueue = temp->waiters_head;
+    while(temp->waiters_bottom != myqueue)
+      WAIT_FOR_IT(&(temp->waitsig), &(temp->waitlock));
+    UNLOCK(&(temp->waitlock));
+  }
+  else
+  {
+    mutex_free_change_branch(&(br->busylist), temp);
+    UNLOCK(&(br->branchlock));
+  }
   D("Returning loaded entity");
   return temp->entity;
 }
@@ -243,7 +289,7 @@ void block_until_free(struct entity_list_branch *br, void* val1)
 	struct listed_entity *temp = checker;
 	checker = checker->child;
 	D("Moving loaded to free since thread is exiting");
-	mutex_free_change_branch(&br->loadedlist, &br->freelist, temp);
+	mutex_free_change_branch(&br->freelist, temp);
 	int ret = temp->release(temp->entity);
 	if(ret != 0)
 	  E("Release returned non zero value.(Not handled in any way)");
@@ -259,6 +305,7 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   if(!mutex_free){
     LOCK(&(br->branchlock));
   }
+  /*
   if(en == br->freelist){
     if(en->child != NULL)
       en->child->father = NULL;
@@ -273,6 +320,13 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
     if(en->child != NULL)
       en->child->father = NULL;
     br->loadedlist = en->child;
+  }
+  */
+  if(en == *(en->current_branch))
+  {
+    if(en->child != NULL)
+      en->child->father = NULL;
+    *(en->current_branch) = en->child;
   }
   else{
     /* Weird thing. Segfault when en->father is NULL	*/
@@ -309,19 +363,25 @@ struct listed_entity * loop_and_check(struct listed_entity* head, void* val1, vo
   return NULL;
 }
 
-struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free)
+struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, void * val2, int iden_type, int mutex_free, int * wherefrom)
 {
   struct listed_entity *le = NULL;
   if(mutex_free == 0){
     LOCK(&(br->branchlock));
   }
   if((le = loop_and_check(br->freelist, val1, val2, iden_type)) != NULL){
+    if(wherefrom != NULL)
+      *wherefrom =GOT_FROM_FREE;
     FREE_AND_RETURN_LE
   }
   if((le = loop_and_check(br->busylist, val1, val2, iden_type)) != NULL){
+    if(wherefrom != NULL)
+      *wherefrom =GOT_FROM_BUSY;
     FREE_AND_RETURN_LE
   }
   if((le = loop_and_check(br->loadedlist, val1, val2, iden_type)) != NULL){
+    if(wherefrom != NULL)
+      *wherefrom =GOT_FROM_LOADED;
     FREE_AND_RETURN_LE
   }
   if(mutex_free == 0){
@@ -329,6 +389,7 @@ struct listed_entity* get_from_all(struct entity_list_branch *br, void *val1, vo
   }
   return NULL;
 }
+/*
 struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_check,unsigned long seq,  void* optmatch)
 {
   //struct listed_entity *temp;
@@ -358,15 +419,15 @@ struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_c
   //le = NULL;
   while(le== NULL){
     le = loop_and_check(*lep, &seq, optmatch, CHECK_BY_SEQ);
-    /* If le wasn't found in the list */
+    // If le wasn't found in the list 
     if(le == NULL){
-      /* Check if branch is dead */
+      // Check if branch is dead 
       D("Checking for dead branch");
       if(*lep == NULL && *other == NULL && *other2 == NULL){
 	E("No entities in list. Returning NULL");
 	return NULL;
       }
-      /* Need to check if it exists at all */
+      // Need to check if it exists at all 
       D("Looping to check if exists");
       if(loop_and_check(*other, &seq, optmatch, CHECK_BY_SEQ) == NULL && loop_and_check(*other2,&seq, optmatch, CHECK_BY_SEQ) == NULL){
 	D("Rec point disappeared!");
@@ -380,6 +441,7 @@ struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_c
   D("Found specific elem id %lu!",, seq);
   return le;
 }
+*/
 /*
  //Get a loaded buffer with the specific seq 
 void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int just_check)
@@ -420,9 +482,12 @@ void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int ju
 /* Get a specific free entity from branch 		*/
 void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, unsigned long bufnum, unsigned long id, int* acquire_result)
 {
+  D("Getting specific");
   (void)bufnum;
   LOCK(&(br->branchlock));
-  struct listed_entity* temp = get_w_check(br,CHECK_FREE ,id, opt);
+  int wherefrom=0;
+  //struct listed_entity* temp = get_w_check(br,CHECK_FREE ,id, opt);
+  struct listed_entity* temp = get_from_all(br,&id, opt, CHECK_BY_SEQ, MUTEX_FREE, &wherefrom);
 
   if(temp ==NULL){
     UNLOCK(&(br->branchlock));
@@ -431,8 +496,25 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
     return NULL;
   }
 
-  mutex_free_change_branch(&(br->freelist), &(br->busylist), temp);
-  UNLOCK(&(br->branchlock));
+  if(wherefrom == GOT_FROM_FREE){
+    mutex_free_change_branch(&(br->busylist), temp);
+    UNLOCK(&(br->branchlock));
+  }
+  /* We want a specific but its loaded or busy 	*/
+  else
+  {
+    D("Got specific but its busy!");
+    int16_t mypriority;
+    LOCK(&(temp->waitlock));
+    UNLOCK(&(br->branchlock));
+    ADD_SAFELY_INT16T(temp->waiters_head);
+    mypriority = temp->waiters_head;
+    while(mypriority != temp->waiters_bottom){
+      D("Prio is %d and we have %d",, temp->waiters_bottom, mypriority);
+      pthread_cond_wait(&(temp->waitsig), &(temp->waitlock));
+    }
+    UNLOCK(&(temp->waitlock));
+  }
   if(temp->acquire !=NULL){
     D("Running acquire on entity");
     int ret = temp->acquire(temp->entity, opt,((void*)&seq));
