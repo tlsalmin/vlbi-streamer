@@ -54,6 +54,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   long err;
   struct common_io_info * ioi = (struct common_io_info * )re->opt;
   struct iovec * iov = (struct iovec*)ioi->extra_param;
+  off_t orig_offset = ioi->offset;
   /* No point in doing a scatter read */
   if(ioi->opt->optbits & READMODE)
     return def_write(re,start,count);
@@ -90,7 +91,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
 
   D("Writev wrote %lu for %s",, total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
   fdatasync(ioi->fd);
-  if(posix_fadvise(ioi->fd, lseek(ioi->fd, 0, SEEK_CUR)-count, count, POSIX_FADV_DONTNEED)!= 0)
+  if(posix_fadvise(ioi->fd, orig_offset, count, POSIX_FADV_DONTNEED)!= 0)
     E("Error in posix_fadvise");
   if(posix_madvise(start, count, POSIX_MADV_DONTNEED) != 0)
     E("Error in posix_madvise");

@@ -41,6 +41,7 @@ extern FILE* logfile;
 long def_write(struct recording_entity * re, void * start, size_t count){
   long ret = 0;
   long total_w = 0;
+  size_t downcount = count;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
   off_t oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
@@ -51,20 +52,20 @@ long def_write(struct recording_entity * re, void * start, size_t count){
   }
 
   /* Loop until we've gotten everything written */
-  while(count >0){
-    DD("Issuing write of %lu with start %lu to %s",, count,(long unsigned)start, ioi->curfilename);
+  while(downcount >0){
+    DD("Issuing write of %lu with start %lu to %s",, downcount,(long unsigned)start, ioi->curfilename);
     if(ioi->opt->optbits & READMODE)
-      ret = read(ioi->fd, start, count);
+      ret = read(ioi->fd, start, downcount);
     else
-      ret = write(ioi->fd, start, count);
+      ret = write(ioi->fd, start, downcount);
     if(ret <=0){
       if(ret == 0 && (ioi->opt->optbits & READMODE)){
 	D("DEFWRITER: End of file!");
-	ioi->bytes_exchanged += count;
+	ioi->bytes_exchanged += downcount;
 #if(DAEMON)
 	//if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
 	  //E("spinlock lock");
-	ioi->opt->bytes_exchanged += count;
+	ioi->opt->bytes_exchanged += downcount;
 	//if (pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
 	  //E("Spinlock unlock");
 #endif
@@ -72,17 +73,17 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
 	perror("DEFWRITER: Error on write/read");
-	E("Error happened on %s with count: %lu fd: %d error: %ld\n",, ioi->curfilename,  count,ioi->fd, ret);
+	E("Error happened on %s with count: %lu fd: %d error: %ld\n",, ioi->curfilename,  downcount,ioi->fd, ret);
 	return ret;
 	//return -1;
       }
     }
     else{
       DD("Write done for %ld\n",, ret);
-      if((unsigned long)ret < count)
-	E(" Write wrote only %ld out of %lu",, ret, count);
+      if((unsigned long)ret < downcount)
+	E(" Write wrote only %ld out of %lu",, ret, downcount);
       total_w += ret;
-      count -= ret;
+      downcount -= ret;
       ioi->bytes_exchanged += ret;
 #if(DAEMON)
       //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)
@@ -93,11 +94,13 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 #endif
     }
   }
+  /*
   if(ioi->opt->optbits & READMODE)
   {
     if(posix_madvise(start, total_w, POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED) != 0)
       E("Error in posix_madvise");
   }
+  */
   /*
 #ifdef MADVISE_INSTEAD_OF_O_DIRECT
 	if(ioi->opt->optbits & READMODE){

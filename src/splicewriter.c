@@ -42,10 +42,14 @@
 extern FILE* logfile;
 
 #define SP_LOCKIT do{ if(pthread_mutex_lock(&(sp->pmutex)) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+#define SP_MAINLOCKIT do{ if(pthread_mutex_lock(&(sp->pmutex)) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
 
 #define SP_UNLOCKIT do {if(pthread_mutex_unlock(&sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+#define SP_MAINUNLOCKIT do {if(pthread_mutex_unlock(&sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
 
 #define SP_WAIT do{ if(pthread_cond_wait(&sp->pcond, &sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+
+#define SP_SIGNAL do{ if(pthread_cond_signal(&sp->pcond) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
 
 //#define PIPE_STUFF_IN_WRITELOOP
 #define IOVEC_SPLIT_TO_IOV_MAX
@@ -76,12 +80,13 @@ void * partnerloop(void* opts)
   long temp_tosplice;
   int err;
   SP_LOCKIT;
-  while(sp->pstatus > 0)
+  while(sp->pstatus > PSTATUS_END)
   {
-    while(sp->pstatus == 1)
+    while(sp->pstatus == PSTATUS_RUN)
       SP_WAIT;
     temp_tosplice = sp->tosplice;
     SP_UNLOCKIT;
+    D("Got a job to write %ld",, temp_tosplice);
 
     while(temp_tosplice > 0)
     {
@@ -95,6 +100,11 @@ void * partnerloop(void* opts)
       }
       else
       {
+#ifdef USE_FOPEN
+	err = splice(sp->pipes[0], NULL, fileno(sp->fd), NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
+#else
+	err = splice(sp->pipes[0], NULL, ioi->fd, NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
+#endif
       }
       if(err < 0)
       {
@@ -104,14 +114,21 @@ void * partnerloop(void* opts)
 	SP_UNLOCKIT;
 	return NULL;
       }
+      else if(err == 0){
+	D("Pipe closed");
+	break;
+      }
+      //D("Done a loop");
       temp_tosplice-=err;
     }
+    D("Job done");
 
     SP_LOCKIT;
-    if(sp->pstatus >0)
-      sp->pstatus = 1;
+    if(sp->pstatus >PSTATUS_END)
+      sp->pstatus = PSTATUS_RUN;
   }
-  sp->pstatus =0;
+  D("Stopping splice partner");
+  sp->pstatus =PSTATUS_END;
   SP_UNLOCKIT;
   return NULL;
 }
@@ -177,7 +194,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   return 0;
 }
 
-long splice_write(struct recording_entity * re, void * start, size_t count){
+long splice_write(struct recording_entity * re,void * start, size_t count){
   long ret = 0;
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
   void * point_to_start=start;
@@ -199,35 +216,46 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
   struct iovec * iov;
 #endif
 
+  D("Informing partner on write");
+  SP_MAINLOCKIT;
+  sp->tosplice = count;
+  if(sp->pstatus == PSTATUS_RUN)
+    sp->pstatus = PSTATUS_JOBTODO;
+  else{
+    E("Partner not ready!");
+    return -1;
+  }
+  SP_SIGNAL;
+  SP_MAINUNLOCKIT;
+
+  D("Starting splice");
   /* Get current file offset. Used for writeback */
   oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
   ret = count;
-  /* TODO: Bidirectional
-     if(ioi->read)
-     ret = splice_all(ioi->fd, start, count);
-     else
-     ret = splice_all(start, ioi->fd, count);
-     */
+  point_to_start = start;
 
 #ifdef DISABLE_WRITE
   total_w = count;
 #else 
-  while(count >0){
+  while(count >0 && sp->pstatus > PSTATUS_END){
 #ifdef IOVEC_SPLIT_TO_IOV_MAX
-    point_to_start = start;
-    trycount = count;
+    //point_to_start = start;
+    //trycount = count;
     iov  = sp->iov;
     i=0;
     /* Split the request into page aligned chunks 	*/
     /* TODO: find out where the max size is defined.	*/
     /* Currently splice can handle 16*pagesize 		*/
     while(trycount>0 && i < sp->max_pipe_length && i < IOV_MAX){
-      iov->iov_base = point_to_start; 
+      iov->iov_base = point_to_start + ioi->opt->offset;
       /* TODO: Might need to set this only in init 	*/
-      iov->iov_len = sp->pagesize;
+      //iov->iov_len = sp->pagesize;
+      iov->iov_len = ioi->opt->packet_size - ioi->opt->offset;
       iov += 1;
-      trycount-=sp->pagesize;
-      point_to_start += sp->pagesize;
+      //trycount-=sp->pagesize;
+      trycount-= ioi->opt->packet_size;
+      //point_to_start += sp->pagesize;
+      point_to_start += ioi->opt->packet_size;
       /*  Check that we don't go negative on the count */
       /* TODO: This will break if buffer entities aren't pagesize aligned */
       if(trycount>=0)
@@ -237,39 +265,33 @@ long splice_write(struct recording_entity * re, void * start, size_t count){
     i=1;
 #endif  /* IOVEC_SPLIT_TO_IOV_MAX */
 
-    /* NOTE: SPLICE_F_MORE not *yet* used on vmsplice */
-    if(ioi->opt->optbits & READMODE)
-    {
-    }
-    else
-      ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
 
-    if(ret <0){
-      fprintf(stderr, "SPLICEWRITER: vmsplice failed for %i elements and %d bytes\n", i, i*(sp->pagesize));
-      break;
-    }
 
     if(ioi->opt->optbits & READMODE){
       ret = vmsplice(sp->pipes[0], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
     }
     else
     {
-#ifdef USE_FOPEN
-      ret = splice(sp->pipes[0], NULL, fileno(sp->fd), NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
-#else
-      ret = splice(sp->pipes[0], NULL, ioi->fd, NULL, ret, SPLICE_F_MOVE|SPLICE_F_MORE);
-#endif
+      ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
     }
 
+    //D("Done aloop");
     if(ret<0){
       fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
       break;
     }
+    else if(ret == 0){
+      D("Pipe closed");
+      break;
+    }
     start += ret;
-    count -= ret;
+    trycount -= ret;
+    point_to_start += ret;
 #ifndef IOVEC_SPLIT_TO_IOV_MAX
+    /*
     sp->iov->iov_base += ret;
     sp->iov->iov_len = count;
+    */
 #endif
 
     // Update statistics 

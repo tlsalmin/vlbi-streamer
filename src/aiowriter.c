@@ -126,7 +126,7 @@ int aiow_get_r_fflags(){
     return  O_RDONLY|O_DIRECT|O_NOATIME|O_NONBLOCK;
     //return  O_RDONLY|O_DIRECT|O_NOATIME;
 }
-long aiow_write(struct recording_entity * re, void * start, size_t count){
+long aiow_write(struct recording_entity * re,void * start,size_t count){
   long ret;
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "AIOW: Performing read/write\n");
