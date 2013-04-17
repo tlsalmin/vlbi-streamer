@@ -76,10 +76,31 @@ extern FILE* logfile;
 #define PLOTTABLE_SEND_DEBUG 0
 
 void udps_close_socket(struct streamer_entity *se){
-  D("Closing socket");
-  int ret = shutdown(((struct udpopts*)se->opt)->fd, SHUT_RDWR);
-  if(ret <0)
-    perror("Socket shutdown");
+  struct udpopts *spec_ops = se->opt;
+  if(spec_ops->fd == 0)
+  {
+    D("Wont shut down already shutdown fd");
+  }
+  else
+  {
+    int ret;
+    if(spec_ops->opt->optbits & READMODE){
+      LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
+      ret = shutdown(spec_ops->fd, SHUT_RDWR);
+    }
+    else{
+      LOG("Closing socket on receive %s\n", spec_ops->opt->filename);
+      ret = shutdown(spec_ops->fd, SHUT_RD);
+      if(ret <0)
+	E("shutdown return something not ok");
+      ret = close(spec_ops->fd);
+      //ret = close(spec_ops->fd);
+    }
+    if(ret <0){
+      E("shutdown return something not ok");
+    }
+    spec_ops->fd = 0;
+  }
 }
 int udps_bind_rx(struct udpopts * spec_ops){
   struct tpacket_req req;
@@ -270,8 +291,6 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     if(err != 0)
       E("Error in creating simusend socket. Not quitting");
   }
-  opt->socket = spec_ops->fd;
-
 
   if (spec_ops->fd < 0) {
     perror("socket");
@@ -432,7 +451,7 @@ void * udp_sender(void *streamo){
   D("Starting stream send");
 
   LOG("UDP_STREAMER: Starting stream capture\n");
-  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
   if(err != 0)
   {
     E("Error in getting buffer");
@@ -469,8 +488,7 @@ void * udp_sender(void *streamo){
     // Increment to the next sendable packet
     if(err < 0){
       perror("Send packet");
-      shutdown(spec_ops->fd, SHUT_RDWR);
-      //pthread_exit(NULL);
+      se->close_socket(se);
       UDPS_EXIT_ERROR;
       //TODO: How to handle error case? Either shut down all threads or keep on trying
       //pthread_exit(NULL);
@@ -1012,7 +1030,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     {
       sleep(1);
       GETTIME(temptimer);
-  err = bind_port(spec_ops->servinfo, spec_ops->opt->socket,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
     }
     if(err != 0){
       E("Still couldn't get the port. Exiting");
@@ -1088,6 +1106,7 @@ void* udp_receiver(void *streamo)
       break;
     }
   }
+  LOG("UDP_STREAMER: Closing streamer thread\n");
   /* Release last used buffer */
   if(resq->before != NULL){
     //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
@@ -1111,15 +1130,19 @@ void* udp_receiver(void *streamo)
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
-  LOG("UDP_STREAMER: Closing streamer thread\n");
-  //spec_ops->running = 0;
-  //spec_ops->opt->status = STATUS_STOPPED;
+
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
     free(resq);
-  err = close(spec_ops->fd);
-  if(err != 0)
-    E("Error in closing socket");
+
+  /* The default behaviour is STATUS_STOPPED for clean exit and  	*/
+  /* STATUS_ERROR for unclean. STATUS_STOPPED is set by stop		*/
+  /* And it also shutdowns the socket so we can unblock this thread	*/
+
+  if(spec_ops->opt->status != STATUS_STOPPED){
+    D("Seems we weren't shut down nicely. Doing close_socket");
+    se->close_socket(se);
+  }
 
   pthread_exit(NULL);
 }
@@ -1173,9 +1196,7 @@ void udps_stop(struct streamer_entity *se){
   D("Stopping loop");
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
   spec_ops->opt->status = STATUS_STOPPED;
-  if(!(spec_ops->opt->optbits & READMODE)){
-    udps_close_socket(se);
-  }
+  udps_close_socket(se);
 }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){

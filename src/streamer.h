@@ -250,7 +250,6 @@ struct opt_s
   int port;
   unsigned long minmem;
   unsigned long maxmem;
-  int socket;
   struct entity_list_branch *membranch;
   struct entity_list_branch *diskbranch;
   int n_threads;
@@ -411,6 +410,7 @@ struct schedule{
   //listed_entity* scheduled_head;
   //listed_entity* running_head;
   struct opt_s * default_opt;
+  TIMERTYPE lasttick;
   int n_scheduled;
   int n_running;
 };

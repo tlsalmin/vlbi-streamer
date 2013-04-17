@@ -44,18 +44,18 @@ extern FILE *logfile;
 struct schedule *sched;
 
 void zero_sched(struct schedule *sched){
-  /*
-  memset(sched,0,sizeof(sched));
-    */
+  memset(sched,0,sizeof(struct schedule));
   //sched->scheduled_head = NULL;
   //sched->running_head = NULL;
+  /*
   sched->br.freelist=NULL;
   sched->br.busylist=NULL;
   sched->br.loadedlist=NULL;
-  sched->br.mutex_free = MUTEX_FREE;
   sched->default_opt = NULL;
   sched->n_scheduled = 0;
   sched->n_running =0;
+  */
+  sched->br.mutex_free = MUTEX_FREE;
 }
 void zero_schedevnt(struct scheduled_event* ev){
   ev->opt = NULL;
@@ -92,28 +92,50 @@ int free_and_close(void *le){
 
   D("optstatus: %d",, ev->opt->status);
   int err;
-  if(ev->opt->status == STATUS_FINISHED){
-    LOG("Recording %s finished OK\n",ev->opt->filename);
+  if(ev->opt->optbits & READMODE)
+  {
+    if(ev->opt->hostname != NULL)
+      LOG("Sending to %s of ", ev->opt->hostname);
+    else
+      LOG("Sending of ");
   }
-  else if(ev->opt->status == STATUS_ERROR){
-    LOG("Recording %s finished in ERROR\n",ev->opt->filename);
-  }
-  else if(ev->opt->status == STATUS_RUNNING){
-    D("Still running");
-    if(ev->shutdown_thread != NULL){
-      ev->shutdown_thread(ev->opt);
-      D("Thread shut down");
-    }
-  //TODO: Cancelling threads running etc.
-  }
-  else{
-    if(ev->shutdown_thread != NULL){
-      ev->shutdown_thread(ev->opt);
-      LOG("Thread shut down\n");
-    }
-    LOG("Recording %s cancelled\n",ev->opt->filename);
-    ev->opt->status = STATUS_CANCELLED;
-    //TODO: cancellation
+  else
+    LOG("Receiving of ");
+
+  switch(ev->opt->status)
+  {
+    case STATUS_FINISHED:
+      LOG("%s finished OK\n",ev->opt->filename);
+      break;
+    case STATUS_ERROR:
+      LOG("%s finished in ERROR\n",ev->opt->filename);
+      break;
+    case STATUS_STOPPED:
+      LOG("%s has stopped\n", ev->opt->filename);
+      break;
+    case STATUS_RUNNING:
+      LOG("%s Still running. cancelling\n",ev->opt->filename);
+      D("Still running");
+      if(ev->shutdown_thread != NULL){
+	ev->shutdown_thread(ev->opt);
+	D("Thread shut down");
+      }
+      break;
+    case STATUS_CANCELLED:
+      LOG("%s Cancelled\n", ev->opt->filename);
+      if(ev->shutdown_thread != NULL){
+	LOG("Forcefully shutting down\n");
+	ev->shutdown_thread(ev->opt);
+	D("Thread shut down");
+      }
+      break;
+    default:
+      LOG("%s in unknown mode\n",ev->opt->filename);
+      if(ev->shutdown_thread != NULL){
+	ev->shutdown_thread(ev->opt);
+	LOG("Thread shut down\n");
+      }
+      //ev->opt->status = STATUS_CANCELLED;
   }
   /* Do this only if pthread started */
   if(ev->pt != 0){
@@ -215,6 +237,8 @@ int start_scheduled(struct schedule *sched){
 	D("Setting start time as now for better timing");
 	ev->opt->starting_time.tv_sec = time_now.tv_sec;
       }
+      if(GETSECONDS(sched->lasttick) == 0)
+	GETTIME(sched->lasttick);
       sched->n_scheduled--;
       //err = start_event(ev, sched);
       err = start_event(ev);
@@ -452,6 +476,9 @@ int check_finished(struct schedule* sched){
       remove_from_branch(&(sched->br), le, MUTEX_FREE);
       //CHECK_ERR("close recording");
       sched->n_running--;
+      /* Reset our time, so it gets formatted when we next time start a recording	*/
+      if(sched->n_running == 0)
+	ZEROTIME(sched->lasttick);
     }
     le = letemp;
   }
@@ -528,10 +555,9 @@ int main(int argc, char **argv)
   }
 #endif
 
+  zero_sched(sched);
   /* Set the branch as mutex free */
   sched->br.mutex_free = 1;
-  //memset((void*)&sched, 0,sizeof(struct schedule));
-  zero_sched(sched);
   struct stats* stats_full = (struct stats*)malloc(sizeof(struct stats));
   CHECK_ERR_NONNULL(stats_full, "stats malloc");
 

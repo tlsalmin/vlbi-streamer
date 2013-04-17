@@ -91,6 +91,12 @@ void zeroandadd(TIMERTYPE *datime, unsigned long nanos_to_add){
   ZEROTIME((*datime));
   nanoadd(datime,nanos_to_add);
 }
+float floatdiff(TIMERTYPE *now, TIMERTYPE *then)
+{
+  float returnable = GETSECONDS(*now) - GETSECONDS(*then);
+  returnable += (((float)GETNANOS(*now)) - ((float)GETNANOS(*then)))/BILLION;
+  return returnable;
+}
 unsigned long get_min_sleeptime(){
   unsigned long cumul = 0;
   int i;

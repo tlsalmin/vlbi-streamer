@@ -402,7 +402,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->minmem = MIN_MEM_GIG;
   opt->maxmem = MAX_MEM_GIG;
   opt->optbits |= SIMPLE_BUFFER;
-  opt->socket = 0;
   memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
 
 #if(!DAEMON)
@@ -1321,19 +1320,23 @@ void shutdown_thread(struct opt_s *opt){
 int print_midstats(struct schedule* sched, struct stats* old_stats)
 {
   TIMERTYPE temptime;
+  float timedif=0;
   struct listed_entity *le= sched->br.busylist;
   struct stats tempstats;
+  float total_mbits=0;
   GETTIME(temptime);
-  LOG("Time:\t%lu\n", temptime.tv_sec);
+  timedif = floatdiff(&temptime, &sched->lasttick);
+  LOG("Time:\t%lu\n", GETSECONDS(temptime));
   while(le != NULL){
     struct scheduled_event * ev = (struct scheduled_event*)le->entity;
     if(ev->opt->get_stats != NULL){
       init_stats(&tempstats);
       ev->opt->get_stats((void*)ev->opt, (void*)&tempstats);
       neg_stats(&tempstats, ev->stats);
+      total_mbits = BYTES_TO_MBITSPS(tempstats.total_bytes);
       LOG("Event:\t%s\t", ev->opt->filename);
-	LOG("Network:\t%luMb/s\tDropped %lu\tIncomplete %lu"
-	  ,BYTES_TO_MBITSPS(tempstats.total_bytes),tempstats.dropped, tempstats.incomplete);
+	LOG("Network:\t%5.0fMb/s\tDropped %lu\tIncomplete %lu"
+	  ,total_mbits/timedif,tempstats.dropped, tempstats.incomplete);
       if(tempstats.progress != -1){
 	LOG("\tProgress %02d%%", tempstats.progress);
       }
@@ -1345,7 +1348,8 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
   init_stats(&tempstats);
   oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)&tempstats);
   neg_stats(&tempstats, old_stats);
-  LOG("HD-Speed:\t%luMB/s\n",BYTES_TO_MBITSPS(tempstats.total_written));
+  total_mbits = BYTES_TO_MBITSPS(tempstats.total_written);
+  LOG("HD-Speed:\t%5.0fMB/s\n" , total_mbits/timedif);
   add_stats(old_stats, &tempstats);
 
   LOG("Ringbuffers: ");
@@ -1353,6 +1357,7 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
   LOG("Recpoints: ");
   print_br_stats(sched->default_opt->diskbranch);
 
+  COPYTIME(temptime, sched->lasttick);
   LOG("----------------------------------------\n");
   return 0;
 }
