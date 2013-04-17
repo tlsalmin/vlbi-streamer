@@ -44,7 +44,7 @@ int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
 
   return 0;
 }
-int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used)
+int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used, uint64_t optbits)
 {
   int err;
   struct addrinfo hints, *p;
@@ -59,19 +59,44 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
     E("Error in getting address info %s",, gai_strerror(err));
     return -1;
   }
+  err = -1;
+  *fd = -1;
   for(p = *servinfo; p != NULL; p = p->ai_next)
   {
-    *fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-    D("Socket initialized");
-    if(*fd < 0 ){
+    if((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
+    {
       E("Cant bind to %s. Trying next",, p->ai_canonname);
       continue;
     }
+    if(optbits & READMODE)
+    {
+      if(optbits & CONNECT_BEFORE_SENDING)
+      {
+	if(connect(*fd, p->ai_addr, p->ai_addrlen) < 0)
+	{
+	  E("connect socket");
+	  close(*fd);
+	  continue;
+	}
+      }
+    }
+    else
+    {
+      if(bind(*fd, p->ai_addr, p->ai_addrlen) != 0)
+      {
+	close(*fd);
+	*fd = -1;
+	E("bind socket");
+	continue;
+      }
+    }
     if(used != NULL)
       *used = p;
+    D("Got socket!");
+    err = 0;
     break;
   }
-  if(*fd < 0){
+  if(err != 0 || *fd < 0){
     E("Couldn't get socket at all. Exiting as failed");
     return -1;
   }

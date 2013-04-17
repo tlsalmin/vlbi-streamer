@@ -280,14 +280,14 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     char port[12];
     memset(port, 0,sizeof(char)*12);
     sprintf(port,"%d", spec_ops->opt->port);
-    err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p));
+    err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p), spec_ops->opt->optbits);
     CHECK_ERR("Create socket");
   }
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
     char port[12];
     memset(port, 0,sizeof(char)*12);
     sprintf(port,"%d", spec_ops->opt->port);
-    err = create_socket(&(spec_ops->fd_send), port, &(spec_ops->servinfo_simusend), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p_send));
+    err = create_socket(&(spec_ops->fd_send), port, &(spec_ops->servinfo_simusend), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p_send), spec_ops->opt->optbits);
     if(err != 0)
       E("Error in creating simusend socket. Not quitting");
   }
@@ -451,12 +451,14 @@ void * udp_sender(void *streamo){
   D("Starting stream send");
 
   LOG("UDP_STREAMER: Starting stream capture\n");
+  /*
   err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
   if(err != 0)
   {
     E("Error in getting buffer");
     UDPS_EXIT_ERROR;
   }
+  */
 
   GETTIME(spec_ops->opt->wait_last_sent);
   long packetpeek = get_n_packets(spec_ops->opt->fi);
@@ -1030,7 +1032,9 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     {
       sleep(1);
       GETTIME(temptimer);
+      /*
   err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+  */
     }
     if(err != 0){
       E("Still couldn't get the port. Exiting");
@@ -1055,6 +1059,7 @@ void* udp_receiver(void *streamo)
   reset_udpopts_stats(spec_ops);
 
   LOG("UDP_STREAMER: Starting stream capture\n");
+  /*
   err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
   if(err != 0){
     E("Error in port binding");
@@ -1073,6 +1078,7 @@ void* udp_receiver(void *streamo)
       pthread_exit(NULL);
     }
   }
+  */
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
   CHECK_AND_EXIT(se->be);
