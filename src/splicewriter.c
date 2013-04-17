@@ -56,7 +56,6 @@ extern FILE* logfile;
 /* Default max in 3.2.12. Larger possible if CAP_SYS_RESOURCE */
 #define MAX_PIPE_SIZE 1048576
 /* Read a claim that proper scatter gather requires fopen not open */
-//#define USE_FOPEN
 //#define MAX_IOVEC 16
 
 struct splice_ops{
@@ -69,9 +68,6 @@ struct splice_ops{
   pthread_mutex_t pmutex;
   pthread_cond_t pcond;
   int pstatus;
-#ifdef USE_FOPEN
-  FILE* fd;
-#endif
 };
 void * partnerloop(void* opts)
 {
@@ -92,19 +88,11 @@ void * partnerloop(void* opts)
     {
       if(ioi->opt->optbits & READMODE)
       {
-#ifdef USE_FOPEN
-	err = splice(fileno(sp->fd), NULL, sp->pipes[1], NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
-#else
 	err = splice(ioi->fd, NULL, sp->pipes[1], NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
-#endif
       }
       else
       {
-#ifdef USE_FOPEN
-	err = splice(sp->pipes[0], NULL, fileno(sp->fd), NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
-#else
 	err = splice(sp->pipes[0], NULL, ioi->fd, NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
-#endif
       }
       if(err < 0)
       {
@@ -172,12 +160,6 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #endif
   CHECK_ERR_NONNULL(sp->iov, "Sp iov malloc");
 
-#ifdef USE_FOPEN
-  if(ioi->optbits & READMODE)
-    sp->fd = fdopen(ioi->fd, "r");
-  else
-    sp->fd = fdopen(ioi->fd, "w");
-#endif
 
   ioi->extra_param = (void*)sp;
 
@@ -196,25 +178,14 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 
 long splice_write(struct recording_entity * re,void * start, size_t count){
   long ret = 0;
-#ifdef IOVEC_SPLIT_TO_IOV_MAX
   void * point_to_start=start;
-  long trycount;
-#endif
-  //int err = 0;
-  int i=0;
+  long trycount = count;
   off_t oldoffset;
-  //int nr_segs;
   long total_w =0;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   struct splice_ops *sp = (struct splice_ops *)ioi->extra_param;
   D("SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->curfilename);
   //LOG("SPLICEWRITER: Issuing write of %lu to %s start: %lu\n", count, ioi->curfilename, (unsigned long)start);
-#ifndef IOVEC_SPLIT_TO_IOV_MAX
-  sp->iov->iov_base = start;
-  sp->iov->iov_len = count;
-#else
-  struct iovec * iov;
-#endif
 
   D("Informing partner on write");
   SP_MAINLOCKIT;
@@ -231,51 +202,19 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   D("Starting splice");
   /* Get current file offset. Used for writeback */
   oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
-  ret = count;
-  point_to_start = start;
 
-#ifdef DISABLE_WRITE
-  total_w = count;
-#else 
-  while(count >0 && sp->pstatus > PSTATUS_END){
-#ifdef IOVEC_SPLIT_TO_IOV_MAX
-    //point_to_start = start;
-    //trycount = count;
-    iov  = sp->iov;
-    i=0;
-    /* Split the request into page aligned chunks 	*/
-    /* TODO: find out where the max size is defined.	*/
-    /* Currently splice can handle 16*pagesize 		*/
-    while(trycount>0 && i < sp->max_pipe_length && i < IOV_MAX){
-      iov->iov_base = point_to_start + ioi->opt->offset;
-      /* TODO: Might need to set this only in init 	*/
-      //iov->iov_len = sp->pagesize;
-      iov->iov_len = ioi->opt->packet_size - ioi->opt->offset;
-      iov += 1;
-      //trycount-=sp->pagesize;
-      trycount-= ioi->opt->packet_size;
-      //point_to_start += sp->pagesize;
-      point_to_start += ioi->opt->packet_size;
-      /*  Check that we don't go negative on the count */
-      /* TODO: This will break if buffer entities aren't pagesize aligned */
-      if(trycount>=0)
-	i++;
-    }
-#else
-    i=1;
-#endif  /* IOVEC_SPLIT_TO_IOV_MAX */
-
-
+  while(trycount >0 && sp->pstatus > PSTATUS_END){
 
     if(ioi->opt->optbits & READMODE){
-      ret = vmsplice(sp->pipes[0], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
+      //ret = vmsplice(sp->pipes[0], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
+      ret = splice(sp->pipes[0], NULL, ioi->shmid, NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
     }
     else
     {
-      ret = vmsplice(sp->pipes[1], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
+      ret = splice(ioi->shmid, NULL, sp->pipes[1], NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
     }
 
-    //D("Done aloop");
+    //D("Done aloop ret %ld count %ld",, ret, trycount);
     if(ret<0){
       fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
       break;
@@ -287,14 +226,7 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
     start += ret;
     trycount -= ret;
     point_to_start += ret;
-#ifndef IOVEC_SPLIT_TO_IOV_MAX
-    /*
-    sp->iov->iov_base += ret;
-    sp->iov->iov_len = count;
-    */
-#endif
 
-    // Update statistics 
     total_w += ret;
   }
   if(ret <0){
@@ -313,23 +245,19 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
 
   if(ioi->opt->optbits & READMODE){
     ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
+    if(posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED) != 0)
+      E("Error in posix_madvise");
   }
   else{
-    ret = sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER);  
-    if(ret>=0){
-#if(DEBUG_OUTPUT) 
-      fprintf(stdout, "SPLICEWRITER: Write done for %lu in %d loops\n", total_w, i);
-#endif
-    }
-    else{
-      perror("splice sync");
-      fprintf(stderr, "Sync file range failed on %s, with err %s\n", ioi->curfilename, strerror(ret));
-      return ret;
-    }
-    ret = posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED);
+    if(sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER)   != 0)
+      E("splice sync");
+    if(posix_madvise(start,count,POSIX_MADV_DONTNEED) != 0)
+      E("Error in posix_madvise");
   }
-#endif /* DISABLE_WRITE */
 
+#if(DEBUG_OUTPUT) 
+      fprintf(stdout, "SPLICEWRITER: Write done for %lu\n", total_w);
+#endif
   ioi->bytes_exchanged += total_w;
 #if(DAEMON)
   //if (pthread_spin_lock((ioi->opt->augmentlock)) != 0)

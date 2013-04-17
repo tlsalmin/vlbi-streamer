@@ -480,6 +480,12 @@ off_t common_getfilesize(void *re)
 {
   return ((struct common_io_info*)((struct recording_entity*)re)->opt)->filesize;
 }
+void common_setshmid(void *recco, int id)
+{
+  struct recording_entity * re = (struct recording_entity*)recco;
+  struct common_io_info * ioi = re->opt;
+  ioi->shmid = id;
+}
 int common_check_files(struct recording_entity *re, void* opt_ss){
   int err=0;
   int temp=0;
@@ -608,6 +614,7 @@ void common_init_common_functions(struct opt_s * opt, struct recording_entity *r
   re->handle_error = handle_error;
   re->getid = common_getid;
   re->get_filesize = common_getfilesize;
+  re->setshmid = common_setshmid;
 
   re->get_filename = common_wrt_get_filename;
   re->getfd = common_getfd;

@@ -29,10 +29,15 @@
 #include <fcntl.h>
 #include "config.h"
 #include <string.h> /* For preheat */
+#ifdef MMAP_NOT_SHMGET
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#endif
 #if(HAVE_HUGEPAGES)
 #include <sys/mman.h>
 #include <linux/mman.h>
 #endif
+#include <sys/stat.h>
 #include "resourcetree.h"
 #include "simplebuffer.h"
 #include "streamer.h"
@@ -40,13 +45,10 @@
 #include "common_wrt.h"
 #include "active_file_index.h"
 #include "datatypes.h"
-#ifndef MMAP_NOT_SHMGET
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#endif
 
 extern FILE* logfile;
 
+#define SHMIDENT "/simplebuf_"
 #define HAVE_ASSERT 1
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
@@ -275,16 +277,26 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 	D("mmapped to hugepages");
       }
 #else
-      sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE|SHM_W|SHM_R);
+      /* Grabbed from http://www.codemaestro.com/reviews/11 	*/
+      /* Used to share resources with vbs_fs			*/
+      char shmstring[FILENAME_MAX];
+      sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
+      sbuf->shmid = shm_open(shmstring, (O_CREAT | O_RDWR),  (S_IREAD | S_IWRITE));
+      //sbuf->shmid = shmget(sbuf->bufnum, hog_memory, IPC_CREAT|IPC_EXCL|SHM_HUGETLB|SHM_NORESERVE|SHM_W|SHM_R);
       if(sbuf->shmid <0){
 	E("Shmget failed");
 	perror("shmget");
 	return -1;
       }
-      sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
+
+      err = ftruncate(sbuf->shmid, hog_memory);
+      if(err != 0)
+	E("Error in ftruncate");
+      //sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
+      sbuf->buffer = mmap(NULL, hog_memory, (PROT_READ | PROT_WRITE), MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB|MAP_NORESERVE, sbuf->shmid, 0);
       if((long)sbuf->buffer == (long)-1){
-	E("shmat failed");
-	perror("shmat");
+	E("mmap failed");
+	perror("mmap");
 	return -1;
       }
 #endif
@@ -585,6 +597,7 @@ int write_buffer(struct buffer_entity *be)
 	}
 	return -1;
       }
+      be->recer->setshmid(be->recer, sbuf->shmid);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
       off_t rfilesize = be->recer->get_filesize(be->recer);
       if(sbuf->diff != rfilesize)
@@ -610,6 +623,7 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       else{
+	be->recer->setshmid(be->recer, sbuf->shmid);
 	D("Got recer so updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))

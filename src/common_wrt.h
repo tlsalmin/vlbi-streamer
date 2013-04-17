@@ -42,6 +42,7 @@ struct common_io_info{
   //unsigned int optbits;
   INDEX_FILE_TYPE indexfile_count;
   void * extra_param;
+  int shmid;
 };
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
 int init_directory(struct recording_entity *re);

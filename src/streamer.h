@@ -362,6 +362,7 @@ struct recording_entity
   int (*get_w_flags)();
   int (*handle_error)(struct recording_entity *, int);
   int (*get_r_flags)();
+  void (*setshmid)(void*, int);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/
   unsigned long (*get_n_packets)(struct recording_entity*);
