@@ -206,17 +206,18 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en)
 {
   D("Setting entity to loaded");
   LOCK(&(br->branchlock));
+  LOCK(&(en->waitlock));
   if(en->waiters_head != en->waiters_bottom)
   {
-    D("Waking up waiters");
-    LOCK(&(en->waitlock));
     UNLOCK(&(br->branchlock));
+    D("Waking up waiters");
     ADD_SAFELY_INT16T(en->waiters_bottom);
     SIGNAL(&(en->waitsig));
     UNLOCK(&(en->waitlock));
   }
   else
   {
+    UNLOCK(&(en->waitlock));
     D("Nobody waiting");
     mutex_free_change_branch(&(br->loadedlist), en);
     //pthread_cond_broadcast(&(br->busysignal));
@@ -244,7 +245,7 @@ void* get_loaded(struct entity_list_branch *br, long unsigned seq, void* opt)
     ADD_SAFELY_INT16T(temp->waiters_head);
     int16_t myqueue = temp->waiters_head;
     while(temp->waiters_bottom != myqueue){
-      D("Waiting on %ld",, seq);
+      D("Waiting on %ld our queue %d bottom %d",, seq, myqueue, temp->waiters_bottom);
       WAIT_FOR_IT(&(temp->waitsig), &(temp->waitlock));
       }
     UNLOCK(&(temp->waitlock));

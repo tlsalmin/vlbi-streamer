@@ -6,7 +6,11 @@
 #include "common_filehandling.h"
 #include "udp_stream.h"
 
+#ifdef UDPS_EXIT
+#undef UDPS_EXIT
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
 int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
+#endif
 {
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
@@ -185,7 +189,7 @@ void * dummy_receiver(void *streamo)
       break;
     }
     // RECEIVE
-    //usleep(5);
+    usleep(5);
     err = spec_ops->opt->packet_size;
     err = udps_handle_received_packet(se, resq, err);
     if(err != 0){

@@ -276,7 +276,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 
   //se->be = NULL;
   while(se->be == NULL){
-    D("Getting new loaded for file %lu",, st->files_sent);
+    D("Getting new loaded for file %lu, filename %s",, st->files_sent, opt->filename);
     FILOCK(opt->fi);
     skip_missing(opt,st,SKIP_SENT);
     FIUNLOCK(opt->fi);

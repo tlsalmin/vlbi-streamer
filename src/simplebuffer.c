@@ -111,11 +111,14 @@ int sbuf_acquire(void* buffo, void *opti,void* acq)
 
   return 0;
 }
+/* NOTE: This might be called when block_until_free waits for 	*/
+/* Writing processes and so can be called on an already		*/
+/* released sbuf						*/
 int sbuf_release(void* buffo)
 {
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
-  if(sbuf->opt->optbits & USE_RX_RING)
+  if(sbuf->opt != NULL && sbuf->opt->optbits & USE_RX_RING)
     sbuf->buffer = NULL;
   sbuf->opt = NULL;
 
