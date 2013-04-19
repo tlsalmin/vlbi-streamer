@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h> /* For madvise */
 #include <sys/fcntl.h>
+//#define _ASM_GENERIC_FCNTL_H
 //#include <linux/fcntl.h>
 #include <linux/stat.h>
 #include <linux/mman.h> /* For madvise */
@@ -52,8 +53,10 @@ extern FILE* logfile;
 #define SP_MAINUNLOCKIT do {if(pthread_mutex_unlock(&sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
 
 #define SP_WAIT do{ if(pthread_cond_wait(&sp->pcond, &sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
+#define SP_WAIT_MAIN do{ if(pthread_cond_wait(&sp->pcond, &sp->pmutex) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
 
 #define SP_SIGNAL do{ if(pthread_cond_signal(&sp->pcond) != 0){ sp->pstatus = PSTATUS_ERROR; return -1; }}while(0)
+#define SP_SIGNAL_MAIN do{ if(pthread_cond_signal(&sp->pcond) != 0){ sp->pstatus = PSTATUS_ERROR; return NULL; }}while(0)
 
 //#define PIPE_STUFF_IN_WRITELOOP
 #define IOVEC_SPLIT_TO_IOV_MAX
@@ -63,9 +66,9 @@ extern FILE* logfile;
 //#define MAX_IOVEC 16
 
 struct splice_ops{
-  struct iovec* iov;
+  struct iovec iov[IOV_MAX];
   int pipes[2];
-  int max_pipe_length;
+  unsigned int max_pipe_length;
   int pagesize;
   off_t tosplice;
   pthread_t partner;
@@ -77,19 +80,21 @@ void * partnerloop(void* opts)
 {
   struct common_io_info *ioi = (struct common_io_info*)opts;
   struct splice_ops * sp = (struct splice_ops*)ioi->extra_param;
-  long temp_tosplice;
-  int err;
+  off_t temp_tosplice;
+  off_t left_to_splice;
+  long err;
   SP_LOCKIT;
   while(sp->pstatus > PSTATUS_END)
   {
     while(sp->pstatus == PSTATUS_RUN)
       SP_WAIT;
-    temp_tosplice = sp->tosplice;
+    left_to_splice = sp->tosplice;
     SP_UNLOCKIT;
-    D("Got a job to write %ld",, temp_tosplice);
+    D("Got a job to write %ld",, left_to_splice);
 
-    while(temp_tosplice > 0)
+    while(left_to_splice > 0)
     {
+      temp_tosplice = MIN(left_to_splice, sp->max_pipe_length*sp->pagesize);
       if(ioi->opt->optbits & READMODE)
       {
 	err = splice(ioi->fd, NULL, sp->pipes[1], NULL, temp_tosplice, SPLICE_F_MOVE|SPLICE_F_MORE);
@@ -110,14 +115,16 @@ void * partnerloop(void* opts)
 	D("Pipe closed");
 	break;
       }
-      //D("Done a loop");
-      temp_tosplice-=err;
+      left_to_splice-=err;
+      D("Done a loop for %ld left %ld",, err, left_to_splice);
     }
     D("Job done");
 
     SP_LOCKIT;
-    if(sp->pstatus >PSTATUS_END)
+    if(sp->pstatus >PSTATUS_END){
       sp->pstatus = PSTATUS_RUN;
+      SP_SIGNAL_MAIN;
+    }
   }
   D("Stopping splice partner");
   sp->pstatus =PSTATUS_END;
@@ -132,6 +139,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
     return -1;
   struct common_io_info * ioi = (struct common_io_info*)re->opt;
   struct splice_ops * sp = (struct splice_ops*)malloc(sizeof(struct splice_ops));
+  memset(sp,0,sizeof(struct splice_ops));
   CHECK_ERR_NONNULL(sp, "Splice ops malloc");
 
 #ifndef PIPE_STUFF_IN_WRITELOOP
@@ -158,12 +166,10 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #if(DEBUG_OUTPUT)
   fprintf(stdout, "SPLICEWRITER: Max pipe size is %d pages with pagesize %d and buffer bytemax %d\n", sp->max_pipe_length, sp->pagesize, maxbytes_inpipe);
 #endif
-#ifndef IOVEC_SPLIT_TO_IOV_MAX
-  sp->iov =(struct iovec*)malloc(sizeof(struct iovec));
-#else
-  sp->iov = (struct iovec*)malloc(sp->max_pipe_length * sizeof(struct iovec));
-#endif
+  /*
+  sp->iov = (struct iovec*)malloc(IOV_MAX * sizeof(struct iovec));
   CHECK_ERR_NONNULL(sp->iov, "Sp iov malloc");
+  */
 
 
   ioi->extra_param = (void*)sp;
@@ -181,28 +187,56 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   return 0;
 }
 
+inline unsigned int setup_nvecs(struct splice_ops *sp, void* start, size_t count)
+{
+  unsigned int i;
+  unsigned int n_vecs = MIN(sp->max_pipe_length, count/sp->pagesize);
+  int lastwrite;
+  for(i=0;i<n_vecs;i++)
+  {
+    sp->iov[i].iov_base = start+(i*sp->pagesize);
+    sp->iov[i].iov_len = sp->pagesize;
+  }
+  if(n_vecs < sp->max_pipe_length && (lastwrite = (count % sp->pagesize)) != 0)
+  {
+    sp->iov[n_vecs].iov_base = start+(n_vecs*sp->pagesize);
+    sp->iov[n_vecs].iov_len = lastwrite;
+    n_vecs++;
+  }
+  return n_vecs;
+}
+
 long splice_write(struct recording_entity * re,void * start, size_t count){
   long ret = 0;
   void * point_to_start=start;
   long trycount = count;
   off_t oldoffset;
   long total_w =0;
+  unsigned int n_vecs;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   struct splice_ops *sp = (struct splice_ops *)ioi->extra_param;
+  //int maxbytes_inpipe = sp->max_pipe_length * sp->pagesize;
   D("SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->curfilename);
   //LOG("SPLICEWRITER: Issuing write of %lu to %s start: %lu\n", count, ioi->curfilename, (unsigned long)start);
 
   D("Informing partner on write");
   SP_MAINLOCKIT;
   sp->tosplice = count;
+  while(sp->pstatus == PSTATUS_JOBTODO)
+  {
+    D("Partner not ready so waiting");
+    SP_WAIT_MAIN;
+  }
   if(sp->pstatus == PSTATUS_RUN)
     sp->pstatus = PSTATUS_JOBTODO;
   else{
-    E("Partner not ready!");
+    E("Partner in err!");
     return -1;
   }
   SP_SIGNAL;
   SP_MAINUNLOCKIT;
+
+  n_vecs = setup_nvecs(sp, start, count);
 
   D("Starting splice");
   /* Get current file offset. Used for writeback */
@@ -216,10 +250,11 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
     }
     else
     {
-      ret = splice(ioi->shmid, NULL, sp->pipes[1], NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
+      //ret = splice(ioi->shmid, NULL, sp->pipes[1], NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
+      ret = vmsplice(sp->pipes[1], sp->iov, n_vecs, SPLICE_F_GIFT);
     }
 
-    //D("Done aloop ret %ld count %ld",, ret, trycount);
+    //D("Done aloop ret %ld count %ld and nvecs %d",, ret, trycount, n_vecs);
     if(ret<0){
       fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
       break;
@@ -233,6 +268,12 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
     point_to_start += ret;
 
     total_w += ret;
+
+    if(trycount > 0)
+    {
+      //if((n_vecs = setup_nvecs(ioi, sp->iov, point_to_start, trycount)) < 0 ){
+      n_vecs = setup_nvecs(sp, point_to_start, trycount);
+    }
   }
   if(ret <0){
     perror("SPLICEWRITER: Error on write/read");
@@ -253,12 +294,14 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
     if(posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED) != 0)
       E("Error in posix_madvise");
   }
+  /*
   else{
     if(sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER)   != 0)
       E("splice sync");
     if(posix_madvise(start,count,POSIX_MADV_DONTNEED) != 0)
       E("Error in posix_madvise");
   }
+  */
 
 #if(DEBUG_OUTPUT) 
       fprintf(stdout, "SPLICEWRITER: Write done for %lu\n", total_w);
@@ -301,7 +344,7 @@ int splice_close(struct recording_entity *re, void *stats){
     E("Error in partner join");
   close(sp->pipes[0]);
   close(sp->pipes[1]);
-  free(sp->iov);
+  //free(sp->iov);
   free(ioi->extra_param);
   return common_close(re,stats);
 }

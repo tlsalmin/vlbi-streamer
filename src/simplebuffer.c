@@ -452,7 +452,7 @@ int simple_write_bytes(struct buffer_entity *be)
   //unsigned long limit = sbuf->opt->do_w_stuff_every*(sbuf->opt->packet_size);
 #if(WRITE_GRANUALITY)
   /* Special case for writev. It needs the limit to be set to a multiplied packet size, or it will split up the offsetted write incorrectly */
-  if(sbuf->opt->optbits & REC_WRITEV)
+  if(WRITEND_DOESNT_SUPPORTS_LIMIT(sbuf->opt))
   {
     long temp = (sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size);
     limit = temp*(sbuf->opt->packet_size);

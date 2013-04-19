@@ -391,6 +391,8 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   re->opt = (void*)malloc(sizeof(struct common_io_info));
   re->get_stats = get_io_stats;
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
+  CHECK_ERR_NONNULL_AUTO(ioi);
+  memset(ioi, 0, sizeof(struct common_io_info));
   //loff_t prealloc_bytes;
   //struct stat statinfo;
   //int err =0;

@@ -199,6 +199,8 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define MIN(x,y) (x < y ? x : y)
 
 #define WRITEND_USES_DIRECTIO(x) ((x)->optbits &(REC_AIO|REC_DEF))
+#define WRITEND_DOESNT_SUPPORTS_LIMIT(x) ((x)->optbits &(REC_WRITEV))
+#define WRITEND_WANTS_PAGESIZE(x) ((x)->optbits &(REC_SPLICER))
 
 #include <pthread.h>
 #include <config.h>
