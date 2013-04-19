@@ -23,7 +23,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -32,6 +31,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/mman.h> /* For madvise */
+#include <sys/fcntl.h>
+//#include <linux/fcntl.h>
+#include <linux/stat.h>
+#include <linux/mman.h> /* For madvise */
+//#include <fcntl.h>
 
 #include "config.h"
 
@@ -137,6 +141,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
 #endif
   /* TODO: Handle error for pipe size change */
 #ifdef F_SETPIPE_SZ
+  D("Can change pipesize!");
   fcntl(sp->pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
   maxbytes_inpipe = fcntl(sp->pipes[1], F_GETPIPE_SZ);
   D("SPLICEWRITER: Maximum pipe size set to %d",, maxbytes_inpipe);
