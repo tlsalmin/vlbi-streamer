@@ -208,6 +208,7 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en)
   LOCK(&(br->branchlock));
   if(en->waiters_head != en->waiters_bottom)
   {
+    D("Waking up waiters");
     LOCK(&(en->waitlock));
     UNLOCK(&(br->branchlock));
     ADD_SAFELY_INT16T(en->waiters_bottom);
@@ -216,6 +217,7 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en)
   }
   else
   {
+    D("Nobody waiting");
     mutex_free_change_branch(&(br->loadedlist), en);
     //pthread_cond_broadcast(&(br->busysignal));
     UNLOCK(&(br->branchlock));
@@ -241,8 +243,10 @@ void* get_loaded(struct entity_list_branch *br, long unsigned seq, void* opt)
     UNLOCK(&(br->branchlock));
     ADD_SAFELY_INT16T(temp->waiters_head);
     int16_t myqueue = temp->waiters_head;
-    while(temp->waiters_bottom != myqueue)
+    while(temp->waiters_bottom != myqueue){
+      D("Waiting on %ld",, seq);
       WAIT_FOR_IT(&(temp->waitsig), &(temp->waitlock));
+      }
     UNLOCK(&(temp->waitlock));
   }
   else
@@ -262,42 +266,36 @@ inline void set_busy(struct entity_list_branch *br, struct listed_entity* en)
 }
 void block_until_free(struct entity_list_branch *br, void* val1)
 {
+  D("Blocking until free");
   struct listed_entity * shouldntfind,* checker;
   LOCK(&(br->branchlock));
-  do{
-    checker = br->busylist;
-    shouldntfind = NULL;
-    while(checker != NULL && shouldntfind == NULL){
-      if(checker->identify(checker->entity, val1, NULL, CHECK_BY_OPTPOINTER) == 1){
-	shouldntfind = checker;
-	break;
-      }
-      //if(strcmp(checker->getrecname(checker->entity),recname)== 0){
-      else
-	checker = checker->child;
-    }
-    /* Nobody will wake this up if its left to cond_wait */
-    if(shouldntfind != NULL){
-      pthread_cond_wait(&(br->busysignal), &(br->branchlock));
-    }
-    }
-    while(shouldntfind != NULL);
-
-    /* Release all loaded elements */
-    for(checker = br->loadedlist;checker != NULL;){
-      if(checker->identify(checker->entity, val1, NULL, CHECK_BY_OPTPOINTER) == 1){
-	struct listed_entity *temp = checker;
-	checker = checker->child;
-	D("Moving loaded to free since thread is exiting");
-	mutex_free_change_branch(&br->freelist, temp);
-	int ret = temp->release(temp->entity);
-	if(ret != 0)
-	  E("Release returned non zero value.(Not handled in any way)");
-      }
-      else
-	checker = checker->child;
-    }
+  while((shouldntfind = loop_and_check(br->busylist, val1, NULL, CHECK_BY_OPTPOINTER)) != NULL)
+  {
+    LOCK(&(shouldntfind->waitlock));
     UNLOCK(&(br->branchlock));
+    ADD_SAFELY_INT16T(shouldntfind->waiters_head);
+    int16_t myqueue = shouldntfind->waiters_head;
+    while(shouldntfind->waiters_bottom != myqueue){
+      D("Waiting for busy to end. bottom %d and myqueue %d",, shouldntfind->waiters_bottom, myqueue);
+      WAIT_FOR_IT(&(shouldntfind->waitsig), &(shouldntfind->waitlock));
+    }
+    UNLOCK(&(shouldntfind->waitlock));
+    LOCK(&(br->branchlock));
+    mutex_free_change_branch(&br->freelist,shouldntfind);
+    int ret = shouldntfind->release(shouldntfind->entity);
+    if(ret != 0)
+      E("Release returned non zero value.(Not handled in any way)");
+  }
+
+  /* Release all loaded elements */
+  while((shouldntfind = loop_and_check(br->loadedlist, val1, NULL, CHECK_BY_OPTPOINTER)) != NULL)
+  {
+    mutex_free_change_branch(&br->freelist,shouldntfind);
+    int ret = shouldntfind->release(shouldntfind->entity);
+    if(ret != 0)
+      E("Release returned non zero value.(Not handled in any way)");
+  }
+  UNLOCK(&(br->branchlock));
 }
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free)
 {
