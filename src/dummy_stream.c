@@ -156,6 +156,7 @@ void * dummy_sender(void * streamo)
   assert(st.packets_sent == get_n_packets(spec_ops->opt->fi));
   D("All done. Sent %lu packets for file %s",, st.packets_sent, spec_ops->opt->filename);
   UDPS_EXIT;
+  return NULL;
 }
 void * dummy_receiver(void *streamo)
 {

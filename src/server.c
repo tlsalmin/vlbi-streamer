@@ -565,7 +565,7 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(sched->default_opt, "Default opt malloc");
   char *ibuff = (char*)malloc(sizeof(char)*CHAR_BUFF_SIZE);
   CHECK_ERR_NONNULL(ibuff, "ibuff malloc");
-  memset(ibuff, 0,sizeof(ibuff));
+  memset(ibuff, 0,sizeof(char)*CHAR_BUFF_SIZE);
 
   err = init_active_file_index();
   CHECK_ERR("active file index");
@@ -620,9 +620,9 @@ int main(int argc, char **argv)
 
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
-  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd));
+  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(struct pollfd));
   CHECK_ERR_NONNULL(pfd, "pollfd malloc");
-  memset(pfd, 0,sizeof(pfd));
+  memset(pfd, 0,sizeof(struct pollfd));
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;
 

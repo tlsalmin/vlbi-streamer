@@ -268,7 +268,7 @@ inline void set_busy(struct entity_list_branch *br, struct listed_entity* en)
 void block_until_free(struct entity_list_branch *br, void* val1)
 {
   D("Blocking until free");
-  struct listed_entity * shouldntfind,* checker;
+  struct listed_entity * shouldntfind;
   LOCK(&(br->branchlock));
   while((shouldntfind = loop_and_check(br->busylist, val1, NULL, CHECK_BY_OPTPOINTER)) != NULL)
   {

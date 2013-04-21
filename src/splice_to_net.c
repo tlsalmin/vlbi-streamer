@@ -89,11 +89,8 @@ int splice_to_socket(struct options* opts,int  pipe)
     ciov.iov_base = &counter;
     ciov.iov_len = sizeof(uint64_t);
   }
-  struct iovec dummyiov;
   if (opts->offset != 0){
     dummybuffer = malloc(opts->offset);
-    dummyiov.iov_base = dummybuffer;
-    dummyiov.iov_len = opts->offset;
   }
   dummyfd = open("/dev/null", O_WRONLY);
   CHECK_LTZ("dummyfd", dummyfd);
