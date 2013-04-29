@@ -49,8 +49,6 @@
 extern FILE* logfile;
 
 #define SHMIDENT "/simplebuf_"
-#define HAVE_ASSERT 1
-#define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 #define CHECK_RECER do{if(ret!=0){if(be->recer != NULL){close_recer(be,ret);}return -1;}}while(0)
 #define UGLY_TIMEOUT_FIX
 //#define DO_W_STUFF_IN_FIXED_BLOCKS
@@ -100,7 +98,7 @@ int sbuf_acquire(void* buffo, void *opti,void* acq)
     struct rxring_request* rxr = (struct rxring_request*)acq;
     /* This threads responsible area */
     //sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-    sbuf->buffer = sbuf->opt->buffer + sbuf->opt->filesize*((long unsigned)rxr->bufnum);
+    sbuf->buffer = sbuf->opt->buffer + CALC_BUFSIZE_FROM_OPT(sbuf->opt)*((long unsigned)rxr->bufnum);
   }
 
   sbuf->bufoffset = sbuf->buffer;
@@ -463,16 +461,12 @@ int simple_write_bytes(struct buffer_entity *be)
   else
     limit = sbuf->opt->do_w_stuff_every;
 #else
-  //unsigned long limit = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
-  limit = sbuf->opt->filesize;
+  //limit = sbuf->opt->filesize;
+  limit = CALC_BUFSIZE_FROM_OPT(sbuf->opt);
 #endif
 
-  //unsigned long count = sbuf->diff * sbuf->opt->packet_size;
   unsigned long count = sbuf->diff;
-  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
-  //void * offset = sbuf->buffer + (sbuf->opt->buf_num_elems - sbuf->diff)*(sbuf->opt->packet_size);
-  //ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+sbuf->opt->filesize);
+  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+CALC_BUFSIZE_FROM_OPT(sbuf->opt));
   ASSERT(count != 0);
 
   if(count > limit){
@@ -511,15 +505,11 @@ int simple_write_bytes(struct buffer_entity *be)
     }
     else{
 #if(WRITE_GRANUALITY)
-      //sbuf->diff-=sbuf->opt->do_w_stuff_every/sbuf->opt->packet_size;
       sbuf->diff-=count;
 #else
       sbuf->diff = 0;
 #endif
       sbuf->bufoffset += count;
-      //if(sbuf->bufoffset >= sbuf->buffer +(sbuf->opt->buf_num_elems*sbuf->opt->packet_size))
-      //if(sbuf->bufoffset >= sbuf->buffer +sbuf->opt->filesize)
-	//sbuf->bufoffset = sbuf->buffer;
     }
   }
   return 0;
@@ -688,7 +678,7 @@ void *sbuf_simple_write_loop(void *buffo)
 
     if(sbuf->diff > 0){
       D("Blocking reads/writes. Left to read/write %ld for file %lu",,sbuf->diff,sbuf->fileid);
-      assert((unsigned)sbuf->diff <= sbuf->opt->filesize);
+      ASSERT((unsigned)sbuf->diff <= CALC_BUFSIZE_FROM_OPT(sbuf->opt));
       savedif = sbuf->diff;
       ret = -1;
 

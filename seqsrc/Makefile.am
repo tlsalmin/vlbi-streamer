@@ -1,8 +1,9 @@
-bin_PROGRAMS = check_64_seq insert_64_seq scramble_64_seq scramble2_64_seq vdif_exam check_vdif_seq check_mark5b binarysearchmatch
+bin_PROGRAMS = check_64_seq insert_64_seq scramble_64_seq scramble2_64_seq vdif_exam check_vdif_seq check_mark5b binarysearchmatch check_bufalignment
 check_64_seq_SOURCES = check_64_seq.c
 insert_64_seq_SOURCES = insert_64_seq.c
 scramble_64_seq_SOURCES = scramble_64_seq.c
 scramble2_64_seq_SOURCES = scramble2_64_seq.c
+check_bufalignment_SOURCES = check_bufalignment.c
 #disk2file_SOURCES = disk2file.c common.h common.c
 #vidf_exam_SOURCES= vdif_exam.c
 AM_CPPFLAGS = -DSYSCONFDIR='"$(sysconfdir)"' -DLOCALSTATEDIR='"$(localstatedir)"'

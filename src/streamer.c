@@ -164,14 +164,6 @@ int calculate_buffer_sizes(struct opt_s *opt){
       D("The 16 aligned restriction of RX-ring resulted in %ld MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
     }
 
-    /*
-       long filesztemp =0;
-       while(filesztemp < opt.filesize)
-       filesztemp+=opt.do_w_stuff_every;
-       opt.filesize= filesztemp;
-       */
-    //opt.filesize = opt->buf_num_elems*(opt->packet_size);
-
     LOG("STREAMER: Alignment found between "
 	"%lu GB to %luGB"
 	", Each buffer having %lu MB"
@@ -366,16 +358,7 @@ int clear_pointers(struct opt_s* opt){
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(opt, 0, sizeof(struct opt_s));
-  /*
-  opt->filename = NULL;
-  opt->device_name = NULL;
-  opt->cfgfile = NULL;
-  opt->hostname = NULL;
-  opt->streamer_ent = NULL;
 
-  opt->diskids = 0;
-  opt->hd_failures = 0;
-  */
   opt->filesize = FILESIZE;
 #if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
@@ -389,12 +372,9 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->do_w_stuff_every = HD_MIN_WRITE_SIZE;
   opt->root_pid = getpid();
   opt->port = 2222;
-  opt->n_threads = 0;
   opt->n_drives = 1;
   opt->packet_size = DEF_BUF_ELEM_SIZE;
   opt->optbits |= DATATYPE_UNKNOWN;
-  opt->cumul_found = 0;
-  opt->last_packet = 0;
 
   opt->optbits |= BUFFER_SIMPLE;
   opt->optbits |= REC_DEF;
@@ -402,7 +382,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->minmem = MIN_MEM_GIG;
   opt->maxmem = MAX_MEM_GIG;
   opt->optbits |= SIMPLE_BUFFER;
-  memset(&opt->wait_last_sent, 0,sizeof(TIMERTYPE));
 
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;

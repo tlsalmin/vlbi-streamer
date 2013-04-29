@@ -245,8 +245,8 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   while(trycount >0 && sp->pstatus > PSTATUS_END){
 
     if(ioi->opt->optbits & READMODE){
-      //ret = vmsplice(sp->pipes[0], sp->iov, i, SPLICE_F_GIFT|SPLICE_F_MORE);
-      ret = splice(sp->pipes[0], NULL, ioi->shmid, NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
+      ret = vmsplice(sp->pipes[0], sp->iov, n_vecs, SPLICE_F_GIFT);
+      //ret = splice(sp->pipes[0], NULL, ioi->shmid, NULL, trycount, SPLICE_F_MORE|SPLICE_F_MOVE);
     }
     else
     {
@@ -289,12 +289,12 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   /* that the receive buffers don't go to full. Speed is low at about 3Gb/s 	*/
   /* When both are called, speed goes to 5Gb/s and buffer fulls are logged	*/
 
+  /*
   if(ioi->opt->optbits & READMODE){
     ret = posix_fadvise(ioi->fd, oldoffset, total_w, POSIX_FADV_NOREUSE|POSIX_FADV_DONTNEED);
     if(posix_madvise(start,count,POSIX_MADV_SEQUENTIAL|POSIX_MADV_WILLNEED) != 0)
       E("Error in posix_madvise");
   }
-  /*
   else{
     if(sync_file_range(ioi->fd,oldoffset,total_w, SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE|SYNC_FILE_RANGE_WAIT_AFTER)   != 0)
       E("splice sync");
@@ -314,7 +314,16 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   //if(pthread_spin_unlock((ioi->opt->augmentlock)) != 0)
   //E("augmentlock");
 #endif
-  //ioi->opt->bytes_exchanged += total_w;
+  SP_MAINLOCKIT;
+  while(sp->pstatus == PSTATUS_JOBTODO)
+    SP_WAIT_MAIN;
+  if(sp->pstatus == PSTATUS_ERROR)
+  {
+    E("partner ended in error");
+    total_w = -1;
+  }
+  SP_MAINUNLOCKIT;
+  
   return total_w;
 }
 int splice_get_w_fflags(){

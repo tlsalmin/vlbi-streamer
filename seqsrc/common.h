@@ -28,7 +28,6 @@
 #define TYPE_MARK5BNET 1
 #define TYPE_VDIF 2
 
-
 struct common_control_element{
   int fd;
   long count;

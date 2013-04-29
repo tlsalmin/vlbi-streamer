@@ -167,10 +167,6 @@ int start_event(struct scheduled_event *ev)
 {
   int err;
 
-  /*
-  err = prep_filenames(ev->opt);
-  CHECK_ERR("Prep filenames");
-  */
   err = init_cfg(ev->opt);
   if(err != 0){
     E("Error in cfg init");
@@ -371,12 +367,7 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   LOG("New request is for session: %s\n", opt->filename);
   D("Opts checked, port is %d",, opt->port);
-  //config_init(&(opt->cfg));
 
-  //Special case if some old buggers in sched file
-  //TODO: Check packet sizes and handle buffers accordingly
-
-  //add_to_end(&(sched->scheduled_head), se);
   add_to_entlist(&(sched->br), le);
   D("Schedevent added");
   sched->n_scheduled++;

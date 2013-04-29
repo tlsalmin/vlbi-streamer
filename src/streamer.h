@@ -174,6 +174,9 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
   /* Default lenght of index following file as in <filename>.[0-9]8 */
 #define INDEXING_LENGTH 8
 
+#define HAVE_ASSERT 1
+#define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
+
 #define MAX_PRIO_FOR_PTHREAD 1
 #define RBUF_PRIO	3
 #define RECEIVE_THREAD_PRIO 1
@@ -201,6 +204,8 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define WRITEND_USES_DIRECTIO(x) ((x)->optbits &(REC_AIO|REC_DEF))
 #define WRITEND_DOESNT_SUPPORTS_LIMIT(x) ((x)->optbits &(REC_WRITEV))
 #define WRITEND_WANTS_PAGESIZE(x) ((x)->optbits &(REC_SPLICER))
+
+#define CALC_BUFSIZE_FROM_OPT(opt) ((opt)->buf_num_elems*((opt)->packet_size-(opt)->offset))
 
 #include <pthread.h>
 #include <config.h>

@@ -147,8 +147,11 @@ int common_finish_file(void *recco){
     else
       D("File closed");
   }
-  if (lseek(ioi->shmid, 0, SEEK_SET) != 0)
-    E("Error in seeking shmid back to 0");
+  if(ioi->opt->optbits & USE_HUGEPAGE)
+  {
+    if (lseek(ioi->shmid, 0, SEEK_SET) != 0)
+      E("Error in seeking shmid back to 0");
+  }
   memset(ioi->curfilename, 0, sizeof(char)*FILENAME_MAX);
   ioi->opt = NULL;
   return ret;

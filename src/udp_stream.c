@@ -34,7 +34,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <sys/mman.h> //for MMAP and poll
+#include <sys/mman.h> 	//for MMAP and poll
 #include <linux/mman.h> //for MMAP and poll
 #include <sys/poll.h>
 
@@ -67,10 +67,10 @@
 
 extern FILE* logfile;
 
-/* Using this until solved properly */
+/* Using this until solved properly 			*/
 /* Most of TPACKET-stuff is stolen from codemonkey blog */
 /* http://codemonkeytips.blogspot.com/			*/
-/// Offset of data from start of frame
+/* Offset of data from start of frame			*/
 #define PKT_OFFSET      (TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + \
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
@@ -94,7 +94,6 @@ void udps_close_socket(struct streamer_entity *se){
       if(ret <0)
 	E("shutdown return something not ok");
       ret = close(spec_ops->fd);
-      //ret = close(spec_ops->fd);
     }
     if(ret <0){
       E("shutdown return something not ok");
@@ -129,7 +128,7 @@ int udps_bind_rx(struct udpopts * spec_ops){
   if(spec_ops->opt->optbits & USE_HUGEPAGE)
     flags |= MAP_HUGETLB;
 #endif
-  assert((req.tp_block_size*req.tp_block_nr) % getpagesize() == 0);
+  ASSERT((req.tp_block_size*req.tp_block_nr) % getpagesize() == 0);
 
   long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
   unsigned long hog_memory =  (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr);
@@ -642,11 +641,10 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     /* Now heres a problem. We have to write the whole thing since	*/
     /* we don't know whats missing at this point. TODO: Fix when doing	*/
     /* fillpattern f4lz							*/
-    spec_ops->missing += (spec_ops->opt->filesize-(*(resq->inc_before)))/spec_ops->opt->packet_size;
+    spec_ops->missing += (CALC_BUFSIZE_FROM_OPT(spec_ops->opt)-(*(resq->inc_before)))/spec_ops->opt->packet_size;
     //spec_ops->missing += 
     /* Write the to disk anyhow, so last packets aren't missed	*/
-    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = spec_ops->opt->filesize;
+    *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
     free_the_buf(resq->before);
     resq->bufstart_before = NULL;
     resq->before = NULL;
@@ -657,7 +655,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   {
     D("All packets for current file received OK. rsqinc: %ld, needed: %lu",, *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
 #ifdef FORCE_WRITE_TO_FILESIZE
-    *(resq->inc) = spec_ops->opt->filesize;
+    *(resq->inc) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 #endif
     free_the_buf(se->be);
     se->be = NULL;
@@ -756,7 +754,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	  return NULL;
 	}
 
-	assert(resq->inc_before != NULL);
+	ASSERT(resq->inc_before != NULL);
 
 	//(*(resq->inc_before))++;
 	(*(resq->inc_before))+= spec_ops->opt->packet_size;
@@ -766,7 +764,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
 
 	//if(*(resq->inc_before) == spec_ops->opt->buf_num_elems){
-	if(*(resq->inc_before) + spec_ops->opt->packet_size > spec_ops->opt->filesize)
+	if(*(resq->inc_before) + spec_ops->opt->packet_size > CALC_BUFSIZE_FROM_OPT(spec_ops->opt))
 	{
 	  D("Buffer before is ready. Freeing it");
 	  free_the_buf(resq->before);
@@ -843,7 +841,6 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	     D("Indabuff shoulda %lu",, be64toh(*((unsigned long*)resq->bufstart + (((unsigned long)diff_from_start)*spec_ops->opt->packet_size))));
 
 */
-	  //assert(be64toh(*((unsigned long*)resq->bufstart +((seqnum - resq->seqstart_current)*((unsigned long)spec_ops->opt->packet_size)))) == (unsigned long)seqnum);
 
 	  /* Since diff_to_current is current_seqnum - seqnum and current_seqnum is for	*/
 	  /* the packet received before this, we need to add one here. 			*/
@@ -901,7 +898,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size sent onward. NOT HANDLED");
       }
-      assert(resq->i < spec_ops->opt->buf_num_elems);
+      ASSERT(resq->i < spec_ops->opt->buf_num_elems);
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
@@ -962,7 +959,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	resq->i++;
 
       }
-      assert((unsigned)*resq->inc <= spec_ops->opt->filesize);
+      ASSERT((unsigned)*resq->inc <= CALC_BUFSIZE_FROM_OPT(spec_ops->opt));
       spec_ops->total_captured_bytes +=(unsigned int) received;
       spec_ops->opt->total_packets++;
       if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
@@ -999,7 +996,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	resq->i=0;
 	(*spec_ops->opt->cumul)++;
 #ifdef FORCE_WRITE_TO_FILESIZE
-	(*resq->inc) = spec_ops->opt->filesize;
+	(*resq->inc) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 #endif
 
 	D("Freeing used buffer to write %lu bytes for file %lu",,*(resq->inc), *(spec_ops->opt->cumul)-1);
@@ -1115,8 +1112,7 @@ void* udp_receiver(void *streamo)
   LOG("UDP_STREAMER: Closing streamer thread\n");
   /* Release last used buffer */
   if(resq->before != NULL){
-    //*(resq->inc_before) = spec_ops->opt->buf_num_elems;
-    *(resq->inc_before) = spec_ops->opt->filesize;
+    *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
     free_the_buf(resq->before);
   }
   if(*(resq->inc) == 0)
