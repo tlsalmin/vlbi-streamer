@@ -9,7 +9,7 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 128 
+#define N_THREADS 512 
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
