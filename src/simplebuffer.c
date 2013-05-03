@@ -406,6 +406,9 @@ int simple_end_transaction(struct buffer_entity *be)
     */
   D("Have to write %lu extra bytes so count is %lu",, wrote_extra, count);
 
+  if(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE && !(sbuf->opt->optbits & READMODE))
+    ASSERT(wrote_extra == 0 || sbuf->opt->status != STATUS_RUNNING);
+
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret == EOF)
   {
@@ -461,12 +464,12 @@ int simple_write_bytes(struct buffer_entity *be)
   else
     limit = sbuf->opt->do_w_stuff_every;
 #else
-  //limit = sbuf->opt->filesize;
   limit = CALC_BUFSIZE_FROM_OPT(sbuf->opt);
 #endif
 
   unsigned long count = sbuf->diff;
-  ASSERT(sbuf->bufoffset + count <= sbuf->buffer+CALC_BUFSIZE_FROM_OPT(sbuf->opt));
+  /* No sense in this as the filesize might be aligned up to BLOCK_ALIGN	*/
+  //ASSERT(sbuf->bufoffset + count <= sbuf->buffer+CALC_BUFSIZE_FROM_OPT(sbuf->opt));
   ASSERT(count != 0);
 
   if(count > limit){
@@ -682,7 +685,6 @@ void *sbuf_simple_write_loop(void *buffo)
       savedif = sbuf->diff;
       ret = -1;
 
-      //while(ret!= 0 && sbuf->running == 1){
       while(ret!= 0 && sbuf->running == 1){
 	/* Write failed so set the diff back to old value and rewrite	*/
 	ret = write_buffer(be);

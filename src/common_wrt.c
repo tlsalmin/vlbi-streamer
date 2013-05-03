@@ -121,7 +121,10 @@ int common_open_new_file(void * recco, void *opti,void* acq){
 
   /* Doh this might be used by other write methods aswell */
   if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
-    ioi->offset = (ioi->opt->buf_num_elems*(ioi->opt->packet_size - ioi->opt->offset))*ioi->file_seqnum;
+  {
+    ioi->offset = (CALC_BUFSIZE_FROM_OPT(ioi->opt))*ioi->file_seqnum;
+    D("Continous file, so offset set to %ld",, ioi->offset);
+  }
   else
     ioi->offset = 0;
 

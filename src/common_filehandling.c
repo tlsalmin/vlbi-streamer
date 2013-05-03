@@ -233,13 +233,10 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
-  //struct buffer_entity *tempbe;
-  //long cumulpeek; //= (*opt->cumul);
-  //st->files_sent++;
   if(se->be != NULL){
     st->files_sent++;
     D("Buffer empty for: %lu",, st->files_sent);
-    /* Not too efficient to free and then get a new, but doing this for simpler logci	 */
+    /* Not too efficient to free and then get a new, but doing this for simpler logic	 */
     D("Freeing used buffer for other use");
     set_free(opt->membranch, se->be->self);
     se->be = NULL;
