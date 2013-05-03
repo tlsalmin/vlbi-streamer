@@ -36,7 +36,7 @@ int prep_dummy_file_index(struct opt_s *opt)
     D("filename %s Not found in index. Creating new",, opt->filename);
   opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
-  FILOCK(opt->fi);
+  FI_WRITELOCK(opt->fi);
   if(!((opt->fi->status) & FILESTATUS_RECORDING))
     opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
   //opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;

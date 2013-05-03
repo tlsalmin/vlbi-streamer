@@ -210,7 +210,7 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   long ret = 0;
   void * point_to_start=start;
   long trycount = count;
-  off_t oldoffset;
+  //off_t oldoffset;
   long total_w =0;
   unsigned int n_vecs;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
@@ -240,7 +240,7 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
 
   D("Starting splice");
   /* Get current file offset. Used for writeback */
-  oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
+  //oldoffset = lseek(ioi->fd, 0, SEEK_CUR);
 
   while(trycount >0 && sp->pstatus > PSTATUS_END){
 

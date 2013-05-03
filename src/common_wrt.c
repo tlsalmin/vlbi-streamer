@@ -512,7 +512,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
     err = stat(filename, &statbuf);
     CHECK_ERR("Stat main data file");
 
-    FILOCK(opt->fi);
+    FI_WRITELOCK(opt->fi);
     struct fileholder* fh = opt->fi->files;
     n_files = get_n_files(opt->fi);
     for(i=0;i<n_files;i++)
@@ -554,7 +554,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
     retval= EXIT_FAILURE;
   }
   else{
-    FILOCK(opt->fi);
+    FI_WRITELOCK(opt->fi);
     struct fileholder* fh = opt->fi->files;
     for(i=0;i<n_files;i++){
       err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);

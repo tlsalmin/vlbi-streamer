@@ -22,7 +22,7 @@ int main(int argc, char** argv)
   long packet_size = MIN_PACKETSIZE;
   //long buf_num_elems;
   long loss;
-  long buf_num_elems_temp;
+  //long buf_num_elems_temp;
   if(argc != 2)
     usage(argv[0]);
   bufsize = ((off_t)(atoi(argv[1])))*MEG;
@@ -37,7 +37,7 @@ int main(int argc, char** argv)
       tempbuffsize-= packet_size;
     }
     loss = bufsize -tempbuffsize ;
-    buf_num_elems_temp = tempbuffsize/packet_size;
+    //buf_num_elems_temp = tempbuffsize/packet_size;
     if(tempbuffsize <=0)
       O("%ld %ld\n", packet_size, bufsize);
     O("%ld %ld\n", packet_size, loss);

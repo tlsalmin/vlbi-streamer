@@ -43,7 +43,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   int err;
   D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
-  FILOCK(opt->fi);
+  FI_READLOCK(opt->fi);
   skip_missing(opt,st,SKIP_LOADED);
   if(st->files_loaded == opt->fi->n_files){
     D("Loaded up to n_files!");
@@ -154,7 +154,6 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
 int loadup_n(struct opt_s *opt, struct sender_tracking * st)
 {
   int i, err;
-  //FILOCK(opt->fi);
 
   int loadup = MIN(st->allocated_to_load, opt->n_threads);
   /*
@@ -277,7 +276,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   //se->be = NULL;
   while(se->be == NULL){
     D("Getting new loaded for file %lu, filename %s",, st->files_sent, opt->filename);
-    FILOCK(opt->fi);
+    FI_READLOCK(opt->fi);
     skip_missing(opt,st,SKIP_SENT);
     FIUNLOCK(opt->fi);
     /* Skip this optimization for now. TODO: reimplement */

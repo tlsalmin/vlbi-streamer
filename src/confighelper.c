@@ -578,7 +578,7 @@ int init_cfg(struct opt_s *opt){
 	  }
 
 
-	  FILOCK(opt->fi);
+	  FI_WRITELOCK(opt->fi);
 	  opt->fi->n_packets = opt->total_packets;
 	  struct fileholder * fh = opt->fi->files;
 
