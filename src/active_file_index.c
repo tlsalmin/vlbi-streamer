@@ -56,8 +56,9 @@ int close_file_index_mutex_free(struct file_index* closing)
       temp->next = closing->next;
   }
   free(closing->files);
+  pthread_mutex_destroy(&(closing->wait_mutex));
   pthread_cond_destroy(&(closing->waiting));
-  pthread_mutex_destroy(&(closing->augmentlock));
+  pthread_rwlock_destroy(&(closing->augmentlock));
   free(closing->filename);
   free(closing);
   return retval;
@@ -103,7 +104,7 @@ inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diski
 int add_file(struct file_index* fi, long unsigned id, int diskid, int status)
 {
   int err;
-  FILOCK(fi);
+  FI_WRITELOCK(fi);
   err = add_file_mutexfree(fi,id,diskid,status);
   FIUNLOCK(fi);
   return err;
@@ -209,11 +210,13 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   new->waiting = (pthread_cond_t*)malloc(sizeof(pthread_cond_t*));
   CHECK_ERR_NONNULL_RN(new->waiting);
   */
-  pthread_mutex_init(&(new->augmentlock), NULL);
+  pthread_rwlock_init(&(new->augmentlock), NULL);
+  /* pthread_cond_wait cant wait on rwlock :((( */
+  pthread_mutex_init(&(new->wait_mutex), NULL);
   //new->augmentlock = PTHREAD_MUTEX_INITIALIZER;
   pthread_cond_init(&(new->waiting), NULL);
   //new->waiting = PTHREAD_COND_INITIALIZER;
-  FILOCK(new);
+  FI_WRITELOCK(new);
 
   new->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
   CHECK_ERR_NONNULL_RN(new->filename);
@@ -276,7 +279,7 @@ int disassociate(struct file_index* dis, int type)
 int mutex_free_wait_on_update(struct file_index *fi)
 {
   if(fi->status & FILESTATUS_RECORDING)
-    return pthread_cond_wait(&(fi->waiting), &(fi->augmentlock));
+    return pthread_cond_wait(&(fi->waiting), &(fi->wait_mutex));
   else {
     E("Asking wait on file thats not being recorded! %s",, fi->filename);
     return -1;
@@ -285,9 +288,9 @@ int mutex_free_wait_on_update(struct file_index *fi)
 int wait_on_update(struct file_index *fi)
 {
   int retval;
-  FILOCK(fi);
+  FI_CONDLOCK(fi);
   retval = mutex_free_wait_on_update(fi);
-  FIUNLOCK(fi);
+  FI_CONDUNLOCK(fi);
   return retval;
 }
 int mutex_free_wake_up_waiters(struct file_index *fi)
@@ -297,9 +300,9 @@ int mutex_free_wake_up_waiters(struct file_index *fi)
 int wake_up_waiters(struct file_index *fi)
 {
   int retval;
-  FILOCK(fi);
+  FI_CONDLOCK(fi);
   retval = mutex_free_wake_up_waiters(fi);
-  FIUNLOCK(fi);
+  FI_CONDUNLOCK(fi);
   return retval;
 }
 void and_action(struct file_index* fi, unsigned long filenum, int status, int action)
@@ -327,20 +330,20 @@ int update_fileholder_status_wname(char * name, unsigned long filenum, int statu
     return -1;
   }
   D("Got filename for update");
-  FILOCK(modding);
+  FI_WRITELOCK(modding);
   and_action(modding, filenum, status, action);
   FIUNLOCK(modding);
   return 0;
 }
 int update_fileholder_status(struct file_index * fi, unsigned long filenum, int status, int action)
 {
-  FILOCK(fi);
+  FI_WRITELOCK(fi);
   and_action(fi, filenum, status, action);
   FIUNLOCK(fi);
   return 0;
 }
 int update_fileholder(struct file_index*fi, unsigned long filenum, int status, int action, int recid){
-  FILOCK(fi);
+  FI_WRITELOCK(fi);
   and_action(fi, filenum, status, action);
   fi->files[filenum].diskid = recid;
   FIUNLOCK(fi);
@@ -358,7 +361,7 @@ int remove_specific_from_fileholders(char* name, int recid)
     return -1;
   }
   unsigned long i;
-  FILOCK(modding);
+  FI_WRITELOCK(modding);
   for(i=0;i<modding->n_files;i++){
     if(modding->files[i].diskid == recid){
       modding->files[i].diskid = -1;

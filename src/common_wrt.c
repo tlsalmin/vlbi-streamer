@@ -121,7 +121,10 @@ int common_open_new_file(void * recco, void *opti,void* acq){
 
   /* Doh this might be used by other write methods aswell */
   if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
-    ioi->offset = (ioi->opt->buf_num_elems*(ioi->opt->packet_size - ioi->opt->offset))*ioi->file_seqnum;
+  {
+    ioi->offset = (CALC_BUFSIZE_FROM_OPT(ioi->opt))*ioi->file_seqnum;
+    D("Continous file, so offset set to %ld",, ioi->offset);
+  }
   else
     ioi->offset = 0;
 
@@ -512,7 +515,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
     err = stat(filename, &statbuf);
     CHECK_ERR("Stat main data file");
 
-    FILOCK(opt->fi);
+    FI_WRITELOCK(opt->fi);
     struct fileholder* fh = opt->fi->files;
     n_files = get_n_files(opt->fi);
     for(i=0;i<n_files;i++)
@@ -554,7 +557,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
     retval= EXIT_FAILURE;
   }
   else{
-    FILOCK(opt->fi);
+    FI_WRITELOCK(opt->fi);
     struct fileholder* fh = opt->fi->files;
     for(i=0;i<n_files;i++){
       err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);

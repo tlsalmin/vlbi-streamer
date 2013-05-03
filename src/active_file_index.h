@@ -13,8 +13,12 @@
 #define FH_INMEM	B(2)
 #define FH_BUSY		B(3)
 
-#define FILOCK(x) do {D("MUTEXNOTE: Locking file mutex"); pthread_mutex_lock(&((x)->augmentlock));} while(0)
-#define FIUNLOCK(x) do {D("MUTEXNOTE: Unlocking file mutex"); pthread_mutex_unlock(&((x)->augmentlock));} while(0)
+#define FI_CONDLOCK(x) do {D("MUTEXNOTE: Locking cond mutex"); pthread_mutex_lock(&((x)->wait_mutex));} while(0)
+#define FI_CONDUNLOCK(x) do {D("MUTEXNOTE: UnLocking cond mutex"); pthread_mutex_unlock(&((x)->wait_mutex));} while(0)
+#define FI_READLOCK(x) do {D("MUTEXNOTE: Locking read file mutex"); pthread_rwlock_rdlock(&((x)->augmentlock));} while(0)
+#define FI_WRITELOCK(x) do {D("MUTEXNOTE: Locking write file mutex"); pthread_rwlock_wrlock(&((x)->augmentlock));} while(0)
+#define FIUNLOCK(x) do {D("MUTEXNOTE: UnLocking file mutex"); pthread_rwlock_unlock(&((x)->augmentlock));} while(0)
+//#define FIUNLOCK(x) do {D("MUTEXNOTE: Unlocking file mutex"); pthread_mutex_unlock(&((x)->augmentlock));} while(0)
 
 #define FH_STATUS(ind) opt->fi->files[ind].status
 #define FH_DISKID(ind) opt->fi->files[ind].diskid
@@ -37,7 +41,8 @@ struct file_index{
   long unsigned n_packets;
   long unsigned n_files;
   long unsigned allocated_files;
-  pthread_mutex_t  augmentlock;
+  pthread_rwlock_t augmentlock;
+  pthread_mutex_t wait_mutex;
   pthread_cond_t  waiting;
 };
 struct fileholder

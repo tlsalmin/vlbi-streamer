@@ -11,6 +11,11 @@ done
 DABS=1048576
 SHM=/dev/shm
 TESTMEGS=$1
+JUSTEND=0
+if [ ! -z "$" ]
+then
+  JUSTEND=1
+fi
 CONVFLAGS=fdatasync
 FLAGS=direct
 COUNT=$(((TESTMEGS*1024*1024)/DABS))
@@ -42,9 +47,13 @@ if [ ! -d "$SHM" ]; then
 fi
 echo "Generating testfile for $TESTMEGS MB. This will take a while.."
 #echo "$DABS" $(((TESTGIGS*1024*1024*1024)/DABS))
-dd if=/dev/urandom of=$SHM/$TEMPFILE bs=$DABS count=$COUNT &> /dev/null
+dd if=/dev/urandom of=${SHM}/temp/$TEMPFILE bs=$DABS count=$COUNT &> /dev/null
 echo "Generation done. Testing each disk individually"
 
+if [ "$JUSTEND" -eq "1" ]
+then
+  exit 0
+fi
 for i in "${DRIVES[@]}"
 do
   #Only used if drives aren't probed

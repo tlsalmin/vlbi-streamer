@@ -578,7 +578,7 @@ int init_cfg(struct opt_s *opt){
 	  }
 
 
-	  FILOCK(opt->fi);
+	  FI_WRITELOCK(opt->fi);
 	  opt->fi->n_packets = opt->total_packets;
 	  struct fileholder * fh = opt->fi->files;
 
@@ -637,6 +637,32 @@ int init_cfg(struct opt_s *opt){
     else
       retval = 0;
   }
+  /* This had to be set here, since readmode doesn't know the packet	*/
+  /* size unless its read  from a cfg					*/
+  if(opt->optbits & WRITE_TO_SINGLE_FILE && WRITEND_USES_DIRECTIO(opt))
+  {
+    if(opt->offset != 0)
+      E("not implemented yet!");
+
+    /* Since  DIRECTIO-writes require writes a multiple of BLOCK_ALIGN	*/
+    /* bytes, we lower the capacity of each buffer down to where 	*/
+    /* both packet_size and BLOCK_ALIGN are a denominator for it.	*/
+    /* Else the single file writes would have random data after		*/
+    /* each buffer							*/
+
+    opt->buf_num_elems = opt->filesize / (opt->packet_size - opt->offset);
+    long oldsize = CALC_BUFSIZE_FROM_OPT(opt);
+    while(opt->buf_num_elems > 0 && CALC_BUFSIZE_FROM_OPT(opt) % BLOCK_ALIGN != 0)
+      opt->buf_num_elems--;
+    if(opt->buf_num_elems == 0){
+      E("Cant find alignment for single file write and block aling for %ld size packets",, opt->packet_size);
+      return -1;
+    }
+    /* Shouldn't be used after this, but setting it still	*/
+    opt->filesize = CALC_BUFSIZE_FROM_OPT(opt);
+    D("Have to cut %ld MB from each buffer for alignment",, (oldsize - opt->filesize)/MEG);
+  }
+  
   D("CFG init done");
   return retval;
 }
