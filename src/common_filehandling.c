@@ -140,7 +140,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   */
   *inc = nuf*(opt->packet_size);
 
-  be->set_ready(be);
+  be->set_ready(be, 1);
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
   D("Loading request complete for id %lu",, st->files_loaded);
@@ -243,12 +243,10 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     D("Buffer empty for: %lu",, st->files_sent);
     st->files_sent++;
     /* Not too efficient to free and then get a new, but doing this for simpler logic	 */
-    /*
     D("Freeing used buffer for other use");
     set_free(opt->membranch, se->be->self);
     se->be = NULL;
     st->allocated_to_load++;
-    */
   }
   while(st->files_sent == st->n_files_probed){
     if((st->status_probed = get_status(opt->fi)) & FILESTATUS_RECORDING){

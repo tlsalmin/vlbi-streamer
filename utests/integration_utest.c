@@ -9,21 +9,21 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 32
+#define N_THREADS 64
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
-#define NUMBER_OF_PACKETS 8192
+#define NUMBER_OF_PACKETS 2048
 #define N_DRIVES 512
-#define RUNTIME 20
+#define RUNTIME 10
 
 #define CHECK_BRANCHES do{assert(dopt->membranch->busylist == NULL && dopt->membranch->loadedlist == NULL && dopt->diskbranch->busylist == NULL && dopt->diskbranch->loadedlist == NULL);}while(0)
 
-#define RUN_RECEIVE
-#define RUN_SINGLE_RECEIVE
-#define RUN_SINGLE_SEND
 #define RUN_SEND
+#define RUN_SINGLE_SEND
+#define RUN_SINGLE_RECEIVE
+#define RUN_RECEIVE
 #define RUN_SINGLE_SEND_AND_RECEIVE
 #define RUN_FSINGLE_SEND_AND_RECEIVE
 #define RUN_SEND_AND_RECEIVE
@@ -264,8 +264,6 @@ int main()
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
-  D("num elems wtf %d",, opts[1].buf_num_elems);
-  D("num elems wtf %d",, events[1].opt->buf_num_elems);
   err = start_thread(&(events[1]));
   CHECK_ERR("start thread");
   err = close_thread(&(events[1]));

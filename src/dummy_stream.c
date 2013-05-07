@@ -108,7 +108,7 @@ void * dummy_sender(void * streamo)
       err = jump_to_next_file(spec_ops->opt, se, &st);
       if(err == ALL_DONE){
 	D("All done for sending %s",, spec_ops->opt->filename);
-	UDPS_EXIT;
+	//UDPS_EXIT;
 	break;
       }
       else if (err < 0){
@@ -151,7 +151,8 @@ void * dummy_sender(void * streamo)
   if(se->be != NULL)
   {
     D("Still have buffer in se->be. It sent %lu before we quit",, packetcounter);
-    //free_the_buf(se->be);
+    set_free(spec_ops->opt->membranch, se->be->self);
+    se->be = NULL;
   }
   D("Packets sent %ld, in index %ld. Files sent %ld when there are %ld in index",, st.packets_sent, get_n_packets(spec_ops->opt->fi),st.files_sent, get_n_files(spec_ops->opt->fi) );
   assert(st.packets_sent == get_n_packets(spec_ops->opt->fi));
@@ -210,7 +211,7 @@ void * dummy_receiver(void *streamo)
       D("N packets is now %lu",, n_now);
     }
 
-    se->be->set_ready_and_signal(se->be);
+    se->be->set_ready_and_signal(se->be,0);
     (*spec_ops->opt->cumul)++;
     /*
     LOCK(se->be->headlock);

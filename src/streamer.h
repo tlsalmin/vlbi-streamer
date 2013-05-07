@@ -336,8 +336,8 @@ struct buffer_entity
   int (*acquire)(void * , void* , void*);
   void* (*simple_get_writebuf)(struct buffer_entity *, long **);
   //int* (*get_inc)(struct buffer_entity *);
-  void (*set_ready)(struct buffer_entity*);
-  void (*set_ready_and_signal)(struct buffer_entity*);
+  void (*set_ready)(struct buffer_entity*,int);
+  void (*set_ready_and_signal)(struct buffer_entity*,int);
   void (*cancel_writebuf)(struct buffer_entity *);
   //int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );

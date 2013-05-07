@@ -1324,7 +1324,7 @@ inline int get_status_from_opt(struct opt_s* opt)
 #endif
   returnable = opt->status;
 #if(PROTECT_STATUS_W_RWLOCK)
-  pthread_rwlock_wrlock(&(opt->statuslock));
+  pthread_rwlock_unlock(&(opt->statuslock));
 #endif
   return returnable;
 }
@@ -1335,6 +1335,6 @@ void set_status_for_opt(struct opt_s* opt, int status)
 #endif
   opt->status = status;
 #if(PROTECT_STATUS_W_RWLOCK)
-  pthread_rwlock_wrlock(&(opt->statuslock));
+  pthread_rwlock_unlock(&(opt->statuslock));
 #endif
 }

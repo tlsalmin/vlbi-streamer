@@ -569,7 +569,7 @@ void* udp_rxring(void *streamo)
       if((j % spec_ops->opt->buf_num_elems) == 0){
 	D("Buffo!");
 
-	se->be->set_ready_and_signal(se->be);
+	se->be->set_ready_and_signal(se->be,0);
 	/* Increment file counter! */
 	//spec_ops->opt->n_files++;
 
@@ -614,7 +614,7 @@ void* udp_rxring(void *streamo)
 }
 void free_the_buf(struct buffer_entity * be){
   /* Set old buffer ready and signal it to start writing */
-  be->set_ready_and_signal(be);
+  be->set_ready_and_signal(be,0);
 }
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
@@ -1117,7 +1117,7 @@ void* udp_receiver(void *streamo)
       D("N packets is now %lu",, n_now);
     }
     (*spec_ops->opt->cumul)++;
-    se->be->set_ready_and_signal(se->be);
+    se->be->set_ready_and_signal(se->be,0);
   }
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */

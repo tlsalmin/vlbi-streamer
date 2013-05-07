@@ -754,18 +754,22 @@ void *sbuf_simple_write_loop(void *buffo)
     UNLOCK(be->headlock);
     D("Stopped and signalled");
   }
-  void sbuf_set_ready(struct buffer_entity *be)
+  void sbuf_set_ready(struct buffer_entity *be, int mutex_free)
   {
-    LOCK(be->headlock);
+    if(mutex_free == 0)
+      LOCK(be->headlock);
     ((struct simplebuf*)be->opt)->ready_to_act = 1;
-    UNLOCK(be->headlock);
+    if(mutex_free == 0)
+      UNLOCK(be->headlock);
   }
-  void sbuf_set_ready_and_signal(struct buffer_entity *be)
+  void sbuf_set_ready_and_signal(struct buffer_entity *be, int mutex_free)
   {
-    LOCK(be->headlock);
+    if(mutex_free == 0)
+      LOCK(be->headlock);
     ((struct simplebuf*)be->opt)->ready_to_act = 1;
     pthread_cond_signal(be->iosignal);
-    UNLOCK(be->headlock);
+    if(mutex_free == 0)
+      UNLOCK(be->headlock);
   }
   int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
   {
