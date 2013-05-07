@@ -315,6 +315,9 @@ struct opt_s
   pthread_cond_t * writequeue_signal;
   
   int status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_t statuslock;
+#endif
   struct streamer_entity * streamer_ent;
 };
 int parse_options(int argc, char **argv, struct opt_s* opt);
@@ -334,6 +337,7 @@ struct buffer_entity
   void* (*simple_get_writebuf)(struct buffer_entity *, long **);
   //int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*);
+  void (*set_ready_and_signal)(struct buffer_entity*);
   void (*cancel_writebuf)(struct buffer_entity *);
   //int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
@@ -421,6 +425,7 @@ struct schedule{
   int n_scheduled;
   int n_running;
 };
+int ret_zero_if_stillshouldrun(void * opt);
 
 /* TODO: Doc these */
 int init_rbufs(struct opt_s *opt);
@@ -451,4 +456,6 @@ void print_stats(struct stats *stats, struct opt_s * opts);
 #if(PPRIORITY)
 int minimize_priority();
 #endif
+int get_status_from_opt(struct opt_s* opt);
+void set_status_for_opt(struct opt_s* opt, int status);
 #endif

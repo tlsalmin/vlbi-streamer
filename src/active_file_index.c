@@ -260,7 +260,7 @@ int disassociate(struct file_index* dis, int type)
   }
   /* Hmm so the other side isn't really relevant ..*/
   if(dis->associations == 0){
-    D("File has no more associations. Closing it");
+    D("%s has no more associations. Closing it",, dis->filename);
     err = close_file_index_mutex_free(dis);
     signal = 0;
   }

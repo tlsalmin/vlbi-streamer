@@ -8,7 +8,7 @@
 
 #ifdef UDPS_EXIT
 #undef UDPS_EXIT
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} set_status_for_opt(spec_ops->opt,STATUS_STOPPED);if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
 int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 #endif
 {
@@ -40,7 +40,7 @@ int close_dummy_streamer(void *opt_own,void *stats)
 }
 void dummy_stop(struct streamer_entity *se)
 {
-  ((struct udpopts*)se->opt)->opt->status = STATUS_STOPPED;
+  set_status_for_opt((((struct udpopts*)se->opt)->opt),STATUS_STOPPED);
 }
 void dummy_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
@@ -179,11 +179,11 @@ void * dummy_receiver(void *streamo)
     init_resq(resq);
 
   LOG("UDP_STREAMER: Starting stream capture\n");
-  while(spec_ops->opt->status & STATUS_RUNNING){
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
     err = handle_buffer_switch(se, resq);
     if(err != 0){
       LOG("Error or done in buffer switch");
-      spec_ops->opt->status = STATUS_ERROR;
+      set_status_for_opt(spec_ops->opt, STATUS_ERROR);
       break;
     }
     // RECEIVE
@@ -192,10 +192,11 @@ void * dummy_receiver(void *streamo)
     err = udps_handle_received_packet(se, resq, err);
     if(err != 0){
       E("Error in receive packet. Closing!");
-      spec_ops->opt->status = STATUS_ERROR;
+      set_status_for_opt(spec_ops->opt, STATUS_ERROR);
       break;
     }
   }
+  D("Loop finished for receiving %s",, spec_ops->opt->filename);
   /* Release last used buffer */
   if(resq->before != NULL){
     *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
@@ -209,12 +210,14 @@ void * dummy_receiver(void *streamo)
       D("N packets is now %lu",, n_now);
     }
 
-    se->be->set_ready(se->be);
+    se->be->set_ready_and_signal(se->be);
     (*spec_ops->opt->cumul)++;
+    /*
+    LOCK(se->be->headlock);
+    pthread_cond_signal(se->be->iosignal);
+    UNLOCK(se->be->headlock);
+    */
   }
-  LOCK(se->be->headlock);
-  pthread_cond_signal(se->be->iosignal);
-  UNLOCK(se->be->headlock);
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;

@@ -378,7 +378,10 @@ void close_recer(struct buffer_entity *be, int errornum)
     remove_specific_from_fileholders(sbuf->opt, sbuf->fh->diskid);
     */
     set_free(sbuf->opt->membranch, be->self);
+    
+    LOCK(be->headlock);
     sbuf->ready_to_act = 0;
+    UNLOCK(be->headlock);
   }
   //sbuf->file_seqnum = -1;
   be->recer = NULL;
@@ -595,12 +598,14 @@ int write_buffer(struct buffer_entity *be)
       }
       be->recer->setshmid(be->recer, sbuf->shmid);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
+      /*
       off_t rfilesize = be->recer->get_filesize(be->recer);
       if(sbuf->diff != rfilesize)
       {
 	D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
 	sbuf->diff = rfilesize;
       }
+      */
     }
     else{
       be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);
@@ -672,8 +677,8 @@ void *sbuf_simple_write_loop(void *buffo)
   while(sbuf->running == 1){
     /* Checks if we've finished a write and we're holding a writer 	*/
     /* In this case we need to free the writer and ourselves		*/
+    LOCK(be->headlock);
     while(sbuf->ready_to_act == 0 && sbuf->running == 1){
-      LOCK(be->headlock);
       D("Sleeping on ready");
       pthread_cond_wait(be->iosignal, be->headlock);
       D("Woke up");
@@ -696,7 +701,9 @@ void *sbuf_simple_write_loop(void *buffo)
 	  if(sbuf->opt->optbits & READMODE){
 	    D("Error on drive with readmode on. File is skipped and set self to free");
 	    //Common_write handles the fileholder-settings
+	    LOCK(be->headlock);
 	    sbuf->ready_to_act = 0;
+	    UNLOCK(be->headlock);
 	    set_free(sbuf->opt->membranch, be->self);
 	    ret=0;
 	    sbuf->diff = 0;
@@ -705,7 +712,9 @@ void *sbuf_simple_write_loop(void *buffo)
 	/*If everything went great */
 	else{
 	  D("Write/read complete!");
+	  LOCK(be->headlock);
 	  sbuf->ready_to_act = 0;
+	  UNLOCK(be->headlock);
 
 	  if(sbuf->opt->optbits & READMODE){
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_INMEM, ADDTOFILESTATUS);
@@ -731,7 +740,9 @@ void *sbuf_simple_write_loop(void *buffo)
   {
     D("Cancelling request for buffer");
     struct simplebuf *sbuf = be->opt;
+    LOCK(be->headlock);
     sbuf->ready_to_act = 0;
+    UNLOCK(be->headlock);
     set_free(sbuf->opt->membranch, be->self);
   }
   void sbuf_stop_running(struct buffer_entity *be)
@@ -745,7 +756,16 @@ void *sbuf_simple_write_loop(void *buffo)
   }
   void sbuf_set_ready(struct buffer_entity *be)
   {
+    LOCK(be->headlock);
     ((struct simplebuf*)be->opt)->ready_to_act = 1;
+    UNLOCK(be->headlock);
+  }
+  void sbuf_set_ready_and_signal(struct buffer_entity *be)
+  {
+    LOCK(be->headlock);
+    ((struct simplebuf*)be->opt)->ready_to_act = 1;
+    pthread_cond_signal(be->iosignal);
+    UNLOCK(be->headlock);
   }
   int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
   {
@@ -755,6 +775,7 @@ void *sbuf_simple_write_loop(void *buffo)
     be->write_loop = sbuf_simple_write_loop;
     be->stop = sbuf_stop_running;
     be->set_ready = sbuf_set_ready;
+    be->set_ready_and_signal = sbuf_set_ready_and_signal;
     be->acquire = sbuf_acquire;
     be->cancel_writebuf = sbuf_cancel_writebuf;
 

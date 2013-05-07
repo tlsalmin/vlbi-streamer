@@ -213,6 +213,8 @@ int main(void)
   default_opt.diskbranch = br;
   default_opt.optbits &= ~LOCKER_REC;
   default_opt.optbits |= REC_DUMMY;
+  /* Silly but check needs it */
+  default_opt.status = STATUS_RUNNING;
   opt = &default_opt;
   
   memset(br, 0, sizeof(struct entity_list_branch));

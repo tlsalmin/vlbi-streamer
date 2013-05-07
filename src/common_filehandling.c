@@ -252,7 +252,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   }
   while(st->files_sent == st->n_files_probed){
     if((st->status_probed = get_status(opt->fi)) & FILESTATUS_RECORDING){
-      D("All sent, but we're still recording on %s",, opt->filename);	
+      D("All sent with %ld packets, but we're still recording on %s",,st->packets_sent, opt->filename);	
       err = wait_on_update(opt->fi);
       CHECK_ERR("wait on update");
       st->n_files_probed = get_n_files(opt->fi);

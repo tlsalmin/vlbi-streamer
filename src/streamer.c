@@ -71,8 +71,8 @@
 #endif
 #if(DAEMON)
 /* NOTE: Dont use these in dangling if or else */
-#define STREAMER_EXIT opt->status = STATUS_FINISHED; pthread_exit(NULL)
-#define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; pthread_exit(NULL)
+#define STREAMER_EXIT set_status_for_opt(opt,STATUS_FINISHED); pthread_exit(NULL)
+#define STREAMER_ERROR_EXIT set_status_for_opt(opt,STATUS_ERROR); pthread_exit(NULL)
 #else
 #define STREAMER_EXIT return 0
 #define STREAMER_ERROR_EXIT return -1
@@ -355,10 +355,12 @@ int clear_pointers(struct opt_s* opt){
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(opt, 0, sizeof(struct opt_s));
-
   opt->filesize = FILESIZE;
 #if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_init(&(opt->statuslock), NULL);
+#endif
 #endif
 
   if(create_cfg == 1)
@@ -785,6 +787,9 @@ int close_opts(struct opt_s *opt){
     if(opt->singlefile_fd > 0)
       close(opt->singlefile_fd);
   }
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_destroy(&(opt->statuslock));
+#endif
   config_destroy(&(opt->cfg));
   if(opt->cumul != NULL)
     free(opt->cumul);
@@ -990,7 +995,7 @@ int main(int argc, char **argv)
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
-  opt->status = STATUS_RUNNING;
+  set_status_for_opt(opt, STATUS_RUNNING);
 
   /* Other thread spawned so we can minimize our priority 	*/
   minimize_priority();
@@ -1033,7 +1038,7 @@ int main(int argc, char **argv)
       sleeptodo= 1;
     else
       sleeptodo = opt->time;
-    while(sleeptodo >0 && (opt->status & STATUS_RUNNING)){
+    while(sleeptodo >0 && get_status_from_opt(opt) == STATUS_RUNNING){
       sleep(1);
       init_stats(stats_now);
 
@@ -1084,21 +1089,24 @@ int main(int argc, char **argv)
     if(!(opt->optbits & READMODE) && opt->last_packet == 0){
       TIMERTYPE now;
       GETTIME(now);
-      while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && (opt->status & STATUS_RUNNING)){
+      while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && get_status_from_opt(opt) == STATUS_RUNNING){
 	sleep(1);
 	GETTIME(now);
       }
       shutdown_thread(opt);
+      pthread_mutex_lock(&(opt->membranch->branchlock));
+      pthread_cond_broadcast(&(opt->membranch->busysignal));
+      pthread_mutex_unlock(&(opt->membranch->branchlock));
     }
   }
-
+  /* Change for cleaner */
   err = pthread_join(streamer_pthread, NULL);
   if (err<0) {
     printf("ERROR; return code from pthread_join() is %d\n", err);
   }
   else
     D("Streamer thread exit OK");
-  LOG("STREAMER: Threads finished. Getting stats\n");
+  LOG("STREAMER: Threads finished. Getting stats for %s\n", opt->filename);
 
   if(opt->optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
@@ -1117,19 +1125,19 @@ int main(int argc, char **argv)
   block_until_free(opt->membranch, opt);
 #if(DAEMON)
   LOG("Buffers finished\n");
-  if(opt->status != STATUS_STOPPED)
+  if(get_status_from_opt(opt) != STATUS_STOPPED)
   {
     E("Thread didnt finish nicely with STATUS_STOPPED");
-    opt->status |= STATUS_FINISHED;
+    set_status_for_opt(opt, STATUS_FINISHED);
   }
   else
-    opt->status = STATUS_FINISHED;
+    set_status_for_opt(opt, STATUS_FINISHED);
 #else
   close_streamer(opt);
 #endif
 
 #if(DAEMON)
-  D("Streamer thread exiting");
+  D("Streamer thread exiting for %s",,opt->filename);
   pthread_exit(NULL);
 #else
   close_opts(opt);
@@ -1300,3 +1308,33 @@ int minimize_priority(){
   return 0;
 }
 #endif
+int ret_zero_if_stillshouldrun(void * opti)
+{
+  struct opt_s* opt = (struct opt_s*)opti;
+  if(get_status_from_opt(opt) & STATUS_RUNNING)
+    return 0;
+  else
+    return -1;
+}
+inline int get_status_from_opt(struct opt_s* opt)
+{
+  int returnable;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_rdlock(&(opt->statuslock));
+#endif
+  returnable = opt->status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_wrlock(&(opt->statuslock));
+#endif
+  return returnable;
+}
+void set_status_for_opt(struct opt_s* opt, int status)
+{
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_wrlock(&(opt->statuslock));
+#endif
+  opt->status = status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_wrlock(&(opt->statuslock));
+#endif
+}
