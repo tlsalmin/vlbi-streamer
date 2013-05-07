@@ -31,6 +31,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/syscall.h>
 #include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
@@ -70,18 +71,14 @@
 #endif
 #if(DAEMON)
 /* NOTE: Dont use these in dangling if or else */
-#define STREAMER_EXIT opt->status = STATUS_FINISHED; pthread_exit(NULL)
-#define STREAMER_ERROR_EXIT opt->status = STATUS_ERROR; pthread_exit(NULL)
+#define STREAMER_EXIT set_status_for_opt(opt,STATUS_FINISHED); pthread_exit(NULL)
+#define STREAMER_ERROR_EXIT set_status_for_opt(opt,STATUS_ERROR); pthread_exit(NULL)
 #else
 #define STREAMER_EXIT return 0
 #define STREAMER_ERROR_EXIT return -1
 #endif
 
-#if(PPRIORITY)
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
-#else
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
-#endif
 /* This should be more configurable */
 extern char *optarg;
 extern int optind, optopt;
@@ -358,10 +355,12 @@ int clear_pointers(struct opt_s* opt){
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(opt, 0, sizeof(struct opt_s));
-
   opt->filesize = FILESIZE;
 #if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_init(&(opt->statuslock), NULL);
+#endif
 #endif
 
   if(create_cfg == 1)
@@ -703,9 +702,6 @@ int init_rbufs(struct opt_s *opt){
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
 
-#if(PPRIORITY)
-  err = prep_priority(opt, RBUF_PRIO);
-#endif
 
   D("Initializing buffer threads");
 
@@ -715,11 +711,7 @@ int init_rbufs(struct opt_s *opt){
     CHECK_ERR("sbuf init");
 
     D("Starting buffer thread");
-#if(PPRIORITY)
-    err = pthread_create(&(opt->rbuf_pthreads[i]), &(opt->pta), (opt->bes[i]).write_loop,(void*)&(opt->bes[i]));
-#else
     err = pthread_create(&(opt->rbuf_pthreads[i]), NULL, opt->bes[i].write_loop,(void*)&(opt->bes[i]));
-#endif
     CHECK_ERR("pthread create");
 #ifdef TUNE_AFFINITY
     if(cpusetter == processors)
@@ -795,10 +787,10 @@ int close_opts(struct opt_s *opt){
     if(opt->singlefile_fd > 0)
       close(opt->singlefile_fd);
   }
-  config_destroy(&(opt->cfg));
-#if(PPRIORITY)
-  pthread_attr_destroy(&(opt->pta));
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_destroy(&(opt->statuslock));
 #endif
+  config_destroy(&(opt->cfg));
   if(opt->cumul != NULL)
     free(opt->cumul);
   /*
@@ -808,61 +800,6 @@ int close_opts(struct opt_s *opt){
   free(opt);
   return 0;
 }
-#if(PPRIORITY)
-#define CASEOF(x) case x:\
-  D(#x);\
-break;
-int prep_priority(struct opt_s * opt, int priority){
-
-  int err; 
-  int realprio;
-  int minprio,maxprio;
-  int scheduler = sched_getscheduler(getpid());
-  struct sched_param schedp;
-#if(DEBUG_OUTPUT)
-  switch(scheduler){	
-    CASEOF(SCHED_OTHER)
-    CASEOF(SCHED_BATCH)
-    //CASEOF(SCHED_IDLE)
-    CASEOF(SCHED_FIFO)
-    CASEOF(SCHED_RR)
-  }
-#endif
-  err = sched_getparam(getpid(), &schedp);
-
-  minprio = sched_get_priority_min(scheduler);
-  maxprio = sched_get_priority_max(scheduler);
-  D("Min prio: %d, max prio: %d",, minprio, maxprio);
-
-  realprio = schedp.sched_priority - priority;
-  if(realprio < 0)
-    realprio=0;
-  D("Setting prio to %d",, realprio);
-
-  memset(&(opt->param), 0, sizeof(struct sched_param));
-
-  err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error getting schedparam for pthread attr: %s",,strerror(err));
-  else
-    D("Schedparam set to %d, Trying to set to %d",, opt->param.sched_priority, realprio);
-
-  err = pthread_attr_setschedpolicy(&(opt->pta), scheduler);
-  if(err != 0)
-    E("Error setting schedtype for pthread attr: %s",,strerror(err));
-
-  opt->param.sched_priority = realprio;
-  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error setting schedparam for pthread attr: %s",,strerror(err));
-  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
-  if(err != 0)
-    E("Error Setting inheritance");
-  D("Done prepping priority");
-
-  return 0;
-}
-#endif
 int prep_streamer(struct opt_s* opt){
   int err = 0;
   D("Initializing streamer thread");
@@ -1052,22 +989,16 @@ int main(int argc, char **argv)
   else
     LOG("STREAMER: In main, starting receiver thread \n");
 
-#if(PPRIORITY)
-  
-  if(opt->optbits & READMODE)
-    prep_priority(opt, SEND_THREAD_PRIO);
-  else
-    prep_priority(opt, RECEIVE_THREAD_PRIO);
-  err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
-#else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
-#endif
 
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
-  opt->status = STATUS_RUNNING;
+  set_status_for_opt(opt, STATUS_RUNNING);
+
+  /* Other thread spawned so we can minimize our priority 	*/
+  minimize_priority();
 
 #ifdef TUNE_AFFINITY
   /* Caused some weird ass bugs and crashes so not used anymore NEVER 	*/
@@ -1107,7 +1038,7 @@ int main(int argc, char **argv)
       sleeptodo= 1;
     else
       sleeptodo = opt->time;
-    while(sleeptodo >0 && (opt->status & STATUS_RUNNING)){
+    while(sleeptodo >0 && get_status_from_opt(opt) == STATUS_RUNNING){
       sleep(1);
       init_stats(stats_now);
 
@@ -1158,21 +1089,24 @@ int main(int argc, char **argv)
     if(!(opt->optbits & READMODE) && opt->last_packet == 0){
       TIMERTYPE now;
       GETTIME(now);
-      while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && (opt->status & STATUS_RUNNING)){
+      while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && get_status_from_opt(opt) == STATUS_RUNNING){
 	sleep(1);
 	GETTIME(now);
       }
       shutdown_thread(opt);
+      pthread_mutex_lock(&(opt->membranch->branchlock));
+      pthread_cond_broadcast(&(opt->membranch->busysignal));
+      pthread_mutex_unlock(&(opt->membranch->branchlock));
     }
   }
-
+  /* Change for cleaner */
   err = pthread_join(streamer_pthread, NULL);
   if (err<0) {
     printf("ERROR; return code from pthread_join() is %d\n", err);
   }
   else
     D("Streamer thread exit OK");
-  LOG("STREAMER: Threads finished. Getting stats\n");
+  LOG("STREAMER: Threads finished. Getting stats for %s\n", opt->filename);
 
   if(opt->optbits & READMODE){
     /* Too fast sending so I'll keep this in ticks and use floats in stats */
@@ -1191,19 +1125,19 @@ int main(int argc, char **argv)
   block_until_free(opt->membranch, opt);
 #if(DAEMON)
   LOG("Buffers finished\n");
-  if(opt->status != STATUS_STOPPED)
+  if(get_status_from_opt(opt) != STATUS_STOPPED)
   {
     E("Thread didnt finish nicely with STATUS_STOPPED");
-    opt->status |= STATUS_FINISHED;
+    set_status_for_opt(opt, STATUS_FINISHED);
   }
   else
-    opt->status = STATUS_FINISHED;
+    set_status_for_opt(opt, STATUS_FINISHED);
 #else
   close_streamer(opt);
 #endif
 
 #if(DAEMON)
-  D("Streamer thread exiting");
+  D("Streamer thread exiting for %s",,opt->filename);
   pthread_exit(NULL);
 #else
   close_opts(opt);
@@ -1362,4 +1296,45 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
       return 0;
       break;
   }
+}
+#if(PPRIORITY)
+int minimize_priority(){
+  pid_t tid  = syscall(SYS_gettid);
+  D("Setting tid %d prio from %d to %d",, tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);
+  /* manpage said to clear this	*/
+  errno=0;
+  if((setpriority(PRIO_PROCESS, tid, MIN_PRIO_FOR_UNIMPORTANT)) != 0)
+    E("Setpriority");
+  return 0;
+}
+#endif
+int ret_zero_if_stillshouldrun(void * opti)
+{
+  struct opt_s* opt = (struct opt_s*)opti;
+  if(get_status_from_opt(opt) & STATUS_RUNNING)
+    return 0;
+  else
+    return -1;
+}
+inline int get_status_from_opt(struct opt_s* opt)
+{
+  int returnable;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_rdlock(&(opt->statuslock));
+#endif
+  returnable = opt->status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_unlock(&(opt->statuslock));
+#endif
+  return returnable;
+}
+void set_status_for_opt(struct opt_s* opt, int status)
+{
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_wrlock(&(opt->statuslock));
+#endif
+  opt->status = status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_unlock(&(opt->statuslock));
+#endif
 }

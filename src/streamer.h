@@ -177,11 +177,14 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define HAVE_ASSERT 1
 #define ASSERT(x) do{if(HAVE_ASSERT){assert(x);}}while(0)
 
+  /*
 #define MAX_PRIO_FOR_PTHREAD 1
 #define RBUF_PRIO	3
 #define RECEIVE_THREAD_PRIO 1
 #define SEND_THREAD_PRIO 2
 #define MIN_PRIO_FOR_PTHREAD 4
+*/
+#define MIN_PRIO_FOR_UNIMPORTANT	10
 
   /* Default packet size */
 #define DEF_BUF_ELEM_SIZE 8192
@@ -300,10 +303,6 @@ struct opt_s
   pthread_t *rbuf_pthreads;
   struct buffer_entity * bes;
   struct recording_entity *recs;
-#if(PPRIORITY)
-  pthread_attr_t        pta;
-  struct sched_param    param;
-#endif
 #ifdef TUNE_AFFINITY
   cpu_set_t cpuset;
 #endif
@@ -316,6 +315,9 @@ struct opt_s
   pthread_cond_t * writequeue_signal;
   
   int status;
+#if(PROTECT_STATUS_W_RWLOCK)
+  pthread_rwlock_t statuslock;
+#endif
   struct streamer_entity * streamer_ent;
 };
 int parse_options(int argc, char **argv, struct opt_s* opt);
@@ -334,7 +336,8 @@ struct buffer_entity
   int (*acquire)(void * , void* , void*);
   void* (*simple_get_writebuf)(struct buffer_entity *, long **);
   //int* (*get_inc)(struct buffer_entity *);
-  void (*set_ready)(struct buffer_entity*);
+  void (*set_ready)(struct buffer_entity*,int);
+  void (*set_ready_and_signal)(struct buffer_entity*,int);
   void (*cancel_writebuf)(struct buffer_entity *);
   //int (*wait)(struct buffer_entity *);
   int (*close)(struct buffer_entity*,void * );
@@ -422,6 +425,7 @@ struct schedule{
   int n_scheduled;
   int n_running;
 };
+int ret_zero_if_stillshouldrun(void * opt);
 
 /* TODO: Doc these */
 int init_rbufs(struct opt_s *opt);
@@ -449,5 +453,9 @@ void* vlbistreamer(void *opti);
 #endif
 int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_type);
 void print_stats(struct stats *stats, struct opt_s * opts);
-
+#if(PPRIORITY)
+int minimize_priority();
+#endif
+int get_status_from_opt(struct opt_s* opt);
+void set_status_for_opt(struct opt_s* opt, int status);
 #endif

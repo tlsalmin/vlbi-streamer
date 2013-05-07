@@ -9,14 +9,24 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 512 
+#define N_THREADS 64
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
-#define NUMBER_OF_PACKETS 4096
+#define NUMBER_OF_PACKETS 2048
 #define N_DRIVES 512
 #define RUNTIME 10
+
+#define CHECK_BRANCHES do{assert(dopt->membranch->busylist == NULL && dopt->membranch->loadedlist == NULL && dopt->diskbranch->busylist == NULL && dopt->diskbranch->loadedlist == NULL);}while(0)
+
+#define RUN_SEND
+#define RUN_SINGLE_SEND
+#define RUN_SINGLE_RECEIVE
+#define RUN_RECEIVE
+#define RUN_SINGLE_SEND_AND_RECEIVE
+#define RUN_FSINGLE_SEND_AND_RECEIVE
+#define RUN_SEND_AND_RECEIVE
 
 char ** filenames;
 struct opt_s* dopt;
@@ -73,14 +83,7 @@ int start_thread(struct scheduled_event * ev)
     ev->opt->hostname = NULL;
     D("num elems wtf %d",, ev->opt->buf_num_elems);
   }
-#if(PPRIORITY)
-  err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
-  if(err != 0)
-    E("error in priority prep! Wont stop though..");
-  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
-#else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
-#endif
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
   return 0;
@@ -89,10 +92,13 @@ int start_thread(struct scheduled_event * ev)
 int close_thread(struct scheduled_event *ev)
 {
   int err;
+  if(ev->opt->optbits & READMODE)
+    assert(!(get_status(ev->opt->fi) & FILESTATUS_RECORDING));
+
   err = pthread_join(ev->pt,NULL);
   CHECK_ERR("pthread join");
   if(ev->opt->optbits & READMODE){
-  D("Pthread sender joining on %s",, ev->opt->filename);
+    D("Pthread sender joining on %s",, ev->opt->filename);
     err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
     if(err != 0){
       E("Error in disassociate");
@@ -100,7 +106,7 @@ int close_thread(struct scheduled_event *ev)
     }
   }
   else{
-  D("Pthread recorder joining on %s",, ev->opt->filename);
+    D("Pthread recorder joining on %s",, ev->opt->filename);
     disassociate(ev->opt->fi, FILESTATUS_RECORDING);
     if(err != 0){
       E("Error in disassociate");
@@ -141,6 +147,7 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   return 0;
 }
 
+
 int main()
 {
   int i,err;
@@ -159,10 +166,6 @@ int main()
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
   dopt->cumul = NULL;
-  /*
-  dopt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  *dopt->cumul = 0;
-  */
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
   stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
@@ -198,8 +201,11 @@ int main()
   err =  format_threads(dopt,opts);
   CHECK_ERR("Init threads");
 
+
+  CHECK_BRANCHES;
   TEST_END(init_resources);
 
+#ifdef RUN_SINGLE_RECEIVE
   TEST_START(only_receive_one);
 
   opts[0].time= RUNTIME;
@@ -218,11 +224,14 @@ int main()
   memset(&(stats[0]), 0, sizeof(struct stats));
 
 
+  CHECK_BRANCHES;
   TEST_END(only_receive_one);
+#endif
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats));
 
+#ifdef RUN_RECEIVE
   TEST_START(only_receive);
 
   for(i=0;i<N_THREADS;i+=2)
@@ -246,14 +255,15 @@ int main()
   }
   CHECK_ERR("Whole receive test");
 
+  CHECK_BRANCHES;
   TEST_END(only_receive);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SINGLE_SEND
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
-  D("num elems wtf %d",, opts[1].buf_num_elems);
-  D("num elems wtf %d",, events[1].opt->buf_num_elems);
   err = start_thread(&(events[1]));
   CHECK_ERR("start thread");
   err = close_thread(&(events[1]));
@@ -267,10 +277,13 @@ int main()
     return -1;
   }
 
+  CHECK_BRANCHES;
   TEST_END(only_send_one);
+#endif // RUN_SINGLE_SEND
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SEND
   TEST_START(only_send);
   for(i=1;i<N_THREADS;i+=2)
   {
@@ -292,9 +305,12 @@ int main()
     }
   }
   CHECK_ERR("Whole only send test");
+  CHECK_BRANCHES;
   TEST_END(only_send);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SINGLE_SEND_AND_RECEIVE
   TEST_START(send_and_receive_one);
 
   err = start_thread(&(events[0]));
@@ -315,9 +331,12 @@ int main()
     E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
     return -1;
   }
+  CHECK_BRANCHES;
   TEST_END(send_and_receive_one);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_FSINGLE_SEND_AND_RECEIVE
   TEST_START(send_faster_and_receive_one);
   opts[1].wait_nanoseconds = 0;
 
@@ -339,10 +358,13 @@ int main()
     E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
     return -1;
   }
+  CHECK_BRANCHES;
   TEST_END(send_faster_and_receive_one);
+#endif
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SEND_AND_RECEIVE
   TEST_START(send_and_receive);
   for(i=0;i<N_THREADS;i+=2)
   {
@@ -358,30 +380,37 @@ int main()
     CHECK_ERR("Start thread");
   }
   int retval = 0;
-  for(i=0;i<N_THREADS;i+=2)
+  for(i=0;i<N_THREADS;i++)
   {
-    err = close_thread(&(events[i]));
-    CHECK_ERR("Close receiver");
-  }
-  for(i=1;i<N_THREADS;i+=2)
-  {
-    err = close_thread(&(events[i]));
-    CHECK_ERR("Close thread");
-    D("Closed a pair. Checking bytes");
-    if (stats[i].total_bytes == stats[i-1].total_bytes)
+    if(i % 2 == 0)
     {
-      D("sent %ld bytes correctly",, stats[i].total_bytes);
+      D("Waiting for %s recording to stop",, events[i].opt->filename);
+      err = close_thread(&(events[i]));
+      CHECK_ERR("Close receiver");
     }
-    else{
-      E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
-      retval--;
+    else
+    {
+      D("Waiting for %s sending to stop",, events[i].opt->filename);
+      err = close_thread(&(events[i]));
+      CHECK_ERR("Close thread");
+      D("Closed a pair. Checking bytes");
+      if (stats[i].total_bytes == stats[i-1].total_bytes)
+      {
+	D("sent %ld bytes correctly",, stats[i].total_bytes);
+      }
+      else{
+	E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
+	retval--;
+      }
     }
   }
   if(retval != 0){
     E("Atleast one thread didn't send & receive the same. Errors: %d",, retval);
     return -1;
   }
+  CHECK_BRANCHES;
   TEST_END(send_and_receive);
+#endif
 
   TEST_START(close_resources);
   D("Closing membranch and diskbranch");

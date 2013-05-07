@@ -18,6 +18,9 @@ struct sender_tracking{
   unsigned long packets_loaded;
   unsigned long packets_sent;
   unsigned long files_in_loading;
+  unsigned long n_packets_probed;
+  unsigned long n_files_probed;
+  int 		status_probed;
   //unsigned long packetpeek;
   TIMERTYPE now;
 #if(SEND_DEBUG)

@@ -161,9 +161,14 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
 	UNLOCK(&(br->branchlock));
 	return NULL;
       }
-      //LOG("Failed to get free buffer: Resources might be running out! Sleeping\n");
+      D("Failed to get free buffer: Resources might be running out! Sleeping\n");
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
       /* Check if something was added to freelist */
+      if(ret_zero_if_stillshouldrun(opt) != 0){
+	D("Threads is over.");
+	UNLOCK(&(br->branchlock));
+	return NULL;
+      }
       temp = br->freelist;
     }
     if(temp->check != NULL)
@@ -181,6 +186,11 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
 	}
 	LOG("Failed to get free or fit buffer. Sleeping");
 	pthread_cond_wait(&(br->busysignal), &(br->branchlock));
+	if(ret_zero_if_stillshouldrun(opt) != 0){
+	  D("Threads is over.");
+	  UNLOCK(&(br->branchlock));
+	  return NULL;
+	}
       }
     }
   }

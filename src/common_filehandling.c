@@ -17,7 +17,7 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
 
   if(target != NULL)
   {
-    while(*target <= opt->fi->n_files && opt->fi->files[*target].status & FH_MISSING){
+    while(*target <= st->n_files_probed && opt->fi->files[*target].status & FH_MISSING){
       long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
 
       D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
@@ -40,12 +40,12 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
 
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
-  long nuf = MIN((get_n_packets(opt->fi) - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  long nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   int err;
   D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
   FI_READLOCK(opt->fi);
   skip_missing(opt,st,SKIP_LOADED);
-  if(st->files_loaded == opt->fi->n_files){
+  if(st->files_loaded == st->n_files_probed){
     D("Loaded up to n_files!");
     FIUNLOCK(opt->fi);
     return DONTRYLOADNOMORE;
@@ -140,7 +140,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   */
   *inc = nuf*(opt->packet_size);
 
-  be->set_ready(be);
+  be->set_ready(be, 1);
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
   D("Loading request complete for id %lu",, st->files_loaded);
@@ -190,6 +190,7 @@ void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st)
   SETONE(st->onenano);
 #endif
   ZEROTIME(st->req);
+  full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
 }
 inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
 {
@@ -199,13 +200,15 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
     return 0;
   }
   /* Check if the receiver is still running */
-  if(opt->optbits & READMODE && get_status(opt->fi) & FILESTATUS_RECORDING){
+  /*
+  if(opt->optbits & READMODE && (st->status_probed & FILESTATUS_RECORDING)){
     return 1;
   }
-  if(get_n_packets(opt->fi) > st->packets_sent)
+  */
+  if(st->n_packets_probed > st->packets_sent)
     return 1;
   /* If we still have files */
-  if(st->files_sent != get_n_files(opt->fi)){
+  if(st->files_sent != st->n_files_probed){
     return 1;
   }
   /* If there's still packets to be sent */
@@ -233,27 +236,33 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
+  full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
+  //st->n_files_probed = get_n_files(opt->fi);
+  //st->status_probed = get_status(opt->fi);
   if(se->be != NULL){
-    st->files_sent++;
     D("Buffer empty for: %lu",, st->files_sent);
+    st->files_sent++;
     /* Not too efficient to free and then get a new, but doing this for simpler logic	 */
     D("Freeing used buffer for other use");
     set_free(opt->membranch, se->be->self);
     se->be = NULL;
     st->allocated_to_load++;
-    if(st->files_sent == get_n_files(opt->fi)){
-      if(opt->fi->status & FILESTATUS_RECORDING){
-	D("All sent, but we're still recording on %s",, opt->filename);	
-	err = wait_on_update(opt->fi);
-	CHECK_ERR("wait on update");
-	return jump_to_next_file(opt,se,st);
-      }
-      else
-	return ALL_DONE;
+  }
+  while(st->files_sent == st->n_files_probed){
+    if((st->status_probed = get_status(opt->fi)) & FILESTATUS_RECORDING){
+      D("All sent with %ld packets, but we're still recording on %s",,st->packets_sent, opt->filename);	
+      err = wait_on_update(opt->fi);
+      CHECK_ERR("wait on update");
+      st->n_files_probed = get_n_files(opt->fi);
+    }
+    else{
+      return ALL_DONE;
     }
   }
+  st->n_packets_probed = get_n_packets(opt->fi);
+  //st->status_probed = get_status(opt->fi);
   /* -1 here, since indexes start at 0 */
-  while(st->files_loaded < (get_n_files(opt->fi)) && st->allocated_to_load > 0){
+  while(st->files_loaded < st->n_files_probed && st->allocated_to_load > 0){
     D("Still files to be loaded. Loading %lu. Allocated %d",, st->files_loaded, st->allocated_to_load);
     /* start_loading increments files_loaded */
     err = start_loading(opt, se->be, st);

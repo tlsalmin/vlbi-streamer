@@ -44,6 +44,12 @@ int dummy_release(void* recco)
   ioi->opt = NULL;
   return 0;
 }
+off_t dummy_getfilesize(void *reb)
+{
+  struct recording_entity * re = (struct recording_entity*)reb;
+  struct common_io_info *ioi = (struct common_io_info*)re->opt;
+  return CALC_BUFSIZE_FROM_OPT(ioi->opt);
+}
 int return_zero(struct recording_entity* recco, void * something)
 {
   (void)recco;
@@ -58,6 +64,7 @@ int dummy_init_dummy(struct opt_s * opt, struct recording_entity *re){
 
   re->get_r_flags = dummy_get_r_fflags;
   re->get_w_flags = dummy_get_w_fflags;
+  re->get_filesize = dummy_getfilesize;
 
   D("Running default init");
 

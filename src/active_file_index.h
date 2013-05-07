@@ -71,4 +71,5 @@ unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_a
 int mutex_free_wait_on_update(struct file_index *fi);
 int wait_on_update(struct file_index *fi);
 int wake_up_waiters(struct file_index *fi);
+int full_metadata_update(struct file_index* fi, long unsigned * files, long unsigned * packets, int *status);
 #endif
