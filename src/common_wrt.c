@@ -517,7 +517,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 
     FI_WRITELOCK(opt->fi);
     struct fileholder* fh = opt->fi->files;
-    n_files = get_n_files(opt->fi);
+    n_files = opt->fi->n_files;
     for(i=0;i<n_files;i++)
     {
       fh->status &= ~FH_MISSING;
@@ -572,7 +572,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	//temp = atoi(ent->d_name);
 	//temp = atoi(the_index);
 	temp = atoi(start_of_index);
-	if((unsigned long)temp >= get_n_files(opt->fi))
+	if((unsigned long)temp >= opt->fi->n_files)
 	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
 	else
 	{

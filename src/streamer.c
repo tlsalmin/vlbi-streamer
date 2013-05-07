@@ -31,6 +31,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <sys/syscall.h>
 #include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
@@ -77,11 +78,7 @@
 #define STREAMER_ERROR_EXIT return -1
 #endif
 
-#if(PPRIORITY)
-#define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); pthread_attr_destroy(&pta);exit(-1);
-#else
 #define FREE_AND_ERROREXIT if(opt->device_name != NULL){free(opt->device_name);} config_destroy(&(opt->cfg)); free(opt->membranch); free(opt->diskbranch); exit(-1);
-#endif
 /* This should be more configurable */
 extern char *optarg;
 extern int optind, optopt;
@@ -703,9 +700,6 @@ int init_rbufs(struct opt_s *opt){
   opt->bes = (struct buffer_entity*)malloc(sizeof(struct buffer_entity)*opt->n_threads);
   CHECK_ERR_NONNULL(opt->bes, "buffer entity malloc");
 
-#if(PPRIORITY)
-  err = prep_priority(opt, RBUF_PRIO);
-#endif
 
   D("Initializing buffer threads");
 
@@ -715,11 +709,7 @@ int init_rbufs(struct opt_s *opt){
     CHECK_ERR("sbuf init");
 
     D("Starting buffer thread");
-#if(PPRIORITY)
-    err = pthread_create(&(opt->rbuf_pthreads[i]), &(opt->pta), (opt->bes[i]).write_loop,(void*)&(opt->bes[i]));
-#else
     err = pthread_create(&(opt->rbuf_pthreads[i]), NULL, opt->bes[i].write_loop,(void*)&(opt->bes[i]));
-#endif
     CHECK_ERR("pthread create");
 #ifdef TUNE_AFFINITY
     if(cpusetter == processors)
@@ -796,9 +786,6 @@ int close_opts(struct opt_s *opt){
       close(opt->singlefile_fd);
   }
   config_destroy(&(opt->cfg));
-#if(PPRIORITY)
-  pthread_attr_destroy(&(opt->pta));
-#endif
   if(opt->cumul != NULL)
     free(opt->cumul);
   /*
@@ -808,61 +795,6 @@ int close_opts(struct opt_s *opt){
   free(opt);
   return 0;
 }
-#if(PPRIORITY)
-#define CASEOF(x) case x:\
-  D(#x);\
-break;
-int prep_priority(struct opt_s * opt, int priority){
-
-  int err; 
-  int realprio;
-  int minprio,maxprio;
-  int scheduler = sched_getscheduler(getpid());
-  struct sched_param schedp;
-#if(DEBUG_OUTPUT)
-  switch(scheduler){	
-    CASEOF(SCHED_OTHER)
-    CASEOF(SCHED_BATCH)
-    //CASEOF(SCHED_IDLE)
-    CASEOF(SCHED_FIFO)
-    CASEOF(SCHED_RR)
-  }
-#endif
-  err = sched_getparam(getpid(), &schedp);
-
-  minprio = sched_get_priority_min(scheduler);
-  maxprio = sched_get_priority_max(scheduler);
-  D("Min prio: %d, max prio: %d",, minprio, maxprio);
-
-  realprio = schedp.sched_priority - priority;
-  if(realprio < 0)
-    realprio=0;
-  D("Setting prio to %d",, realprio);
-
-  memset(&(opt->param), 0, sizeof(struct sched_param));
-
-  err = pthread_attr_getschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error getting schedparam for pthread attr: %s",,strerror(err));
-  else
-    D("Schedparam set to %d, Trying to set to %d",, opt->param.sched_priority, realprio);
-
-  err = pthread_attr_setschedpolicy(&(opt->pta), scheduler);
-  if(err != 0)
-    E("Error setting schedtype for pthread attr: %s",,strerror(err));
-
-  opt->param.sched_priority = realprio;
-  err = pthread_attr_setschedparam(&(opt->pta), &(opt->param));
-  if(err != 0)
-    E("Error setting schedparam for pthread attr: %s",,strerror(err));
-  err = pthread_attr_setinheritsched(&(opt->pta), PTHREAD_INHERIT_SCHED);
-  if(err != 0)
-    E("Error Setting inheritance");
-  D("Done prepping priority");
-
-  return 0;
-}
-#endif
 int prep_streamer(struct opt_s* opt){
   int err = 0;
   D("Initializing streamer thread");
@@ -1052,22 +984,16 @@ int main(int argc, char **argv)
   else
     LOG("STREAMER: In main, starting receiver thread \n");
 
-#if(PPRIORITY)
-  
-  if(opt->optbits & READMODE)
-    prep_priority(opt, SEND_THREAD_PRIO);
-  else
-    prep_priority(opt, RECEIVE_THREAD_PRIO);
-  err = pthread_create(&streamer_pthread, &(opt->pta), opt->streamer_ent->start, (void*)opt->streamer_ent);
-#else
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
-#endif
 
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
   opt->status = STATUS_RUNNING;
+
+  /* Other thread spawned so we can minimize our priority 	*/
+  minimize_priority();
 
 #ifdef TUNE_AFFINITY
   /* Caused some weird ass bugs and crashes so not used anymore NEVER 	*/
@@ -1363,3 +1289,14 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
       break;
   }
 }
+#if(PPRIORITY)
+int minimize_priority(){
+  pid_t tid  = syscall(SYS_gettid);
+  D("Setting tid %d prio from %d to %d",, tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);
+  /* manpage said to clear this	*/
+  errno=0;
+  if((setpriority(PRIO_PROCESS, tid, MIN_PRIO_FOR_UNIMPORTANT)) != 0)
+    E("Setpriority");
+  return 0;
+}
+#endif

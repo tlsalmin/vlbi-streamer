@@ -30,6 +30,12 @@
 #include <string.h> /* MEMSET */
 #include <poll.h>
 #include <signal.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <sys/syscall.h>
 
 #include "config.h"
 #include "streamer.h"
@@ -189,14 +195,7 @@ int start_event(struct scheduled_event *ev)
     err = pthread_cond_init(ev->opt->writequeue_signal, NULL);
     CHECK_ERR("init writequeue signal");
   }
-#if(PPRIORITY)
-  err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
-  if(err != 0)
-    E("error in priority prep! Wont stop though..");
-  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
-#else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
-#endif
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
   return 0;
@@ -500,27 +499,10 @@ int main(int argc, char **argv)
   }
 #endif
 #if(PPRIORITY)
-  //pid_t ourpid;
-  struct sched_param schedp;
-  LOG("Waiting one sec for chrt to kick in\n");
-  //ourpid = getpid();
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority before sleep %d\n", schedp.sched_priority);
-  sleep(3);
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority after sleep %d\n", schedp.sched_priority);
-  schedp.sched_priority = 60;
-  sched_setscheduler(getpid(), SCHED_FIFO, &schedp);
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority after setting priority %d\n", schedp.sched_priority);
+  LOG("Priority before sleep in getprio %d\n", getpriority(PRIO_PROCESS, syscall(SYS_gettid)));
+  sleep(1);
+  LOG("Priority after sleep in getprio %d\n", getpriority(PRIO_PROCESS, syscall(SYS_gettid)));
 #endif
-
 
   struct stats* tempstats = NULL;//, stats_temp;
   TIMERTYPE *temptime = NULL;

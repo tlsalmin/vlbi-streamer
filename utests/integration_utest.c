@@ -9,14 +9,15 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 128 
+#define N_THREADS 128
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
-#define NUMBER_OF_PACKETS 4096
+#define NUMBER_OF_PACKETS 8192
 #define N_DRIVES 512
 #define RUNTIME 10
+
 
 char ** filenames;
 struct opt_s* dopt;
@@ -141,6 +142,16 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   return 0;
 }
 
+/*
+#define RUN_SINGLE_RECEIVE
+#define RUN_RECEIVE
+#define RUN_SINGLE_SEND
+#define RUN_SEND
+#define RUN_SINGLE_SEND_AND_RECEIVE
+#define RUN_FSINGLE_SEND_AND_RECEIVE
+*/
+#define RUN_SEND_AND_RECEIVE
+
 int main()
 {
   int i,err;
@@ -159,10 +170,6 @@ int main()
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
   dopt->cumul = NULL;
-  /*
-  dopt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  *dopt->cumul = 0;
-  */
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
   stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
@@ -200,6 +207,7 @@ int main()
 
   TEST_END(init_resources);
 
+#ifdef RUN_SINGLE_RECEIVE
   TEST_START(only_receive_one);
 
   opts[0].time= RUNTIME;
@@ -219,10 +227,12 @@ int main()
 
 
   TEST_END(only_receive_one);
+#endif
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats));
 
+#ifdef RUN_RECEIVE
   TEST_START(only_receive);
 
   for(i=0;i<N_THREADS;i+=2)
@@ -247,8 +257,10 @@ int main()
   CHECK_ERR("Whole receive test");
 
   TEST_END(only_receive);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SINGLE_SEND
   TEST_START(only_send_one);
 
   //opts[1].time= 10;
@@ -268,9 +280,11 @@ int main()
   }
 
   TEST_END(only_send_one);
+#endif // RUN_SINGLE_SEND
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SEND
   TEST_START(only_send);
   for(i=1;i<N_THREADS;i+=2)
   {
@@ -293,8 +307,10 @@ int main()
   }
   CHECK_ERR("Whole only send test");
   TEST_END(only_send);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SINGLE_SEND_AND_RECEIVE
   TEST_START(send_and_receive_one);
 
   err = start_thread(&(events[0]));
@@ -316,8 +332,10 @@ int main()
     return -1;
   }
   TEST_END(send_and_receive_one);
+#endif
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_FSINGLE_SEND_AND_RECEIVE
   TEST_START(send_faster_and_receive_one);
   opts[1].wait_nanoseconds = 0;
 
@@ -340,9 +358,11 @@ int main()
     return -1;
   }
   TEST_END(send_faster_and_receive_one);
+#endif
 
   format_threads(dopt,opts);
   memset(stats, 0, sizeof(struct stats)*N_THREADS);
+#ifdef RUN_SEND_AND_RECEIVE
   TEST_START(send_and_receive);
   for(i=0;i<N_THREADS;i+=2)
   {
@@ -382,6 +402,7 @@ int main()
     return -1;
   }
   TEST_END(send_and_receive);
+#endif
 
   TEST_START(close_resources);
   D("Closing membranch and diskbranch");

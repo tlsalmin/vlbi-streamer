@@ -662,6 +662,7 @@ int write_buffer(struct buffer_entity *be)
 void *sbuf_simple_write_loop(void *buffo)
 {
   D("Starting simple write loop");
+  minimize_priority();
   struct buffer_entity * be = (struct buffer_entity *)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int ret=0;

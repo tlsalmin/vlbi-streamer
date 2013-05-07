@@ -397,19 +397,13 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
  * the logic and lead to high probability of bugs
  *
  */
-void * udp_sender(void *streamo){
+void * udp_sender(void *streamo)
+{
   int err = 0;
   void* buf;
-  //int i=0;
+
   long *inc, sentinc=0,packetcounter=0;
-  //int max_buffers_in_use=0;
-  //unsigned long cumulpeek;
-  //unsigned long packetpeek;
-  //int active_buffers;
-  //struct fileholder* tempfh;
-  /* If theres a wait_nanoseconds, it determines the amount of buffers	*/
-  /* we have in use at any time						*/
-  //int besindex;
+
   struct streamer_entity *se =(struct streamer_entity*)streamo;
   struct udpopts *spec_ops = (struct udpopts *)se->opt;
   struct sender_tracking st;
@@ -460,30 +454,29 @@ void * udp_sender(void *streamo){
   */
 
   GETTIME(spec_ops->opt->wait_last_sent);
-  long packetpeek = get_n_packets(spec_ops->opt->fi);
+  //long packetpeek = get_n_packets(spec_ops->opt->fi);
   //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
   while(should_i_be_running(spec_ops->opt, &st) == 1){
-    if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - packetpeek  == 0))
+    if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - st.n_packets_probed  == 0))
     {
       err = jump_to_next_file(spec_ops->opt, se, &st);
-      if(err == ALL_DONE)
+      if(err == ALL_DONE){
 	UDPS_EXIT;
+	break;
+      }
       else if (err < 0){
 	E("Error in getting buffer");
 	UDPS_EXIT_ERROR;
+	break;
       }
       buf = se->be->simple_get_writebuf(se->be, &inc);
-      packetpeek = get_n_packets(spec_ops->opt->fi);
+      //packetpeek = get_n_packets(spec_ops->opt->fi);
       packetcounter = 0;
       sentinc = 0;
       //i=0;
     }
     udps_wait_function(&st, spec_ops->opt);
-#ifdef DUMMYSOCKET
-    err = spec_ops->opt->packet_size;
-#else
     err = sendto(spec_ops->fd, (buf+sentinc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
-#endif
 
 
     // Increment to the next sendable packet
