@@ -9,17 +9,22 @@ then
   usage
   exit 1
 fi
+ONECFG=""
 ROOTDIRS=/mnt/disk
-#ONECFG=`find ${ROOTDIRS%/*} | grep ${RECNAME}.cfg`
+I=0
+while [ -z "$ONECFG" ]
+do
+  ONECFG=`find ${ROOTDIRS}${I} -name ${RECNAME}.cfg`
+  #ONECFG=`find ${ROOTDIRS}* -name ${RECNAME}.cfg |head -n1`
+  I=$(($I+1))
+done
 #Find is sooo slow
-ONECFG=/mnt/unionfs/${RECNAME}/${RECNAME}.cfg
+#ONECFG=/mnt/unionfs/${RECNAME}/${RECNAME}.cfg
 PSIZE=`cat $ONECFG |grep packet_size|awk '{print $3}'|sed 's/[^0-9]//g'`
 echo $PSIZE
 
-for j in `find /mnt/unionfs/${RECNAME}/ | grep -v cfg |sort -n -t . -k 2`
+for j in `find /mnt/disk*/${RECNAME}/ | egrep '[0-9]{8}\$' |sort -n -t . -k 2`
 do
-  #if [ -e "$j" ]
-  #then
-    check_64_seq $j $PSIZE
-  #fi
+  echo file ${j}:
+  check_64_seq $j $PSIZE
 done

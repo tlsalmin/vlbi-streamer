@@ -35,6 +35,9 @@ struct file_index{
   char* filename;
   int associations;
   struct file_index* next;
+  /* Had to add this here, so live sendings can		*/
+  /* Probe the packet size				*/
+  long unsigned packet_size;
 
   /* Protected by internal lock */
   struct fileholder *files;
@@ -57,7 +60,7 @@ int close_file_index(struct file_index* closing);
 int close_active_file_index();
 struct file_index* get_fileindex(char * name, int associate);
 int disassociate(struct file_index* dis, int type);
-struct file_index * add_fileindex(char * name, unsigned long n_files, int status);
+struct file_index * add_fileindex(char * name, unsigned long n_files, int status, unsigned long packet_size);
 int update_fileholder_status_wname(char * name, unsigned long filenum, int status, int action);
 int update_fileholder_status(struct file_index * fi, unsigned long filenum, int status, int action);
 inline void zero_fileholder(struct fileholder* fh);
@@ -71,4 +74,6 @@ unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_a
 int mutex_free_wait_on_update(struct file_index *fi);
 int wait_on_update(struct file_index *fi);
 int wake_up_waiters(struct file_index *fi);
+int full_metadata_update(struct file_index* fi, long unsigned * files, long unsigned * packets, int *status);
+unsigned long get_packet_size(struct file_index* fi);
 #endif

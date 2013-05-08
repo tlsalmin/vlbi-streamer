@@ -30,6 +30,12 @@
 #include <string.h> /* MEMSET */
 #include <poll.h>
 #include <signal.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <sys/syscall.h>
 
 #include "config.h"
 #include "streamer.h"
@@ -166,11 +172,21 @@ int free_and_close(void *le){
 int start_event(struct scheduled_event *ev)
 {
   int err;
+  struct opt_s *opt = ev->opt;
 
   err = init_cfg(ev->opt);
   if(err != 0){
     E("Error in cfg init");
     return -1;
+  }
+  /* Special case when recording was stripped and buf_num_elems is different */
+  if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
+    opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
+    D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
+  }
+  else{
+    opt->buf_num_elems = opt->filesize / opt->packet_size;
+    D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -189,14 +205,7 @@ int start_event(struct scheduled_event *ev)
     err = pthread_cond_init(ev->opt->writequeue_signal, NULL);
     CHECK_ERR("init writequeue signal");
   }
-#if(PPRIORITY)
-  err = prep_priority(ev->opt, MIN_PRIO_FOR_PTHREAD);
-  if(err != 0)
-    E("error in priority prep! Wont stop though..");
-  err = pthread_create(&(ev->pt), &(ev->opt->pta), vlbistreamer,(void*)ev->opt);
-#else
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
-#endif
   CHECK_ERR("streamer thread create");
   /* TODO: check if packet size etc. match original config */
   return 0;
@@ -355,15 +364,6 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* We might need to calc buf_num_elems again */
 
-  /* Special case when recording was stripped and buf_num_elems is different */
-  if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
-    opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
-    D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
-  }
-  else{
-    opt->buf_num_elems = opt->filesize / opt->packet_size;
-    D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
-  }
 
   LOG("New request is for session: %s\n", opt->filename);
   D("Opts checked, port is %d",, opt->port);
@@ -500,27 +500,10 @@ int main(int argc, char **argv)
   }
 #endif
 #if(PPRIORITY)
-  //pid_t ourpid;
-  struct sched_param schedp;
-  LOG("Waiting one sec for chrt to kick in\n");
-  //ourpid = getpid();
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority before sleep %d\n", schedp.sched_priority);
-  sleep(3);
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority after sleep %d\n", schedp.sched_priority);
-  schedp.sched_priority = 60;
-  sched_setscheduler(getpid(), SCHED_FIFO, &schedp);
-  err = sched_getparam(getpid(), &schedp);
-  if(err != 0)
-    E("Error in getparam");
-  LOG("Priority after setting priority %d\n", schedp.sched_priority);
+  LOG("Priority before sleep in getprio %d\n", getpriority(PRIO_PROCESS, syscall(SYS_gettid)));
+  sleep(1);
+  LOG("Priority after sleep in getprio %d\n", getpriority(PRIO_PROCESS, syscall(SYS_gettid)));
 #endif
-
 
   struct stats* tempstats = NULL;//, stats_temp;
   TIMERTYPE *temptime = NULL;

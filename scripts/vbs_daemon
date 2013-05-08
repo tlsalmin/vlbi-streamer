@@ -16,7 +16,8 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin
 DESC="Vlbistreamer packet streaming service"
 NAME=vlbistreamer
 PPRIORITY=no
-RTPRIO=20
+#RTPRIO=20
+NICENESS=-10
 TIMEOUT=5
 DEBVARS=/lib/init/vars.sh
 DISTRO=OTHER
@@ -124,22 +125,23 @@ do_start()
     retval=-1
     if [ "$DISTRO" == "DEBIAN" ]
     then
-      start-stop-daemon --start --make-pidfile --pidfile $PIDFILE -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS
+      start-stop-daemon --start --make-pidfile --pidfile $PIDFILE -c ${USER}:{GROUP} --user ${USER} --group ${GROUP} --nicelevel $NICENESS --background --name $NAME ${PPSTRING} --quiet  --exec $DAEMON -- $DAEMON_ARGS
       retval=$?
     else
       #TODO: -g ${group} doesn't work for some reason
       sudo -u ${USER} $DAEMON &> $LOGFILE &
       retval=$?
+      sudo renice -n $NICENESS $retval
       echo $! > $PIDFILE
     fi
     if [ "$retval" == 0 ]
     then
-      if [ "$PPRIORITY" == "yes" ]
-      then
+      #if [ "$PPRIORITY" == "yes" ]
+      #then
 	#TODO: This is not the correct way
-	sleep 1
-	chrt -f -p $RTPRIO  $(cat $PIDFILE) |tee -a $LOGFILE
-      fi
+	#sleep 1
+	#chrt -f -p $RTPRIO  $(cat $PIDFILE) |tee -a $LOGFILE
+      #fi
       #TODO: whats the right way to check if it started ok? 
       #TODO Doesn't work from service..
       echo $(date --rfc-3339=seconds) "Vlbistreamer started" | tee -a  $LOGFILE

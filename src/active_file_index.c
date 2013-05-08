@@ -111,7 +111,6 @@ int add_file(struct file_index* fi, long unsigned id, int diskid, int status)
 }
 int close_active_file_index()
 {
-  //MAINLOCK;
   int err,retval=0;
   struct file_index* temp = files;
   struct file_index* temp2;
@@ -125,10 +124,7 @@ int close_active_file_index()
     }
   }
   files = NULL;
-  //MAINUNLOCK;
-  //pthread_spin_destroy(&mainlock);
   CLOSEMAINLOCK;
-  //free(mainlock);
   return retval;
 }
 struct file_index* get_fileindex_mutex_free(char * name, int associate)
@@ -166,7 +162,7 @@ inline struct file_index* get_last()
   return returnable;
 }
 /* Returns existing file_index if found or creates new if not */
-struct file_index * add_fileindex(char * name, unsigned long n_files, int status)
+struct file_index * add_fileindex(char * name, unsigned long n_files, int status, unsigned long packet_size)
 {
   D("Adding new file %s to index",, name);
   struct file_index * new;
@@ -236,6 +232,8 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files));
   CHECK_ERR_NONNULL_RN(new->files);
   new->status = status;
+  if(status == FILESTATUS_RECORDING)
+    new->packet_size = packet_size;
   FIUNLOCK(new);
   D("File %s added to index",, new->filename);
   return new;
@@ -250,7 +248,7 @@ int disassociate(struct file_index* dis, int type)
     return -1;
   }
   /*Handling associations requires mainlock */
-  MAINLOCK;
+  FI_WRITELOCK(dis);
   D("Disassociating with %s which has %d associations",, dis->filename, dis->associations);
   assert(dis->associations > 0);
   dis->associations--;
@@ -264,14 +262,14 @@ int disassociate(struct file_index* dis, int type)
   }
   /* Hmm so the other side isn't really relevant ..*/
   if(dis->associations == 0){
-    D("File has no more associations. Closing it");
+    D("%s has no more associations. Closing it",, dis->filename);
     err = close_file_index_mutex_free(dis);
     signal = 0;
   }
   else{
+    FIUNLOCK(dis);
     D("Still associations to %s",, dis->filename);
   }
-  MAINUNLOCK;
   if(signal == 1)
     wake_up_waiters(dis);
   return err;
@@ -374,36 +372,54 @@ int remove_specific_from_fileholders(char* name, int recid)
 }
 long unsigned get_n_files(struct file_index* fi)
 {
-  //long unsigned ret;
-  //FILOCK(fi);
-  //ret = fi->n_files;
-  //FIUNLOCK(fi);
-  //return ret;
-  return __sync_fetch_and_add(&(fi->n_files),0);
+  long unsigned ret;
+  FI_READLOCK(fi);
+  ret = fi->n_files;
+  FIUNLOCK(fi);
+  return ret;
+  //return __sync_fetch_and_add(&(fi->n_files),0);
 }
 long unsigned get_n_packets(struct file_index* fi)
 {
-  /*
   long unsigned ret;
-  FILOCK(fi);
+  FI_READLOCK(fi);
   ret = fi->n_packets;
   FIUNLOCK(fi);
   return ret;
-  */
-  return __sync_fetch_and_add(&(fi->n_packets),0);
+  //return __sync_fetch_and_add(&(fi->n_packets),0);
 }
 unsigned long add_to_packets(struct file_index *fi, unsigned long n_packets_to_add)
 {
-  return __sync_add_and_fetch(&(fi->n_packets), n_packets_to_add);
+  unsigned long n_packets;
+  FI_WRITELOCK(fi);
+  fi->n_packets+=n_packets_to_add;
+  n_packets = fi->n_packets;
+  FIUNLOCK(fi);
+  return n_packets;
 }
 int get_status(struct file_index * fi)
 {
-  /*
   int ret;
-  MAINLOCK;
+  FI_READLOCK(fi);
   ret = fi->status;
-  MAINUNLOCK;
+  FIUNLOCK(fi);
   return ret;
-  */
-  return __sync_fetch_and_add(&(fi->status),0);
+  //return __sync_fetch_and_add(&(fi->status),0);
+}
+int full_metadata_update(struct file_index* fi, long unsigned * files, long unsigned * packets, int *status)
+{
+  FI_READLOCK(fi);
+  *files = fi->n_files;
+  *packets = fi->n_packets;
+  *status = fi->status;
+  FIUNLOCK(fi);
+  return 0;
+}
+unsigned long get_packet_size(struct file_index* fi)
+{
+  unsigned long temp;
+  FI_READLOCK(fi);
+  temp = fi->packet_size;
+  FIUNLOCK(fi);
+  return temp;
 }
