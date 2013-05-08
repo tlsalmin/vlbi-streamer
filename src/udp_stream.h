@@ -31,8 +31,8 @@
 
 #define WRONGSIZELIMITBEFOREEXIT 20
 
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}pthread_exit(NULL);}while(0)
-#define UDPS_EXIT_ERROR do {D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_ERROR;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}pthread_exit(NULL);pthread_exit(NULL);}while(0)
+#define UDPS_EXIT do {spec_ops->opt->total_packets = st.n_packets_probed;D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}pthread_exit(NULL);}while(0)
+#define UDPS_EXIT_ERROR do {spec_ops->opt->total_packets = st.n_packets_probed; D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_ERROR;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}pthread_exit(NULL);pthread_exit(NULL);}while(0)
 
 /*
  * TODO: Change the function names to udps_<name>

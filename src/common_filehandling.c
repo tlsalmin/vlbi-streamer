@@ -7,7 +7,7 @@
 extern FILE* logfile;
 #define SKIP_LOADED 	1
 #define SKIP_SENT 	2
-inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
+void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
 {
   unsigned long * target = NULL;
   if(lors == SKIP_LOADED)
@@ -40,16 +40,15 @@ inline void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors
 
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
+  skip_missing(opt,st,SKIP_LOADED);
   long nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   int err;
-  D("Loading: %lu, packets loaded is %lu",, nuf, st->packets_loaded);
-  FI_READLOCK(opt->fi);
-  skip_missing(opt,st,SKIP_LOADED);
+  D("Loading: %lu, packets loaded is %lu, packet probed %ld",, nuf, st->packets_loaded, st->n_packets_probed);
   if(st->files_loaded == st->n_files_probed){
     D("Loaded up to n_files!");
-    FIUNLOCK(opt->fi);
     return DONTRYLOADNOMORE;
   }
+  FI_READLOCK(opt->fi);
   if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
     if(FH_STATUS(st->files_loaded) & (FH_BUSY|FH_INMEM))
     {
@@ -253,13 +252,14 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       D("All sent with %ld packets, but we're still recording on %s",,st->packets_sent, opt->filename);	
       err = wait_on_update(opt->fi);
       CHECK_ERR("wait on update");
-      st->n_files_probed = get_n_files(opt->fi);
+      full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
     }
     else{
       return ALL_DONE;
     }
   }
-  st->n_packets_probed = get_n_packets(opt->fi);
+  //full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
+  //st->n_packets_probed = get_n_packets(opt->fi);
   //st->status_probed = get_status(opt->fi);
   /* -1 here, since indexes start at 0 */
   while(st->files_loaded < st->n_files_probed && st->allocated_to_load > 0){

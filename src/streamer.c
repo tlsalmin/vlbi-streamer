@@ -1298,6 +1298,9 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
   }
 }
 #if(PPRIORITY)
+/*
+ *  http://stackoverflow.com/questions/902539/nice-level-for-pthreads
+ */
 int minimize_priority(){
   pid_t tid  = syscall(SYS_gettid);
   D("Setting tid %d prio from %d to %d",, tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);

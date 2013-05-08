@@ -571,7 +571,7 @@ int init_cfg(struct opt_s *opt){
 	  D("Getting opts from first config, cumul is %lu",, *opt->cumul);
 
 	  int j;
-	  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING);
+	  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING, 0);
 	  if(opt->fi == NULL){
 	    E("File index add");
 	    retval = -1;
@@ -607,7 +607,8 @@ int init_cfg(struct opt_s *opt){
       LOG("No config file found! This means no recording %s found\n", opt->filename);
       if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
       {
-	LOG("%s is a Live recording exists. Everything is fine\n", opt->filename);
+	opt->packet_size = get_packet_size(opt->fi);
+	LOG("%s is a Live recording exists. Everything is fine and packet size is %ld\n", opt->filename, opt->packet_size);
 	retval = 0;
       }
       else
@@ -629,7 +630,7 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(root, "Get root");
     stub_rec_cfg(root, NULL);
     */
-    opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING);
+    opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING, opt->packet_size);
     if(opt->fi == NULL){
       E("opt-fi init"); 
       retval = -1;

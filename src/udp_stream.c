@@ -965,10 +965,9 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     if(resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
-      if(spec_ops->opt->fi != NULL){
-	unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-	D("%s : N packets is now %lu",,spec_ops->opt->filename, n_now);
-      }
+      ASSERT(spec_ops->opt->fi != NULL);
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      D("%s : N packets is now %lu",,spec_ops->opt->filename, n_now);
 
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	D("Jumping to next buffer normally");
@@ -1114,7 +1113,7 @@ void* udp_receiver(void *streamo)
   else{
     if(spec_ops->opt->fi != NULL){
       unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-      D("N packets is now %lu",, n_now);
+      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
     }
     (*spec_ops->opt->cumul)++;
     se->be->set_ready_and_signal(se->be,0);

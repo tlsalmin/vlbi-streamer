@@ -162,7 +162,7 @@ inline struct file_index* get_last()
   return returnable;
 }
 /* Returns existing file_index if found or creates new if not */
-struct file_index * add_fileindex(char * name, unsigned long n_files, int status)
+struct file_index * add_fileindex(char * name, unsigned long n_files, int status, unsigned long packet_size)
 {
   D("Adding new file %s to index",, name);
   struct file_index * new;
@@ -232,6 +232,8 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files));
   CHECK_ERR_NONNULL_RN(new->files);
   new->status = status;
+  if(status == FILESTATUS_RECORDING)
+    new->packet_size = packet_size;
   FIUNLOCK(new);
   D("File %s added to index",, new->filename);
   return new;
@@ -412,4 +414,12 @@ int full_metadata_update(struct file_index* fi, long unsigned * files, long unsi
   *status = fi->status;
   FIUNLOCK(fi);
   return 0;
+}
+unsigned long get_packet_size(struct file_index* fi)
+{
+  unsigned long temp;
+  FI_READLOCK(fi);
+  temp = fi->packet_size;
+  FIUNLOCK(fi);
+  return temp;
 }

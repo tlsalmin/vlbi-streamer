@@ -14,7 +14,7 @@ AC_PROG_CC
 
 #Options
 
-AC_DEFINE(PROTECT_STATUS_W_RWLOCK, 0, [rwlock on status])
+AC_DEFINE(PROTECT_STATUS_W_RWLOCK, 1, [rwlock on status])
 
 AC_MSG_CHECKING(--enable-hugepages argument)
 AC_ARG_ENABLE(hugepages,

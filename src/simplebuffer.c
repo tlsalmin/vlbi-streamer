@@ -598,14 +598,15 @@ int write_buffer(struct buffer_entity *be)
       }
       be->recer->setshmid(be->recer, sbuf->shmid);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
-      /*
-      off_t rfilesize = be->recer->get_filesize(be->recer);
-      if(sbuf->diff != rfilesize)
+      if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
-	D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
-	sbuf->diff = rfilesize;
+	off_t rfilesize = be->recer->get_filesize(be->recer);
+	if(sbuf->diff != rfilesize)
+	{
+	  D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
+	  sbuf->diff = rfilesize;
+	}
       }
-      */
     }
     else{
       be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);

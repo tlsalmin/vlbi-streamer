@@ -9,12 +9,12 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 64
+#define N_THREADS 16
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
-#define NUMBER_OF_PACKETS 2048
+#define NUMBER_OF_PACKETS 4096
 #define N_DRIVES 512
 #define RUNTIME 10
 
@@ -44,7 +44,7 @@ int prep_dummy_file_index(struct opt_s *opt)
   }
   else
     D("filename %s Not found in index. Creating new",, opt->filename);
-  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
+  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING, 0);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FI_WRITELOCK(opt->fi);
   if(!((opt->fi->status) & FILESTATUS_RECORDING))
@@ -71,7 +71,7 @@ int start_thread(struct scheduled_event * ev)
   if(!(ev->opt->optbits & READMODE)){
     TIMERTYPE now;
     GETTIME(now);
-    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
+    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING, ev->opt->packet_size);
     ev->opt->time = RUNTIME;
     GETSECONDS(ev->opt->starting_time) = GETSECONDS(now);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
