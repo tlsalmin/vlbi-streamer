@@ -65,11 +65,13 @@
 #define LOCKER_CAPTURE		0x00000000000ff000
 #define CAPTURE_W_FANOUT 	B(12)
 #define CAPTURE_W_UDPSTREAM 	B(13)
-#define CAPTURE_W_SPLICER 	B(14)
+//#define CAPTURE_W_SPLICER 	B(14)
 #define CAPTURE_W_DISK2FILE	B(15)
 
 #define CAPTURE_W_DUMMY		B(16)
-/*Three empty here */
+#define CAPTURE_W_TCPSTREAM	B(17)
+#define CAPTURE_W_TCPSPLICE	B(18)
+/*Two empty here */
 
 /* How fanout works */
 /*

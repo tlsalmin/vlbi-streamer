@@ -275,14 +275,22 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case CAPTURE_W_UDPSTREAM:
 	    err = config_setting_set_string(setting, "udpstream");
 	    break;
+	    /*
 	  case CAPTURE_W_SPLICER:
 	    err = config_setting_set_string(setting, "sendfile");
 	    break;
+	    */
 	  case CAPTURE_W_DISK2FILE:
 	    err = config_setting_set_string(setting, "disk2file");
 	    break;
 	  case CAPTURE_W_DUMMY:
 	    err = config_setting_set_string(setting, "dummy");
+	    break;
+	  case CAPTURE_W_TCPSTREAM:
+	    err = config_setting_set_string(setting, "tcpstream");
+	    break;
+	  case CAPTURE_W_TCPSPLICE:
+	    err = config_setting_set_string(setting, "tcpsplice");
 	    break;
 	  default:
 	    E("Unknown capture");
@@ -300,10 +308,12 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
 	  opt->optbits |= CAPTURE_W_UDPSTREAM;
 	}
+	/*
 	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
+	*/
 	else if (!strcmp(config_setting_get_string(setting), "disk2file")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DISK2FILE;
@@ -312,6 +322,14 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	else if (!strcmp(config_setting_get_string(setting), "dummy")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DUMMY;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "tcpstream")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_TCPSTREAM;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "tcpsplice")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_TCPSPLICE;
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));

@@ -867,15 +867,6 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     return 0;
   }
-  void reset_udpopts_stats(struct udpopts *spec_ops)
-  {
-    spec_ops->wrongsizeerrors = 0;
-    spec_ops->total_captured_bytes = 0;
-    spec_ops->opt->total_packets = 0;
-    spec_ops->out_of_order = 0;
-    spec_ops->incomplete = 0;
-    spec_ops->missing = 0;
-  }
   int force_reacquire(struct udpopts *spec_ops)
   {
     int err =1;
@@ -992,7 +983,6 @@ void* udp_receiver(void *streamo)
   }
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
-  //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
   D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
 
   /* Main thread will free if we have a real datatype */
@@ -1042,6 +1032,7 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
   se->close = close_streamer_opts;
   se->get_stats = get_udp_stats;
   se->close_socket = close_socket;
+  se->stop = stop_streamer;
   //se->get_max_packets = udps_get_max_packets;
 }
 
@@ -1053,7 +1044,6 @@ int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
     se->start = udp_rxring;
   else
     se->start = udp_receiver;
-  se->stop = stop_streamer;
 
   return se->init(opt, se);
 }
@@ -1063,7 +1053,6 @@ int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
 
   udps_init_default(opt,se);
   se->start = udp_sender;
-  se->stop = stop_streamer;
   return se->init(opt, se);
 
 }

@@ -56,6 +56,7 @@
 #include "simplebuffer.h"
 #include "dummywriter.h"
 #include "dummy_stream.h"
+#include "tcp_stream.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
@@ -456,10 +457,12 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
 	  opt->optbits |= CAPTURE_W_UDPSTREAM;
 	}
+	/*
 	else if (!strcmp(optarg, "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
+	*/
 	else if (!strcmp(optarg, "dummy")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DUMMY;
@@ -812,16 +815,15 @@ int prep_streamer(struct opt_s* opt){
 	err = udps_init_udp_sender(opt, opt->streamer_ent);
       else
 	err = udps_init_udp_receiver(opt, opt->streamer_ent);
-#if(DAEMON)
-      opt->get_stats = udpstreamer_stats;
-#endif
       break;
     case CAPTURE_W_FANOUT:
       err = fanout_init_fanout(opt, opt->streamer_ent);
       break;
+      /*
     case CAPTURE_W_SPLICER:
-      //err = sendfile_init_writer(&opt, &(streamer_ent));
+      err = sendfile_init_writer(&opt, &(streamer_ent));
       break;
+      */
     case CAPTURE_W_DUMMY:
       if(opt->optbits & READMODE)
 	err = dummy_init_dummy_sender(opt, opt->streamer_ent);
@@ -834,6 +836,12 @@ int prep_streamer(struct opt_s* opt){
     case CAPTURE_W_DISK2FILE:
       err = d2f_init(opt, opt->streamer_ent);
       break;
+    case CAPTURE_W_TCPSTREAM:
+      err = tcp_init(opt, opt->streamer_ent);
+      break;
+    case CAPTURE_W_TCPSPLICE:
+      err = tcp_init(opt, opt->streamer_ent);
+      break;
     default:
       LOG("ERROR: Missing capture bit or two set! %lX\n", opt->optbits);
       break;
@@ -845,6 +853,9 @@ int prep_streamer(struct opt_s* opt){
     opt->streamer_ent = NULL;
     return -1;
   }
+#if(DAEMON)
+  opt->get_stats = udpstreamer_stats;
+#endif
   return 0;
 }
 int init_recp(struct opt_s *opt){

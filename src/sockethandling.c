@@ -310,3 +310,12 @@ void stop_streamer(struct streamer_entity *se){
   set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
   close_socket(se);
 }
+void reset_udpopts_stats(struct udpopts *spec_ops)
+{
+  spec_ops->wrongsizeerrors = 0;
+  spec_ops->total_captured_bytes = 0;
+  spec_ops->opt->total_packets = 0;
+  spec_ops->out_of_order = 0;
+  spec_ops->incomplete = 0;
+  spec_ops->missing = 0;
+}
