@@ -200,6 +200,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case REC_DUMMY:
 	    err = config_setting_set_string(setting, "dummy");
 	    break;
+	  case REC_SENDFILE:
+	    err = config_setting_set_string(setting, "sendfile");
+	    break;
 	  default:
 	    E("Unknown writer");
 	    return -1;
@@ -239,7 +242,6 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	     opt->rec_type = REC_DUMMY;
 	     opt->buf_type = WRITER_DUMMY;
 	     */
-	  opt->optbits &= ~LOCKER_WRITER;
 	  opt->optbits |= REC_DUMMY|WRITER_DUMMY;
 	  opt->optbits &= ~ASYNC_WRITE;
 	}
@@ -248,10 +250,17 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	     opt->rec_type = REC_DEF;
 	     opt->async = 0;
 	     */
-	  opt->optbits &= ~LOCKER_WRITER;
 	  opt->optbits |= REC_WRITEV;
 	  opt->optbits &= ~ASYNC_WRITE;
 	  opt->optbits |= CAN_STRIP_BYTES;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
+	  /*
+	     opt->rec_type = REC_DEF;
+	     opt->async = 0;
+	     */
+	  opt->optbits |= REC_SENDFILE;
+	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else {
 	  LOGERR("Unknown mode type [%s]\n", config_setting_get_string(setting));

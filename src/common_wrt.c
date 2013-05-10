@@ -490,11 +490,12 @@ off_t common_getfilesize(void *re)
 {
   return ((struct common_io_info*)((struct recording_entity*)re)->opt)->filesize;
 }
-void common_setshmid(void *recco, int id)
+void common_setshmid(void *recco, int id, void * bufstart)
 {
   struct recording_entity * re = (struct recording_entity*)recco;
   struct common_io_info * ioi = re->opt;
   ioi->shmid = id;
+  ioi->bufstart = bufstart;
 }
 int common_check_files(struct recording_entity *re, void* opt_ss){
   int err=0;

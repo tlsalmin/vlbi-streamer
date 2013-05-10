@@ -59,7 +59,9 @@
 #define REC_DUMMY 		B(5)
 #define REC_DEF 		B(6)
 #define REC_SPLICER 		B(7)
+
 #define REC_WRITEV		B(8)
+#define REC_SENDFILE		B(9)
 
 /* How to capture packets. */
 #define LOCKER_CAPTURE		0x00000000000ff000
@@ -376,7 +378,7 @@ struct recording_entity
   int (*get_w_flags)();
   int (*handle_error)(struct recording_entity *, int);
   int (*get_r_flags)();
-  void (*setshmid)(void*, int);
+  void (*setshmid)(void*, int, void*);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/
   unsigned long (*get_n_packets)(struct recording_entity*);

@@ -616,7 +616,7 @@ int write_buffer(struct buffer_entity *be)
 	}
 	return -1;
       }
-      be->recer->setshmid(be->recer, sbuf->shmid);
+      be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
       if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
@@ -645,7 +645,7 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       else{
-	be->recer->setshmid(be->recer, sbuf->shmid);
+	be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
 	D("Updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))

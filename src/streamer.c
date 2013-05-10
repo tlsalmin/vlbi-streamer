@@ -49,6 +49,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
+#include "sendfile_writer.h"
 #include "writev_writer.h"
 #include "disk2file.h"
 #include "resourcetree.h"
@@ -881,6 +882,9 @@ int init_recp(struct opt_s *opt){
 	break;
       case REC_WRITEV:
 	err = writev_init_rec_entity(opt, &(opt->recs[i]));
+	break;
+      case REC_SENDFILE:
+	err = init_sendfile_writer(opt, &(opt->recs[i]));
 	break;
       default:
 	E("Unknown recorder");
