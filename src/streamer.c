@@ -1150,16 +1150,14 @@ int close_streamer(struct opt_s *opt){
   init_stats(stats_full);
   D("stats ready");
   if(opt->streamer_ent != NULL)
-    opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
+    opt->streamer_ent->close(opt->streamer_ent, (void*)stats_full);
   D("Closed streamer_ent");
 #if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
 #else
-  //oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
   stats_full->total_written = opt->bytes_exchanged;
-  //free(opt->augmentlock);
 #endif
   D("Printing stats");
   print_stats(stats_full, opt);

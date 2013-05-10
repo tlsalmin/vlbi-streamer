@@ -30,10 +30,10 @@ void get_dummy_stats(void *opt, void *stats)
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
 }
-int close_dummy_streamer(void *opt_own,void *stats)
+int close_dummy_streamer(struct streamer_entity *se,void *stats)
 {
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  get_dummy_stats(opt_own,  stats);
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  get_dummy_stats(se->opt,  stats);
   LOG("DUMMY_STREAM: Closed\n");
   free(spec_ops);
   return 0;

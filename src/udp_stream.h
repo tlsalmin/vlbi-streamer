@@ -25,9 +25,12 @@
 #include <net/if.h>
 #include <poll.h>
 #include <linux/if_packet.h>
+#include "config.h"
 #include "streamer.h"
 #include "datatypes.h"
 #include "common_filehandling.h"
+#include "confighelper.h"
+#include "sockethandling.h"
 
 #define WRONGSIZELIMITBEFOREEXIT 20
 
@@ -41,44 +44,16 @@ int setup_udp_socket(struct opt_s *opt, struct streamer_entity *se);
 void * udp_sender(void * opt);
 void * udp_receiver(void *opt);
 void get_udp_stats(void *opt, void *stats);
-void udps_stop(struct streamer_entity *se);
-int close_udp_streamer(void *opt,void *stats);
 //int phandler_sequence(struct streamer_entity * se, void * buffer);
 
 
 int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se);
 
 int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se);
-struct udpopts
-{
-  int fd;
-  int fd_send;
-  struct opt_s* opt;
-  //long unsigned int * cumul;
-  //TODO: REmove these two
-  struct sockaddr_in *sin;
-  struct sockaddr_in *sin_send;
-  struct addrinfo *p;
-  struct addrinfo *p_send;
-  struct addrinfo *servinfo;
-  struct addrinfo *servinfo_simusend;
-  size_t sinsize;
-  int wrongsizeerrors;
-
-  //struct fileholder* last;
-  //void* (*calc_bufpos)(void*,struct streamer_entity*,struct resq_info *);
-  unsigned long missing;
-  unsigned long total_captured_bytes;
-  unsigned long incomplete;
-  unsigned long files_sent; 
-  unsigned long out_of_order;
-};
-void udps_close_socket(struct streamer_entity *se);
 
 
 int udps_wait_function(struct sender_tracking *st, struct opt_s* opt);
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq);
-void free_the_buf(struct buffer_entity * be);
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq);
 inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received);
 int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq);

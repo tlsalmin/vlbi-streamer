@@ -43,6 +43,6 @@
 int fanout_setup_socket(struct opt_s *opt, struct streamer_entity *se);
 void * fanout_thread(void *opt);
 void fanout_get_stats(void *opt, void *stats);
-int close_fanout(void *opt, void *stats);
+int close_fanout(struct streamer_entity *se, void *stats);
 int fanout_init_fanout(void * opt, struct streamer_entity *se);
 #endif //FANOUT

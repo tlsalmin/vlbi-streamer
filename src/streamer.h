@@ -388,18 +388,18 @@ struct recording_entity
 struct streamer_entity
 {
   void *opt;
-  int (*init)(struct opt_s *, struct streamer_entity *se);
+  int (*init)(struct opt_s *, struct streamer_entity *);
   void* (*start)(void*);
-  int (*close)(void*,void*);
-  void (*stop)(struct streamer_entity *se);
+  int (*close)(struct streamer_entity*,void*);
+  void (*stop)(struct streamer_entity *);
   void (*close_socket)(struct streamer_entity *se);
   /* Added to get periodic stats */
   void (*get_stats)(void*, void*);
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-  int (*is_blocked)(struct streamer_entity *se);
+  int (*is_blocked)(struct streamer_entity *);
 #endif
   //int (*is_running)(struct streamer_entity *se);
-  unsigned long (*get_max_packets)(struct streamer_entity *se);
+  unsigned long (*get_max_packets)(struct streamer_entity *);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;
   struct listed_entity *rbuf;

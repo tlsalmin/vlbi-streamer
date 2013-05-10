@@ -65,9 +65,9 @@ void d2f_close_file(struct streamer_entity *se){
     perror("close d2f fd");
   }
 }
-int d2f_close(void * daopt, void* statsiguess){
-  struct d2fopts_s* d2fopt = (struct d2fopts_s*) daopt;
-  d2f_get_stats(daopt,statsiguess);
+int d2f_close(struct streamer_entity * se, void* statsiguess){
+  struct d2fopts_s* d2fopt = (struct d2fopts_s*) se->opt;
+  d2f_get_stats(se->opt,statsiguess);
   int err = close(d2fopt->fd);
   if(err <0){
     E("Error closing fd");

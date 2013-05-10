@@ -56,14 +56,10 @@
 #include <endian.h>
 
 #include <net/if.h>
-#include "config.h"
-#include "streamer.h"
 #include "udp_stream.h"
 #include "resourcetree.h"
 #include "timer.h"
-#include "confighelper.h"
-#include "common_filehandling.h"
-#include "sockethandling.h"
+//#include "sockethandling.h"
 
 extern FILE* logfile;
 
@@ -75,33 +71,6 @@ extern FILE* logfile;
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
 
-void udps_close_socket(struct streamer_entity *se){
-  struct udpopts *spec_ops = se->opt;
-  if(spec_ops->fd == 0)
-  {
-    D("Wont shut down already shutdown fd");
-  }
-  else
-  {
-    int ret;
-    if(spec_ops->opt->optbits & READMODE){
-      LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
-      ret = shutdown(spec_ops->fd, SHUT_WR);
-      ret = close(spec_ops->fd);
-    }
-    else{
-      LOG("Closing socket on receive %s\n", spec_ops->opt->filename);
-      ret = shutdown(spec_ops->fd, SHUT_RD);
-      if(ret <0)
-	E("shutdown return something not ok");
-      ret = close(spec_ops->fd);
-    }
-    if(ret <0){
-      E("close return something not ok");
-    }
-    spec_ops->fd = 0;
-  }
-}
 int udps_bind_rx(struct udpopts * spec_ops){
   struct tpacket_req req;
   int err;
@@ -511,10 +480,6 @@ void* udp_rxring(void *streamo)
   //spec_ops->opt->status = STATUS_STOPPED;
 
   pthread_exit(NULL);
-}
-void free_the_buf(struct buffer_entity * be){
-  /* Set old buffer ready and signal it to start writing */
-  be->set_ready_and_signal(be,0);
 }
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
@@ -1060,43 +1025,6 @@ void get_udp_stats(void *sp, void *stats){
     stat->progress = -1;
   //stat->files_exchanged = udps_get_fileprogress(spec_ops);
 }
-int close_udp_streamer(void *opt_own, void *stats){
-  D("Closing udp-streamer");
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  int err;
-  get_udp_stats(opt_own,  stats);
-  D("Got stats");
-  if(!(spec_ops->opt->optbits & READMODE)){
-    D("setting cfg");
-    err = set_from_root(spec_ops->opt, NULL, 0,1);
-    CHECK_ERR("update_cfg");
-    err = write_cfgs_to_disks(spec_ops->opt);
-    CHECK_ERR("write_cfg");
-  } 
-  if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
-    close(spec_ops->fd_send);
-    free(spec_ops->sin_send);
-  }
-  if(spec_ops->servinfo != NULL)
-    freeaddrinfo(spec_ops->servinfo);
-  if(spec_ops->servinfo_simusend != NULL)
-    freeaddrinfo(spec_ops->servinfo_simusend);
-  LOG("UDP_STREAMER: Closed\n");
-
-  /*
-     if(!(spec_ops->opt->optbits & USE_RX_RING))
-     free(spec_ops->sin);
-     */
-  free(spec_ops);
-  D("Returning");
-  return 0;
-}
-void udps_stop(struct streamer_entity *se){
-  D("Stopping loop");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
-  udps_close_socket(se);
-}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){
   return ((struct udpopts *)(se->opt))->is_blocked;
@@ -1111,9 +1039,9 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
   (void)opt;
   se->init = setup_udp_socket;
-  se->close = close_udp_streamer;
+  se->close = close_streamer_opts;
   se->get_stats = get_udp_stats;
-  se->close_socket = udps_close_socket;
+  se->close_socket = close_socket;
   //se->get_max_packets = udps_get_max_packets;
 }
 
@@ -1125,7 +1053,7 @@ int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
     se->start = udp_rxring;
   else
     se->start = udp_receiver;
-  se->stop = udps_stop;
+  se->stop = stop_streamer;
 
   return se->init(opt, se);
 }
@@ -1135,7 +1063,7 @@ int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
 
   udps_init_default(opt,se);
   se->start = udp_sender;
-  se->stop = udps_stop;
+  se->stop = stop_streamer;
   return se->init(opt, se);
 
 }

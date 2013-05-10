@@ -300,9 +300,9 @@ void fanout_get_stats(void *opt, void *stats){
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->dropped;
 }
-int close_fanout(void *opt, void *stats){
-  struct fanout_opts *spec_ops = (struct fanout_opts *)opt;
-  fanout_get_stats(opt,stats);
+int close_fanout(struct streamer_entity *se, void *stats){
+  struct fanout_opts *spec_ops = (struct fanout_opts *)se->opt;
+  fanout_get_stats(spec_ops,stats);
 
   //Only need to close socket according to 
   //http://www.mjmwired.net/kernel/Documentation/networking/packet_mmap.txt
@@ -316,8 +316,8 @@ int fanout_init_fanout(void * opt, struct streamer_entity *se){
   se->init = fanout_setup_socket;
   se->close = close_fanout;
   se->get_stats = fanout_get_stats;
-  se->close_socket = udps_close_socket;
+  se->close_socket = close_socket;
   se->start = fanout_thread;
-  se->stop = udps_stop;
+  se->stop = stop_streamer;
   return se->init(opt,se);
 }
