@@ -105,5 +105,106 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   }
   return 0;
 }
+#define MODE_FROM_OPTS -1
+int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
+{
+  int err,len,def,defcheck;
+
+  if(mode == MODE_FROM_OPTS){
+    D("Mode from opts");
+    mode = opt->optbits;
+  }
+
+  if(opt->device_name != NULL){
+    //struct sockaddr_ll ll;
+    struct ifreq ifr;
+    //Get the interface index
+    memset(&ifr, 0, sizeof(ifr));
+    strcpy(ifr.ifr_name, opt->device_name);
+    err = ioctl(*fd, SIOCGIFINDEX, &ifr);
+    CHECK_ERR_LTZ("Interface index find");
+
+    D("Binding to %s",, opt->device_name);
+    err = setsockopt(*fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
+    CHECK_ERR("Bound to NIC");
+
+
+  }
+#ifdef HAVE_LINUX_NET_TSTAMP_H
+  //Stolen from http://seclists.org/tcpdump/2010/q2/99
+  struct hwtstamp_config hwconfig;
+  //struct ifreq ifr;
+
+  memset(&hwconfig, 0, sizeof(hwconfig));
+  hwconfig.tx_type = HWTSTAMP_TX_ON;
+  hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
+
+  memset(&ifr, 0, sizeof(ifr));
+  strcpy(ifr.ifr_name, opt->device_name);
+  ifr.ifr_data = (void *)&hwconfig;
+
+  err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
+  CHECK_ERR_LTZ("HW timestamping");
+#endif
+
+  /*
+   * Setting the default receive buffer size. Taken from libhj create_udp_socket
+   */
+  len = sizeof(def);
+  def=0;
+  if(mode & READMODE){
+    err = 0;
+    D("Doing the double sndbuf-loop");
+    def = opt->packet_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying SNDBUF size %d",, def);
+      }
+      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+    if(defcheck != (def << 1)){
+      D("Limit reached. Final size is %d Bytes",,defcheck);
+      break;
+    }
+    }
+  }
+  else{
+    err=0;
+    D("Doing the double rcvbuf-loop");
+    def = opt->packet_size;
+    while(err == 0){
+      //D("RCVBUF size is %d",,def);
+      def  = def << 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+      if(err == 0){
+	D("Trying RCVBUF size %d",, def);
+      }
+      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+      if(defcheck != (def << 1)){
+	D("Limit reached. Final size is %d Bytes",,defcheck);
+	break;
+      }
+    }
+  }
+
+#ifdef SO_NO_CHECK
+  if(mode & READMODE){
+    const int sflag = 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
+    CHECK_ERR("UDPCHECKSUM");
+  }
+#endif
+
+#ifdef HAVE_LINUX_NET_TSTAMP_H
+  //set hardware timestamping
+  int req = 0;
+  req |= SOF_TIMESTAMPING_SYS_HARDWARE;
+  err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
+  CHECK_ERR("HWTIMESTAMP");
+#endif
+  return 0;
+}
 
 #endif

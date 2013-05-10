@@ -96,7 +96,9 @@ int main(int argc, char** argv){
     exit(-1);
   }
 
+
   fsize = st.st_size;
+  posix_fadvise64(fd, 0, fsize, POSIX_FADV_SEQUENTIAL|POSIX_FADV_WILLNEED);
   
 
   lseek(fd,readoffset,SEEK_SET);
