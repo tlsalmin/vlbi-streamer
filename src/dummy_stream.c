@@ -171,7 +171,7 @@ void * dummy_receiver(void *streamo)
 
   reset_udpopts_stats(spec_ops);
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL,1);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);

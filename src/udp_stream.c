@@ -535,7 +535,7 @@ void* udp_rxring(void *streamo)
 
   rxr.id = spec_ops->opt->cumul;
   rxr.bufnum = &bufnum;
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL,1);
   //inc = se->be->get_inc(se->be);
   se->be->simple_get_writebuf(se->be, &inc);
   CHECK_AND_EXIT(se->be);
@@ -573,7 +573,7 @@ void* udp_rxring(void *streamo)
 	/* Increment file counter! */
 	//spec_ops->opt->n_files++;
 
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL,1);
 	CHECK_AND_EXIT(se->be);
 	//inc = se->be->get_inc(se->be);
 	se->be->simple_get_writebuf(se->be, &inc);
@@ -658,7 +658,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->inc_before = resq->inc;
   }
   resq->i=0;
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL,1);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
@@ -845,7 +845,12 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   {
     int err;
     struct udpopts* spec_ops = (struct udpopts*)se->opt;
-    if(received < 0){
+    if(received == 0)
+    {
+	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
+	return 1;
+    }
+    else if(received < 0){
       if(received == EINTR){
 	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
 	return 1;
@@ -989,7 +994,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 
 	D("%s Freeing used buffer to write %lu bytes for file %lu",, spec_ops->opt->filename, *(resq->inc), *(spec_ops->opt->cumul)-1);
 	free_the_buf(se->be);
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL,1);
 	CHECK_AND_EXIT(se->be);
 	D("Got new free for %s. Grabbing buffer",, spec_ops->opt->filename);
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
@@ -1064,7 +1069,7 @@ void* udp_receiver(void *streamo)
   }
   */
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL,1);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
@@ -1081,7 +1086,7 @@ void* udp_receiver(void *streamo)
 
   //while(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
   D("Entering receive loop for %s",, spec_ops->opt->filename);
-  while(1){
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
     err = handle_buffer_switch(se,resq);
     if(err != 0){
       LOG("Done or error!");
@@ -1108,8 +1113,10 @@ void* udp_receiver(void *streamo)
     *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
     free_the_buf(resq->before);
   }
-  if(*(resq->inc) == 0)
+  if(*(resq->inc) == 0){
     se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+  }
   else{
     if(spec_ops->opt->fi != NULL){
       unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);

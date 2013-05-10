@@ -423,3 +423,23 @@ unsigned long get_packet_size(struct file_index* fi)
   FIUNLOCK(fi);
   return temp;
 }
+int check_for_file_on_disk_and_wait_if_not(struct file_index *fi, unsigned long fileid)
+{
+  FI_READLOCK(fi);
+  while(!(fi->files[fileid].status & FH_ONDISK))
+  {
+    if(fi->files[fileid].status & FH_MISSING){
+      E("Recording %s File %ld gone missing so wont wait for it" ,,fi->filename, fileid);
+      FIUNLOCK(fi);
+      return -1;
+    }
+    D("Recording %s is busy with file %ld. Not acquiring write point for it",, fi->filename, fileid);
+    FI_CONDLOCK(fi);
+    FIUNLOCK(fi);
+    mutex_free_wait_on_update(fi);
+    FI_CONDUNLOCK(fi);
+    FI_READLOCK(fi);
+  }
+  FIUNLOCK(fi);
+  return 0;
+}

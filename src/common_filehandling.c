@@ -106,7 +106,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
 	return DONTRYLOADNOMORE;
       }
     }
-    be = get_free(opt->membranch, opt, (void*)(&(st->files_loaded)), NULL);
+    be = get_free(opt->membranch, opt, (void*)(&(st->files_loaded)), NULL,1);
     st->allocated_to_load--;
   }
   /* Reacquiring just updates the file number we want */

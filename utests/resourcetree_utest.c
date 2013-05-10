@@ -161,7 +161,7 @@ void * mainloop(void* tdr)
   td->status = THREAD_STATUS_STARTED;
 
   D("%i Getting ent with id  %ld!",, td->thread_id, intid);
-  re = get_free(opt->diskbranch, opt, &intid, acq);
+  re = get_free(opt->diskbranch, opt, &intid, acq,0);
   if(re == NULL){
     THREAD_EXIT_ERROR("Cant get ent");
   }

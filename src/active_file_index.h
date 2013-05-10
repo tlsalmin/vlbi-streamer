@@ -76,4 +76,5 @@ int wait_on_update(struct file_index *fi);
 int wake_up_waiters(struct file_index *fi);
 int full_metadata_update(struct file_index* fi, long unsigned * files, long unsigned * packets, int *status);
 unsigned long get_packet_size(struct file_index* fi);
+int check_for_file_on_disk_and_wait_if_not(struct file_index *fi, unsigned long fileid);
 #endif
