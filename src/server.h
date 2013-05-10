@@ -2,6 +2,7 @@
 #define SERVER_H
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+#define LSOCKNAME LOCALSTATEDIR "/opt/vlbistreamer/local_socket"
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
 /* Not actually used heh.. */
 #define MAX_SCHEDULED 512
@@ -21,7 +22,7 @@ int remove_from_cfgsched(struct scheduled_event *ev);
 int start_event(struct scheduled_event *ev);
 int start_scheduled(struct schedule *sched);
 int sched_identify(void* opt, void *val1, void * val2, int iden_type);
-int add_recording(config_setting_t* root, struct schedule* sched);
+int add_recording(config_setting_t* root, struct schedule* sched, int socketnumber);
 void zerofound(struct schedule *sched);
 int check_schedule(struct schedule *sched);
 int check_finished(struct schedule* sched);

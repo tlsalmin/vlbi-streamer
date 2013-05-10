@@ -349,7 +349,14 @@ int sbuf_close(struct buffer_entity* be, void *stats)
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+#ifdef MMAP_NOT_SHMGET
       munmap(sbuf->buffer, sbuf->opt->filesize);
+#else
+      char shmstring[FILENAME_MAX];
+      sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
+      shm_unlink(shmstring);
+      close(sbuf->shmid);
+#endif
     }
     else
 #endif /* HAVE_HUGEPAGES */
@@ -564,19 +571,32 @@ int write_buffer(struct buffer_entity *be)
 
   if(be->recer == NULL){
     ret = 0;
-    D("Getting rec entity for buffer");
+    D("Getting rec entity for buffer: file %ld, filename %s",, sbuf->fileid, sbuf->opt->filename);
 
     if(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE)
     {
       pthread_mutex_lock(sbuf->opt->writequeue);
       while(sbuf->opt->next_fd_id_to_write < sbuf->fileid){
-	D("Waiting for file seq %ld to come up. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
+	if(sbuf->opt->optbits & READMODE)
+	  D("Waiting for file seq %ld to come up for sending. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
+	else
+	  D("Waiting for file seq %ld to come up for recording. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
 	pthread_cond_wait(sbuf->opt->writequeue_signal, sbuf->opt->writequeue);
       }
       pthread_mutex_unlock(sbuf->opt->writequeue);
+      if(sbuf->opt->optbits & READMODE)
+	D("My turn to read %ld",, sbuf->fileid);
+      else
+	D("My turn to write %ld",, sbuf->fileid);
     }
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
+      /* First need to check that the file is already written or not 	*/
+      ret = check_for_file_on_disk_and_wait_if_not(sbuf->fi, sbuf->fileid);
+      if(ret != 0){
+	E("Error in waiting for file on disk");
+	return -1;
+      }
       //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
       D("Getting rec entity id %d for file %lu",, sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fileid, sbuf->running, sbuf->opt->fi->files[sbuf->fileid].diskid, &ret);
@@ -596,19 +616,20 @@ int write_buffer(struct buffer_entity *be)
 	}
 	return -1;
       }
-      be->recer->setshmid(be->recer, sbuf->shmid);
+      be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
-      /*
-      off_t rfilesize = be->recer->get_filesize(be->recer);
-      if(sbuf->diff != rfilesize)
+      if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
-	D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
-	sbuf->diff = rfilesize;
+	off_t rfilesize = be->recer->get_filesize(be->recer);
+	if(sbuf->diff != rfilesize)
+	{
+	  D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
+	  sbuf->diff = rfilesize;
+	}
       }
-      */
     }
     else{
-      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret);
+      be->recer = (struct recording_entity*)get_free(sbuf->opt->diskbranch, sbuf->opt,((void*)&(sbuf->fileid)), &ret,0);
       if(be->recer == NULL){
 	E("Didn't get a recer. This is bad so exiting");
 	sbuf->running = 0;
@@ -624,15 +645,15 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       else{
-	be->recer->setshmid(be->recer, sbuf->shmid);
-	D("Got recer so updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
+	be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
+	D("Updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))
 	{
 	  if(check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL) != 0)
 	    E("Error in check and fill for %s id %ld",, sbuf->opt->filename, sbuf->fileid);
 	}
-	assert(be->recer->getid(be->recer) < sbuf->opt->n_drives);
+	ASSERT(be->recer->getid(be->recer) < sbuf->opt->n_drives);
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
       }
     }
@@ -655,13 +676,24 @@ int write_buffer(struct buffer_entity *be)
 
   /* If we've succesfully written everything: set everything free etc */
   if(sbuf->diff == 0){
-    D("Operation complete. Releasing recpoint");
+    if(sbuf->opt->optbits & READMODE)
+      D("Operation complete for Reading file %ld of %s. Releasing recpoint",, sbuf->fileid, sbuf->opt->filename);
+    else
+      D("Operation complete for Recording file %ld of %s. Releasing recpoint",, sbuf->fileid, sbuf->opt->filename);
+
     /* Might have closed recer already 	*/
-    if(be->recer != NULL)
-      set_free(sbuf->opt->diskbranch, be->recer->self);
-    be->recer = NULL;
-    D("Recpoint released");
+    if(sbuf->opt->optbits & READMODE)
+      D("Recpoint released for reading of %ld filename %s",, sbuf->fileid, sbuf->opt->filename);
+    else
+      D("Recpoint released for writing of %ld filename %s",, sbuf->fileid, sbuf->opt->filename);
   }
+  else
+  {
+    E("Diff not lowered to 0 on %s fileid %ld",, sbuf->opt->filename, sbuf->fileid);
+  }
+  if(be->recer != NULL)
+    set_free(sbuf->opt->diskbranch, be->recer->self);
+  be->recer = NULL;
   return ret;
 }
 void *sbuf_simple_write_loop(void *buffo)
@@ -695,7 +727,10 @@ void *sbuf_simple_write_loop(void *buffo)
 	/* Write failed so set the diff back to old value and rewrite	*/
 	ret = write_buffer(be);
 	if(ret != 0){
-	  D("Error in rec. Returning diff and bufoffset");
+	  if(sbuf->opt->optbits & READMODE)
+	    E("Error in read of write_buffer file %s fileid %ld. Returning diff and bufoffset",, sbuf->opt->filename, sbuf->fileid);
+	  else
+	    E("Error in rec of write_buffer file %s fileid %ld. Returning diff and bufoffset",, sbuf->opt->filename, sbuf->fileid);
 	  sbuf->diff = savedif;
 	  sbuf->bufoffset = sbuf->buffer;
 	  if(sbuf->opt->optbits & READMODE){
@@ -711,10 +746,6 @@ void *sbuf_simple_write_loop(void *buffo)
 	}
 	/*If everything went great */
 	else{
-	  D("Write/read complete!");
-	  LOCK(be->headlock);
-	  sbuf->ready_to_act = 0;
-	  UNLOCK(be->headlock);
 
 	  if(sbuf->opt->optbits & READMODE){
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_INMEM, ADDTOFILESTATUS);
@@ -724,11 +755,15 @@ void *sbuf_simple_write_loop(void *buffo)
 	  else{
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
-	    D("Write cycle complete. Setting self to free");
+	    D("Write cycle complete for recording %s. Setting self to free since done on file %ld",, sbuf->opt->filename, sbuf->fileid);
 	    if(wake_up_waiters(sbuf->opt->fi) != 0)
 	      E("Error in waking up waiters");
 	    set_free(sbuf->opt->membranch, be->self);
 	  }
+	  D("Write/read complete!");
+	  LOCK(be->headlock);
+	  sbuf->ready_to_act = 0;
+	  UNLOCK(be->headlock);
 	}
       }
     }

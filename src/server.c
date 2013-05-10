@@ -20,6 +20,7 @@
  * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
  * 
  */
+#define _GNU_SOURCE
 #include <sys/inotify.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,13 +37,18 @@
 #define _GNU_SOURCE
 #endif
 #include <sys/syscall.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
 
 #include "config.h"
+#include "localsocket_service.h"
 #include "streamer.h"
 #include "confighelper.h"
 #include "server.h"
 #include "active_file_index.h"
 //#define TERM_SIGNAL_HANDLING
+
 
 static volatile int running = 0;
 extern FILE *logfile;
@@ -68,6 +74,7 @@ void zero_schedevnt(struct scheduled_event* ev){
   //ev->next =NULL;
   //ev->father = NULL;
   //ev->child = NULL;
+  ev->socketnumber = 0;
   ev->stats =NULL;
   ev->pt =0;
   ev->found=0;
@@ -150,11 +157,14 @@ int free_and_close(void *le){
     err = close_streamer(ev->opt);
     CHECK_ERR("close stream");
   }
-  err = remove_from_cfgsched(ev);
-  /* Not a critical error */
-  if(err !=0)
-    E("Removing cfg entry from sched");
-  free(ev->idstring);
+  if(ev->socketnumber == 0)
+  {
+    err = remove_from_cfgsched(ev);
+    /* Not a critical error */
+    if(err !=0)
+      E("Removing cfg entry from sched");
+    free(ev->idstring);
+  }
   if(ev->opt->optbits & READMODE){
     err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
     if(err != 0)
@@ -172,11 +182,24 @@ int free_and_close(void *le){
 int start_event(struct scheduled_event *ev)
 {
   int err;
+  struct opt_s *opt = ev->opt;
 
-  err = init_cfg(ev->opt);
-  if(err != 0){
-    E("Error in cfg init");
-    return -1;
+  if(!(ev->opt->optbits & CAPTURE_W_LOCALSOCKET))
+  {
+    err = init_cfg(ev->opt);
+    if(err != 0){
+      E("Error in cfg init");
+      return -1;
+    }
+  }
+  /* Special case when recording was stripped and buf_num_elems is different */
+  if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
+    opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
+    D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
+  }
+  else{
+    opt->buf_num_elems = opt->filesize / opt->packet_size;
+    D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -271,31 +294,41 @@ int sched_identify(void* opt, void *val1, void * val2, int iden_type){
     else
       return 0;
   }
+  else if (iden_type == CHECK_BY_SOCKETNUM)
+  {
+    if(ev->socketnumber == *(int*)val1)
+      return 1;
+    else
+      return 0;
+  }
   else 
     return iden_from_opt(ev->opt, val1, val2, iden_type);
 }
-int add_recording(config_setting_t* root, struct schedule* sched)
+int add_recording(config_setting_t* root, struct schedule* sched, int socketinterface)
 {
   D("Adding new schedevent");
   int err;
-  if(strcmp(config_setting_name(root), "shutdown") == 0){
-    LOG("Shutdown scheduled\n");
-    config_t cfg;
-    config_setting_t *realroot;
-    config_init(&cfg);
-    config_read_file(&cfg, STATEFILE);
+  if(root != NULL)
+  {
+    if(strcmp(config_setting_name(root), "shutdown") == 0){
+      LOG("Shutdown scheduled\n");
+      config_t cfg;
+      config_setting_t *realroot;
+      config_init(&cfg);
+      config_read_file(&cfg, STATEFILE);
 
-    realroot = config_root_setting(&cfg);
-    err = config_setting_remove(realroot, "shutdown");
-    CHECK_CFG("remove shutdown command");
-    err = config_write_file(&cfg, STATEFILE);
-    CHECK_CFG("Wrote config");
-    running = 0;
+      realroot = config_root_setting(&cfg);
+      err = config_setting_remove(realroot, "shutdown");
+      CHECK_CFG("remove shutdown command");
+      err = config_write_file(&cfg, STATEFILE);
+      CHECK_CFG("Wrote config");
+      running = 0;
 
 
-    config_destroy(&cfg);
-    D("Shutdown finished");
-    return 0;
+      config_destroy(&cfg);
+      D("Shutdown finished");
+      return 0;
+    }
   }
   struct listed_entity * le = (struct listed_entity *)malloc(sizeof(struct listed_entity));
   struct scheduled_event * se = (struct scheduled_event*)malloc(sizeof(struct scheduled_event));
@@ -320,28 +353,45 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   clear_pointers(opt);
 
-  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
-  *opt->cumul = 0;
+  if(socketinterface != 0)
+  {
+    D("New event is a local socket interface");
+    se->opt->optbits &= ~LOCKER_CAPTURE;
+    se->opt->optbits |= CAPTURE_W_LOCALSOCKET;
+    se->opt->optbits |= READMODE;
+    se->opt->localsocket = socketinterface;
+  }
 
-  config_init(&(opt->cfg));
+  /*
+     opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
+   *opt->cumul = 0;
+   */
+
+  if(root != NULL)
+    config_init(&(opt->cfg));
 
   /* Get the name of the recording	*/
   opt->filename = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
-  se->idstring = (char*)malloc(sizeof(char)*24);
   CHECK_ERR_NONNULL(opt->filename, "Filename for opt malloc");
-  //strcpy(opt->filename, config_setting_name(root));
-  strcpy(se->idstring, config_setting_name(root));
-
-  LOG("Adding new request with id string: %s\n", se->idstring);
-
-  /* Get the rest of the opts		*/
-  err = set_from_root(opt, root, 0,0);
-  if(err != 0){
-    E("Broken schedule config. Not scheduling %s",, se->idstring);
-    free_and_close(se);
-    return 0;
+  opt->disk2fileoutput = (char*)malloc(sizeof(char)*FILENAME_MAX);
+  CHECK_ERR_NONNULL(opt->disk2fileoutput, "disk2fileoutput for opt malloc");
+  if(!(se->opt->optbits & CAPTURE_W_LOCALSOCKET))
+  {
+    se->idstring = (char*)malloc(sizeof(char)*24);
+    CHECK_ERR_NONNULL(se->idstring, "idstring malloc");
+    //strcpy(opt->filename, config_setting_name(root));
+    strcpy(se->idstring, config_setting_name(root));
+    LOG("Adding new request with id string: %s\n", se->idstring);
+    /* Get the rest of the opts		*/
+    err = set_from_root(opt, root, 0,0);
+    if(err != 0){
+      E("Broken schedule config. Not scheduling %s",, se->idstring);
+      free_and_close(se);
+      return 0;
+    }
   }
+
+
 
   /* Wont need disk2file output if CAPTURE_W_DISK2FILE set */
   if (!(opt->optbits & CAPTURE_W_DISK2FILE)){
@@ -354,22 +404,33 @@ int add_recording(config_setting_t* root, struct schedule* sched)
 
   /* We might need to calc buf_num_elems again */
 
-  /* Special case when recording was stripped and buf_num_elems is different */
-  if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
-    opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
-    D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
-  }
-  else{
-    opt->buf_num_elems = opt->filesize / opt->packet_size;
-    D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
-  }
 
-  LOG("New request is for session: %s\n", opt->filename);
-  D("Opts checked, port is %d",, opt->port);
+  if(!(se->opt->optbits & CAPTURE_W_LOCALSOCKET))
+  {
+    LOG("New request is for session: %s\n", opt->filename);
+    D("Opts checked, port is %d",, opt->port);
+  }
 
   add_to_entlist(&(sched->br), le);
+  if(se->opt->optbits & CAPTURE_W_LOCALSOCKET)
+  {
+    err = start_event(se);
+    if(err != 0){
+      E("Something went wrong in recording %s start",, se->opt->filename);
+      //remove_recording(le,sched->br.freelist);
+      remove_from_branch(&sched->br, le, MUTEX_FREE);
+    }
+    else{
+      //change_sched_branch(&sched->scheduled_head, &sched->running_head, ev);
+      mutex_free_change_branch(&sched->br.busylist, le);
+      sched->n_running++;
+    }
+  }
+  else
+  {
+    sched->n_scheduled++;
+  }
   D("Schedevent added");
-  sched->n_scheduled++;
   return 0;
 }
 void zerofound(struct schedule *sched){
@@ -407,7 +468,7 @@ int check_schedule(struct schedule *sched){
     /* New scheduled recording! 					*/
     if(le == NULL){
       D("New schedule event found");
-      err = add_recording(setting, sched);
+      err = add_recording(setting, sched,0);
       CHECK_ERR("Add recording");
     }
     else{
@@ -437,6 +498,28 @@ int check_schedule(struct schedule *sched){
   D("Done checking schedule");
 
   return 0;
+}
+int handle_localsocket(int local_sock,struct schedule* sched)
+{
+  int err, clisocket, retval=0;
+  struct sockaddr_in * cliaddr = malloc(sizeof(struct sockaddr_in));
+  socklen_t slen = sizeof(struct sockaddr_in);
+  CHECK_ERR_NONNULL(cliaddr, "sockaddr malloc");
+  memset(cliaddr, 0,sizeof(struct sockaddr_in));
+
+  clisocket = accept4(local_sock, (struct sockaddr*)cliaddr, &slen, SOCK_NONBLOCK);
+  if(!(clisocket > 0)){
+    E("Error in accept");
+    free(cliaddr);
+    return -1;
+  }
+  err = add_recording(NULL, sched, clisocket);
+  if(err != 0){
+    E("Error in add recording");
+    retval = -1;
+  }
+  free(cliaddr);
+  return retval;
 }
 
 int check_default_options_for_nonlogicals(struct opt_s* opt)
@@ -498,6 +581,8 @@ int main(int argc, char **argv)
     exit(-1);
   }
 #endif
+  struct sockaddr_un lsock_name;
+  int local_sock;
 #if(PPRIORITY)
   LOG("Priority before sleep in getprio %d\n", getpriority(PRIO_PROCESS, syscall(SYS_gettid)));
   sleep(1);
@@ -555,6 +640,36 @@ int main(int argc, char **argv)
   err = check_default_options_for_nonlogicals(sched->default_opt);
   CHECK_ERR("Check for nonlogicals in default opt");
 
+  memset(&lsock_name, 0, SUN_LEN(&lsock_name));
+  lsock_name.sun_family = AF_UNIX; 
+  sprintf(lsock_name.sun_path, "%s", LSOCKNAME);
+
+  local_sock = socket(PF_UNIX, SOCK_STREAM, 0);
+  if(local_sock < 0){
+    E("Error in creating local socket. vlbistreamer not listening");
+  }
+  else
+  {
+    unlink(lsock_name.sun_path);
+    size_t size_lsock = SUN_LEN(&lsock_name);
+    err = bind(local_sock, (struct sockaddr *) &lsock_name, size_lsock);
+    if(err != 0)
+    {
+      E("Error in binding local domain socket");
+    }
+    else
+    {
+      err = listen(local_sock, 12);
+      if(err != 0){
+	E("Error in listen");
+      }
+      else
+      {
+	D("Local socket listening as %s",, lsock_name.sun_path);
+      }
+    }
+  }
+
   LOG("Running in daemon mode\n");
 
   //stuff stolen from http://darkeside.blogspot.fi/2007/12/linux-inotify-example.html
@@ -593,9 +708,13 @@ int main(int argc, char **argv)
 
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
-  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(struct pollfd));
+  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd)*2);
   CHECK_ERR_NONNULL(pfd, "pollfd malloc");
-  memset(pfd, 0,sizeof(struct pollfd));
+  memset(pfd, 0,sizeof(pfd));
+
+  (pfd+1)->fd = local_sock;
+  (pfd+1)->events = POLLIN|POLLERR;
+
   pfd->fd = i_fd;
   pfd->events = POLLIN|POLLERR;
 
@@ -625,26 +744,45 @@ int main(int argc, char **argv)
     if(err != 0)
       running = 0;
     /* Check for changes 						*/
-    err = poll(pfd, 1, POLLINTERVAL);
+    err = poll(pfd, 2, POLLINTERVAL);
     if(err < 0){
       perror("Poll");
       running = 0;
     }
     else if(err >0)
     {
-      err = read(i_fd, ibuff, CHAR_BUFF_SIZE);
-      CHECK_ERR_LTZ("Read schedule");
-      D("Noticed change in schedule file");
-      /* There's really just one sort of event. Adding or removing	*/
-      /* a scheduled recording					*/
-      err = check_schedule(sched);
-      if(err != 0)
+      if(pfd->revents & POLLIN)
+      {
+	err = read(i_fd, ibuff, CHAR_BUFF_SIZE);
+	CHECK_ERR_LTZ("Read schedule");
+	D("Noticed change in schedule file");
+	/* There's really just one sort of event. Adding or removing	*/
+	/* a scheduled recording					*/
+	err = check_schedule(sched);
+	if(err != 0)
+	  running = 0;
+      }
+      else if (pfd->revents & POLLERR)
+      {
+	E("Error in polling for schedule file");
 	running = 0;
+      }
+      if ((pfd+1)->revents & POLLERR)
+      {
+	E("Error in polling for local socket");
+	//running=0;
+      }
+      if((pfd+1)->revents & POLLIN)
+      {
+	D("Local socket shows activity");
+	err = handle_localsocket(local_sock, sched);
+	if(err != 0)
+	  E("Error in handling local socket");
+      }
       //CHECK_ERR("Checked schedule");
     }
-    else{
-      //D("Nothing happened on schedule file");
-    }
+    //Else timeout expired
+
     counter += POLLINTERVAL;
     err = check_finished(sched);
     if (err != 0)
@@ -702,6 +840,9 @@ int main(int argc, char **argv)
   D("Membranch closed");
   close_recp(sched->default_opt,stats_full);
   D("Membranch and diskbranch shut down");
+
+  unlink(lsock_name.sun_path);
+  close(local_sock);
 
   //TODO: Full stats not used yet
   free(stats_full);

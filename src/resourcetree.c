@@ -145,7 +145,7 @@ void mutex_free_set_busy(struct entity_list_branch *br, struct listed_entity* en
 {
   mutex_free_change_branch(&(br->busylist), en);
 }
-void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result)
+void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_result, int quit_if_stopped)
 {
   struct listed_entity *temp = NULL;
   int suitable=0;
@@ -164,7 +164,7 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
       D("Failed to get free buffer: Resources might be running out! Sleeping\n");
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
       /* Check if something was added to freelist */
-      if(ret_zero_if_stillshouldrun(opt) != 0){
+      if(quit_if_stopped == 1 && ret_zero_if_stillshouldrun(opt) != 0){
 	D("Threads is over.");
 	UNLOCK(&(br->branchlock));
 	return NULL;
@@ -186,7 +186,7 @@ void* get_free(struct entity_list_branch *br,void * opt,void* acq, int* acquire_
 	}
 	LOG("Failed to get free or fit buffer. Sleeping");
 	pthread_cond_wait(&(br->busysignal), &(br->branchlock));
-	if(ret_zero_if_stillshouldrun(opt) != 0){
+	if(quit_if_stopped == 1 && ret_zero_if_stillshouldrun(opt) != 0){
 	  D("Threads is over.");
 	  UNLOCK(&(br->branchlock));
 	  return NULL;
@@ -292,12 +292,14 @@ void block_until_free(struct entity_list_branch *br, void* val1)
     }
     UNLOCK(&(shouldntfind->waitlock));
     LOCK(&(br->branchlock));
+    D("Got %d ",, myqueue);
     mutex_free_change_branch(&br->freelist,shouldntfind);
     int ret = shouldntfind->release(shouldntfind->entity);
     if(ret != 0)
       E("Release returned non zero value.(Not handled in any way)");
   }
 
+  D("all busy elemets freed");
   /* Release all loaded elements */
   while((shouldntfind = loop_and_check(br->loadedlist, val1, NULL, CHECK_BY_OPTPOINTER)) != NULL)
   {
@@ -307,6 +309,7 @@ void block_until_free(struct entity_list_branch *br, void* val1)
       E("Release returned non zero value.(Not handled in any way)");
   }
   UNLOCK(&(br->branchlock));
+  D("All loaded files released");
 }
 void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en, int mutex_free)
 {

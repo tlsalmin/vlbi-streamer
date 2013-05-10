@@ -44,6 +44,7 @@ struct common_io_info{
   void * extra_param;
   int leftover_bytes;
   int shmid;
+  void * bufstart;
 };
 int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
 int init_directory(struct recording_entity *re);

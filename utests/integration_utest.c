@@ -9,12 +9,12 @@
 #include "../src/udp_stream.h"
 #include "common.h"
 
-#define N_THREADS 64
+#define N_THREADS 16
 #define NAMEDIVISION 2
 #define N_FILES N_THREADS/NAMEDIVISION
 #define N_FILES_PER_BOM 60
 #define PACKET_SIZE 1024
-#define NUMBER_OF_PACKETS 2048
+#define NUMBER_OF_PACKETS 4096
 #define N_DRIVES 512
 #define RUNTIME 10
 
@@ -44,7 +44,7 @@ int prep_dummy_file_index(struct opt_s *opt)
   }
   else
     D("filename %s Not found in index. Creating new",, opt->filename);
-  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING);
+  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING, 0);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FI_WRITELOCK(opt->fi);
   if(!((opt->fi->status) & FILESTATUS_RECORDING))
@@ -71,7 +71,7 @@ int start_thread(struct scheduled_event * ev)
   if(!(ev->opt->optbits & READMODE)){
     TIMERTYPE now;
     GETTIME(now);
-    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING);
+    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING, ev->opt->packet_size);
     ev->opt->time = RUNTIME;
     GETSECONDS(ev->opt->starting_time) = GETSECONDS(now);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
@@ -126,12 +126,9 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   int i;
   for(i=0;i<N_THREADS;i++)
   {
-    if(copies[i].cumul != NULL)
-      free(copies[i].cumul);
     memcpy(&(copies[i]), original,sizeof(struct opt_s));
     clear_pointers(&(copies[i]));
-    copies[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
-    *(copies[i].cumul) = 0;
+    copies[i].cumul = 0;
     events[i].opt = &(copies[i]);
     events[i].stats = &(stats[i]);
     /* This will give the same filename to each pair */
@@ -165,7 +162,6 @@ int main()
   dopt->hostname = NULL;
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
-  dopt->cumul = NULL;
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
   stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
@@ -425,11 +421,6 @@ int main()
 
   err = close_active_file_index();
   CHECK_ERR("Close active file index");
-
-  for(i=0;i<N_THREADS;i++)
-  {
-    free(opts[i].cumul);
-  }
 
   free(filenames);
   free(opts);

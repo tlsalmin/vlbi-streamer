@@ -30,10 +30,10 @@ void get_dummy_stats(void *opt, void *stats)
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
 }
-int close_dummy_streamer(void *opt_own,void *stats)
+int close_dummy_streamer(struct streamer_entity *se,void *stats)
 {
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  get_dummy_stats(opt_own,  stats);
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  get_dummy_stats(se->opt,  stats);
   LOG("DUMMY_STREAM: Closed\n");
   free(spec_ops);
   return 0;
@@ -171,7 +171,7 @@ void * dummy_receiver(void *streamo)
 
   reset_udpopts_stats(spec_ops);
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
@@ -212,7 +212,7 @@ void * dummy_receiver(void *streamo)
     }
 
     se->be->set_ready_and_signal(se->be,0);
-    (*spec_ops->opt->cumul)++;
+    spec_ops->opt->cumul++;
     /*
     LOCK(se->be->headlock);
     pthread_cond_signal(se->be->iosignal);
@@ -222,7 +222,7 @@ void * dummy_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets for recname %s",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets, spec_ops->opt->filename);
+  D("Saved %lu files and %lu packets for recname %s",, spec_ops->opt->cumul, spec_ops->opt->total_packets, spec_ops->opt->filename);
   LOG("UDP_STREAMER: Closing receiver thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */

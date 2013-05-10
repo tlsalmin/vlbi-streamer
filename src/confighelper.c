@@ -200,6 +200,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case REC_DUMMY:
 	    err = config_setting_set_string(setting, "dummy");
 	    break;
+	  case REC_SENDFILE:
+	    err = config_setting_set_string(setting, "sendfile");
+	    break;
 	  default:
 	    E("Unknown writer");
 	    return -1;
@@ -239,7 +242,6 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	     opt->rec_type = REC_DUMMY;
 	     opt->buf_type = WRITER_DUMMY;
 	     */
-	  opt->optbits &= ~LOCKER_WRITER;
 	  opt->optbits |= REC_DUMMY|WRITER_DUMMY;
 	  opt->optbits &= ~ASYNC_WRITE;
 	}
@@ -248,10 +250,17 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	     opt->rec_type = REC_DEF;
 	     opt->async = 0;
 	     */
-	  opt->optbits &= ~LOCKER_WRITER;
 	  opt->optbits |= REC_WRITEV;
 	  opt->optbits &= ~ASYNC_WRITE;
 	  opt->optbits |= CAN_STRIP_BYTES;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
+	  /*
+	     opt->rec_type = REC_DEF;
+	     opt->async = 0;
+	     */
+	  opt->optbits |= REC_SENDFILE;
+	  opt->optbits &= ~ASYNC_WRITE;
 	}
 	else {
 	  LOGERR("Unknown mode type [%s]\n", config_setting_get_string(setting));
@@ -275,14 +284,22 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case CAPTURE_W_UDPSTREAM:
 	    err = config_setting_set_string(setting, "udpstream");
 	    break;
+	    /*
 	  case CAPTURE_W_SPLICER:
 	    err = config_setting_set_string(setting, "sendfile");
 	    break;
+	    */
 	  case CAPTURE_W_DISK2FILE:
 	    err = config_setting_set_string(setting, "disk2file");
 	    break;
 	  case CAPTURE_W_DUMMY:
 	    err = config_setting_set_string(setting, "dummy");
+	    break;
+	  case CAPTURE_W_TCPSTREAM:
+	    err = config_setting_set_string(setting, "tcpstream");
+	    break;
+	  case CAPTURE_W_TCPSPLICE:
+	    err = config_setting_set_string(setting, "tcpsplice");
 	    break;
 	  default:
 	    E("Unknown capture");
@@ -300,10 +317,12 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
 	  opt->optbits |= CAPTURE_W_UDPSTREAM;
 	}
+	/*
 	else if (!strcmp(config_setting_get_string(setting), "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
+	*/
 	else if (!strcmp(config_setting_get_string(setting), "disk2file")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DISK2FILE;
@@ -312,6 +331,14 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	else if (!strcmp(config_setting_get_string(setting), "dummy")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DUMMY;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "tcpstream")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_TCPSTREAM;
+	}
+	else if (!strcmp(config_setting_get_string(setting), "tcpsplice")){
+	  //opt->capture_type = CAPTURE_W_SPLICER;
+	  opt->optbits |= CAPTURE_W_TCPSPLICE;
 	}
 	else {
 	  LOGERR("Unknown packet capture type [%s]\n", config_setting_get_string(setting));
@@ -384,7 +411,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_BOOLEAN(WRITE_TO_SINGLE_FILE, "write_to_single_file")
     CFG_FULL_STR(filename)
     /* Could have done these with concatenation .. */
-      CFG_FULL_UINT64((*opt->cumul),"cumul")
+      CFG_FULL_UINT64(opt->cumul,"cumul")
       CFG_FULL_STR(device_name)
       CFG_FULL_STR(disk2fileoutput)
       CFG_FULL_UINT64(opt->optbits, "optbits")
@@ -447,7 +474,7 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
   if(opt != NULL){
-    err = config_setting_set_int64(setting, *opt->cumul);
+    err = config_setting_set_int64(setting, opt->cumul);
     CHECK_CFG("set cumul");
   }
   /* If we're using the simpler buffer calculation, which fixes the 	*/
@@ -568,10 +595,10 @@ int init_cfg(struct opt_s *opt){
 	if(found == 0){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
-	  D("Getting opts from first config, cumul is %lu",, *opt->cumul);
+	  D("Getting opts from first config, cumul is %lu",, opt->cumul);
 
 	  int j;
-	  opt->fi = add_fileindex(opt->filename, *(opt->cumul), FILESTATUS_SENDING);
+	  opt->fi = add_fileindex(opt->filename, opt->cumul, FILESTATUS_SENDING,0);
 	  if(opt->fi == NULL){
 	    E("File index add");
 	    retval = -1;
@@ -607,7 +634,8 @@ int init_cfg(struct opt_s *opt){
       LOG("No config file found! This means no recording %s found\n", opt->filename);
       if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
       {
-	LOG("%s is a Live recording exists. Everything is fine\n", opt->filename);
+	opt->packet_size = get_packet_size(opt->fi);
+	LOG("%s is a Live recording exists. Everything is fine and packet size is %ld\n", opt->filename, opt->packet_size);
 	retval = 0;
       }
       else
@@ -629,7 +657,7 @@ int init_cfg(struct opt_s *opt){
     CHECK_ERR_NONNULL(root, "Get root");
     stub_rec_cfg(root, NULL);
     */
-    opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING);
+    opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING, opt->packet_size);
     if(opt->fi == NULL){
       E("opt-fi init"); 
       retval = -1;

@@ -56,14 +56,10 @@
 #include <endian.h>
 
 #include <net/if.h>
-#include "config.h"
-#include "streamer.h"
 #include "udp_stream.h"
 #include "resourcetree.h"
 #include "timer.h"
-#include "confighelper.h"
-#include "common_filehandling.h"
-#include "sockethandling.h"
+//#include "sockethandling.h"
 
 extern FILE* logfile;
 
@@ -75,32 +71,6 @@ extern FILE* logfile;
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
 
-void udps_close_socket(struct streamer_entity *se){
-  struct udpopts *spec_ops = se->opt;
-  if(spec_ops->fd == 0)
-  {
-    D("Wont shut down already shutdown fd");
-  }
-  else
-  {
-    int ret;
-    if(spec_ops->opt->optbits & READMODE){
-      LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
-      ret = shutdown(spec_ops->fd, SHUT_RDWR);
-    }
-    else{
-      LOG("Closing socket on receive %s\n", spec_ops->opt->filename);
-      ret = shutdown(spec_ops->fd, SHUT_RD);
-      if(ret <0)
-	E("shutdown return something not ok");
-      ret = close(spec_ops->fd);
-    }
-    if(ret <0){
-      E("shutdown return something not ok");
-    }
-    spec_ops->fd = 0;
-  }
-}
 int udps_bind_rx(struct udpopts * spec_ops){
   struct tpacket_req req;
   int err;
@@ -156,107 +126,6 @@ int udps_bind_rx(struct udpopts * spec_ops){
 
   return 0;
 }
-#define MODE_FROM_OPTS -1
-int udps_common_init_stuff(struct opt_s *opt, int mode, int* fd)
-{
-  int err,len,def,defcheck;
-
-  if(mode == MODE_FROM_OPTS){
-    D("Mode from opts");
-    mode = opt->optbits;
-  }
-
-  if(opt->device_name != NULL){
-    //struct sockaddr_ll ll;
-    struct ifreq ifr;
-    //Get the interface index
-    memset(&ifr, 0, sizeof(ifr));
-    strcpy(ifr.ifr_name, opt->device_name);
-    err = ioctl(*fd, SIOCGIFINDEX, &ifr);
-    CHECK_ERR_LTZ("Interface index find");
-
-    D("Binding to %s",, opt->device_name);
-    err = setsockopt(*fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
-    CHECK_ERR("Bound to NIC");
-
-
-  }
-#ifdef HAVE_LINUX_NET_TSTAMP_H
-  //Stolen from http://seclists.org/tcpdump/2010/q2/99
-  struct hwtstamp_config hwconfig;
-  //struct ifreq ifr;
-
-  memset(&hwconfig, 0, sizeof(hwconfig));
-  hwconfig.tx_type = HWTSTAMP_TX_ON;
-  hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
-
-  memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, opt->device_name);
-  ifr.ifr_data = (void *)&hwconfig;
-
-  err  = ioctl(*fd, SIOCSHWTSTAMP,&ifr);
-  CHECK_ERR_LTZ("HW timestamping");
-#endif
-
-  /*
-   * Setting the default receive buffer size. Taken from libhj create_udp_socket
-   */
-  len = sizeof(def);
-  def=0;
-  if(mode & READMODE){
-    err = 0;
-    D("Doing the double sndbuf-loop");
-    def = opt->packet_size;
-    while(err == 0){
-      //D("RCVBUF size is %d",,def);
-      def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
-      if(err == 0){
-	D("Trying SNDBUF size %d",, def);
-      }
-      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
-    if(defcheck != (def << 1)){
-      D("Limit reached. Final size is %d Bytes",,defcheck);
-      break;
-    }
-    }
-  }
-  else{
-    err=0;
-    D("Doing the double rcvbuf-loop");
-    def = opt->packet_size;
-    while(err == 0){
-      //D("RCVBUF size is %d",,def);
-      def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
-      if(err == 0){
-	D("Trying RCVBUF size %d",, def);
-      }
-      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
-      if(defcheck != (def << 1)){
-	D("Limit reached. Final size is %d Bytes",,defcheck);
-	break;
-      }
-    }
-  }
-
-#ifdef SO_NO_CHECK
-  if(mode & READMODE){
-    const int sflag = 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_NO_CHECK, &sflag, sizeof(sflag));
-    CHECK_ERR("UDPCHECKSUM");
-  }
-#endif
-
-#ifdef HAVE_LINUX_NET_TSTAMP_H
-  //set hardware timestamping
-  int req = 0;
-  req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-  err = setsockopt(*fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req));
-  CHECK_ERR("HWTIMESTAMP");
-#endif
-  return 0;
-}
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
@@ -295,7 +164,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     perror("socket");
     INIT_ERROR
   }
-  err = udps_common_init_stuff(spec_ops->opt, MODE_FROM_OPTS, &(spec_ops->fd));
+  err = socket_common_init_stuff(spec_ops->opt, MODE_FROM_OPTS, &(spec_ops->fd));
   CHECK_ERR("Common init");
 
 
@@ -533,9 +402,9 @@ void* udp_rxring(void *streamo)
   pfd.events = POLLIN|POLLRDNORM|POLLERR;
   D("Starting mmap polling");
 
-  rxr.id = spec_ops->opt->cumul;
+  rxr.id = &(spec_ops->opt->cumul);
   rxr.bufnum = &bufnum;
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,(void*)&rxr, NULL,1);
   //inc = se->be->get_inc(se->be);
   se->be->simple_get_writebuf(se->be, &inc);
   CHECK_AND_EXIT(se->be);
@@ -573,7 +442,7 @@ void* udp_rxring(void *streamo)
 	/* Increment file counter! */
 	//spec_ops->opt->n_files++;
 
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&rxr, NULL,1);
 	CHECK_AND_EXIT(se->be);
 	//inc = se->be->get_inc(se->be);
 	se->be->simple_get_writebuf(se->be, &inc);
@@ -586,7 +455,7 @@ void* udp_rxring(void *streamo)
 	  bufnum++;
 
 	/* cumul is tracking the n of files we've received */
-	((*spec_ops->opt->cumul))++;
+	spec_ops->opt->cumul++;
       }
 #ifdef SHOW_PACKET_METADATA
       D("Metadata for %ld packet: status: %lu, len: %u, snaplen: %u, MAC: %hd, net: %hd, sec %u, usec: %u\n",, j, hdr->tp_status, hdr->tp_len, hdr->tp_snaplen, hdr->tp_mac, hdr->tp_net, hdr->tp_sec, hdr->tp_usec);
@@ -600,26 +469,22 @@ void* udp_rxring(void *streamo)
     hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   }
   if(j > 0){
-    (*spec_ops->opt->cumul)++;
+    spec_ops->opt->cumul++;
     /* Since n_files starts from 0, we need to increment it here */
     /* What? legacy stuff i presume */
-    (*spec_ops->opt->cumul)++;
+    spec_ops->opt->cumul++;
   }
-  D("Saved %lu files",, (*spec_ops->opt->cumul));
+  D("Saved %lu files",, spec_ops->opt->cumul);
   D("Exiting mmap polling");
   //spec_ops->running = 0;
   //spec_ops->opt->status = STATUS_STOPPED;
 
   pthread_exit(NULL);
 }
-void free_the_buf(struct buffer_entity * be){
-  /* Set old buffer ready and signal it to start writing */
-  be->set_ready_and_signal(be,0);
-}
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
   struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  (*spec_ops->opt->cumul)++;
+  spec_ops->opt->cumul++;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
   if(resq->before != NULL){
@@ -658,7 +523,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
     resq->inc_before = resq->inc;
   }
   resq->i=0;
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
   CHECK_AND_EXIT(se->be);
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
   resq->bufstart = resq->buf;
@@ -724,7 +589,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   else{
     long diff_from_start = seqnum - resq->seqstart_current;
     long diff_to_current = seqnum - (resq->current_seq);
-    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %ld,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
+    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %ld,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
     if (diff_to_current < 0){
       D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
       if(diff_from_start < 0){
@@ -845,7 +710,12 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   {
     int err;
     struct udpopts* spec_ops = (struct udpopts*)se->opt;
-    if(received < 0){
+    if(received == 0)
+    {
+	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
+	return 1;
+    }
+    else if(received < 0){
       if(received == EINTR){
 	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
 	return 1;
@@ -855,7 +725,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
 	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
 	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, (*spec_ops->opt->cumul), resq->current_seq,  *resq->inc,  resq->seqstart_current);
+	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq,  *resq->inc,  resq->seqstart_current);
 	}
       }
       //spec_ops->running = 0;
@@ -965,10 +835,9 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     if(resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
-      if(spec_ops->opt->fi != NULL){
-	unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-	D("%s : N packets is now %lu",,spec_ops->opt->filename, n_now);
-      }
+      ASSERT(spec_ops->opt->fi != NULL);
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      D("%s : N packets is now %lu",,spec_ops->opt->filename, n_now);
 
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	D("Jumping to next buffer normally");
@@ -983,29 +852,20 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       else{
 	D("Datatype unknown!");
 	resq->i=0;
-	(*spec_ops->opt->cumul)++;
+	spec_ops->opt->cumul++;
 #ifdef FORCE_WRITE_TO_FILESIZE
 	(*resq->inc) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 #endif
 
-	D("%s Freeing used buffer to write %lu bytes for file %lu",, spec_ops->opt->filename, *(resq->inc), *(spec_ops->opt->cumul)-1);
+	D("%s Freeing used buffer to write %lu bytes for file %lu",, spec_ops->opt->filename, *(resq->inc), spec_ops->opt->cumul-1);
 	free_the_buf(se->be);
-	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,spec_ops->opt->cumul, NULL);
+	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
 	CHECK_AND_EXIT(se->be);
 	D("Got new free for %s. Grabbing buffer",, spec_ops->opt->filename);
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
       }
     }
     return 0;
-  }
-  void reset_udpopts_stats(struct udpopts *spec_ops)
-  {
-    spec_ops->wrongsizeerrors = 0;
-    spec_ops->total_captured_bytes = 0;
-    spec_ops->opt->total_packets = 0;
-    spec_ops->out_of_order = 0;
-    spec_ops->incomplete = 0;
-    spec_ops->missing = 0;
   }
   int force_reacquire(struct udpopts *spec_ops)
   {
@@ -1065,7 +925,7 @@ void* udp_receiver(void *streamo)
   }
   */
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
   CHECK_AND_EXIT(se->be);
 
   resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
@@ -1082,7 +942,7 @@ void* udp_receiver(void *streamo)
 
   //while(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
   D("Entering receive loop for %s",, spec_ops->opt->filename);
-  while(1){
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
     err = handle_buffer_switch(se,resq);
     if(err != 0){
       LOG("Done or error!");
@@ -1109,20 +969,21 @@ void* udp_receiver(void *streamo)
     *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
     free_the_buf(resq->before);
   }
-  if(*(resq->inc) == 0)
+  if(*(resq->inc) == 0){
     se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+  }
   else{
     if(spec_ops->opt->fi != NULL){
       unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-      D("N packets is now %lu",, n_now);
+      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
     }
-    (*spec_ops->opt->cumul)++;
+    spec_ops->opt->cumul++;
     se->be->set_ready_and_signal(se->be,0);
   }
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
-  //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets",, (*spec_ops->opt->cumul), spec_ops->opt->total_packets);
+  D("Saved %lu files and %lu packets",, spec_ops->opt->cumul, spec_ops->opt->total_packets);
 
   /* Main thread will free if we have a real datatype */
   if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
@@ -1154,43 +1015,6 @@ void get_udp_stats(void *sp, void *stats){
     stat->progress = -1;
   //stat->files_exchanged = udps_get_fileprogress(spec_ops);
 }
-int close_udp_streamer(void *opt_own, void *stats){
-  D("Closing udp-streamer");
-  struct udpopts *spec_ops = (struct udpopts *)opt_own;
-  int err;
-  get_udp_stats(opt_own,  stats);
-  D("Got stats");
-  if(!(spec_ops->opt->optbits & READMODE)){
-    D("setting cfg");
-    err = set_from_root(spec_ops->opt, NULL, 0,1);
-    CHECK_ERR("update_cfg");
-    err = write_cfgs_to_disks(spec_ops->opt);
-    CHECK_ERR("write_cfg");
-  } 
-  if(!(spec_ops->opt->optbits & READMODE) && spec_ops->opt->hostname != NULL){
-    close(spec_ops->fd_send);
-    free(spec_ops->sin_send);
-  }
-  if(spec_ops->servinfo != NULL)
-    freeaddrinfo(spec_ops->servinfo);
-  if(spec_ops->servinfo_simusend != NULL)
-    freeaddrinfo(spec_ops->servinfo_simusend);
-  LOG("UDP_STREAMER: Closed\n");
-
-  /*
-     if(!(spec_ops->opt->optbits & USE_RX_RING))
-     free(spec_ops->sin);
-     */
-  free(spec_ops);
-  D("Returning");
-  return 0;
-}
-void udps_stop(struct streamer_entity *se){
-  D("Stopping loop");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
-  set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
-  udps_close_socket(se);
-}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
 int udps_is_blocked(struct streamer_entity *se){
   return ((struct udpopts *)(se->opt))->is_blocked;
@@ -1205,9 +1029,10 @@ void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
   (void)opt;
   se->init = setup_udp_socket;
-  se->close = close_udp_streamer;
+  se->close = close_streamer_opts;
   se->get_stats = get_udp_stats;
-  se->close_socket = udps_close_socket;
+  se->close_socket = close_socket;
+  se->stop = stop_streamer;
   //se->get_max_packets = udps_get_max_packets;
 }
 
@@ -1219,7 +1044,6 @@ int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
     se->start = udp_rxring;
   else
     se->start = udp_receiver;
-  se->stop = udps_stop;
 
   return se->init(opt, se);
 }
@@ -1229,7 +1053,6 @@ int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
 
   udps_init_default(opt,se);
   se->start = udp_sender;
-  se->stop = udps_stop;
   return se->init(opt, se);
 
 }

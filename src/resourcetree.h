@@ -30,6 +30,7 @@
 #define CHECK_BY_SEQ 5
 #define CHECK_BY_FINISHED 6
 #define CHECK_BY_OLDSEQ 7
+#define CHECK_BY_SOCKETNUM 8
 
 #define CHECK_LOADED B(1)
 #define CHECK_BUSY B(2)
@@ -110,7 +111,7 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en);
 /* Set branch as full of data				*/
 void set_loaded(struct entity_list_branch *br, struct listed_entity* en);
 /* Get a free entity from the branch			*/
-void* get_free(struct entity_list_branch *br, void * opt,void *acq, int* acquire_result);
+void* get_free(struct entity_list_branch *br, void * opt,void *acq, int* acquire_result, int quit_if_stopped);
 
 /* Get a file thats still in the memory and is free */
 //void* get_lingering(struct entity_list_branch * br, void* opt, void*  fh, int just_check);

@@ -59,17 +59,21 @@
 #define REC_DUMMY 		B(5)
 #define REC_DEF 		B(6)
 #define REC_SPLICER 		B(7)
+
 #define REC_WRITEV		B(8)
+#define REC_SENDFILE		B(9)
 
 /* How to capture packets. */
 #define LOCKER_CAPTURE		0x00000000000ff000
 #define CAPTURE_W_FANOUT 	B(12)
 #define CAPTURE_W_UDPSTREAM 	B(13)
-#define CAPTURE_W_SPLICER 	B(14)
+//#define CAPTURE_W_SPLICER 	B(14)
 #define CAPTURE_W_DISK2FILE	B(15)
 
 #define CAPTURE_W_DUMMY		B(16)
-/*Three empty here */
+#define CAPTURE_W_TCPSTREAM	B(17)
+#define CAPTURE_W_TCPSPLICE	B(18)
+#define CAPTURE_W_LOCALSOCKET	B(19)
 
 /* How fanout works */
 /*
@@ -244,7 +248,7 @@ struct opt_s
   char *filename;
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
-  long unsigned *cumul;
+  long unsigned cumul;
   /* Used in read to determine how many we actually found 		*/
   long unsigned cumul_found;
   long unsigned last_packet;
@@ -268,6 +272,8 @@ struct opt_s
   int rate;
   void * first_packet;
   void * resqut;
+
+  int localsocket;
 
   /* Used to skip writing of some headers */
   int offset;
@@ -372,7 +378,7 @@ struct recording_entity
   int (*get_w_flags)();
   int (*handle_error)(struct recording_entity *, int);
   int (*get_r_flags)();
-  void (*setshmid)(void*, int);
+  void (*setshmid)(void*, int, void*);
   const char* (*get_filename)(struct recording_entity *re);
   /* Bloat bloat bloat. TODO: Add a common filestruct or something*/
   unsigned long (*get_n_packets)(struct recording_entity*);
@@ -388,18 +394,18 @@ struct recording_entity
 struct streamer_entity
 {
   void *opt;
-  int (*init)(struct opt_s *, struct streamer_entity *se);
+  int (*init)(struct opt_s *, struct streamer_entity *);
   void* (*start)(void*);
-  int (*close)(void*,void*);
-  void (*stop)(struct streamer_entity *se);
+  int (*close)(struct streamer_entity*,void*);
+  void (*stop)(struct streamer_entity *);
   void (*close_socket)(struct streamer_entity *se);
   /* Added to get periodic stats */
   void (*get_stats)(void*, void*);
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-  int (*is_blocked)(struct streamer_entity *se);
+  int (*is_blocked)(struct streamer_entity *);
 #endif
   //int (*is_running)(struct streamer_entity *se);
-  unsigned long (*get_max_packets)(struct streamer_entity *se);
+  unsigned long (*get_max_packets)(struct streamer_entity *);
   /* TODO: Refactor streamer to use the same syntax as buffer and writer */
   struct buffer_entity *be;
   struct listed_entity *rbuf;
@@ -411,6 +417,7 @@ struct scheduled_event{
   //struct scheduled_event* next;
   struct stats* stats;
   char * idstring;
+  int socketnumber;
   void (*shutdown_thread)(struct opt_s*);
   pthread_t pt;
   int found;

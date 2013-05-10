@@ -96,6 +96,7 @@ int main(int argc, char** argv){
     exit(-1);
   }
 
+
   fsize = st.st_size;
   
 

@@ -162,7 +162,7 @@ inline struct file_index* get_last()
   return returnable;
 }
 /* Returns existing file_index if found or creates new if not */
-struct file_index * add_fileindex(char * name, unsigned long n_files, int status)
+struct file_index * add_fileindex(char * name, unsigned long n_files, int status, unsigned long packet_size)
 {
   D("Adding new file %s to index",, name);
   struct file_index * new;
@@ -232,6 +232,8 @@ struct file_index * add_fileindex(char * name, unsigned long n_files, int status
   new->files = (struct fileholder*)malloc(sizeof(struct fileholder)*(new->allocated_files));
   CHECK_ERR_NONNULL_RN(new->files);
   new->status = status;
+  if(status == FILESTATUS_RECORDING)
+    new->packet_size = packet_size;
   FIUNLOCK(new);
   D("File %s added to index",, new->filename);
   return new;
@@ -410,6 +412,34 @@ int full_metadata_update(struct file_index* fi, long unsigned * files, long unsi
   *files = fi->n_files;
   *packets = fi->n_packets;
   *status = fi->status;
+  FIUNLOCK(fi);
+  return 0;
+}
+unsigned long get_packet_size(struct file_index* fi)
+{
+  unsigned long temp;
+  FI_READLOCK(fi);
+  temp = fi->packet_size;
+  FIUNLOCK(fi);
+  return temp;
+}
+int check_for_file_on_disk_and_wait_if_not(struct file_index *fi, unsigned long fileid)
+{
+  FI_READLOCK(fi);
+  while(!(fi->files[fileid].status & FH_ONDISK))
+  {
+    if(fi->files[fileid].status & FH_MISSING){
+      E("Recording %s File %ld gone missing so wont wait for it" ,,fi->filename, fileid);
+      FIUNLOCK(fi);
+      return -1;
+    }
+    D("Recording %s is busy with file %ld. Not acquiring write point for it",, fi->filename, fileid);
+    FI_CONDLOCK(fi);
+    FIUNLOCK(fi);
+    mutex_free_wait_on_update(fi);
+    FI_CONDUNLOCK(fi);
+    FI_READLOCK(fi);
+  }
   FIUNLOCK(fi);
   return 0;
 }

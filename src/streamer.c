@@ -49,6 +49,7 @@
 #include "defwriter.h"
 //#include "sendfile_streamer.h"
 #include "splicewriter.h"
+#include "sendfile_writer.h"
 #include "writev_writer.h"
 #include "disk2file.h"
 #include "resourcetree.h"
@@ -56,6 +57,7 @@
 #include "simplebuffer.h"
 #include "dummywriter.h"
 #include "dummy_stream.h"
+#include "tcp_stream.h"
 #define IF_DUPLICATE_CFG_ONLY_UPDATE
 /* from http://stackoverflow.com/questions/1076714/max-length-for-client-ip-address */
 /* added one for null char */
@@ -323,7 +325,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, *opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
     if(opts->time == 0)
@@ -340,7 +342,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	  "HD-failures: %d\n"
 	  "Net receive Speed: %luMb/s\n"
 	  "HD write Speed: %luMb/s\n"
-	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, *opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
 }
 /* Defensive stuff to check we're not copying stuff from default	*/
@@ -349,7 +351,6 @@ int clear_pointers(struct opt_s* opt){
   opt->device_name = NULL;
   opt->hostname = NULL;
   opt->cfgfile = NULL;
-  opt->cumul = NULL;
   opt->disk2fileoutput = NULL;
   return 0;
 }
@@ -384,7 +385,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
-  opt->cumul = (long unsigned *)malloc(sizeof(long unsigned));
 #endif
 
 
@@ -456,10 +456,12 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
 	  opt->optbits |= CAPTURE_W_UDPSTREAM;
 	}
+	/*
 	else if (!strcmp(optarg, "sendfile")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_SPLICER;
 	}
+	*/
 	else if (!strcmp(optarg, "dummy")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DUMMY;
@@ -657,7 +659,6 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   else
     opt->time = atoi(argv[1]);
 #endif
-  //*opt->cumul = 0;
 
   struct rlimit rl;
   /* Query max size */
@@ -791,8 +792,6 @@ int close_opts(struct opt_s *opt){
   pthread_rwlock_destroy(&(opt->statuslock));
 #endif
   config_destroy(&(opt->cfg));
-  if(opt->cumul != NULL)
-    free(opt->cumul);
   /*
   if(opt->total_packets != NULL)
     free(opt->total_packets);
@@ -812,16 +811,15 @@ int prep_streamer(struct opt_s* opt){
 	err = udps_init_udp_sender(opt, opt->streamer_ent);
       else
 	err = udps_init_udp_receiver(opt, opt->streamer_ent);
-#if(DAEMON)
-      opt->get_stats = udpstreamer_stats;
-#endif
       break;
     case CAPTURE_W_FANOUT:
       err = fanout_init_fanout(opt, opt->streamer_ent);
       break;
+      /*
     case CAPTURE_W_SPLICER:
-      //err = sendfile_init_writer(&opt, &(streamer_ent));
+      err = sendfile_init_writer(&opt, &(streamer_ent));
       break;
+      */
     case CAPTURE_W_DUMMY:
       if(opt->optbits & READMODE)
 	err = dummy_init_dummy_sender(opt, opt->streamer_ent);
@@ -834,6 +832,12 @@ int prep_streamer(struct opt_s* opt){
     case CAPTURE_W_DISK2FILE:
       err = d2f_init(opt, opt->streamer_ent);
       break;
+    case CAPTURE_W_TCPSTREAM:
+      err = tcp_init(opt, opt->streamer_ent);
+      break;
+    case CAPTURE_W_TCPSPLICE:
+      err = tcp_init(opt, opt->streamer_ent);
+      break;
     default:
       LOG("ERROR: Missing capture bit or two set! %lX\n", opt->optbits);
       break;
@@ -845,6 +849,9 @@ int prep_streamer(struct opt_s* opt){
     opt->streamer_ent = NULL;
     return -1;
   }
+#if(DAEMON)
+  opt->get_stats = udpstreamer_stats;
+#endif
   return 0;
 }
 int init_recp(struct opt_s *opt){
@@ -875,6 +882,9 @@ int init_recp(struct opt_s *opt){
 	break;
       case REC_WRITEV:
 	err = writev_init_rec_entity(opt, &(opt->recs[i]));
+	break;
+      case REC_SENDFILE:
+	err = init_sendfile_writer(opt, &(opt->recs[i]));
 	break;
       default:
 	E("Unknown recorder");
@@ -971,7 +981,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_LIBCONFIG_H
   if(opt->optbits &READMODE){
     oper_to_all(opt->diskbranch,BRANCHOP_CHECK_FILES,(void*)opt);
-    LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, *opt->cumul, get_n_files(opt->fi));
+    LOG("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n", opt->filename, opt->cumul_found, opt->cumul, get_n_files(opt->fi));
   }
 #endif //HAVE_LIBCONFIG_H
 
@@ -1150,16 +1160,14 @@ int close_streamer(struct opt_s *opt){
   init_stats(stats_full);
   D("stats ready");
   if(opt->streamer_ent != NULL)
-    opt->streamer_ent->close(opt->streamer_ent->opt, (void*)stats_full);
+    opt->streamer_ent->close(opt->streamer_ent, (void*)stats_full);
   D("Closed streamer_ent");
 #if(!DAEMON)
   close_rbufs(opt, stats_full);
   close_recp(opt,stats_full);
   D("Membranch and diskbranch shut down");
 #else
-  //oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_full);
   stats_full->total_written = opt->bytes_exchanged;
-  //free(opt->augmentlock);
 #endif
   D("Printing stats");
   print_stats(stats_full, opt);
@@ -1228,6 +1236,8 @@ void shutdown_thread(struct opt_s *opt){
   if(opt->streamer_ent != NULL && opt->streamer_ent->stop != NULL){
     opt->streamer_ent->stop(opt->streamer_ent);
   }
+  else
+    E("Cant shutdown streamer_ent with uninitialized stop");
 }
 #if(DAEMON)
 int print_midstats(struct schedule* sched, struct stats* old_stats)
@@ -1298,6 +1308,9 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
   }
 }
 #if(PPRIORITY)
+/*
+ *  http://stackoverflow.com/questions/902539/nice-level-for-pthreads
+ */
 int minimize_priority(){
   pid_t tid  = syscall(SYS_gettid);
   D("Setting tid %d prio from %d to %d",, tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);
