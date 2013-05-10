@@ -349,7 +349,14 @@ int sbuf_close(struct buffer_entity* be, void *stats)
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
+#ifdef MMAP_NOT_SHMGET
       munmap(sbuf->buffer, sbuf->opt->filesize);
+#else
+      char shmstring[FILENAME_MAX];
+      sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
+      shm_unlink(shmstring);
+      close(sbuf->shmid);
+#endif
     }
     else
 #endif /* HAVE_HUGEPAGES */

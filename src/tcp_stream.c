@@ -123,7 +123,7 @@ void* tcp_preloop(void *ser)
   struct udpopts *spec_ops = (struct udpopts*)se->opt;
   reset_udpopts_stats(spec_ops);
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,spec_ops->opt->cumul, NULL,1);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
   CHECK_AND_EXIT(se->be);
 
   LOG("TCP_STREAMER: Starting stream capture\n");
@@ -133,7 +133,7 @@ void* tcp_preloop(void *ser)
     err = loop_with_splice(se);
   if(err != 0)
     E("Loop stopped in error");
-  D("Saved %lu files and %lu bytes",, (*spec_ops->opt->cumul), spec_ops->total_captured_bytes);
+  D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_captured_bytes);
   pthread_exit(NULL);
 }
 int tcp_init(struct opt_s* opt, struct streamer_entity * se)

@@ -126,12 +126,9 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
   int i;
   for(i=0;i<N_THREADS;i++)
   {
-    if(copies[i].cumul != NULL)
-      free(copies[i].cumul);
     memcpy(&(copies[i]), original,sizeof(struct opt_s));
     clear_pointers(&(copies[i]));
-    copies[i].cumul = (long unsigned *)malloc(sizeof(long unsigned));
-    *(copies[i].cumul) = 0;
+    copies[i].cumul = 0;
     events[i].opt = &(copies[i]);
     events[i].stats = &(stats[i]);
     /* This will give the same filename to each pair */
@@ -165,7 +162,6 @@ int main()
   dopt->hostname = NULL;
   dopt->filesize = PACKET_SIZE*NUMBER_OF_PACKETS;
   dopt->maxmem = 1;
-  dopt->cumul = NULL;
 
   events = (struct scheduled_event*)malloc(sizeof(struct scheduled_event)*N_THREADS);
   stats = (struct stats*)malloc(sizeof(struct stats)*N_THREADS);
@@ -425,11 +421,6 @@ int main()
 
   err = close_active_file_index();
   CHECK_ERR("Close active file index");
-
-  for(i=0;i<N_THREADS;i++)
-  {
-    free(opts[i].cumul);
-  }
 
   free(filenames);
   free(opts);

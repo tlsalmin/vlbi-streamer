@@ -3,7 +3,7 @@
 
 : ${CXXFLAGS= -Werror }  
 AC_PREREQ([2.63])
-AC_INIT([vlbi-streamer], [0.5.1.4], [tlsalmin@gmail.com])
+AC_INIT([vlbi-streamer], [0.6], [tlsalmin@gmail.com])
 AC_CONFIG_SRCDIR([src/fanout.h])
 
 # Checks for programs.
@@ -24,6 +24,16 @@ AC_ARG_ENABLE(hugepages,
 AC_MSG_RESULT($enable_hugepages)
 AS_IF([test "x$enable_hugepages" != "xno"],[
   AC_DEFINE(HAVE_HUGEPAGES, 1, [Compile with hugepage support])
+  ])
+
+AC_MSG_CHECKING(--enable-localsocket argument)
+AC_ARG_ENABLE(localsocket,
+    [  --enable-localsocket         Enable support for localsocket.],
+    [enable_localsocket=$enableval],
+    [enable_localsocket="yes"])
+AC_MSG_RESULT($enable_localsocket)
+AS_IF([test "x$enable_localsocket" != "xno"],[
+  AC_DEFINE(HAVE_LOCALSOCKET, 1, [Compile with localsocket support])
   ])
 
 # Checks for libraries.
@@ -59,8 +69,29 @@ AS_IF([test "x$enable_libaio" != "xno"], [
 			 enable_libaio="no"
 			 ])
 ])
-dnl Its a bit silly to define em twice..
 AM_CONDITIONAL([HAVE_LIBAIO], [test "${enable_libaio}" = "yes"])
+
+AC_MSG_CHECKING(--enable-libfuse argument)
+AC_ARG_ENABLE(libfuse,
+    [  --enable-libfuse         Include fuse fs.],
+    [enable_libfuse=$enableval],
+    [enable_libfuse="yes"])
+AC_MSG_RESULT($enable_libfuse)
+AS_IF([test "x$enable_libfuse" != "xno"], [
+       AC_CHECK_LIB([fuse],[fuse_main], [
+	      FUSE_LIBS=`pkg-config fuse --libs`
+	      FUSE_CFLAGS=`pkg-config fuse --cflags`
+	      AC_SUBST([FUSE_LIBS])
+	      AC_SUBST([FUSE_CFLAGS])
+	      AC_DEFINE(HAVE_LIBFUSE, 1, [Compile with added libaio backend])
+		     ], [
+			 AC_MSG_WARN([Could not find library fuse])
+			 AC_MSG_WARN([fuse functionality disabled])
+			 enable_libfuse="no"
+			 ])
+])
+dnl Its a bit silly to define em twice..
+AM_CONDITIONAL([HAVE_FUSE], [test "${enable_libfuse}" = "yes"])
 
 AC_MSG_CHECKING(--enable-gprofile argument)
 AC_ARG_ENABLE(gprofile,
@@ -261,4 +292,4 @@ AM_INIT_AUTOMAKE([foreign parallel-tests color-tests])
 #AC_CONFIG_FILES([Makefile])
 AC_CONFIG_HEADER([src/config.h])
 #AM_CONFIG_HEADER([utests/config.h])
-AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile utests/Makefile)
+AC_OUTPUT(Makefile src/Makefile seqsrc/Makefile utests/Makefile vbs_fs/Makefile)

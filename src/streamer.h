@@ -71,7 +71,7 @@
 #define CAPTURE_W_DUMMY		B(16)
 #define CAPTURE_W_TCPSTREAM	B(17)
 #define CAPTURE_W_TCPSPLICE	B(18)
-/*Two empty here */
+#define CAPTURE_W_LOCALSOCKET	B(19)
 
 /* How fanout works */
 /*
@@ -246,7 +246,7 @@ struct opt_s
   char *filename;
   /* Lock that spans over all threads. Used for tracking files	 	*/
   /* by sequence number							*/
-  long unsigned *cumul;
+  long unsigned cumul;
   /* Used in read to determine how many we actually found 		*/
   long unsigned cumul_found;
   long unsigned last_packet;
@@ -270,6 +270,8 @@ struct opt_s
   int rate;
   void * first_packet;
   void * resqut;
+
+  int localsocket;
 
   /* Used to skip writing of some headers */
   int offset;
@@ -413,6 +415,7 @@ struct scheduled_event{
   //struct scheduled_event* next;
   struct stats* stats;
   char * idstring;
+  int socketnumber;
   void (*shutdown_thread)(struct opt_s*);
   pthread_t pt;
   int found;

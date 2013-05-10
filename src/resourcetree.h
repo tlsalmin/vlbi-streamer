@@ -30,6 +30,7 @@
 #define CHECK_BY_SEQ 5
 #define CHECK_BY_FINISHED 6
 #define CHECK_BY_OLDSEQ 7
+#define CHECK_BY_SOCKETNUM 8
 
 #define CHECK_LOADED B(1)
 #define CHECK_BUSY B(2)
