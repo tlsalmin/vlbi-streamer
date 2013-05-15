@@ -1021,82 +1021,16 @@ int main(int argc, char **argv)
   CPU_ZERO(&cpuset);
 #endif
 
-  if(opt->optbits & READMODE){
 #ifdef HAVE_LRT
-    GETTIME(start_t);
+  GETTIME(start_t);
 #else
-    //TODO
+  //TODO
 #endif
-  }
-#if(!DAEMON)
-  /* I really want to delete non-daemon mode.. */
-  /* Print speed etc. */
-  if(opt->optbits & VERBOSE){
-
-    /* Init the stats */
-    struct stats *stats_prev, *stats_now;//, stats_temp;
-    stats_prev = (struct stats*)malloc(sizeof(struct stats));
-    STREAMER_CHECK_NONNULL(stats_prev, "stats malloc");
-    stats_now = (struct stats*)malloc(sizeof(struct stats));
-    init_stats(stats_prev);
-    init_stats(stats_now);
-    int sleeptodo;
-    LOG("STREAMER: Printing stats per second\n");
-    LOG("----------------------------------------\n");
-
-    if(opt->optbits & READMODE)
-      sleeptodo= 1;
-    else
-      sleeptodo = opt->time;
-    while(sleeptodo >0 && get_status_from_opt(opt) == STATUS_RUNNING){
-      sleep(1);
-      init_stats(stats_now);
-
-      opt->streamer_ent->get_stats(opt->streamer_ent->opt, stats_now);
-
-      /* Query and print the stats */
-      oper_to_all(opt->diskbranch,BRANCHOP_GETSTATS,(void*)stats_now);
-
-      neg_stats(stats_now, stats_prev);
-
-      print_intermediate_stats(stats_now);
-      if(!(opt->optbits & READMODE)){
-	LOG("Time %lds\n", opt->time-sleeptodo+1);
-      }
-      else{
-	LOG("Time %ds\n", sleeptodo);
-      }
-
-      LOG("Ringbuffers: ");
-      print_br_stats(opt->membranch);
-      LOG("Recpoints: ");
-      print_br_stats(opt->diskbranch);
-
-      LOG("----------------------------------------\n");
-
-      if(!(opt->optbits & READMODE))
-	sleeptodo--;
-      else
-	sleeptodo++;
-      add_stats(stats_prev, stats_now);
-      fflush(stdout);
-    }
-    free(stats_now);
-    free(stats_prev);
-  }
-  if(!(opt->optbits & READMODE)){
-    if(!(opt->optbits & VERBOSE))
-      sleep(opt->time);
-    shutdown_thread(opt);
-  }
-  /* If we're capturing, time the threads and run them down after we're done 	*/
-  else
-#endif /* NOT DAEMON */
   {
     /* READMODE shuts itself down so we just go to pthread_join			*/
     /* Check also that last_packet is 0. Else the thread should shut itself 	*/
     /* down									*/
-    if(!(opt->optbits & READMODE) && opt->last_packet == 0){
+    if(!(opt->optbits & READMODE) && opt->last_packet == 0 && !(opt->optbits & CAPTURE_W_TCPSPLICE|CAPTURE_W_TCPSTREAM)){
       TIMERTYPE now;
       GETTIME(now);
       while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && get_status_from_opt(opt) == STATUS_RUNNING){
@@ -1118,18 +1052,17 @@ int main(int argc, char **argv)
     D("Streamer thread exit OK");
   LOG("STREAMER: Threads finished. Getting stats for %s\n", opt->filename);
 
-  if(opt->optbits & READMODE){
-    /* Too fast sending so I'll keep this in ticks and use floats in stats */
 #ifdef HAVE_LRT
     struct timespec end_t;
     clock_gettime(CLOCK_REALTIME, &end_t);
     opt->time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
 #else
+    if(opt->optbits &READMODE)
+    {
     LOGERR("STREAMER: lrt not present. Setting time to 1\n");
     opt->time = 1;
-    //opt.time = (clock() - start_t);
+    }
 #endif
-  }
 
   LOG("Blocking until owned buffers are released\n");
   block_until_free(opt->membranch, opt);

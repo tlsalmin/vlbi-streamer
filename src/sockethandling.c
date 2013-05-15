@@ -90,6 +90,10 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = socktype;
   hints.ai_flags = AI_PASSIVE;
+  if(hostname == NULL)
+    D("Creating socket to localhost port %s",, port);
+  else
+    D("Creating socket to %s port %s",, hostname, port);
   /* Port as integer is legacy from before I saw the light from Beej network guide	*/
   err = getaddrinfo(hostname, port, &hints, servinfo);
   if(err != 0){
@@ -106,6 +110,12 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
     {
       E("Cant bind to %s. Trying next",, p->ai_canonname);
       continue;
+    }
+    if(optbits & SO_REUSEIT)
+    {
+      int yes = 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+      CHECK_ERR("Reuseaddr");
     }
     if(optbits & READMODE)
     {
@@ -129,6 +139,7 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
 	E("bind socket");
 	continue;
       }
+      D("Socket bound");
     }
     if(used != NULL)
       *used = p;
@@ -295,6 +306,10 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
   if(spec_ops->servinfo_simusend != NULL)
     freeaddrinfo(spec_ops->servinfo_simusend);
   LOG("UDP_STREAMER: Closed\n");
+  /*
+  if(spec_ops->sin != NULL)
+    free(spec_ops->sin);
+    */
 
   /*
      if(!(spec_ops->opt->optbits & USE_RX_RING))
@@ -318,4 +333,13 @@ void reset_udpopts_stats(struct udpopts *spec_ops)
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
+}
+/* Stolen from Beejs network guide */
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+if (sa->sa_family == AF_INET) {
+return &(((struct sockaddr_in*)sa)->sin_addr);
+}
+return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }

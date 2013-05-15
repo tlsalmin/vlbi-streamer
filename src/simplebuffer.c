@@ -797,6 +797,10 @@ void *sbuf_simple_write_loop(void *buffo)
     if(mutex_free == 0)
       UNLOCK(be->headlock);
   }
+int sbuf_getshmid(struct buffer_entity* be)
+{
+  return ((struct simplebuf*)be->opt)->shmid;
+}
   void sbuf_set_ready_and_signal(struct buffer_entity *be, int mutex_free)
   {
     if(mutex_free == 0)
@@ -817,6 +821,7 @@ void *sbuf_simple_write_loop(void *buffo)
     be->set_ready_and_signal = sbuf_set_ready_and_signal;
     be->acquire = sbuf_acquire;
     be->cancel_writebuf = sbuf_cancel_writebuf;
+    be->get_shmid = sbuf_getshmid;
 
     return be->init(opt,be); 
   }

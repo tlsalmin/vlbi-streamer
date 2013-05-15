@@ -75,6 +75,8 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   char port[12];
   memset(port, 0,sizeof(char)*12);
   sprintf(port,"%d", spec_ops->opt->port);
+  if(!(spec_ops->opt->optbits & READMODE))
+    spec_ops->opt->optbits |= SO_REUSEIT;
   err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_STREAM, &(spec_ops->p), spec_ops->opt->optbits);
   CHECK_ERR("Create socket");
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
@@ -94,26 +96,130 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   CHECK_ERR("Common init");
 
   if(!(spec_ops->opt->optbits & READMODE)){
+    err = listen(spec_ops->fd, 1);
+    CHECK_ERR("listen to socket");
     spec_ops->sin_l = sizeof(struct sockaddr);
-    if((spec_ops->tcp_fd = accept(spec_ops->fd, &(spec_ops->sin), &(spec_ops->sin_l))) < 0)
+    memset(&spec_ops->sin, 0, sizeof(struct sockaddr));
+    if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
     {
-      E("Error in accepting socket");
+      E("Error in accepting socket %d",, spec_ops->fd);
       return -1;
     }
+    char s[INET6_ADDRSTRLEN];
+    /* Stolen from the great Beejs network guide	*/
+    /* http://beej.us/guide/bgnet/	*/
+    inet_ntop(spec_ops->sin.ss_family,
+	get_in_addr((struct sockaddr *)&spec_ops->sin),
+	s, sizeof s);
+    LOG("server: got connection from %s\n", s);
   }
 
   return 0;
 }
+
+int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, long ** buf_incrementer, void** buf)
+{
+  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  if(err < 0){
+    E("Error in splice receive");
+    return -1;
+  }
+  else if(err == 0)
+  {
+    D("Socket shutdown");
+    return 1;
+  }
+  /*
+  else if(err != (bufsize-**buf_incrementer))
+    D("Supposed to send %ld but sent only %ld",, (bufsize-**buf_incrementer), err);
+  else
+    D("Sent %ld as told",, err);
+    */
+  spec_ops->total_captured_bytes += err;
+  spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
+  **buf_incrementer += err;
+  if(**buf_incrementer == bufsize)
+  {
+    spec_ops->opt->cumul++;
+    D("A buffer filled for %ld. Next file: %ld",, spec_ops->opt->filename, spec_ops->opt->cumul);
+    unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+    free_the_buf(se->be);
+    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
+    CHECK_AND_EXIT(se->be);
+    *buf = se->be->simple_get_writebuf(se->be, buf_incrementer);
+  }
+
+  return 0;
+}
+
 int loop_with_splice(struct streamer_entity *se)
 {
-  (void)se;
-  //void *buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+  long err;
+  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  long *buf_incrementer;
+  void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
+  long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+  int fd_out = se->be->get_shmid(se->be);
+
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+  {
+    err = sendfile(fd_out, spec_ops->tcp_fd, NULL, (bufsize - *buf_incrementer));
+    err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
+    if(err != 0){
+      D("Finishing tcp splice loop for %s",, spec_ops->opt->filename);
+      break;
+    }
+  }
+  if(*buf_incrementer == 0){
+    se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+  }
+  else{
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    spec_ops->opt->cumul++;
+    se->be->set_ready_and_signal(se->be,0);
+  }
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+
+
   return 0;
 }
 int loop_with_recv(struct streamer_entity *se)
 {
-  (void)se;
-  //void *buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+  long err;
+  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  long *buf_incrementer;
+  void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
+  long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+  int fd_out = se->be->get_shmid(se->be);
+  long request;
+
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+  {
+    //request = MIN(
+    err = recv(spec_ops->tcp_fd, buf, (bufsize - *buf_incrementer), 0);
+    err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
+    if(err != 0){
+      D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+      break;
+    }
+  }
+  if(*buf_incrementer == 0){
+    se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+  }
+  else{
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    spec_ops->opt->cumul++;
+    se->be->set_ready_and_signal(se->be,0);
+  }
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+
+
   return 0;
 }
 void* tcp_preloop(void *ser)
