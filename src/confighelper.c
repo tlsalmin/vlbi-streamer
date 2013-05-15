@@ -58,6 +58,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   while(setting != NULL){
     /* Have to make this a huge if else since its string matching */
     if(strcmp(config_setting_name(setting), "filesize") == 0){
+      D("Found filesize in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64){
 	E("Filesize not int64");
 	return -1;
@@ -102,6 +103,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     }
     /* "Legacy" stuff*/
     CFG_ELIF("buf_elem_size"){
+      D("Found packet_size in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64)
 	return -1;
       if(check==1){
@@ -125,6 +127,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("cfg type not matched");
 	return -1;
       }
+      D("Found record mode in cfg");
       if(check==1){
 	int hur = config_setting_get_int(setting);
 	if(hur && (opt->optbits & READMODE)){
@@ -156,6 +159,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       }
     }
     CFG_ELIF("starting_time"){
+      D("Found starting_time in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64){
 	E("cfg type not matched");
 	return -1;
@@ -180,6 +184,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("writer type not correct");
 	return -1;
       }
+      D("Found writer in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }
@@ -273,6 +278,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("capture type not correct");
 	return -1;
       }
+      D("Found capture mode in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }
@@ -351,6 +357,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("datatype type not correct");
 	return -1;
       }
+      D("Found datatype in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }

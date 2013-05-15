@@ -79,6 +79,7 @@
 	E(#x" Type not correct");\
 	return -1;\
       }\
+      D("Found " #y " in cfg");\
       CFG_CHK_UINT64(x)\
       CFG_WRT_UINT64(x,y)\
       CFG_GET_UINT64(x)\
@@ -112,7 +113,7 @@
 	E(#x" type not correct");\
 	return -1;\
       }\
-      D("Found " y " in cfg");\
+      D("Found " #y " in cfg");\
       CFG_CHK_BOOLEAN(x,y)\
       CFG_WRT_BOOLEAN(x,y)\
       CFG_GET_BOOLEAN(x,y)\
@@ -123,6 +124,7 @@
 	E(#x" Not string type");\
 	return -1;\
       }\
+      D("Found " #x " in cfg");\
       CFG_CHK_STR(x)\
       CFG_WRT_STR(x)\
       CFG_GET_STR(x)\
@@ -131,6 +133,7 @@
     CFG_ELIF(y){\
       if(config_setting_type(setting) != CONFIG_TYPE_INT)	\
       return -1;\
+      D("Found " #y " in cfg");\
       CFG_CHK_INT(x)\
       CFG_WRT_INT(x,y)\
       CFG_GET_INT(x)\

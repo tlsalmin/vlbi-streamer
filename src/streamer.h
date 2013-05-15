@@ -117,6 +117,8 @@
 #define CONNECT_BEFORE_SENDING	B(42)
 #define WRITE_TO_SINGLE_FILE	B(43)
 
+#define SO_REUSEIT		B(44)
+
 #define MEG			B(20)
 #define GIG			B(30)
 
@@ -350,6 +352,7 @@ struct buffer_entity
   void* (*write_loop)(void *);
   void (*stop)(struct buffer_entity*);
   void (*init_mutex)(struct buffer_entity *, void*,void*);
+  int (*get_shmid)(struct buffer_entity*);
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int (*is_blocked)(struct buffer_entity*);
 #endif

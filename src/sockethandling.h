@@ -10,7 +10,7 @@ struct udpopts
   struct opt_s* opt;
   //long unsigned int * cumul;
   //TODO: REmove these two
-  struct sockaddr sin;
+  struct sockaddr_storage sin;
   socklen_t sin_l;
   struct sockaddr_in *sin_send;
   struct addrinfo *p;
@@ -34,4 +34,5 @@ void free_the_buf(struct buffer_entity * be);
 int close_streamer_opts(struct streamer_entity *se, void *stats);
 void stop_streamer(struct streamer_entity *se);
   void reset_udpopts_stats(struct udpopts *spec_ops);
+void *get_in_addr(struct sockaddr *sa);
 #endif
