@@ -35,7 +35,7 @@
 #include "streamer.h"
 #include "resourcetree.h"
 #include "confighelper.h"
-//#include "common_filehandling.h"
+#include "common_filehandling.h"
 #include "sockethandling.h"
 int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
   int err=0;
@@ -344,4 +344,145 @@ if (sa->sa_family == AF_INET) {
 return &(((struct sockaddr_in*)sa)->sin_addr);
 }
 return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
+{
+  long wait;
+#if(PREEMPTKERNEL)
+  int err;
+#endif
+#ifdef HAVE_RATELIMITER
+  if(opt->wait_nanoseconds > 0)
+  {
+    //clock_gettime(CLOCK_REALTIME, &now);
+    GETTIME(st->now);
+#if(SEND_DEBUG)
+    COPYTIME(st->now,st->reference);
+#endif
+    wait = nanodiff(&(opt->wait_last_sent), &st->now);
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+    //fprintf(st->out,"%ld %ld \n",spec_ops->total_captured_packets, wait);
+#else
+    fprintf(st->out, "UDP_STREAMER: %ld ns has passed since last->send\n", wait);
+#endif
+#endif
+    ZEROTIME(st->req);
+    SETNANOS(st->req,(opt->wait_nanoseconds-wait));
+    if(GETNANOS(st->req) > 0){
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld ", GETNANOS(st->req));
+#else
+      fprintf(st->out, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st->req));
+#endif
+#endif	
+#if!(PREEMPTKERNEL)
+      /* First->sleep in minsleep sleeps to get rid of the bulk		*/
+      while((unsigned long)GETNANOS(st->req) > st->minsleep){
+	SLEEP_NANOS(st->onenano);
+	SETNANOS(st->req,GETNANOS(st->req)-st->minsleep);
+      }
+      GETTIME(st->now);
+
+      while(nanodiff(&(opt->wait_last_sent),&st->now) < opt->wait_nanoseconds){
+	GETTIME(st->now);
+      }
+#else
+      err = SLEEP_NANOS(st->req);
+      if(err != 0){
+	E("cant sleep");
+	return -1;
+      }
+
+      GETTIME(st->now);
+#endif /*PREEMPTKERNEL */
+
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld\n", nanodiff(&st->reference, &st->now));
+#else
+      fprintf(st->out, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st->reference, &st->now));
+#endif
+#endif
+      nanoadd(&(opt->wait_last_sent), opt->wait_nanoseconds);	
+    }
+    else{
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "0 0\n");
+#else
+      fprintf(st->out, "Runaway timer! Resetting\n");
+#endif
+#endif
+      COPYTIME(st->now,opt->wait_last_sent);
+    }
+  }
+#endif //HAVE_RATELIMITER
+  return 0;
+}
+int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*))
+{
+  int err = 0;
+
+  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct sender_tracking st;
+  init_sender_tracking(spec_ops->opt, &st);
+  if(do_wait == 1)
+    throttling_count(spec_ops->opt, &st);
+  se->be = NULL;
+
+  spec_ops->total_captured_bytes = 0;
+  //spec_ops->total_captured_packets = 0;
+  spec_ops->out_of_order = 0;
+  spec_ops->incomplete = 0;
+  spec_ops->missing = 0;
+  D("Getting first loaded buffer for sender");
+
+  jump_to_next_file(spec_ops->opt, se, &st);
+  CHECK_AND_EXIT(se->be);
+
+  /* Data won't be instantaneous so get min_sleep here! */
+  if(do_wait==1){
+    unsigned long minsleep = get_min_sleeptime();
+    LOG("Can sleep max %lu microseconds on average\n", minsleep);
+#if!(PREEMPTKERNEL)
+    st.minsleep = minsleep;
+#endif
+  }
+
+  st.buf = se->be->simple_get_writebuf(se->be, NULL);
+
+  D("Starting stream send");
+
+  LOG("GENERIC_SENDER: Starting stream send\n");
+  if(do_wait == 1)
+    GETTIME(spec_ops->opt->wait_last_sent);
+  while(should_i_be_running(spec_ops->opt, &st) == 1){
+    if(st.packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - st.n_packets_probed  == 0))
+    {
+      err = jump_to_next_file(spec_ops->opt, se, &st);
+      if(err == ALL_DONE){
+	UDPS_EXIT;
+	break;
+      }
+      else if (err < 0){
+	E("Error in getting buffer");
+	UDPS_EXIT_ERROR;
+	break;
+      }
+      st.buf = se->be->simple_get_writebuf(se->be, NULL);
+      st.packetcounter = 0;
+      st.inc = 0;
+      //i=0;
+    }
+    if(do_wait==1)
+      udps_wait_function(&st, spec_ops->opt);
+    err = sendcmd(se, &st);
+    if(err != 0){
+      E("Error in sendcmd");
+      UDPS_EXIT_ERROR;
+    }
+  }
+  UDPS_EXIT;
 }

@@ -195,7 +195,7 @@ int loop_with_recv(struct streamer_entity *se)
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
   long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
   //int fd_out = se->be->get_shmid(se->be);
-  long request;
+  //long request;
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
@@ -223,6 +223,14 @@ int loop_with_recv(struct streamer_entity *se)
 
   return 0;
 }
+int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
+{
+  return 0;
+}
+int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
+{
+  return 0;
+}
 void* tcp_preloop(void *ser)
 {
   int err;
@@ -234,13 +242,24 @@ void* tcp_preloop(void *ser)
   CHECK_AND_EXIT(se->be);
 
   LOG("TCP_STREAMER: Starting stream capture\n");
-  if(spec_ops->opt->optbits & CAPTURE_W_TCPSTREAM)
-    err = loop_with_recv(se);
-  else if (spec_ops->opt->optbits & CAPTURE_W_TCPSPLICE)
-    err = loop_with_splice(se);
-  else{
-    E("Undefined recceive loop");
-    err = -1;
+  switch (spec_ops->opt->optbits & LOCKER_CAPTURE)
+  {
+    case(CAPTURE_W_TCPSTREAM):
+      err = loop_with_recv(se);
+      break;
+    case(CAPTURE_W_TCPSPLICE):
+      err = loop_with_splice(se);
+      break;
+    case(SEND_W_TCPSTREAM):
+      err =  generic_sendloop(se, 0, tcp_sendcmd);
+      break;
+    case(SEND_W_SENDFILE):
+      err =  generic_sendloop(se, 0, tcp_sendfilecmd);
+      break;
+    default:
+      E("Undefined recceive loop");
+      err = -1;
+    break;
   }
   if(err != 0)
     E("Loop stopped in error");

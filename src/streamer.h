@@ -64,16 +64,18 @@
 #define REC_SENDFILE		B(9)
 
 /* How to capture packets. */
-#define LOCKER_CAPTURE		0x00000000000ff000
+#define LOCKER_CAPTURE		0x0000000000fff000
 #define CAPTURE_W_FANOUT 	B(12)
 #define CAPTURE_W_UDPSTREAM 	B(13)
-//#define CAPTURE_W_SPLICER 	B(14)
-#define CAPTURE_W_DISK2FILE	B(15)
+#define CAPTURE_W_DISK2FILE	B(14)
+#define CAPTURE_W_DUMMY		B(15)
 
-#define CAPTURE_W_DUMMY		B(16)
-#define CAPTURE_W_TCPSTREAM	B(17)
-#define CAPTURE_W_TCPSPLICE	B(18)
-#define CAPTURE_W_LOCALSOCKET	B(19)
+#define CAPTURE_W_TCPSTREAM	B(16)
+#define CAPTURE_W_TCPSPLICE	B(17)
+#define CAPTURE_W_LOCALSOCKET	B(18)
+#define SEND_W_TCPSTREAM 	B(19)
+
+#define SEND_W_SENDFILE		B(20)
 
 /* How fanout works */
 /*
@@ -84,10 +86,6 @@
 
 /* Global stuff */
 //#define CHECK_SEQUENCE 		B(12)
-#define WILL_GET_SOCKET		B(20)
-#define ASYNC_WRITE		B(21)
-#define READMODE		B(22)
-#define USE_HUGEPAGE		B(23)
 
 #define WILL_GIVE_SOCKET	B(24)
 #define VERBOSE			B(25)
@@ -118,6 +116,11 @@
 #define WRITE_TO_SINGLE_FILE	B(43)
 
 #define SO_REUSEIT		B(44)
+#define WILL_GET_SOCKET		B(45)
+#define ASYNC_WRITE		B(46)
+#define READMODE		B(47)
+
+#define USE_HUGEPAGE		B(48)
 
 #define MEG			B(20)
 #define GIG			B(30)

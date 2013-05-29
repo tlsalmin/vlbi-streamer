@@ -180,7 +180,6 @@ int loadup_n(struct opt_s *opt, struct sender_tracking * st)
 }
 void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st)
 {
-  (void)opt;
   memset(st, 0,sizeof(struct sender_tracking));
 
 #if!(PREEMPTKERNEL)

@@ -5,12 +5,15 @@
 #include "dummy_stream.h"
 #include "common_filehandling.h"
 #include "udp_stream.h"
+#include "sockethandling.h"
 
+/*
 #ifdef UDPS_EXIT
 #undef UDPS_EXIT
 #define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} set_status_for_opt(spec_ops->opt,STATUS_STOPPED);if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
-int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 #endif
+*/
+int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 {
   struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
@@ -64,101 +67,19 @@ int dummy_init_dummy_sender( struct opt_s *opt, struct streamer_entity *se)
   se->stop = dummy_stop;
   return se->init(opt, se);
 }
+int dummy_sendcmd(struct streamer_entity*se, struct sender_tracking *st)
+{
+  struct udpopts *spec_ops = se->opt;
+  st->packets_sent++;
+  spec_ops->total_captured_bytes +=spec_ops->opt->packet_size;
+  st->inc+= spec_ops->opt->packet_size;
+  st->packetcounter++;
+  return 0;
+}
 void * dummy_sender(void * streamo)
 {
-  int err = 0;
-  long *inc, sentinc=0, packetcounter=0;
-
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  struct sender_tracking st;
-  init_sender_tracking(spec_ops->opt, &st);
-  throttling_count(spec_ops->opt, &st);
-  se->be = NULL;
-  spec_ops->total_captured_bytes = 0;
-  //spec_ops->total_captured_packets = 0;
-  spec_ops->out_of_order = 0;
-  spec_ops->incomplete = 0;
-  spec_ops->missing = 0;
-  D("Wait between is %d here",, spec_ops->opt->wait_nanoseconds);
-
-  //void * buf = se->be->simple_get_writebuf(se->be, &inc);
-  D("Getting first loaded buffer for sender");
-  
-  err = jump_to_next_file(spec_ops->opt, se, &st);
-  if(err != 0){
-    UDPS_EXIT;
-  }
-
-
-  CHECK_AND_EXIT(se->be);
-  st.minsleep = get_min_sleeptime();
-  LOG("Can sleep max %lu microseconds on average\n", st.minsleep);
-
-  se->be->simple_get_writebuf(se->be, &inc);
-
-  D("Starting stream send");
-  //i=0;
-  GETTIME(spec_ops->opt->wait_last_sent);
-
-  while(should_i_be_running(spec_ops->opt, &st) == 1){
-    if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - st.n_packets_probed  == 0))
-    {
-      D("Sent %lu packets for file %lu. Changing buffer",, packetcounter, st.files_sent);
-      err = jump_to_next_file(spec_ops->opt, se, &st);
-      if(err == ALL_DONE){
-	D("All done for sending %s",, spec_ops->opt->filename);
-	//UDPS_EXIT;
-	break;
-      }
-      else if (err < 0){
-	E("Error in getting buffer");
-	UDPS_EXIT_ERROR;
-	break;
-      }
-      se->be->simple_get_writebuf(se->be, &inc);
-      //packetpeek = get_n_packets(spec_ops->opt->fi);
-      packetcounter = 0;
-      sentinc = 0;
-      //i=0;
-    }
-    udps_wait_function(&st, spec_ops->opt);
-    //PACKET SEND
-    if(spec_ops->opt->wait_nanoseconds != 0)
-      usleep(spec_ops->opt->wait_nanoseconds);
-    err = spec_ops->opt->packet_size;
-    if(err < 0){
-      perror("Send packet");
-      UDPS_EXIT_ERROR;
-      //break;
-      //TODO: How to handle error case? Either shut down all threads or keep on trying
-      //pthread_exit(NULL);
-      //break;
-    }
-    else if((unsigned)err != spec_ops->opt->packet_size){
-      E("Sent only %d, when wanted to send %ld",, err, spec_ops->opt->packet_size);
-    }
-    else{
-      st.packets_sent++;
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      //spec_ops->total_captured_packets++;
-      //buf += spec_ops->opt->packet_size;
-      //spec_ops->opt->total_packets++;
-      sentinc += spec_ops->opt->packet_size;
-      packetcounter++;
-    }
-  }
-  if(se->be != NULL)
-  {
-    D("Still have buffer in se->be. It sent %lu before we quit",, packetcounter);
-    set_free(spec_ops->opt->membranch, se->be->self);
-    se->be = NULL;
-  }
-  D("Packets sent %ld, in index %ld. Files sent %ld when there are %ld in index",, st.packets_sent, get_n_packets(spec_ops->opt->fi),st.files_sent, get_n_files(spec_ops->opt->fi) );
-  assert(st.packets_sent == get_n_packets(spec_ops->opt->fi));
-  D("All done. Sent %lu packets for file %s",, st.packets_sent, spec_ops->opt->filename);
-  UDPS_EXIT;
-  return NULL;
+  generic_sendloop((struct streamer_entity*) streamo, 1,dummy_sendcmd);
+  pthread_exit(NULL);
 }
 void * dummy_receiver(void *streamo)
 {

@@ -21,6 +21,9 @@ struct sender_tracking{
   unsigned long n_packets_probed;
   unsigned long n_files_probed;
   int 		status_probed;
+  long packetcounter;
+  void* buf;
+  long inc;
   //unsigned long packetpeek;
   TIMERTYPE now;
 #if(SEND_DEBUG)

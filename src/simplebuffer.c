@@ -455,7 +455,8 @@ int simple_end_transaction(struct buffer_entity *be)
 void* sbuf_getbuf(struct buffer_entity *be, long ** diff)
 {
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
-  *diff = &(sbuf->diff);
+  if(diff != NULL)
+    *diff = &(sbuf->diff);
   return sbuf->buffer;
 }
 int simple_write_bytes(struct buffer_entity *be)
