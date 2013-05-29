@@ -30,6 +30,7 @@
 #include <netinet/in.h>
 #include <endian.h>
 
+#include <sys/sendfile.h>
 #include <net/if.h>
 #include "config.h"
 #include "streamer.h"
@@ -141,8 +142,8 @@ int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, lo
   if(**buf_incrementer == bufsize)
   {
     spec_ops->opt->cumul++;
-    D("A buffer filled for %ld. Next file: %ld",, spec_ops->opt->filename, spec_ops->opt->cumul);
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+    D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
     free_the_buf(se->be);
     se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
     CHECK_AND_EXIT(se->be);
@@ -193,7 +194,7 @@ int loop_with_recv(struct streamer_entity *se)
   long *buf_incrementer;
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
   long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
-  int fd_out = se->be->get_shmid(se->be);
+  //int fd_out = se->be->get_shmid(se->be);
   long request;
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
@@ -237,6 +238,10 @@ void* tcp_preloop(void *ser)
     err = loop_with_recv(se);
   else if (spec_ops->opt->optbits & CAPTURE_W_TCPSPLICE)
     err = loop_with_splice(se);
+  else{
+    E("Undefined recceive loop");
+    err = -1;
+  }
   if(err != 0)
     E("Loop stopped in error");
   D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_captured_bytes);

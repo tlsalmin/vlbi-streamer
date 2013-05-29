@@ -171,7 +171,7 @@ int free_and_close(void *le){
       E("Error in disassociate");
   }
   else{
-    disassociate(ev->opt->fi, FILESTATUS_RECORDING);
+    err = disassociate(ev->opt->fi, FILESTATUS_RECORDING);
     if(err != 0)
       E("Error in disassociate");
   }
@@ -380,14 +380,22 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
     se->idstring = (char*)malloc(sizeof(char)*24);
     CHECK_ERR_NONNULL(se->idstring, "idstring malloc");
     //strcpy(opt->filename, config_setting_name(root));
-    strcpy(se->idstring, config_setting_name(root));
-    LOG("Adding new request with id string: %s\n", se->idstring);
-    /* Get the rest of the opts		*/
-    err = set_from_root(opt, root, 0,0);
-    if(err != 0){
-      E("Broken schedule config. Not scheduling %s",, se->idstring);
-      free_and_close(se);
-      return 0;
+    if(root != NULL)
+    {
+      strcpy(se->idstring, config_setting_name(root));
+      LOG("Adding new request with id string: %s\n", se->idstring);
+      /* Get the rest of the opts		*/
+      err = set_from_root(opt, root, 0,0);
+      if(err != 0){
+	E("Broken schedule config. Not scheduling %s",, se->idstring);
+	free_and_close(se);
+	return 0;
+      }
+    }
+    else
+    {
+      E("config root is null, eventhough reading recording metadata from file");
+      return -1;
     }
   }
 
@@ -455,7 +463,6 @@ int check_schedule(struct schedule *sched){
   config_setting_t *root, *setting;
 
   root = config_root_setting(&cfg);
-  setting = config_setting_get_elem(root,i);
 
   D("Checking schedule");
   /* Go through all the scheduled recordings	 			*/
@@ -708,9 +715,9 @@ int main(int argc, char **argv)
 
   /* Initialize rec points						*/
   /* TODO: First make filewatching work! 				*/
-  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(pfd)*2);
+  struct pollfd * pfd = (struct pollfd*)malloc(sizeof(struct pollfd)*2);
   CHECK_ERR_NONNULL(pfd, "pollfd malloc");
-  memset(pfd, 0,sizeof(pfd));
+  memset(pfd, 0,sizeof(struct pollfd)*2);
 
   (pfd+1)->fd = local_sock;
   (pfd+1)->events = POLLIN|POLLERR;

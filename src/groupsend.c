@@ -106,8 +106,11 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       }
     }
   }
-  else
+  else{
     err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+    if(err!= 0)
+      E("Error in setting SO_SNDBUF");
+  }
 
 
   return 0;
@@ -132,7 +135,7 @@ int main(int argc, char** argv){
   uint64_t min;
 
   if(argc != 5)
-    usage(argv);
+    usage();
 
   char * temp = argv[1], *temp2;
   int i=0, err = 0;

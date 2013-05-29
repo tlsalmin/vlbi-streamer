@@ -465,18 +465,17 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   CHECK_ERR_NONNULL(setting, "add packet_size");
   if(opt != NULL){
     if(opt->optbits & CAN_STRIP_BYTES)
+    {
       err = config_setting_set_int64(setting, opt->packet_size-opt->offset);
-    else
-      err = config_setting_set_int64(setting, opt->packet_size);
-    CHECK_CFG("set packet size");
-  }
-  if(opt->optbits & CAN_STRIP_BYTES){
-    setting = config_setting_add(root, "offset_onwrite", CONFIG_TYPE_INT);
-    CHECK_ERR_NONNULL(setting, "add offset");
-    if(opt != NULL){
+      CHECK_CFG("Set packet size");
+      setting = config_setting_add(root, "offset_onwrite", CONFIG_TYPE_INT);
+      CHECK_ERR_NONNULL(setting, "add offset");
       err = config_setting_set_int(setting, opt->offset);
       CHECK_CFG("set offset");
     }
+    else
+      err = config_setting_set_int64(setting, opt->packet_size);
+    CHECK_CFG("set packet size");
   }
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
@@ -609,6 +608,7 @@ int init_cfg(struct opt_s *opt){
 	  if(opt->fi == NULL){
 	    E("File index add");
 	    retval = -1;
+	    break;
 	  }
 
 
@@ -660,10 +660,10 @@ int init_cfg(struct opt_s *opt){
     /* Set the root and other settings we need */
     /* NOTE: Done when closing */
     /*
-    root = config_root_setting(&(opt->cfg));
-    CHECK_ERR_NONNULL(root, "Get root");
-    stub_rec_cfg(root, NULL);
-    */
+       root = config_root_setting(&(opt->cfg));
+       CHECK_ERR_NONNULL(root, "Get root");
+       stub_rec_cfg(root, NULL);
+       */
     opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING, opt->packet_size);
     if(opt->fi == NULL){
       E("opt-fi init"); 
@@ -697,7 +697,7 @@ int init_cfg(struct opt_s *opt){
     opt->filesize = CALC_BUFSIZE_FROM_OPT(opt);
     D("Have to cut %ld MB from each buffer for alignment",, (oldsize - opt->filesize)/MEG);
   }
-  
+
   D("CFG init done");
   return retval;
 }

@@ -1,25 +1,19 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 #if(LOG_TO_FILE)
-
-#define LOG(...) fprintf(logfile, __VA_ARGS__)
-#define LOGERR(...) fprintf(logfile, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(logfile,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(logfile,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
-
-
+#define LOGTONORMAL logfile
+#define LOGTOERR logfile
 #else
-
-#define LOG(...) fprintf(stdout, __VA_ARGS__)
-#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
-
+#define LOGTONORMAL stdout
+#define LOGTOERR stderr
 #endif
+#define LOG(...) fprintf(LOGTONORMAL, __VA_ARGS__)
+#define LOGERR(...) fprintf(LOGTOERR, __VA_ARGS__)
+#define D(str, ...)\
+    do { if(DEBUG_OUTPUT) fprintf(LOGTONORMAL,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
+#define E(str, ...)\
+    do { fprintf(LOGTOERR,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
+
 
 #define DEBUG_OUTPUT_2 0
 #define DD(str, ...) if(DEBUG_OUTPUT_2)D(str, __VA_ARGS__)

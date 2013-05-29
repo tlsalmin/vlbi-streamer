@@ -616,7 +616,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
   }
 #endif
   argv +=optind;
-  argc -=optind;
+  //argc -=optind;
 
   /* TODO: Enable giving a custom cfg-file on invocation */
 #if(!DAEMON)
@@ -1030,7 +1030,7 @@ int main(int argc, char **argv)
     /* READMODE shuts itself down so we just go to pthread_join			*/
     /* Check also that last_packet is 0. Else the thread should shut itself 	*/
     /* down									*/
-    if(!(opt->optbits & READMODE) && opt->last_packet == 0 && !(opt->optbits & CAPTURE_W_TCPSPLICE|CAPTURE_W_TCPSTREAM)){
+    if(!(opt->optbits & READMODE) && opt->last_packet == 0 && !(opt->optbits & (CAPTURE_W_TCPSPLICE|CAPTURE_W_TCPSTREAM))){
       TIMERTYPE now;
       GETTIME(now);
       while((GETSECONDS(now) <= (GETSECONDS(opt->starting_time) + (long)opt->time)) && get_status_from_opt(opt) == STATUS_RUNNING){

@@ -46,7 +46,7 @@ struct common_io_info{
   int shmid;
   void * bufstart;
 };
-int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
+//int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
 int init_directory(struct recording_entity *re);
 int common_handle_indices(struct common_io_info *ioi);
 int common_w_init(struct opt_s* opt, struct recording_entity *re);
@@ -58,6 +58,7 @@ const char * common_wrt_get_filename(struct recording_entity *re);
 int common_getfd(struct recording_entity *re);
 void common_init_common_functions(struct opt_s *opt, struct recording_entity *re);
 int handle_error(struct recording_entity *re, int errornum);
+int common_open_file(int *fd, int flags, char * filename, loff_t fallosize);
 #if(HAVE_HUGEPAGES)
 char * find_hugetlbfs(char *fsmount, int len);
 #endif

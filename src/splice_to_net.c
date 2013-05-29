@@ -226,7 +226,7 @@ int main(int argc, char** argv)
     usage(argv[0]);
   }
   argv +=optind;
-  argc -=optind;
+  //argc -=optind;
 
   D("Parameters checked");
   opts->filename = argv[0];

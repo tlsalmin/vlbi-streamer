@@ -265,6 +265,8 @@ void close_socket(struct streamer_entity *se){
     if(spec_ops->opt->optbits & READMODE){
       LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
       ret = shutdown(spec_ops->fd, SHUT_WR);
+      if(ret != 0)
+	D("Shutdown gave non-zero return");
       ret = close(spec_ops->fd);
     }
     else{

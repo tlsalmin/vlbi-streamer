@@ -35,7 +35,7 @@ struct sender_tracking{
 
 void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st);
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st);
-inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
+int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
 int loadup_n(struct opt_s *opt, struct sender_tracking * st);
 void throttling_count(struct opt_s* opt, struct sender_tracking * st);
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st);

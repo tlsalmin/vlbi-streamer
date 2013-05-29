@@ -74,6 +74,10 @@ int main(int argc, char** argv){
       j++;
     }
   }
+  if(filename == NULL | spacing == 0){
+    fprintf(stderr,"No filename or no spacing\n");
+    return -1;
+  }
   //return 0;
   /*
   if(argc < 3){
