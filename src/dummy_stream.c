@@ -15,7 +15,7 @@
 */
 int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 {
-  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
+  struct socketopts *spec_ops =(struct socketopts *) malloc(sizeof(struct socketopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
   //spec_ops->running = 1;
   se->opt = (void*)spec_ops;
@@ -27,15 +27,15 @@ int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
 void get_dummy_stats(void *opt, void *stats)
 {
   struct stats *stat = (struct stats * ) stats;
-  struct udpopts *spec_ops = (struct udpopts*)opt;
+  struct socketopts *spec_ops = (struct socketopts*)opt;
   stat->total_packets += spec_ops->opt->total_packets;
-  stat->total_bytes += spec_ops->total_captured_bytes;
+  stat->total_bytes += spec_ops->total_transacted_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
 }
 int close_dummy_streamer(struct streamer_entity *se,void *stats)
 {
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   get_dummy_stats(se->opt,  stats);
   LOG("DUMMY_STREAM: Closed\n");
   free(spec_ops);
@@ -43,7 +43,7 @@ int close_dummy_streamer(struct streamer_entity *se,void *stats)
 }
 void dummy_stop(struct streamer_entity *se)
 {
-  set_status_for_opt((((struct udpopts*)se->opt)->opt),STATUS_STOPPED);
+  set_status_for_opt((((struct socketopts*)se->opt)->opt),STATUS_STOPPED);
 }
 void dummy_init_default(struct opt_s *opt, struct streamer_entity *se)
 {
@@ -69,9 +69,9 @@ int dummy_init_dummy_sender( struct opt_s *opt, struct streamer_entity *se)
 }
 int dummy_sendcmd(struct streamer_entity*se, struct sender_tracking *st)
 {
-  struct udpopts *spec_ops = se->opt;
+  struct socketopts *spec_ops = se->opt;
   st->packets_sent++;
-  spec_ops->total_captured_bytes +=spec_ops->opt->packet_size;
+  spec_ops->total_transacted_bytes +=spec_ops->opt->packet_size;
   st->inc+= spec_ops->opt->packet_size;
   st->packetcounter++;
   return 0;
@@ -85,7 +85,7 @@ void * dummy_receiver(void *streamo)
 {
   int err = 0;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
 
   struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
   memset(resq, 0, sizeof(struct resq_info));

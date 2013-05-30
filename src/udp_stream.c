@@ -71,7 +71,7 @@ extern FILE* logfile;
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
 
-int udps_bind_rx(struct udpopts * spec_ops){
+int udps_bind_rx(struct socketopts * spec_ops){
   struct tpacket_req req;
   int err;
 
@@ -129,8 +129,8 @@ int udps_bind_rx(struct udpopts * spec_ops){
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
-  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
-  memset(spec_ops, 0, sizeof(struct udpopts));
+  struct socketopts *spec_ops =(struct socketopts *) malloc(sizeof(struct socketopts));
+  memset(spec_ops, 0, sizeof(struct socketopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
   //spec_ops->running = 1;
   se->opt = (void*)spec_ops;
@@ -184,7 +184,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
-  struct udpopts *spec_ops = se->opt;
+  struct socketopts *spec_ops = se->opt;
   err = sendto(spec_ops->fd, st->buf+(st->inc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
 
 
@@ -202,7 +202,7 @@ int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
   }
   else{
     st->packets_sent++;
-    spec_ops->total_captured_bytes +=(unsigned int) err;
+    spec_ops->total_transacted_bytes +=(unsigned int) err;
     st->inc+=spec_ops->opt->packet_size;
     st->packetcounter++;
   }
@@ -234,7 +234,7 @@ void* udp_rxring(void *streamo)
   //TODO: Get the timeout from main here.
   int timeout = 1000;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   struct pollfd pfd;
   int bufnum = 0;
@@ -242,7 +242,7 @@ void* udp_rxring(void *streamo)
 
   struct rxring_request rxr;
 
-  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_transacted_bytes = 0;
   spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
@@ -279,7 +279,7 @@ void* udp_rxring(void *streamo)
 	spec_ops->opt->total_packets++;
       }
       else{
-	spec_ops->total_captured_bytes += hdr->tp_len;
+	spec_ops->total_transacted_bytes += hdr->tp_len;
 	spec_ops->opt->total_packets++;
 	//(*inc)++;
 	//TODO: Should we add s the extra?
@@ -335,7 +335,7 @@ void* udp_rxring(void *streamo)
 }
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
   spec_ops->opt->cumul++;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
@@ -388,7 +388,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
 }
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq){
   /* The seqnum is the first 64bits of the packet 	*/
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
 
   long seqnum;
   switch (spec_ops->opt->optbits & LOCKER_DATATYPE){
@@ -561,7 +561,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received)
   {
     int err;
-    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    struct socketopts* spec_ops = (struct socketopts*)se->opt;
     if(received == 0)
     {
       LOG("UDP_STREAMER: Main thread has shutdown socket\n");
@@ -671,7 +671,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	resq->i++;
       }
       ASSERT((unsigned)*resq->inc <= CALC_BUFSIZE_FROM_OPT(spec_ops->opt));
-      spec_ops->total_captured_bytes +=(unsigned int) received;
+      spec_ops->total_transacted_bytes +=(unsigned int) received;
       spec_ops->opt->total_packets++;
       if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
 	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
@@ -683,7 +683,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
   {
     int err;
-    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    struct socketopts* spec_ops = (struct socketopts*)se->opt;
     if(resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
@@ -719,7 +719,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     return 0;
   }
-  int force_reacquire(struct udpopts *spec_ops)
+  int force_reacquire(struct socketopts *spec_ops)
   {
     int err =1;
     //TODO: Is this even sensible?
@@ -750,7 +750,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     memset(resq, 0, sizeof(struct resq_info));
 
     struct streamer_entity *se =(struct streamer_entity*)streamo;
-    struct udpopts *spec_ops = (struct udpopts *)se->opt;
+    struct socketopts *spec_ops = (struct socketopts *)se->opt;
 
 
     reset_udpopts_stats(spec_ops);
@@ -854,10 +854,10 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   }
   void get_udp_stats(void *sp, void *stats){
     struct stats *stat = (struct stats * ) stats;
-    struct udpopts *spec_ops = (struct udpopts*)sp;
+    struct socketopts *spec_ops = (struct socketopts*)sp;
     //if(spec_ops->opt->optbits & USE_RX_RING)
     stat->total_packets += spec_ops->opt->total_packets;
-    stat->total_bytes += spec_ops->total_captured_bytes;
+    stat->total_bytes += spec_ops->total_transacted_bytes;
     stat->incomplete += spec_ops->incomplete;
     stat->dropped += spec_ops->missing;
     if(spec_ops->opt->last_packet > 0){
@@ -869,7 +869,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   }
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
   int udps_is_blocked(struct streamer_entity *se){
-    return ((struct udpopts *)(se->opt))->is_blocked;
+    return ((struct socketopts *)(se->opt))->is_blocked;
   }
 #endif
   /*

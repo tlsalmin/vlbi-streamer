@@ -46,10 +46,10 @@ extern FILE* logfile;
 /* TODO: Not using packets per se so need to get his more consistent 	*/
 void get_tcp_stats(void *sp, void *stats){
   struct stats *stat = (struct stats * ) stats;
-  struct udpopts *spec_ops = (struct udpopts*)sp;
+  struct socketopts *spec_ops = (struct socketopts*)sp;
   //if(spec_ops->opt->optbits & USE_RX_RING)
   stat->total_packets += spec_ops->opt->total_packets;
-  stat->total_bytes += spec_ops->total_captured_bytes;
+  stat->total_bytes += spec_ops->total_transacted_bytes;
   stat->incomplete += spec_ops->incomplete;
   stat->dropped += spec_ops->missing;
   if(spec_ops->opt->last_packet > 0){
@@ -63,8 +63,8 @@ void get_tcp_stats(void *sp, void *stats){
 int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
 {
   int err;
-  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
-  memset(spec_ops, 0, sizeof(struct udpopts));
+  struct socketopts *spec_ops =(struct socketopts *) malloc(sizeof(struct socketopts));
+  memset(spec_ops, 0, sizeof(struct socketopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
 
   se->opt = (void*)spec_ops;
@@ -120,7 +120,7 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
 
 int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, long ** buf_incrementer, void** buf)
 {
-  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
   if(err < 0){
     E("Error in splice receive");
     return -1;
@@ -136,7 +136,7 @@ int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, lo
   else
     D("Sent %ld as told",, err);
     */
-  spec_ops->total_captured_bytes += err;
+  spec_ops->total_transacted_bytes += err;
   spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
   **buf_incrementer += err;
   if(**buf_incrementer == bufsize)
@@ -156,7 +156,7 @@ int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, lo
 int loop_with_splice(struct streamer_entity *se)
 {
   long err;
-  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
   long *buf_incrementer;
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
   long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
@@ -190,7 +190,7 @@ int loop_with_splice(struct streamer_entity *se)
 int loop_with_recv(struct streamer_entity *se)
 {
   long err;
-  struct udpopts * spec_ops = (struct udpopts*)se->opt;
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
   long *buf_incrementer;
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
   long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
@@ -226,8 +226,8 @@ int loop_with_recv(struct streamer_entity *se)
 int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   int err;
-  struct udpopts *spec_ops = se->opt;
-  size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_captured_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
+  struct socketopts *spec_ops = se->opt;
+  size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
   err = send(spec_ops->fd, st->buf, tosend, 0);
   // Increment to the next sendable packet
   if(err < 0){
@@ -238,7 +238,7 @@ int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
   /* TODO: Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
   else{
     //st->packets_sent+=
-    spec_ops->total_captured_bytes +=(unsigned int) err;
+    spec_ops->total_transacted_bytes +=(unsigned int) err;
     st->inc+=err;
     //st->packetcounter += (err+st->packet_reminder) / spec_ops->opt->packet_size;
     //st->packet_reminder = (err - st->packet_reminder) % spec_ops->opt->packet_size;
@@ -254,7 +254,7 @@ void* tcp_preloop(void *ser)
 {
   int err;
   struct streamer_entity * se = (struct streamer_entity *)ser;
-  struct udpopts *spec_ops = (struct udpopts*)se->opt;
+  struct socketopts *spec_ops = (struct socketopts*)se->opt;
   reset_udpopts_stats(spec_ops);
 
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
@@ -282,7 +282,7 @@ void* tcp_preloop(void *ser)
   }
   if(err != 0)
     E("Loop stopped in error");
-  D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_captured_bytes);
+  D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_transacted_bytes);
   pthread_exit(NULL);
 }
 int tcp_init(struct opt_s* opt, struct streamer_entity * se)

@@ -2,7 +2,7 @@
 #define SOCKETHANDLING_H
 #define MODE_FROM_OPTS -1
 /* TODO refactor name 	*/
-struct udpopts
+struct socketopts
 {
   int fd;
   int tcp_fd;
@@ -21,7 +21,7 @@ struct udpopts
   int wrongsizeerrors;
 
   unsigned long missing;
-  unsigned long total_captured_bytes;
+  unsigned long total_transacted_bytes;
   unsigned long incomplete;
   unsigned long files_sent; 
   unsigned long out_of_order;
@@ -36,7 +36,7 @@ void close_socket(struct streamer_entity *se);
 void free_the_buf(struct buffer_entity * be);
 int close_streamer_opts(struct streamer_entity *se, void *stats);
 void stop_streamer(struct streamer_entity *se);
-  void reset_udpopts_stats(struct udpopts *spec_ops);
+  void reset_udpopts_stats(struct socketopts *spec_ops);
 void *get_in_addr(struct sockaddr *sa);
 int udps_wait_function(struct sender_tracking *st, struct opt_s* opt);
 int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*));

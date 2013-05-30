@@ -54,5 +54,5 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq);
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq);
 inline int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received);
 int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq);
-  void reset_udpopts_stats(struct udpopts *spec_ops);
+  void reset_udpopts_stats(struct socketopts *spec_ops);
 #endif //UDP_STREAMER

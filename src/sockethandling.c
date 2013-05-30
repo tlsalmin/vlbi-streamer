@@ -254,7 +254,7 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
   return 0;
 }
 void close_socket(struct streamer_entity *se){
-  struct udpopts *spec_ops = se->opt;
+  struct socketopts *spec_ops = se->opt;
   if(spec_ops->fd == 0)
   {
     D("Wont shut down already shutdown fd");
@@ -288,7 +288,7 @@ void free_the_buf(struct buffer_entity * be){
 }
 int close_streamer_opts(struct streamer_entity *se, void *stats){
   D("Closing udp-streamer");
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   int err;
   se->get_stats(se->opt, stats);
   D("Got stats");
@@ -323,14 +323,14 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
 }
 void stop_streamer(struct streamer_entity *se){
   D("Stopping loop");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
   set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
   close_socket(se);
 }
-void reset_udpopts_stats(struct udpopts *spec_ops)
+void reset_udpopts_stats(struct socketopts *spec_ops)
 {
   spec_ops->wrongsizeerrors = 0;
-  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_transacted_bytes = 0;
   spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
@@ -425,14 +425,14 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
 {
   int err = 0;
 
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct sender_tracking st;
   init_sender_tracking(spec_ops->opt, &st);
   if(do_wait == 1)
     throttling_count(spec_ops->opt, &st);
   se->be = NULL;
 
-  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_transacted_bytes = 0;
   //spec_ops->total_captured_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
