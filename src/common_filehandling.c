@@ -235,6 +235,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 {
   int err;
   full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
+  st->total_bytes_to_send = st->n_packets_probed*spec_ops->opt->packet_size;
   //st->n_files_probed = get_n_files(opt->fi);
   //st->status_probed = get_status(opt->fi);
   if(se->be != NULL){
@@ -252,6 +253,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       err = wait_on_update(opt->fi);
       CHECK_ERR("wait on update");
       full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
+  st->total_bytes_to_send = st->n_packets_probed*spec_ops->opt->packet_size;
     }
     else{
       return ALL_DONE;

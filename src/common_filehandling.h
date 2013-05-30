@@ -20,6 +20,7 @@ struct sender_tracking{
   unsigned long files_in_loading;
   unsigned long n_packets_probed;
   unsigned long n_files_probed;
+  unsigned long total_bytes_to_send;
   int 		status_probed;
   long packetcounter;
   void* buf;

@@ -225,6 +225,25 @@ int loop_with_recv(struct streamer_entity *se)
 }
 int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
+  int err;
+  struct udpopts *spec_ops = se->opt;
+  size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_captured_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
+  err = send(spec_ops->fd, st->buf, tosend, 0);
+  // Increment to the next sendable packet
+  if(err < 0){
+    perror("Send stream data");
+    se->close_socket(se);
+    return -1;
+  }
+  /* TODO: Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
+  else{
+    //st->packets_sent+=
+    spec_ops->total_captured_bytes +=(unsigned int) err;
+    st->inc+=err;
+    //st->packetcounter += (err+st->packet_reminder) / spec_ops->opt->packet_size;
+    //st->packet_reminder = (err - st->packet_reminder) % spec_ops->opt->packet_size;
+    //st->packetcounter++;
+  }
   return 0;
 }
 int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
