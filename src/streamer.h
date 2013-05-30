@@ -361,6 +361,7 @@ struct buffer_entity
 #endif
   struct recording_entity * recer;
   struct listed_entity * self;
+  void * buffer;
   LOCKTYPE *headlock;
   pthread_cond_t *iosignal;
 };

@@ -25,6 +25,7 @@ struct socketopts
   unsigned long incomplete;
   unsigned long files_sent; 
   unsigned long out_of_order;
+  unsigned long *inc;
 
 };
 #define UDPS_EXIT do {spec_ops->opt->total_packets = st.n_packets_probed;D("Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_STOPPED;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}return 0;}while(0)

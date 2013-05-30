@@ -185,7 +185,7 @@ int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
 {
   int err;
   struct socketopts *spec_ops = se->opt;
-  err = sendto(spec_ops->fd, st->buf+(st->inc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
+  err = sendto(spec_ops->fd, se->be->buffer+((*spec_ops->inc)+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
 
 
   // Increment to the next sendable packet
@@ -203,7 +203,8 @@ int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
   else{
     st->packets_sent++;
     spec_ops->total_transacted_bytes += err;
-    st->inc+=spec_ops->opt->packet_size;
+    //st->inc+=spec_ops->opt->packet_size;
+    (*spec_ops->inc)+=spec_ops->opt->packet_size;
     st->packetcounter--;
   }
   return 0;
@@ -755,7 +756,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 
     reset_udpopts_stats(spec_ops);
 
-    LOG("UDP_STREAMER: Starting stream capture\n");
+    LOG("Starting stream capture\n");
     /*
        err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
        if(err != 0){

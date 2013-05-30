@@ -34,7 +34,6 @@ struct simplebuf{
   int optbits;
   long asyncdiff;
   //int asyncdiff;
-  void* buffer;
   int async_writes_submitted;
   int running;
 #if(HAVE_HUGEPAGES)

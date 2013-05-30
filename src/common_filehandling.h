@@ -23,8 +23,7 @@ struct sender_tracking{
   unsigned long total_bytes_to_send;
   int 		status_probed;
   unsigned long packetcounter;
-  void* buf;
-  long inc;
+  unsigned long inc;
   //unsigned long packetpeek;
   TIMERTYPE now;
 #if(SEND_DEBUG)

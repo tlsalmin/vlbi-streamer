@@ -454,6 +454,8 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   spec_ops->missing = 0;
   D("Getting first loaded buffer for sender");
 
+  spec_ops->inc = &st.inc;
+
   /* Data won't be instantaneous so get min_sleep here! */
   if(do_wait==1){
     unsigned long minsleep = get_min_sleeptime();
@@ -488,8 +490,8 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
       break;
     }
     CHECK_AND_EXIT(se->be);
-    st.buf = se->be->simple_get_writebuf(se->be, NULL);
-    st.inc = 0;
+    se->be->simple_get_writebuf(se->be, NULL);
+    *(spec_ops->inc) = 0;
 
     buffer_boundary(se,&st,&counter);
 
@@ -506,3 +508,44 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   }
   UDPS_EXIT;
 }
+/* TODO: A generic function would be nice, but needs dev time	*/
+/*
+int generic_recvloop(struct streamer_entity * se, int(*recvcmd)(struct streamer_entity*), unsigned long counter_up_to, struct resq_info, * resq,int (*buffer_switch_function)(struct streamer_entity *))
+{
+  long err=0;
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+  CHECK_AND_EXIT(se->be);
+  se->be->simple_get_writebuf(se->be, spec_ops->inc);
+  LOG("Starting stream capture for %s\n",, spec_ops->opt->filename);
+
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+  {
+    while((*spec_ops->inc) < counter_up_to){
+      err = recvcmd(se);
+      if(err != 0){
+	if(err < 0)
+	  E("Loop for %s ended in error",, spec_ops->opt->filename);
+	else
+	  D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+	break;
+      }
+    }
+    if(spec_ops->inc != 0)
+    {
+      spec_ops->opt->cumul++;
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+      free_the_buf(se->be);
+      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
+      CHECK_AND_EXIT(se->be);
+      se->be->simple_get_writebuf(se->be, spec_ops->inc);
+    }
+  }
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+
+  return 0;
+}
+*/

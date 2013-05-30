@@ -72,7 +72,7 @@ int dummy_sendcmd(struct streamer_entity*se, struct sender_tracking *st)
   struct socketopts *spec_ops = se->opt;
   st->packets_sent++;
   spec_ops->total_transacted_bytes +=spec_ops->opt->packet_size;
-  st->inc+= spec_ops->opt->packet_size;
+  *(spec_ops->inc)+= spec_ops->opt->packet_size;
   st->packetcounter--;
   return 0;
 }
