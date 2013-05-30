@@ -227,21 +227,20 @@ int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   int err;
   struct socketopts *spec_ops = se->opt;
-  size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
-  err = send(spec_ops->fd, st->buf, tosend, 0);
+  //size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
+  err = send(spec_ops->fd, st->buf+st->inc, st->packetcounter, 0);
   // Increment to the next sendable packet
   if(err < 0){
     perror("Send stream data");
     se->close_socket(se);
     return -1;
   }
-  /* TODO: Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
+  /* Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
   else{
     //st->packets_sent+=
-    spec_ops->total_transacted_bytes +=(unsigned int) err;
-    st->inc+=err;
-    //st->packetcounter += (err+st->packet_reminder) / spec_ops->opt->packet_size;
-    //st->packet_reminder = (err - st->packet_reminder) % spec_ops->opt->packet_size;
+    spec_ops->total_transacted_bytes +=err;
+    st->packetcounter -= err;
+    st->inc += err;
     //st->packetcounter++;
   }
   return 0;
@@ -270,10 +269,10 @@ void* tcp_preloop(void *ser)
       err = loop_with_splice(se);
       break;
     case(SEND_W_TCPSTREAM):
-      err =  generic_sendloop(se, 0, tcp_sendcmd);
+      err =  generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
       break;
     case(SEND_W_SENDFILE):
-      err =  generic_sendloop(se, 0, tcp_sendfilecmd);
+      err =  generic_sendloop(se, 0, tcp_sendfilecmd, bboundary_bytenum);
       break;
     default:
       E("Undefined recceive loop");

@@ -202,9 +202,9 @@ int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
   }
   else{
     st->packets_sent++;
-    spec_ops->total_transacted_bytes +=(unsigned int) err;
+    spec_ops->total_transacted_bytes += err;
     st->inc+=spec_ops->opt->packet_size;
-    st->packetcounter++;
+    st->packetcounter--;
   }
   return 0;
 }
@@ -221,7 +221,7 @@ void * udp_sender(void *streamo)
 {
   //struct streamer_entity * se = (struct streamer_entity*) se;
   //struct udpopts *spec_ops = se->opt;
-  generic_sendloop((struct streamer_entity*)streamo, 1, udp_sender_sendcmd);
+  generic_sendloop((struct streamer_entity*)streamo, 1, udp_sender_sendcmd, bboundary_packetnum);
   pthread_exit(NULL);
 }
 
@@ -610,7 +610,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size sent onward. NOT HANDLED");
       }
-      ASSERT(resq->i < spec_ops->opt->buf_num_elems);
+      ASSERT((unsigned)resq->i < spec_ops->opt->buf_num_elems);
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
@@ -684,7 +684,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   {
     int err;
     struct socketopts* spec_ops = (struct socketopts*)se->opt;
-    if(resq->i == spec_ops->opt->buf_num_elems)
+    if((unsigned)resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
       ASSERT(spec_ops->opt->fi != NULL);

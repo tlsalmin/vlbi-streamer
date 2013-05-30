@@ -421,12 +421,27 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
 #endif //HAVE_RATELIMITER
   return 0;
 }
-int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*))
+void bboundary_bytenum(struct streamer_entity* se, struct sender_tracking *st, unsigned long **counter)
+{
+  struct socketopts *spec_ops = se->opt;
+  *counter = &st->packetcounter;
+  **counter = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
+  D("Packetboundary called for %s. Next boundary is %ld bytes",,spec_ops->opt->filename,  **counter);
+}
+void bboundary_packetnum(struct streamer_entity* se, struct sender_tracking *st, unsigned long **counter)
+{
+  struct socketopts *spec_ops = se->opt;
+  *counter = &st->packetcounter;
+  **counter = MIN(st->n_packets_probed-st->packets_sent, spec_ops->opt->buf_num_elems);
+  D("Packetboundary called for %s. Next boundary is %ld packets",,spec_ops->opt->filename,  **counter);
+}
+int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*), void(*buffer_boundary)(struct streamer_entity*, struct sender_tracking*, unsigned long **))
 {
   int err = 0;
 
   struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct sender_tracking st;
+  unsigned long * counter;
   init_sender_tracking(spec_ops->opt, &st);
   if(do_wait == 1)
     throttling_count(spec_ops->opt, &st);
@@ -439,9 +454,6 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   spec_ops->missing = 0;
   D("Getting first loaded buffer for sender");
 
-  jump_to_next_file(spec_ops->opt, se, &st);
-  CHECK_AND_EXIT(se->be);
-
   /* Data won't be instantaneous so get min_sleep here! */
   if(do_wait==1){
     unsigned long minsleep = get_min_sleeptime();
@@ -451,37 +463,45 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
 #endif
   }
 
+  /*
+  jump_to_next_file(spec_ops->opt, se, &st);
+  CHECK_AND_EXIT(se->be);
+
   st.buf = se->be->simple_get_writebuf(se->be, NULL);
 
   D("Starting stream send");
+  */
+
 
   LOG("GENERIC_SENDER: Starting stream send\n");
   if(do_wait == 1)
     GETTIME(spec_ops->opt->wait_last_sent);
   while(should_i_be_running(spec_ops->opt, &st) == 1){
-    if(st.packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - st.n_packets_probed  == 0))
-    {
-      err = jump_to_next_file(spec_ops->opt, se, &st);
-      if(err == ALL_DONE){
-	UDPS_EXIT;
-	break;
-      }
-      else if (err < 0){
-	E("Error in getting buffer");
-	UDPS_EXIT_ERROR;
-	break;
-      }
-      st.buf = se->be->simple_get_writebuf(se->be, NULL);
-      st.packetcounter = 0;
-      st.inc = 0;
-      //i=0;
+    err = jump_to_next_file(spec_ops->opt, se, &st);
+    if(err == ALL_DONE){
+      UDPS_EXIT;
+      break;
     }
-    if(do_wait==1)
-      udps_wait_function(&st, spec_ops->opt);
-    err = sendcmd(se, &st);
-    if(err != 0){
-      E("Error in sendcmd");
+    else if (err < 0){
+      E("Error in getting buffer");
       UDPS_EXIT_ERROR;
+      break;
+    }
+    CHECK_AND_EXIT(se->be);
+    st.buf = se->be->simple_get_writebuf(se->be, NULL);
+    st.inc = 0;
+
+    buffer_boundary(se,&st,&counter);
+
+    while(*counter > 0)
+    {
+      if(do_wait==1)
+	udps_wait_function(&st, spec_ops->opt);
+      err = sendcmd(se, &st);
+      if(err != 0){
+	E("Error in sendcmd");
+	UDPS_EXIT_ERROR;
+      }
     }
   }
   UDPS_EXIT;

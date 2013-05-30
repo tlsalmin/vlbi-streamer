@@ -22,7 +22,7 @@ struct sender_tracking{
   unsigned long n_files_probed;
   unsigned long total_bytes_to_send;
   int 		status_probed;
-  long packetcounter;
+  unsigned long packetcounter;
   void* buf;
   long inc;
   //unsigned long packetpeek;

@@ -73,12 +73,12 @@ int dummy_sendcmd(struct streamer_entity*se, struct sender_tracking *st)
   st->packets_sent++;
   spec_ops->total_transacted_bytes +=spec_ops->opt->packet_size;
   st->inc+= spec_ops->opt->packet_size;
-  st->packetcounter++;
+  st->packetcounter--;
   return 0;
 }
 void * dummy_sender(void * streamo)
 {
-  generic_sendloop((struct streamer_entity*) streamo, 1,dummy_sendcmd);
+  generic_sendloop((struct streamer_entity*) streamo, 1,dummy_sendcmd, bboundary_packetnum);
   pthread_exit(NULL);
 }
 void * dummy_receiver(void *streamo)

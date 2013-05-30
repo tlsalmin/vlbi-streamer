@@ -302,7 +302,7 @@ struct opt_s
 
   /* Bloat TODO Find alternative place for this */
   INDEX_FILE_TYPE packet_size;
-  int buf_num_elems;
+  unsigned int buf_num_elems;
   int buf_division;
   //These two are a bit silly. Should be moved to use as a parameter
   char * hostname;
