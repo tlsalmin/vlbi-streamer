@@ -28,12 +28,8 @@ struct simplebuf{
   struct opt_s *opt;
   /* Migrated diffs to work as number of bytes */
   long diff;
-  //int diff;
-  /* Used in init and close. Otherwise opts optbits is used 	*/
-  /* TODO: Needs some refactoring to make more sensible		*/
-  int optbits;
+  long optbits;
   long asyncdiff;
-  //int asyncdiff;
   int async_writes_submitted;
   int running;
 #if(HAVE_HUGEPAGES)
@@ -44,17 +40,11 @@ struct simplebuf{
 #endif
   long unsigned fileid;
   struct file_index*  fi;
-  //struct fileholder* fh;
-  //struct fileholder* fh_def;
-  //unsigned long file_seqnum;
   int ready_to_act;
   int bufnum;
   void * bufoffset;
 
   struct opt_s *opt_default;
-  //struct opt_s *opt_old;
-  //char* filename_old;
-  //unsigned long file_seqnum_old;
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);
 int sbuf_close(struct buffer_entity *be, void * stats);

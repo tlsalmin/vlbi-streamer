@@ -281,16 +281,16 @@ void* tcp_preloop(void *ser)
   switch (spec_ops->opt->optbits & LOCKER_CAPTURE)
   {
     case(CAPTURE_W_TCPSTREAM):
-      err = loop_with_recv(se);
+      if (spec_ops->opt->optbits & READMODE)
+	err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
+      else
+	err = loop_with_recv(se);
       break;
     case(CAPTURE_W_TCPSPLICE):
-      err = loop_with_splice(se);
-      break;
-    case(SEND_W_TCPSTREAM):
-      err =  generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
-      break;
-    case(SEND_W_SENDFILE):
-      err =  generic_sendloop(se, 0, tcp_sendfilecmd, bboundary_bytenum);
+      if (spec_ops->opt->optbits & READMODE)
+	err =  generic_sendloop(se, 0, tcp_sendfilecmd, bboundary_bytenum);
+      else
+	err = loop_with_splice(se);
       break;
     default:
       E("Undefined recceive loop");

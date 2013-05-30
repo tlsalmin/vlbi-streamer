@@ -443,7 +443,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   struct sender_tracking st;
   unsigned long * counter;
   init_sender_tracking(spec_ops->opt, &st);
-  if(do_wait == 1)
+  ///if(do_wait == 1)
     throttling_count(spec_ops->opt, &st);
   se->be = NULL;
 
@@ -490,7 +490,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
       break;
     }
     CHECK_AND_EXIT(se->be);
-    se->be->simple_get_writebuf(se->be, NULL);
+    se->be->simple_get_writebuf(se->be, &spec_ops->inc);
     *(spec_ops->inc) = 0;
 
     buffer_boundary(se,&st,&counter);

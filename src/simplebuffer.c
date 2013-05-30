@@ -187,8 +187,9 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
   struct simplebuf * sbuf = (struct simplebuf*) malloc(sizeof(struct simplebuf));
-  if(sbuf == NULL)
-    return -1;
+  memset(sbuf, 0, sizeof(struct simplebuf));
+  CHECK_ERR_NONNULL_AUTO(sbuf);
+
   be->opt = sbuf;
   sbuf->opt = opt;
   be->recer =NULL;
@@ -265,6 +266,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
+      D("Initializing hugepage memory");
 #ifdef MMAP_NOT_SHMGET
       be->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
       if(be->buffer ==MAP_FAILED){

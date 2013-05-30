@@ -73,9 +73,6 @@
 #define CAPTURE_W_TCPSTREAM	B(16)
 #define CAPTURE_W_TCPSPLICE	B(17)
 #define CAPTURE_W_LOCALSOCKET	B(18)
-#define SEND_W_TCPSTREAM 	B(19)
-
-#define SEND_W_SENDFILE		B(20)
 
 /* How fanout works */
 /*
