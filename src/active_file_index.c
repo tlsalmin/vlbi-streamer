@@ -74,7 +74,7 @@ int close_file_index(struct file_index* closing)
   MAINUNLOCK;
   return 0;
 }
-inline int add_file_mutexfree(struct file_index* fi, long unsigned id, int diskid, int status)
+int add_file_mutexfree(struct file_index* fi, long unsigned id, int diskid, int status)
 {
   if(id > fi->allocated_files){
     void* tempfiles = fi->files;

@@ -239,7 +239,7 @@ void* udp_rxring(void *streamo)
   struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   struct pollfd pfd;
   int bufnum = 0;
-  long *inc;
+  unsigned long *inc;
 
   struct rxring_request rxr;
 

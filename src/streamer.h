@@ -342,7 +342,7 @@ struct buffer_entity
   void* (*get_writebuf)(struct buffer_entity *);
   /* Used to acquire element past the queue line */
   int (*acquire)(void * , void* , void*);
-  void* (*simple_get_writebuf)(struct buffer_entity *, long **);
+  void* (*simple_get_writebuf)(struct buffer_entity *,unsigned long **);
   //int* (*get_inc)(struct buffer_entity *);
   void (*set_ready)(struct buffer_entity*,int);
   void (*set_ready_and_signal)(struct buffer_entity*,int);

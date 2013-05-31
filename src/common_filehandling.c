@@ -120,7 +120,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   D("Setting seqnum %lu to load %lu packets",,st->files_loaded, nuf);
 
   LOCK(be->headlock);
-  long *inc;
+  unsigned long *inc;
   be->simple_get_writebuf(be, &inc);
   /* Why the hell did i do this? :D */
   /*

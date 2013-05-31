@@ -27,9 +27,9 @@
 struct simplebuf{
   struct opt_s *opt;
   /* Migrated diffs to work as number of bytes */
-  long diff;
+  unsigned long diff;
   long optbits;
-  long asyncdiff;
+  unsigned long asyncdiff;
   int async_writes_submitted;
   int running;
 #if(HAVE_HUGEPAGES)
@@ -48,6 +48,5 @@ struct simplebuf{
 };
 int sbuf_init(struct opt_s *opt, struct buffer_entity *be);
 int sbuf_close(struct buffer_entity *be, void * stats);
-void* sbuf_getbuf(struct buffer_entity *be, long** diff);
 int sbuf_init_buf_entity(struct opt_s *opt, struct buffer_entity *be);
 #endif

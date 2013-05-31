@@ -119,6 +119,7 @@ int sbuf_release(void* buffo)
   if(sbuf->opt != NULL && sbuf->opt->optbits & USE_RX_RING)
     be->buffer = NULL;
   sbuf->opt = NULL;
+  sbuf->diff = 0;
 
   //sbuf->opt_old = sbuf->opt;
   //sbuf->file_seqnum_old = sbuf->file_seqnum;
@@ -454,7 +455,7 @@ int simple_end_transaction(struct buffer_entity *be)
   return 0;
 
 }
-void* sbuf_getbuf(struct buffer_entity *be, long ** diff)
+void* sbuf_getbuf(struct buffer_entity *be, unsigned long ** diff)
 {
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
   if(diff != NULL)
