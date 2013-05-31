@@ -1131,12 +1131,12 @@ int write_cfg_for_rec(struct opt_s * opt, char* filename){
 }
 int read_cfg(config_t *cfg, char * filename){
   int fd,err;
-  int retval;
+  int retval=0;
   /* Need to open for lock ..	*/
   err = open(filename, O_RDONLY);
   CHECK_ERR_LTZ("Open read_cfg");
   fd = err;
-  err = flock(fd, LOCK_SH);
+  err = flock(fd, LOCK_EX);
   CHECK_ERR("lock read_cfg");
   err = config_read_file(cfg,filename);
   if(err == CONFIG_FALSE){
