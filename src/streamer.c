@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/file.h>
 #include <sys/resource.h> /*Query max allocatable memory */
 //TODO: Add explanations for includes
 #include <netdb.h> // struct hostent
@@ -1129,14 +1130,23 @@ int write_cfg_for_rec(struct opt_s * opt, char* filename){
   return err;
 }
 int read_cfg(config_t *cfg, char * filename){
-  int err = config_read_file(cfg,filename);
+  int fd,err;
+  int retval;
+  /* Need to open for lock ..	*/
+  err = open(filename, O_RDONLY);
+  CHECK_ERR_LTZ("Open read_cfg");
+  fd = err;
+  err = flock(fd, LOCK_SH);
+  CHECK_ERR("lock read_cfg");
+  err = config_read_file(cfg,filename);
   if(err == CONFIG_FALSE){
     E("%s:%d - %s",, filename, config_error_line(cfg), config_error_text(cfg));
     E("Failed to read CFG from %s",,filename);
-    return -1;
+    retval =  -1;
   }
-  else
-    return 0;
+  flock(fd, LOCK_UN);
+  close(fd);
+  return retval;
 }
 int init_branches(struct opt_s *opt){
   int err;
@@ -1186,7 +1196,7 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
   while(le != NULL){
     struct scheduled_event * ev = (struct scheduled_event*)le->entity;
     if(ev->opt->get_stats != NULL){
-      init_stats(&tempstats);
+      memset(&tempstats, 0,sizeof(struct stats));
       ev->opt->get_stats((void*)ev->opt, (void*)&tempstats);
       neg_stats(&tempstats, ev->stats);
       total_mbits = BYTES_TO_MBITSPS(tempstats.total_bytes);
@@ -1201,7 +1211,7 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
     }
     le = le->child;
   }
-  init_stats(&tempstats);
+  memset(&tempstats, 0, sizeof(struct stats));
   oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)&tempstats);
   neg_stats(&tempstats, old_stats);
   total_mbits = BYTES_TO_MBITSPS(tempstats.total_written);

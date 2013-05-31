@@ -481,13 +481,12 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   while(should_i_be_running(spec_ops->opt, &st) == 1){
     err = jump_to_next_file(spec_ops->opt, se, &st);
     if(err == ALL_DONE){
-      UDPS_EXIT;
+      D("Jump to next file returned all done");
       break;
     }
     else if (err < 0){
       E("Error in getting buffer");
       UDPS_EXIT_ERROR;
-      break;
     }
     CHECK_AND_EXIT(se->be);
     se->be->simple_get_writebuf(se->be, &spec_ops->inc);

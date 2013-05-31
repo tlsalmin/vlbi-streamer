@@ -199,6 +199,7 @@ fi
 
 #A 12 char random string is used to identify a request
 #stolen from http://nixcraft.com/shell-scripting/13454-command-generate-random-password-string.html
+flock -x $SCHEDULE
 echo "`tr -dc A-Za-z < /dev/urandom |head -c 12` =
 {
   filename = \"$RECNAME\";
@@ -210,6 +211,7 @@ if [ -z "${DATDATE}" ]
 then
   DATDATE=$(date +%s)
 fi
+flock -u $SCHEDULE
 
 echo $LOGFILE
 if [ "$RECORD" == "1" ]

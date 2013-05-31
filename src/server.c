@@ -33,6 +33,7 @@
 #include <signal.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <sys/file.h>
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -81,7 +82,13 @@ void zero_schedevnt(struct scheduled_event* ev){
 }
 int remove_from_cfgsched(struct scheduled_event *ev){
   int err;
+  int fd;
   config_t cfg;
+  err = open(STATEFILE, O_RDWR);
+  CHECK_ERR_LTZ("open statfeil for removing cfg entry");
+  fd = err;
+  err = flock(fd, LOCK_SH);
+  CHECK_ERR("lock statefile");
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
   config_setting_t *root;
@@ -98,6 +105,8 @@ int remove_from_cfgsched(struct scheduled_event *ev){
   CHECK_CFG("Wrote config");
   LOG("Updated config file and removed %s\n", ev->opt->filename);
   config_destroy(&cfg);
+  flock(fd, LOCK_UN);
+  close(fd);
   return 0;
 }
 int free_and_close(void *le){
@@ -454,10 +463,15 @@ void zerofound(struct schedule *sched){
   }
 }
 int check_schedule(struct schedule *sched){
-  int i=0,err;
+  int i=0,err, fd;
   struct scheduled_event * temp = NULL;
   struct listed_entity * le = NULL;
   config_t cfg;
+  err = open(STATEFILE, O_RDWR);
+  CHECK_ERR_LTZ("open statefile");
+  fd = err;
+  err = flock(fd, LOCK_EX);
+  CHECK_ERR("lock statefile");
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
   config_setting_t *root, *setting;
@@ -476,7 +490,9 @@ int check_schedule(struct schedule *sched){
     if(le == NULL){
       D("New schedule event found");
       err = add_recording(setting, sched,0);
-      CHECK_ERR("Add recording");
+      if(err != 0){
+	E("Error in a adding recording");
+      }
     }
     else{
       D("Found ye olde");
@@ -502,6 +518,8 @@ int check_schedule(struct schedule *sched){
   }
   zerofound(sched);
   config_destroy(&cfg);
+  flock(fd, LOCK_UN);
+  close(fd);
   D("Done checking schedule");
 
   return 0;
@@ -601,6 +619,7 @@ int main(int argc, char **argv)
 
   sched = malloc(sizeof(struct schedule));
   CHECK_ERR_NONNULL(sched, "Sched malloc");
+  memset(sched, 0, sizeof(struct schedule));
 
 #ifdef TERM_SIGNAL_HANDLING
   /* Copied from http://www.linuxprogrammingblog.com/all-about-linux-signals?page=show */

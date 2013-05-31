@@ -299,7 +299,7 @@ void block_until_free(struct entity_list_branch *br, void* val1)
       E("Release returned non zero value.(Not handled in any way)");
   }
 
-  D("all busy elemets freed");
+  D("All busy elements freed");
   /* Release all loaded elements */
   while((shouldntfind = loop_and_check(br->loadedlist, val1, NULL, CHECK_BY_OPTPOINTER)) != NULL)
   {

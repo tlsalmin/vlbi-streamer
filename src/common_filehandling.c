@@ -256,6 +256,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   st->total_bytes_to_send = st->n_packets_probed*opt->packet_size;
     }
     else{
+      D("Ending jump to next file. All done");
       return ALL_DONE;
     }
   }
