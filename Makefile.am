@@ -27,6 +27,7 @@ install-data-hook:
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_common_functions
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_common_functions
 	sed -i 's:PIDFILE=.*:PIDFILE=$(rundir)/vlbistreamer.pid:' $(bindir)/vbs_common_functions
+	sed -i 's:SCHEDLOCKFILE=.*:SCHEDLOCKFILE=$(rundir)/vlbistreamer_schedlockfile:' $(bindir)/vbs_common_functions
 	sed -i 's:BINDIR=.*:BINDIR=$(bindir):' $(bindir)/vbs_common_functions
 	sed -i 's:CFGFILE=.*:CFGFILE=$(cfgdir)/vlbistreamer.conf:' $(bindir)/vbs_common_functions
 	sed -i 's:PPRIORITY=.*:PPRIORITY=@PPRIORITY@:' $(bindir)/vbs_common_functions

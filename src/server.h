@@ -2,6 +2,7 @@
 #define SERVER_H
 #define CFGFILE SYSCONFDIR "/vlbistreamer.conf"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
+#define SCHEDLOCKFILE LOCALSTATEDIR "/opt/vlbistreamer/vlbistreamer_schedlockfile"
 #define LSOCKNAME LOCALSTATEDIR "/opt/vlbistreamer/local_socket"
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
 /* Not actually used heh.. */

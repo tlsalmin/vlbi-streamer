@@ -7,6 +7,7 @@ LOGFILE=/usr/local/var/log/vlbistreamer.log
 PIDFILE=/usr/local/var/opt/vlbistreamer/vlbistreamer.pid
 BINDIR=/usr/local/bin
 CFGFILE=/usr/local/etc/vlbistreamer.conf
+SCHEDLOCKFILE=/usr/local/var/opt/vlbistreamer/vlbistreamer_schedlockfile
 PPRIORITY=20
 DAEMON=/usr/local/bin/vlbistreamer
 USER=oper

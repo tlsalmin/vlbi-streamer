@@ -54,6 +54,7 @@
 static volatile int running = 0;
 extern FILE *logfile;
 
+int schedlockfd;
 struct schedule *sched;
 
 void zero_sched(struct schedule *sched){
@@ -82,12 +83,8 @@ void zero_schedevnt(struct scheduled_event* ev){
 }
 int remove_from_cfgsched(struct scheduled_event *ev){
   int err;
-  int fd;
   config_t cfg;
-  err = open(STATEFILE, O_RDWR);
-  CHECK_ERR_LTZ("open statfeil for removing cfg entry");
-  fd = err;
-  err = flock(fd, LOCK_SH);
+  err = flock(schedlockfd, LOCK_SH);
   CHECK_ERR("lock statefile");
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
@@ -105,8 +102,7 @@ int remove_from_cfgsched(struct scheduled_event *ev){
   CHECK_CFG("Wrote config");
   LOG("Updated config file and removed %s\n", ev->opt->filename);
   config_destroy(&cfg);
-  flock(fd, LOCK_UN);
-  close(fd);
+  flock(schedlockfd, LOCK_UN);
   return 0;
 }
 int free_and_close(void *le){
@@ -463,14 +459,13 @@ void zerofound(struct schedule *sched){
   }
 }
 int check_schedule(struct schedule *sched){
-  int i=0,err, fd;
+  int i=0,err;
   struct scheduled_event * temp = NULL;
   struct listed_entity * le = NULL;
   config_t cfg;
   err = open(STATEFILE, O_RDWR);
   CHECK_ERR_LTZ("open statefile");
-  fd = err;
-  err = flock(fd, LOCK_EX);
+  err = flock(schedlockfd, LOCK_EX);
   CHECK_ERR("lock statefile");
   config_init(&cfg);
   config_read_file(&cfg, STATEFILE);
@@ -518,8 +513,7 @@ int check_schedule(struct schedule *sched){
   }
   zerofound(sched);
   config_destroy(&cfg);
-  flock(fd, LOCK_UN);
-  close(fd);
+  flock(schedlockfd, LOCK_UN);
   D("Done checking schedule");
 
   return 0;
@@ -653,6 +647,8 @@ int main(int argc, char **argv)
 
   err = init_active_file_index();
   CHECK_ERR("active file index");
+
+  schedlockfd = open(SCHEDLOCKFILE, O_RDWR);
 
   /* First load defaults to opts, then check default config file	*/
   /* and lastly check command line arguments. This means config file	*/
@@ -880,6 +876,7 @@ int main(int argc, char **argv)
   //free(sched->default_opt);
   free(sched);
   D("Schedule freed");
+  close(schedlockfd);
 
   err = close_active_file_index();
   CHECK_ERR("Close active file index");
