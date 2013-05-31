@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <sys/sendfile.h>
 //#include <linux/fcntl.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -28,6 +29,7 @@
 #define MAX_PIPE_SIZE 1048576
 
 #define OPTS_DO_COUNTER	B(0)
+#define TCP_MODE	B(1)
 
 struct options{
   int port;
@@ -46,6 +48,7 @@ int usage(char * bin)
   LOG( "Usage: %s <file> <target> [OPTIONS]\n\
       -s <PORT>		Set target port to PORT \n\
       -c		Append mark5b packet counter \n\
+      -t		TCP connection \n\
       -f <OFFSET>	strip OFFSET from each packet \n\
       -r <RATE>		Send rate in Mb/s\n\
       -p <PACKET_SIZE>	Default 5016 \n", bin);
@@ -105,7 +108,10 @@ int splice_to_socket(struct options* opts,int  pipe)
   serv_addr.sin_port = htons(opts->port);
 
   D("Target is %s according to gethostbyname",, target->h_addr_list[0]);
-  fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if(opts->opts & TCP_MODE)
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+  else
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
   CHECK_LTZ("Socket", fd);
 
   err = connect(fd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
@@ -123,54 +129,37 @@ int splice_to_socket(struct options* opts,int  pipe)
     (*end_of_counter)++;
   }
 
-  do
-  {
-    /*
-    if(opts->offset != 0){
-      count = vmsplice(pipe, &dummyiov, 1, 0);
-      if(count == 0){
-	D("pipe closed in vmsplice");
-	break;
-      }
-      if(count < 0){
-	E("count less than zero in vmsplice");
-	break;
-      }
-      if(count != opts->offset)
-      {
-	E("dummy splice wrote only %ld when wanted %d",, count, opts->offset);
-      }
-    }
-    */
-    count = splice(pipe, NULL, fd, NULL, totransfer, SPLICE_F_MORE);
-    if(count <= 0)
+    do
     {
-      D("Err or exit in original splice");
-      break;
-    }
-    totransfer-=count;
-
-    /* Check if we have a full package */
-    if(totransfer == 0){
-      /* I know i know.. Not very elegant! */
-      count = splice(pipe, NULL, fd, NULL, 1, 0);
-      if(count < 0){
-	E("error in finishing splice");
+      count = splice(pipe, NULL, fd, NULL, totransfer, SPLICE_F_MORE);
+      if(count <= 0)
+      {
+	D("Err or exit in original splice");
 	break;
       }
-      if(opts->opts & OPTS_DO_COUNTER)
-      {
-	vmsplice(pipe, &ciov, 1, SPLICE_F_MORE);
-	(*end_of_counter)++;
+      totransfer-=count;
+
+      /* Check if we have a full package */
+      if(totransfer == 0){
+	/* I know i know.. Not very elegant! */
+	count = splice(pipe, NULL, fd, NULL, 1, 0);
+	if(count < 0){
+	  E("error in finishing splice");
+	  break;
+	}
+	if(count == 0){
+	  D("Pipe closed");
+	  break;
+	}
+	if(opts->opts & OPTS_DO_COUNTER)
+	{
+	  vmsplice(pipe, &ciov, 1, SPLICE_F_MORE);
+	  (*end_of_counter)++;
+	}
+	totransfer=opts->packet_size-1;
+	count = 1;
       }
-      totransfer=opts->packet_size-1;
-      count = 1;
-    }
-    /*
-    if(count >0 && count < opts->packet_size)
-      D("Sent %ld instead of packet_size",, count);
-      */
-  }while(count > 0);
+    }while(count > 0);
 
   if(count < 0)
     E("Error in splice to socket");
@@ -200,7 +189,7 @@ int main(int argc, char** argv)
   opts->packet_size = DEFAULT_PACKET_SIZE;
 
   D("Getting opts");
-  while((ret = getopt(argc, argv, "s:cf:p:r:")) != -1)
+  while((ret = getopt(argc, argv, "s:cf:p:r:t")) != -1)
   {
     switch (ret){
       case 's':
@@ -216,8 +205,8 @@ int main(int argc, char** argv)
       case 'f':
 	opts->offset = atoi(optarg);
 	break;
-      case 'r':
-	
+      case 't':
+	opts->opts |= TCP_MODE;
 	break;
       case 'p':
 	opts->packet_size = atoi(optarg);
@@ -237,7 +226,7 @@ int main(int argc, char** argv)
     usage(argv[0]);
   }
   argv +=optind;
-  argc -=optind;
+  //argc -=optind;
 
   D("Parameters checked");
   opts->filename = argv[0];
@@ -261,6 +250,7 @@ int main(int argc, char** argv)
 
   if(childpid == 0){
     D("Child forked");
+    close(pipes[0]);
     err = read_file_to_pipe(opts, pipes[1]);
     if(err != 0){
       E("Error in read file to pipe");
@@ -271,6 +261,7 @@ int main(int argc, char** argv)
   }
   else
   {
+    close(pipes[1]);
     err = splice_to_socket(opts, pipes[0]);
     if(err != 0){
       E("Error in splicing");
@@ -280,7 +271,7 @@ int main(int argc, char** argv)
     if(waitpid(childpid, &retval, WNOHANG) == 0)
     {
       D("Pid not exited. Lets close the other pipe end. Maybe it'll wake up");
-      close(pipes[1]);
+      close(pipes[0]);
     }
     waitpid(childpid, &retval, 0);
     D("Ok now it exited");

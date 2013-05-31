@@ -837,6 +837,10 @@ static int vbs_getattr(const char *path, struct stat *statbuf)
     }
     D("updating stats for %s",, fi->filename);
     err = update_stat(fi, statbuf);
+    if(err != 0){
+      E("Error in update stat");
+      return -ENOENT;
+    }
     retstat = 0;
 
   }
@@ -1171,8 +1175,8 @@ void * do_operation(void* opts)
       flags = O_RDONLY;
     }
     else if (ro->status & RO_STATUS_DOWRITE){
+      flags2 = S_IWUSR;
       flags = O_WRONLY;
-      flags = S_IWUSR;
     }
 
     fd = open(ro->filename, flags, flags2);
@@ -1241,7 +1245,7 @@ void * do_operation(void* opts)
 
 	if(count <= (unsigned)vbs_data->offset){
 	  D("No need to read offset bytes %ld to buffer",, from_boundary);
-	  count = 0;
+	  //count = 0;
 	  break;
 	}
 	/* We will rewind up to a packet boundary so the loop after this can be	*/
@@ -1277,7 +1281,7 @@ void * do_operation(void* opts)
 	{
 	  D("No more to read and vmsplice");
 	  //close(pipes[0]);
-	  count = 0;
+	  //count = 0;
 	  break;
 	}
 	else

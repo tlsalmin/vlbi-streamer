@@ -20,7 +20,10 @@ struct sender_tracking{
   unsigned long files_in_loading;
   unsigned long n_packets_probed;
   unsigned long n_files_probed;
+  unsigned long total_bytes_to_send;
   int 		status_probed;
+  unsigned long packetcounter;
+  unsigned long inc;
   //unsigned long packetpeek;
   TIMERTYPE now;
 #if(SEND_DEBUG)
@@ -35,7 +38,7 @@ struct sender_tracking{
 
 void init_sender_tracking(struct opt_s *opt, struct sender_tracking *st);
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st);
-inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
+int should_i_be_running(struct opt_s *opt, struct sender_tracking *st);
 int loadup_n(struct opt_s *opt, struct sender_tracking * st);
 void throttling_count(struct opt_s* opt, struct sender_tracking * st);
 int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct sender_tracking *st);

@@ -317,23 +317,6 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
   if(!mutex_free){
     LOCK(&(br->branchlock));
   }
-  /*
-  if(en == br->freelist){
-    if(en->child != NULL)
-      en->child->father = NULL;
-    br->freelist = en->child;
-  }
-  else if(en == br->busylist){
-    if(en->child != NULL)
-      en->child->father = NULL;
-    br->busylist = en->child;
-  }
-  else if(en == br->loadedlist){
-    if(en->child != NULL)
-      en->child->father = NULL;
-    br->loadedlist = en->child;
-  }
-  */
   if(en == *(en->current_branch))
   {
     if(en->child != NULL)
@@ -344,9 +327,14 @@ void remove_from_branch(struct entity_list_branch *br, struct listed_entity *en,
     /* Weird thing. Segfault when en->father is NULL	*/
     /* Shoulnd't happen but happens on vbs_shutdown	*/
     /* with live sending 				*/
-    en->father->child = en->child;
-    if(en->child != NULL)
-      en->child->father = en->father;
+    if(en->father != NULL)
+    {
+      en->father->child = en->child;
+      if(en->child != NULL)
+	en->child->father = en->father;
+    }
+    else
+      E("A element without a father, which isn't on top of a branch. Shouldn't happen");
   }
   en->child = NULL;
   en->father = NULL;

@@ -98,10 +98,10 @@ int sbuf_acquire(void* buffo, void *opti,void* acq)
     struct rxring_request* rxr = (struct rxring_request*)acq;
     /* This threads responsible area */
     //sbuf->buffer = sbuf->opt->buffer + ((long unsigned)rxr->bufnum)*(sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
-    sbuf->buffer = sbuf->opt->buffer + CALC_BUFSIZE_FROM_OPT(sbuf->opt)*((long unsigned)rxr->bufnum);
+    be->buffer = sbuf->opt->buffer + CALC_BUFSIZE_FROM_OPT(sbuf->opt)*((long unsigned)rxr->bufnum);
   }
 
-  sbuf->bufoffset = sbuf->buffer;
+  sbuf->bufoffset = be->buffer;
 
   sbuf->fi = sbuf->opt->fi;
   sbuf->fileid = *((long unsigned*)acq);
@@ -117,7 +117,7 @@ int sbuf_release(void* buffo)
   struct buffer_entity * be = (struct buffer_entity*)buffo;
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   if(sbuf->opt != NULL && sbuf->opt->optbits & USE_RX_RING)
-    sbuf->buffer = NULL;
+    be->buffer = NULL;
   sbuf->opt = NULL;
 
   //sbuf->opt_old = sbuf->opt;
@@ -187,8 +187,9 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
   struct simplebuf * sbuf = (struct simplebuf*) malloc(sizeof(struct simplebuf));
-  if(sbuf == NULL)
-    return -1;
+  memset(sbuf, 0, sizeof(struct simplebuf));
+  CHECK_ERR_NONNULL_AUTO(sbuf);
+
   be->opt = sbuf;
   sbuf->opt = opt;
   be->recer =NULL;
@@ -265,9 +266,10 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
+      D("Initializing hugepage memory");
 #ifdef MMAP_NOT_SHMGET
-      sbuf->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
-      if(sbuf->buffer ==MAP_FAILED){
+      be->buffer = mmap(NULL, hog_memory, PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_PRIVATE|MAP_HUGETLB|MAP_NORESERVE, -1,0);
+      if(be->buffer ==MAP_FAILED){
 	perror("MMAP");
 	E("Couldn't allocate hugepages");
 	//remove(hugefs);
@@ -294,8 +296,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
       if(err != 0)
 	E("Error in ftruncate");
       //sbuf->buffer = shmat(sbuf->shmid, NULL, 0);
-      sbuf->buffer = mmap(NULL, hog_memory, (PROT_READ | PROT_WRITE), MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB|MAP_NORESERVE, sbuf->shmid, 0);
-      if((long)sbuf->buffer == (long)-1){
+      be->buffer = mmap(NULL, hog_memory, (PROT_READ | PROT_WRITE), MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB|MAP_NORESERVE, sbuf->shmid, 0);
+      if((long)be->buffer == (long)-1){
 	E("mmap failed");
 	perror("mmap");
 	return -1;
@@ -312,13 +314,13 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 	//return -1;
       }
       D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
-      err = posix_memalign((void**)&(sbuf->buffer), sysconf(_SC_PAGESIZE), hog_memory);
+      err = posix_memalign((void**)&(be->buffer), sysconf(_SC_PAGESIZE), hog_memory);
       //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
       //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
-      preheat_buffer(sbuf->buffer, opt);
+      preheat_buffer(be->buffer, opt);
 
     }
-    if (err < 0 || sbuf->buffer == 0) {
+    if (err < 0 || be->buffer == 0) {
       perror("make_write_buffer");
       return -1;
     }
@@ -350,7 +352,7 @@ int sbuf_close(struct buffer_entity* be, void *stats)
     if(sbuf->optbits & USE_HUGEPAGE){
       //munmap(sbuf->buffer, sbuf->opt->packet_size*sbuf->opt->buf_num_elems);
 #ifdef MMAP_NOT_SHMGET
-      munmap(sbuf->buffer, sbuf->opt->filesize);
+      munmap(be->buffer, sbuf->opt->filesize);
 #else
       char shmstring[FILENAME_MAX];
       sprintf(shmstring, "%s%03d", SHMIDENT, sbuf->bufnum);
@@ -360,7 +362,7 @@ int sbuf_close(struct buffer_entity* be, void *stats)
     }
     else
 #endif /* HAVE_HUGEPAGES */
-      free(sbuf->buffer);
+      free(be->buffer);
   }
   else
     D("Not freeing mem. Done in main");
@@ -455,8 +457,9 @@ int simple_end_transaction(struct buffer_entity *be)
 void* sbuf_getbuf(struct buffer_entity *be, long ** diff)
 {
   struct simplebuf *sbuf = (struct simplebuf*)be->opt;
-  *diff = &(sbuf->diff);
-  return sbuf->buffer;
+  if(diff != NULL)
+    *diff = &(sbuf->diff);
+  return be->buffer;
 }
 int simple_write_bytes(struct buffer_entity *be)
 {
@@ -616,7 +619,7 @@ int write_buffer(struct buffer_entity *be)
 	}
 	return -1;
       }
-      be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
+      be->recer->setshmid(be->recer, sbuf->shmid, be->buffer);
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
       if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
@@ -645,12 +648,12 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       else{
-	be->recer->setshmid(be->recer, sbuf->shmid, sbuf->buffer);
+	be->recer->setshmid(be->recer, sbuf->shmid, be->buffer);
 	D("Updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))
 	{
-	  if(check_and_fill(sbuf->buffer, sbuf->opt, sbuf->fileid, NULL) != 0)
+	  if(check_and_fill(be->buffer, sbuf->opt, sbuf->fileid, NULL) != 0)
 	    E("Error in check and fill for %s id %ld",, sbuf->opt->filename, sbuf->fileid);
 	}
 	ASSERT(be->recer->getid(be->recer) < sbuf->opt->n_drives);
@@ -732,7 +735,7 @@ void *sbuf_simple_write_loop(void *buffo)
 	  else
 	    E("Error in rec of write_buffer file %s fileid %ld. Returning diff and bufoffset",, sbuf->opt->filename, sbuf->fileid);
 	  sbuf->diff = savedif;
-	  sbuf->bufoffset = sbuf->buffer;
+	  sbuf->bufoffset = be->buffer;
 	  if(sbuf->opt->optbits & READMODE){
 	    D("Error on drive with readmode on. File is skipped and set self to free");
 	    //Common_write handles the fileholder-settings
@@ -797,6 +800,10 @@ void *sbuf_simple_write_loop(void *buffo)
     if(mutex_free == 0)
       UNLOCK(be->headlock);
   }
+int sbuf_getshmid(struct buffer_entity* be)
+{
+  return ((struct simplebuf*)be->opt)->shmid;
+}
   void sbuf_set_ready_and_signal(struct buffer_entity *be, int mutex_free)
   {
     if(mutex_free == 0)
@@ -817,6 +824,7 @@ void *sbuf_simple_write_loop(void *buffo)
     be->set_ready_and_signal = sbuf_set_ready_and_signal;
     be->acquire = sbuf_acquire;
     be->cancel_writebuf = sbuf_cancel_writebuf;
+    be->get_shmid = sbuf_getshmid;
 
     return be->init(opt,be); 
   }

@@ -16,7 +16,7 @@ OPTIONS:
       -s SOCKET		Socket number(Default: 2222)
       -S 		Write to a single file (bottlenecks unless used with a raid)
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
-      -t		Use TCP-socket
+      -t		Capture socket type (default: udpstream) options: (udpstream, tpstream, tcpsplice)
       -w		Wait for START_TIME in metadata before starting receive (End time will be moved accordingly)
       -v 		Verbose. Print stats on all transfers
       -y 		Force socket reaqcuire on error (Useful when recordings overlap)
@@ -64,10 +64,6 @@ do
       offset = ${2};"
       shift
       ;;
-    -f)
-      EXTRAOPS="$EXTRAOPS
-      use_tcp_socket = 1;"
-      ;;
     -l)
       EXTRAOPS="$EXTRAOPS
       last_packet = $2L;"
@@ -109,6 +105,11 @@ do
       starting_time = ${DATDATE}L;"
       shift
       ;;
+    -t)
+      EXTRAOPS="$EXTRAOPS
+      capture = \"$2\";"
+      shift
+      ;;
     -v)
       EXTRAOPS="$EXTRAOPS
       verbose = 1;"
@@ -116,6 +117,7 @@ do
     -n)
       EXTRAOPS="$EXTRAOPS
       hostname = \"$2\";"
+      shift
       ;;
     -y)
       EXTRAOPS="$EXTRAOPS
@@ -128,6 +130,7 @@ do
     -q)
       EXTRAOPS="$EXTRAOPS
       datatype = \"$2\";"
+      shift
       ;;
     -r)
       RECALC_RATE=1

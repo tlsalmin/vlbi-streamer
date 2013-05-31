@@ -205,7 +205,6 @@ int do_sending(struct options* opts)
   err = connect(fd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
   CHECK_ERR("Bind");
 
-  err = 0;
   diov->iov_len = opts->packet_size;
   GETTIME(last_sent);
   while(running == 1)
@@ -219,7 +218,7 @@ int do_sending(struct options* opts)
     }
     
     if(opts->n_ready == 0 && !(opts->opts & OPTS_READING)){
-      running =0 ;
+      //running =0 ;
       break;
     }
 

@@ -61,7 +61,7 @@ int main(int argc, char** argv){
 
   int j =0;
   for (index = optind; index < argc; index++){
-    printf ("Non-option argument %s\n", argv[index]);
+    printf("Non-option argument %s\n", argv[index]);
     if(j == 0){
       filename = argv[index];
       O("Filename is %s\n", filename);
@@ -73,6 +73,10 @@ int main(int argc, char** argv){
       O("Spacing is %ld\n", spacing);
       j++;
     }
+  }
+  if(filename == NULL || spacing == 0){
+    fprintf(stderr,"No filename or no spacing\n");
+    return -1;
   }
   //return 0;
   /*

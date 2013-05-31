@@ -94,12 +94,12 @@ int common_open_new_file(void * recco, void *opti,void* acq){
 	CHECK_ERR("Init directory");
 	err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
 	if(err!=0){
-	  fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
+	  E("Init: Error in file open %s",, ioi->curfilename);
 	  return err;
 	}
       }
       else{
-	fprintf(stderr, "COMMON_WRT: Init: Error in file open: %s\n", ioi->curfilename);
+	E("Init: Error in file open %s",, ioi->curfilename);
 	return err;
       }
     }
@@ -114,6 +114,11 @@ int common_open_new_file(void * recco, void *opti,void* acq){
     {
       struct stat statinfo;
       err = stat(ioi->curfilename, &statinfo);
+      if(err != 0)
+      {
+	E("Error in statting %s",, ioi->curfilename);
+	return -1;
+      }
       ioi->filesize = statinfo.st_size;
       D("Filesize is %lu",, ioi->filesize);
     }
@@ -545,7 +550,12 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   sprintf(regstring, "^%s.[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", opt->filename);
   //err = regcomp(&regex, "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]", 0);
   err = regcomp(&regex, regstring, 0);
-  CHECK_ERR("Regcomp");
+  if(err != 0)
+  {
+    E("Error in forming regcomp");
+    free(regstring);
+    return -1;
+  }
 
   /* print all the files and directories within directory */
   struct dirent **namelist;
@@ -559,7 +569,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   }
   else{
     FI_WRITELOCK(opt->fi);
-    struct fileholder* fh = opt->fi->files;
+    struct fileholder* fh;
     for(i=0;i<n_files;i++){
       err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);
       /* If we match a data file */
@@ -584,28 +594,21 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	  fh->diskid = ioi->id;
 	  opt->cumul_found++;
 	}
-	}
-	else if( err == REG_NOMATCH ){
-	  D("Regexp didn't match %s",, namelist[i]->d_name);
-	}
-	else{
-	  char msgbuf[100];
-	  regerror(err, &regex, msgbuf, sizeof(msgbuf));
-	  E("Regex match failed: %s",, msgbuf);
-	  //exit(1);
-	}
-	free(namelist[i]);
+      }
+      else if( err == REG_NOMATCH ){
+	D("Regexp didn't match %s",, namelist[i]->d_name);
+      }
+      else{
+	char msgbuf[100];
+	regerror(err, &regex, msgbuf, sizeof(msgbuf));
+	E("Regex match failed: %s",, msgbuf);
+      }
+      free(namelist[i]);
       }
       free(namelist);
       FIUNLOCK(opt->fi);
     }
-    //closedir (dir);
     D("Finished reading files in dir");
-    /*
-       } else {
-       }
-       */
-    //free(ent);
     free(regstring);
     free(dirname);
     regfree(&regex);

@@ -67,6 +67,7 @@ int main(int argc, char ** argv){
   char c;
   int isauto=0;
   int netmode=0;
+  int gotfile=0;
 
   while ( (c = getopt(argc, argv, "anf:o:c")) != -1) {
         //int this_option_optind = optind ? optind : 1;
@@ -86,6 +87,7 @@ int main(int argc, char ** argv){
 	      O("Error opening file %s\n", optarg);
 	      exit(-1);
 	    }
+	    gotfile=1;
 	    break;
 	  case 'a':
 	    isauto=1;
@@ -103,6 +105,11 @@ int main(int argc, char ** argv){
 	    break;
 	}
   }
+  if(gotfile == 0){
+    E("Missing file argument");
+    return -1;
+  }
+  
   if(extraoffset!=0)
     framesize+=extraoffset;
   /*

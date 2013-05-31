@@ -26,7 +26,7 @@
 long sendfile_write(struct recording_entity * re, void *start , size_t count)
 {
   long tosend = count;
-  long ret, total_w=0;
+  long ret=0, total_w=0;
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   off_t offset = start - ioi->bufstart;
   D("SENDFILE_WRITER: Issuing write of %lu to %s",, count, ioi->curfilename);

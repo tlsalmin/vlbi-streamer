@@ -19,9 +19,9 @@ struct resq_info{
   struct tm tm_s;
   int starting_second;
 };
-inline long getseq_vdif(void* header, struct resq_info *resq);
-inline long getseq_mark5b_net(void* header);
-inline long getseq_udpmon(void* header);
+long getseq_vdif(void* header, struct resq_info *resq);
+long getseq_mark5b_net(void* header);
+long getseq_udpmon(void* header);
 int copy_metadata(void* source, void* target, struct opt_s* opt);
 int init_header(void** target, struct opt_s* opt);
 int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_errors);

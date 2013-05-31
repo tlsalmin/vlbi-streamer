@@ -8,7 +8,7 @@
 #include "datatypes_common.h"
 
 
-inline long getseq_vdif(void* header, struct resq_info *resq){
+long getseq_vdif(void* header, struct resq_info *resq){
   long returnable;
   long second = SECOND_FROM_VDIF(header);
   long framenum = FRAMENUM_FROM_VDIF(header);
@@ -83,14 +83,14 @@ int init_header(void** target, struct opt_s* opt)
   }
   return 0;
 }
-inline long getseq_mark5b_net(void* header){
+long getseq_mark5b_net(void* header){
   //return be32toh(*((long*)(header+4)));
   return (long)(*((int*)(header+4)));
 }
-inline long getseq_udpmon(void* header){
+long getseq_udpmon(void* header){
   return be64toh(*((long*)header));
 }
-inline long header_match(void* target, void* match, struct opt_s * opt)
+long header_match(void* target, void* match, struct opt_s * opt)
 {
   switch(opt->optbits & LOCKER_DATATYPE)
   {

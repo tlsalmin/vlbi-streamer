@@ -71,7 +71,7 @@ extern FILE* logfile;
                          TPACKET_ALIGN(sizeof(struct sockaddr_ll)))
 #define PLOTTABLE_SEND_DEBUG 0
 
-int udps_bind_rx(struct udpopts * spec_ops){
+int udps_bind_rx(struct socketopts * spec_ops){
   struct tpacket_req req;
   int err;
 
@@ -129,8 +129,8 @@ int udps_bind_rx(struct udpopts * spec_ops){
 int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 {
   int err;
-  struct udpopts *spec_ops =(struct udpopts *) malloc(sizeof(struct udpopts));
-  memset(spec_ops, 0, sizeof(struct udpopts));
+  struct socketopts *spec_ops =(struct socketopts *) malloc(sizeof(struct socketopts));
+  memset(spec_ops, 0, sizeof(struct socketopts));
   CHECK_ERR_NONNULL(spec_ops, "spec ops malloc");
   //spec_ops->running = 1;
   se->opt = (void*)spec_ops;
@@ -181,80 +181,32 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
 
   return 0;
 }
-int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
+int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
 {
-  long wait;
-#if(PREEMPTKERNEL)
   int err;
-#endif
-#ifdef HAVE_RATELIMITER
-  if(opt->wait_nanoseconds > 0)
-  {
-    //clock_gettime(CLOCK_REALTIME, &now);
-    GETTIME(st->now);
-#if(SEND_DEBUG)
-    COPYTIME(st->now,st->reference);
-#endif
-    wait = nanodiff(&(opt->wait_last_sent), &st->now);
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-    //fprintf(st->out,"%ld %ld \n",spec_ops->total_captured_packets, wait);
-#else
-    fprintf(st->out, "UDP_STREAMER: %ld ns has passed since last->send\n", wait);
-#endif
-#endif
-    ZEROTIME(st->req);
-    SETNANOS(st->req,(opt->wait_nanoseconds-wait));
-    if(GETNANOS(st->req) > 0){
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-      fprintf(st->out, "%ld ", GETNANOS(st->req));
-#else
-      fprintf(st->out, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st->req));
-#endif
-#endif	
-#if!(PREEMPTKERNEL)
-      /* First->sleep in minsleep sleeps to get rid of the bulk		*/
-      while((unsigned long)GETNANOS(st->req) > st->minsleep){
-	SLEEP_NANOS(st->onenano);
-	SETNANOS(st->req,GETNANOS(st->req)-st->minsleep);
-      }
-      GETTIME(st->now);
+  struct socketopts *spec_ops = se->opt;
+  err = sendto(spec_ops->fd, se->be->buffer+((*spec_ops->inc)+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
 
-      while(nanodiff(&(opt->wait_last_sent),&st->now) < opt->wait_nanoseconds){
-	GETTIME(st->now);
-      }
-#else
-      err = SLEEP_NANOS(st->req);
-      if(err != 0){
-	E("cant sleep");
-	return -1;
-      }
 
-      GETTIME(st->now);
-#endif /*PREEMPTKERNEL */
-
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-      fprintf(st->out, "%ld\n", nanodiff(&st->reference, &st->now));
-#else
-      fprintf(st->out, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st->reference, &st->now));
-#endif
-#endif
-      nanoadd(&(opt->wait_last_sent), opt->wait_nanoseconds);	
-    }
-    else{
-#if(SEND_DEBUG)
-#if(PLOTTABLE_SEND_DEBUG)
-      fprintf(st->out, "0 0\n");
-#else
-      fprintf(st->out, "Runaway timer! Resetting\n");
-#endif
-#endif
-      COPYTIME(st->now,opt->wait_last_sent);
-    }
+  // Increment to the next sendable packet
+  if(err < 0){
+    perror("Send packet");
+    se->close_socket(se);
+    return -1;
+    //TODO: How to handle error case? Either shut down all threads or keep on trying
+    //pthread_exit(NULL);
+    //break;
   }
-#endif //HAVE_RATELIMITER
+  else if((unsigned)err != spec_ops->opt->packet_size){
+    E("Sent only %d, when wanted to send %ld",, err, spec_ops->opt->packet_size);
+  }
+  else{
+    st->packets_sent++;
+    spec_ops->total_transacted_bytes += err;
+    //st->inc+=spec_ops->opt->packet_size;
+    (*spec_ops->inc)+=spec_ops->opt->packet_size;
+    st->packetcounter--;
+  }
   return 0;
 }
 /*
@@ -268,109 +220,10 @@ int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
  */
 void * udp_sender(void *streamo)
 {
-  int err = 0;
-  void* buf;
-
-  long *inc, sentinc=0,packetcounter=0;
-
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
-  struct sender_tracking st;
-
-  init_sender_tracking(spec_ops->opt, &st);
-
-  throttling_count(spec_ops->opt, &st);
-
-  /* Init minimun sleeptime. On the test machine the minimum time 	*/
-  /* Slept with nanosleep or usleep seems to be 55microseconds		*/
-  /* This means we can sleep only sleep multiples of it and then	*/
-  /* do the rest in a busyloop						*/
-  //long wait= 0;
-  se->be = NULL;
-  spec_ops->total_captured_bytes = 0;
-  //spec_ops->total_captured_packets = 0;
-  spec_ops->out_of_order = 0;
-  spec_ops->incomplete = 0;
-  spec_ops->missing = 0;
-  D("Wait between is %d here",, spec_ops->opt->wait_nanoseconds);
-
-  //void * buf = se->be->simple_get_writebuf(se->be, &inc);
-  D("Getting first loaded buffer for sender");
-
-  jump_to_next_file(spec_ops->opt, se, &st);
-
-  CHECK_AND_EXIT(se->be);
-
-  /* Data won't be instantaneous so get min_sleep here! */
-  unsigned long minsleep = get_min_sleeptime();
-  LOG("Can sleep max %lu microseconds on average\n", minsleep);
-#if!(PREEMPTKERNEL)
-  st.minsleep = minsleep;
-#endif
-
-  buf = se->be->simple_get_writebuf(se->be, &inc);
-
-  D("Starting stream send");
-
-  LOG("UDP_STREAMER: Starting stream capture\n");
-  /*
-  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
-  if(err != 0)
-  {
-    E("Error in getting buffer");
-    UDPS_EXIT_ERROR;
-  }
-  */
-
-  GETTIME(spec_ops->opt->wait_last_sent);
-  //long packetpeek = get_n_packets(spec_ops->opt->fi);
-  //while(st.files_sent <= spec_ops->opt->cumul && spec_ops->running){
-  while(should_i_be_running(spec_ops->opt, &st) == 1){
-    if(packetcounter == spec_ops->opt->buf_num_elems || (st.packets_sent - st.n_packets_probed  == 0))
-    {
-      err = jump_to_next_file(spec_ops->opt, se, &st);
-      if(err == ALL_DONE){
-	UDPS_EXIT;
-	break;
-      }
-      else if (err < 0){
-	E("Error in getting buffer");
-	UDPS_EXIT_ERROR;
-	break;
-      }
-      buf = se->be->simple_get_writebuf(se->be, &inc);
-      //packetpeek = get_n_packets(spec_ops->opt->fi);
-      packetcounter = 0;
-      sentinc = 0;
-      //i=0;
-    }
-    udps_wait_function(&st, spec_ops->opt);
-    err = sendto(spec_ops->fd, (buf+sentinc+spec_ops->opt->offset), (spec_ops->opt->packet_size-spec_ops->opt->offset), 0, spec_ops->p->ai_addr,spec_ops->p->ai_addrlen);
-
-
-    // Increment to the next sendable packet
-    if(err < 0){
-      perror("Send packet");
-      se->close_socket(se);
-      UDPS_EXIT_ERROR;
-      //TODO: How to handle error case? Either shut down all threads or keep on trying
-      //pthread_exit(NULL);
-      //break;
-    }
-    else if((unsigned)err != spec_ops->opt->packet_size){
-      E("Sent only %d, when wanted to send %ld",, err, spec_ops->opt->packet_size);
-    }
-    else{
-      st.packets_sent++;
-      spec_ops->total_captured_bytes +=(unsigned int) err;
-      //spec_ops->total_captured_packets++;
-      //spec_ops->opt->total_packets++;
-      //buf += spec_ops->opt->packet_size;
-      sentinc += spec_ops->opt->packet_size;
-      packetcounter++;
-    }
-  }
-  UDPS_EXIT;
+  //struct streamer_entity * se = (struct streamer_entity*) se;
+  //struct udpopts *spec_ops = se->opt;
+  generic_sendloop((struct streamer_entity*)streamo, 1, udp_sender_sendcmd, bboundary_packetnum);
+  pthread_exit(NULL);
 }
 
 /* RX-ring doesn't support simultaneous sending 	*/
@@ -382,7 +235,7 @@ void* udp_rxring(void *streamo)
   //TODO: Get the timeout from main here.
   int timeout = 1000;
   struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct tpacket_hdr* hdr = spec_ops->opt->buffer + j*(spec_ops->opt->packet_size); 
   struct pollfd pfd;
   int bufnum = 0;
@@ -390,7 +243,7 @@ void* udp_rxring(void *streamo)
 
   struct rxring_request rxr;
 
-  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_transacted_bytes = 0;
   spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
@@ -427,7 +280,7 @@ void* udp_rxring(void *streamo)
 	spec_ops->opt->total_packets++;
       }
       else{
-	spec_ops->total_captured_bytes += hdr->tp_len;
+	spec_ops->total_transacted_bytes += hdr->tp_len;
 	spec_ops->opt->total_packets++;
 	//(*inc)++;
 	//TODO: Should we add s the extra?
@@ -483,7 +336,7 @@ void* udp_rxring(void *streamo)
 }
 int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   D("Jumping to next buffer!");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
   spec_ops->opt->cumul++;
   /* Check if the buffer before still hasn't	*/
   /* gotten all packets				*/
@@ -536,7 +389,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
 }
 void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq_info *resq){
   /* The seqnum is the first 64bits of the packet 	*/
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
 
   long seqnum;
   switch (spec_ops->opt->optbits & LOCKER_DATATYPE){
@@ -709,11 +562,11 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   int udps_handle_received_packet(struct streamer_entity* se, struct resq_info * resq, int received)
   {
     int err;
-    struct udpopts* spec_ops = (struct udpopts*)se->opt;
+    struct socketopts* spec_ops = (struct socketopts*)se->opt;
     if(received == 0)
     {
-	LOG("UDP_STREAMER: Main thread has shutdown socket\n");
-	return 1;
+      LOG("UDP_STREAMER: Main thread has shutdown socket\n");
+      return 1;
     }
     else if(received < 0){
       if(received == EINTR){
@@ -758,7 +611,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	else if((unsigned long)senderr != spec_ops->opt->packet_size)
 	  E("Different size sent onward. NOT HANDLED");
       }
-      ASSERT(resq->i < spec_ops->opt->buf_num_elems);
+      ASSERT((unsigned)resq->i < spec_ops->opt->buf_num_elems);
       /* i has to keep on running, so we always change	*/
       /* the buffer at a correct spot			*/
 
@@ -819,7 +672,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	resq->i++;
       }
       ASSERT((unsigned)*resq->inc <= CALC_BUFSIZE_FROM_OPT(spec_ops->opt));
-      spec_ops->total_captured_bytes +=(unsigned int) received;
+      spec_ops->total_transacted_bytes +=(unsigned int) received;
       spec_ops->opt->total_packets++;
       if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
 	LOG("Captured %lu packets as specced. Exiting\n", spec_ops->opt->last_packet);
@@ -831,8 +684,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   int handle_buffer_switch(struct streamer_entity *se , struct resq_info *resq)
   {
     int err;
-    struct udpopts* spec_ops = (struct udpopts*)se->opt;
-    if(resq->i == spec_ops->opt->buf_num_elems)
+    struct socketopts* spec_ops = (struct socketopts*)se->opt;
+    if((unsigned)resq->i == spec_ops->opt->buf_num_elems)
     {
       D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
       ASSERT(spec_ops->opt->fi != NULL);
@@ -867,7 +720,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     return 0;
   }
-  int force_reacquire(struct udpopts *spec_ops)
+  int force_reacquire(struct socketopts *spec_ops)
   {
     int err =1;
     //TODO: Is this even sensible?
@@ -878,8 +731,8 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       sleep(1);
       GETTIME(temptimer);
       /*
-  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
-  */
+	 err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+	 */
     }
     if(err != 0){
       E("Still couldn't get the port. Exiting");
@@ -890,169 +743,169 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
   /*
    * Receiver for UDP-data
    */
-void* udp_receiver(void *streamo)
-{
-  int err = 0;
+  void* udp_receiver(void *streamo)
+  {
+    int err = 0;
 
-  struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
-  memset(resq, 0, sizeof(struct resq_info));
+    struct resq_info* resq = (struct resq_info*)malloc(sizeof(struct resq_info));
+    memset(resq, 0, sizeof(struct resq_info));
 
-  struct streamer_entity *se =(struct streamer_entity*)streamo;
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+    struct streamer_entity *se =(struct streamer_entity*)streamo;
+    struct socketopts *spec_ops = (struct socketopts *)se->opt;
 
 
-  reset_udpopts_stats(spec_ops);
+    reset_udpopts_stats(spec_ops);
 
-  LOG("UDP_STREAMER: Starting stream capture\n");
-  /*
-  err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
-  if(err != 0){
-    E("Error in port binding");
-    if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
-    {
-      LOG("Force acquiring\n");
-      err = force_reacquire(spec_ops);
-      if(err != 0){
-	E("Force reacquire failed");
-	spec_ops->opt->status = STATUS_ERROR;
-	pthread_exit(NULL);
+    LOG("Starting stream capture\n");
+    /*
+       err = bind_port(spec_ops->servinfo, spec_ops->fd,(spec_ops->opt->optbits & READMODE), (spec_ops->opt->optbits & CONNECT_BEFORE_SENDING));
+       if(err != 0){
+       E("Error in port binding");
+       if(spec_ops->opt->optbits & FORCE_SOCKET_REACQUIRE)
+       {
+       LOG("Force acquiring\n");
+       err = force_reacquire(spec_ops);
+       if(err != 0){
+       E("Force reacquire failed");
+       spec_ops->opt->status = STATUS_ERROR;
+       pthread_exit(NULL);
+       }
+       }
+       else{
+       spec_ops->opt->status = STATUS_ERROR;
+       pthread_exit(NULL);
+       }
+       }
+       */
+
+    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+    CHECK_AND_EXIT(se->be);
+
+    resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
+
+    /* If we have packet resequencing	*/
+    if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
+      init_resq(resq);
+      if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
+	gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
       }
     }
-    else{
-      spec_ops->opt->status = STATUS_ERROR;
-      pthread_exit(NULL);
-    }
-  }
-  */
-
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
-  CHECK_AND_EXIT(se->be);
-
-  resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
-
-  /* If we have packet resequencing	*/
-  if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-    init_resq(resq);
-    if(spec_ops->opt->optbits & WAIT_START_ON_METADATA){
-      gmtime_r(&GETSECONDS(spec_ops->opt->starting_time), &(resq->tm_s));
-    }
-  }
 
 
 
-  //while(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
-  D("Entering receive loop for %s",, spec_ops->opt->filename);
-  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
-    err = handle_buffer_switch(se,resq);
-    if(err != 0){
-      LOG("Done or error!");
-      set_status_for_opt(spec_ops->opt,STATUS_ERROR);
-      break;
-    }
-
-    err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
-
-    err = udps_handle_received_packet(se, resq, err);
-    if(err !=0){
-      if(err == 1){
-	D("Normal exit");
+    //while(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
+    D("Entering receive loop for %s",, spec_ops->opt->filename);
+    while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
+      err = handle_buffer_switch(se,resq);
+      if(err != 0){
+	LOG("Done or error!");
+	set_status_for_opt(spec_ops->opt,STATUS_ERROR);
 	break;
       }
-      E("Error in packet receive. Stopping loop!");
-      set_status_for_opt(spec_ops->opt,STATUS_ERROR);
-      break;
+
+      err = recv(spec_ops->fd, resq->buf, spec_ops->opt->packet_size,0);
+
+      err = udps_handle_received_packet(se, resq, err);
+      if(err !=0){
+	if(err == 1){
+	  D("Normal exit");
+	  break;
+	}
+	E("Error in packet receive. Stopping loop!");
+	set_status_for_opt(spec_ops->opt,STATUS_ERROR);
+	break;
+      }
     }
-  }
-  LOG("UDP_STREAMER: Closing streamer thread\n");
-  /* Release last used buffer */
-  if(resq->before != NULL){
-    *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
-    free_the_buf(resq->before);
-  }
-  if(*(resq->inc) == 0){
-    se->be->cancel_writebuf(se->be);
-    se->be = NULL;
-  }
-  else{
-    if(spec_ops->opt->fi != NULL){
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    LOG("UDP_STREAMER: Closing streamer thread\n");
+    /* Release last used buffer */
+    if(resq->before != NULL){
+      *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+      free_the_buf(resq->before);
     }
-    spec_ops->opt->cumul++;
-    se->be->set_ready_and_signal(se->be,0);
+    if(*(resq->inc) == 0){
+      se->be->cancel_writebuf(se->be);
+      se->be = NULL;
+    }
+    else{
+      if(spec_ops->opt->fi != NULL){
+	unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+	D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+      }
+      spec_ops->opt->cumul++;
+      se->be->set_ready_and_signal(se->be,0);
+    }
+    /* Set total captured packets as saveable. This should be changed to just */
+    /* Use opts total packets anyway.. */
+    D("Saved %lu files and %lu packets",, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+
+    /* Main thread will free if we have a real datatype */
+    if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
+      free(resq);
+
+    /* The default behaviour is STATUS_STOPPED for clean exit and  	*/
+    /* STATUS_ERROR for unclean. STATUS_STOPPED is set by stop		*/
+    /* And it also shutdowns the socket so we can unblock this thread	*/
+
+    if(get_status_from_opt(spec_ops->opt) != STATUS_STOPPED){
+      D("Seems we weren't shut down nicely. Doing close_socket");
+      se->close_socket(se);
+    }
+
+    pthread_exit(NULL);
   }
-  /* Set total captured packets as saveable. This should be changed to just */
-  /* Use opts total packets anyway.. */
-  D("Saved %lu files and %lu packets",, spec_ops->opt->cumul, spec_ops->opt->total_packets);
-
-  /* Main thread will free if we have a real datatype */
-  if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
-    free(resq);
-
-  /* The default behaviour is STATUS_STOPPED for clean exit and  	*/
-  /* STATUS_ERROR for unclean. STATUS_STOPPED is set by stop		*/
-  /* And it also shutdowns the socket so we can unblock this thread	*/
-
-  if(get_status_from_opt(spec_ops->opt) != STATUS_STOPPED){
-    D("Seems we weren't shut down nicely. Doing close_socket");
-    se->close_socket(se);
+  void get_udp_stats(void *sp, void *stats){
+    struct stats *stat = (struct stats * ) stats;
+    struct socketopts *spec_ops = (struct socketopts*)sp;
+    //if(spec_ops->opt->optbits & USE_RX_RING)
+    stat->total_packets += spec_ops->opt->total_packets;
+    stat->total_bytes += spec_ops->total_transacted_bytes;
+    stat->incomplete += spec_ops->incomplete;
+    stat->dropped += spec_ops->missing;
+    if(spec_ops->opt->last_packet > 0){
+      stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
+    }
+    else
+      stat->progress = -1;
+    //stat->files_exchanged = udps_get_fileprogress(spec_ops);
   }
-
-  pthread_exit(NULL);
-}
-void get_udp_stats(void *sp, void *stats){
-  struct stats *stat = (struct stats * ) stats;
-  struct udpopts *spec_ops = (struct udpopts*)sp;
-  //if(spec_ops->opt->optbits & USE_RX_RING)
-  stat->total_packets += spec_ops->opt->total_packets;
-  stat->total_bytes += spec_ops->total_captured_bytes;
-  stat->incomplete += spec_ops->incomplete;
-  stat->dropped += spec_ops->missing;
-  if(spec_ops->opt->last_packet > 0){
-    stat->progress = (spec_ops->opt->total_packets*100)/(spec_ops->opt->last_packet);
-  }
-  else
-    stat->progress = -1;
-  //stat->files_exchanged = udps_get_fileprogress(spec_ops);
-}
 #ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-int udps_is_blocked(struct streamer_entity *se){
-  return ((struct udpopts *)(se->opt))->is_blocked;
-}
+  int udps_is_blocked(struct streamer_entity *se){
+    return ((struct socketopts *)(se->opt))->is_blocked;
+  }
 #endif
-/*
-   unsigned long udps_get_max_packets(struct streamer_entity *se){
-   return ((struct opts*)(se->opt))->max_num_packets;
-   }
-   */
-void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
-{
-  (void)opt;
-  se->init = setup_udp_socket;
-  se->close = close_streamer_opts;
-  se->get_stats = get_udp_stats;
-  se->close_socket = close_socket;
-  se->stop = stop_streamer;
-  //se->get_max_packets = udps_get_max_packets;
-}
+  /*
+     unsigned long udps_get_max_packets(struct streamer_entity *se){
+     return ((struct opts*)(se->opt))->max_num_packets;
+     }
+     */
+  void udps_init_default(struct opt_s *opt, struct streamer_entity *se)
+  {
+    (void)opt;
+    se->init = setup_udp_socket;
+    se->close = close_streamer_opts;
+    se->get_stats = get_udp_stats;
+    se->close_socket = close_socket;
+    se->stop = stop_streamer;
+    //se->get_max_packets = udps_get_max_packets;
+  }
 
-int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_receiver( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  if(opt->optbits & USE_RX_RING)
-    se->start = udp_rxring;
-  else
-    se->start = udp_receiver;
+    udps_init_default(opt,se);
+    if(opt->optbits & USE_RX_RING)
+      se->start = udp_rxring;
+    else
+      se->start = udp_receiver;
 
-  return se->init(opt, se);
-}
+    return se->init(opt, se);
+  }
 
-int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
-{
+  int udps_init_udp_sender( struct opt_s *opt, struct streamer_entity *se)
+  {
 
-  udps_init_default(opt,se);
-  se->start = udp_sender;
-  return se->init(opt, se);
+    udps_init_default(opt,se);
+    se->start = udp_sender;
+    return se->init(opt, se);
 
-}
+  }

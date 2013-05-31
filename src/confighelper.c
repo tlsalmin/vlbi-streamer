@@ -58,6 +58,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
   while(setting != NULL){
     /* Have to make this a huge if else since its string matching */
     if(strcmp(config_setting_name(setting), "filesize") == 0){
+      D("Found filesize in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64){
 	E("Filesize not int64");
 	return -1;
@@ -102,6 +103,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     }
     /* "Legacy" stuff*/
     CFG_ELIF("buf_elem_size"){
+      D("Found packet_size in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64)
 	return -1;
       if(check==1){
@@ -125,6 +127,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("cfg type not matched");
 	return -1;
       }
+      D("Found record mode in cfg");
       if(check==1){
 	int hur = config_setting_get_int(setting);
 	if(hur && (opt->optbits & READMODE)){
@@ -156,6 +159,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       }
     }
     CFG_ELIF("starting_time"){
+      D("Found starting_time in cfg");
       if(config_setting_type(setting) != CONFIG_TYPE_INT64){
 	E("cfg type not matched");
 	return -1;
@@ -180,6 +184,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("writer type not correct");
 	return -1;
       }
+      D("Found writer in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }
@@ -273,6 +278,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("capture type not correct");
 	return -1;
       }
+      D("Found capture mode in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }
@@ -351,6 +357,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	E("datatype type not correct");
 	return -1;
       }
+      D("Found datatype in cfg");
       if(check==1){
 	/* Do nothing! */ 
       }
@@ -458,18 +465,17 @@ int stub_rec_cfg(config_setting_t *root, struct opt_s *opt){
   CHECK_ERR_NONNULL(setting, "add packet_size");
   if(opt != NULL){
     if(opt->optbits & CAN_STRIP_BYTES)
+    {
       err = config_setting_set_int64(setting, opt->packet_size-opt->offset);
-    else
-      err = config_setting_set_int64(setting, opt->packet_size);
-    CHECK_CFG("set packet size");
-  }
-  if(opt->optbits & CAN_STRIP_BYTES){
-    setting = config_setting_add(root, "offset_onwrite", CONFIG_TYPE_INT);
-    CHECK_ERR_NONNULL(setting, "add offset");
-    if(opt != NULL){
+      CHECK_CFG("Set packet size");
+      setting = config_setting_add(root, "offset_onwrite", CONFIG_TYPE_INT);
+      CHECK_ERR_NONNULL(setting, "add offset");
       err = config_setting_set_int(setting, opt->offset);
       CHECK_CFG("set offset");
     }
+    else
+      err = config_setting_set_int64(setting, opt->packet_size);
+    CHECK_CFG("set packet size");
   }
   setting = config_setting_add(root, "cumul", CONFIG_TYPE_INT64);
   CHECK_ERR_NONNULL(setting, "add cumul");
@@ -602,6 +608,7 @@ int init_cfg(struct opt_s *opt){
 	  if(opt->fi == NULL){
 	    E("File index add");
 	    retval = -1;
+	    break;
 	  }
 
 
@@ -653,10 +660,10 @@ int init_cfg(struct opt_s *opt){
     /* Set the root and other settings we need */
     /* NOTE: Done when closing */
     /*
-    root = config_root_setting(&(opt->cfg));
-    CHECK_ERR_NONNULL(root, "Get root");
-    stub_rec_cfg(root, NULL);
-    */
+       root = config_root_setting(&(opt->cfg));
+       CHECK_ERR_NONNULL(root, "Get root");
+       stub_rec_cfg(root, NULL);
+       */
     opt->fi =  add_fileindex(opt->filename, 0, FILESTATUS_RECORDING, opt->packet_size);
     if(opt->fi == NULL){
       E("opt-fi init"); 
@@ -690,7 +697,7 @@ int init_cfg(struct opt_s *opt){
     opt->filesize = CALC_BUFSIZE_FROM_OPT(opt);
     D("Have to cut %ld MB from each buffer for alignment",, (oldsize - opt->filesize)/MEG);
   }
-  
+
   D("CFG init done");
   return retval;
 }

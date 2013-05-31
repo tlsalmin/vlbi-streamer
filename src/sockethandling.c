@@ -35,7 +35,7 @@
 #include "streamer.h"
 #include "resourcetree.h"
 #include "confighelper.h"
-//#include "common_filehandling.h"
+#include "common_filehandling.h"
 #include "sockethandling.h"
 int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
   int err=0;
@@ -90,6 +90,10 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = socktype;
   hints.ai_flags = AI_PASSIVE;
+  if(hostname == NULL)
+    D("Creating socket to localhost port %s",, port);
+  else
+    D("Creating socket to %s port %s",, hostname, port);
   /* Port as integer is legacy from before I saw the light from Beej network guide	*/
   err = getaddrinfo(hostname, port, &hints, servinfo);
   if(err != 0){
@@ -106,6 +110,12 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
     {
       E("Cant bind to %s. Trying next",, p->ai_canonname);
       continue;
+    }
+    if(optbits & SO_REUSEIT)
+    {
+      int yes = 1;
+      err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+      CHECK_ERR("Reuseaddr");
     }
     if(optbits & READMODE)
     {
@@ -129,6 +139,7 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
 	E("bind socket");
 	continue;
       }
+      D("Socket bound");
     }
     if(used != NULL)
       *used = p;
@@ -243,7 +254,7 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
   return 0;
 }
 void close_socket(struct streamer_entity *se){
-  struct udpopts *spec_ops = se->opt;
+  struct socketopts *spec_ops = se->opt;
   if(spec_ops->fd == 0)
   {
     D("Wont shut down already shutdown fd");
@@ -254,6 +265,8 @@ void close_socket(struct streamer_entity *se){
     if(spec_ops->opt->optbits & READMODE){
       LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
       ret = shutdown(spec_ops->fd, SHUT_WR);
+      if(ret != 0)
+	D("Shutdown gave non-zero return");
       ret = close(spec_ops->fd);
     }
     else{
@@ -275,7 +288,7 @@ void free_the_buf(struct buffer_entity * be){
 }
 int close_streamer_opts(struct streamer_entity *se, void *stats){
   D("Closing udp-streamer");
-  struct udpopts *spec_ops = (struct udpopts *)se->opt;
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
   int err;
   se->get_stats(se->opt, stats);
   D("Got stats");
@@ -295,6 +308,10 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
   if(spec_ops->servinfo_simusend != NULL)
     freeaddrinfo(spec_ops->servinfo_simusend);
   LOG("UDP_STREAMER: Closed\n");
+  /*
+  if(spec_ops->sin != NULL)
+    free(spec_ops->sin);
+    */
 
   /*
      if(!(spec_ops->opt->optbits & USE_RX_RING))
@@ -306,16 +323,229 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
 }
 void stop_streamer(struct streamer_entity *se){
   D("Stopping loop");
-  struct udpopts* spec_ops = (struct udpopts*)se->opt;
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
   set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
   close_socket(se);
 }
-void reset_udpopts_stats(struct udpopts *spec_ops)
+void reset_udpopts_stats(struct socketopts *spec_ops)
 {
   spec_ops->wrongsizeerrors = 0;
-  spec_ops->total_captured_bytes = 0;
+  spec_ops->total_transacted_bytes = 0;
   spec_ops->opt->total_packets = 0;
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
 }
+/* Stolen from Beejs network guide */
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+if (sa->sa_family == AF_INET) {
+return &(((struct sockaddr_in*)sa)->sin_addr);
+}
+return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
+{
+  long wait;
+#if(PREEMPTKERNEL)
+  int err;
+#endif
+#ifdef HAVE_RATELIMITER
+  if(opt->wait_nanoseconds > 0)
+  {
+    //clock_gettime(CLOCK_REALTIME, &now);
+    GETTIME(st->now);
+#if(SEND_DEBUG)
+    COPYTIME(st->now,st->reference);
+#endif
+    wait = nanodiff(&(opt->wait_last_sent), &st->now);
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+    //fprintf(st->out,"%ld %ld \n",spec_ops->total_captured_packets, wait);
+#else
+    fprintf(st->out, "UDP_STREAMER: %ld ns has passed since last->send\n", wait);
+#endif
+#endif
+    ZEROTIME(st->req);
+    SETNANOS(st->req,(opt->wait_nanoseconds-wait));
+    if(GETNANOS(st->req) > 0){
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld ", GETNANOS(st->req));
+#else
+      fprintf(st->out, "UDP_STREAMER: Sleeping %ld ns before sending packet\n", GETNANOS(st->req));
+#endif
+#endif	
+#if!(PREEMPTKERNEL)
+      /* First->sleep in minsleep sleeps to get rid of the bulk		*/
+      while((unsigned long)GETNANOS(st->req) > st->minsleep){
+	SLEEP_NANOS(st->onenano);
+	SETNANOS(st->req,GETNANOS(st->req)-st->minsleep);
+      }
+      GETTIME(st->now);
+
+      while(nanodiff(&(opt->wait_last_sent),&st->now) < opt->wait_nanoseconds){
+	GETTIME(st->now);
+      }
+#else
+      err = SLEEP_NANOS(st->req);
+      if(err != 0){
+	E("cant sleep");
+	return -1;
+      }
+
+      GETTIME(st->now);
+#endif /*PREEMPTKERNEL */
+
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "%ld\n", nanodiff(&st->reference, &st->now));
+#else
+      fprintf(st->out, "UDP_STREAMER: Really slept %lu\n", nanodiff(&st->reference, &st->now));
+#endif
+#endif
+      nanoadd(&(opt->wait_last_sent), opt->wait_nanoseconds);	
+    }
+    else{
+#if(SEND_DEBUG)
+#if(PLOTTABLE_SEND_DEBUG)
+      fprintf(st->out, "0 0\n");
+#else
+      fprintf(st->out, "Runaway timer! Resetting\n");
+#endif
+#endif
+      COPYTIME(st->now,opt->wait_last_sent);
+    }
+  }
+#endif //HAVE_RATELIMITER
+  return 0;
+}
+void bboundary_bytenum(struct streamer_entity* se, struct sender_tracking *st, unsigned long **counter)
+{
+  struct socketopts *spec_ops = se->opt;
+  *counter = &st->packetcounter;
+  **counter = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
+  D("Packetboundary called for %s. Next boundary is %ld bytes",,spec_ops->opt->filename,  **counter);
+}
+void bboundary_packetnum(struct streamer_entity* se, struct sender_tracking *st, unsigned long **counter)
+{
+  struct socketopts *spec_ops = se->opt;
+  *counter = &st->packetcounter;
+  **counter = MIN(st->n_packets_probed-st->packets_sent, spec_ops->opt->buf_num_elems);
+  D("Packetboundary called for %s. Next boundary is %ld packets",,spec_ops->opt->filename,  **counter);
+}
+int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*), void(*buffer_boundary)(struct streamer_entity*, struct sender_tracking*, unsigned long **))
+{
+  int err = 0;
+
+  struct socketopts *spec_ops = (struct socketopts *)se->opt;
+  struct sender_tracking st;
+  unsigned long * counter;
+  init_sender_tracking(spec_ops->opt, &st);
+  ///if(do_wait == 1)
+    throttling_count(spec_ops->opt, &st);
+  se->be = NULL;
+
+  spec_ops->total_transacted_bytes = 0;
+  //spec_ops->total_captured_packets = 0;
+  spec_ops->out_of_order = 0;
+  spec_ops->incomplete = 0;
+  spec_ops->missing = 0;
+  D("Getting first loaded buffer for sender");
+
+  spec_ops->inc = &st.inc;
+
+  /* Data won't be instantaneous so get min_sleep here! */
+  if(do_wait==1){
+    unsigned long minsleep = get_min_sleeptime();
+    LOG("Can sleep max %lu microseconds on average\n", minsleep);
+#if!(PREEMPTKERNEL)
+    st.minsleep = minsleep;
+#endif
+  }
+
+  /*
+  jump_to_next_file(spec_ops->opt, se, &st);
+  CHECK_AND_EXIT(se->be);
+
+  st.buf = se->be->simple_get_writebuf(se->be, NULL);
+
+  D("Starting stream send");
+  */
+
+
+  LOG("GENERIC_SENDER: Starting stream send\n");
+  if(do_wait == 1)
+    GETTIME(spec_ops->opt->wait_last_sent);
+  while(should_i_be_running(spec_ops->opt, &st) == 1){
+    err = jump_to_next_file(spec_ops->opt, se, &st);
+    if(err == ALL_DONE){
+      UDPS_EXIT;
+      break;
+    }
+    else if (err < 0){
+      E("Error in getting buffer");
+      UDPS_EXIT_ERROR;
+      break;
+    }
+    CHECK_AND_EXIT(se->be);
+    se->be->simple_get_writebuf(se->be, &spec_ops->inc);
+    *(spec_ops->inc) = 0;
+
+    buffer_boundary(se,&st,&counter);
+
+    while(*counter > 0)
+    {
+      if(do_wait==1)
+	udps_wait_function(&st, spec_ops->opt);
+      err = sendcmd(se, &st);
+      if(err != 0){
+	E("Error in sendcmd");
+	UDPS_EXIT_ERROR;
+      }
+    }
+  }
+  UDPS_EXIT;
+}
+/* TODO: A generic function would be nice, but needs dev time	*/
+/*
+int generic_recvloop(struct streamer_entity * se, int(*recvcmd)(struct streamer_entity*), unsigned long counter_up_to, struct resq_info, * resq,int (*buffer_switch_function)(struct streamer_entity *))
+{
+  long err=0;
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+  CHECK_AND_EXIT(se->be);
+  se->be->simple_get_writebuf(se->be, spec_ops->inc);
+  LOG("Starting stream capture for %s\n",, spec_ops->opt->filename);
+
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+  {
+    while((*spec_ops->inc) < counter_up_to){
+      err = recvcmd(se);
+      if(err != 0){
+	if(err < 0)
+	  E("Loop for %s ended in error",, spec_ops->opt->filename);
+	else
+	  D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+	break;
+      }
+    }
+    if(spec_ops->inc != 0)
+    {
+      spec_ops->opt->cumul++;
+      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+      free_the_buf(se->be);
+      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
+      CHECK_AND_EXIT(se->be);
+      se->be->simple_get_writebuf(se->be, spec_ops->inc);
+    }
+  }
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+
+  return 0;
+}
+*/
