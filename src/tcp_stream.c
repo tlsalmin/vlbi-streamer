@@ -236,7 +236,7 @@ int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
   int err;
   struct socketopts *spec_ops = se->opt;
 
-  err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), st->packetcounter, 0);
+  err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), st->packetcounter, MSG_NOSIGNAL);
   // Increment to the next sendable packet
   if(err < 0){
     perror("Send stream data");
@@ -252,7 +252,7 @@ int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
     //st->packets_sent+=
     spec_ops->total_transacted_bytes +=err;
     st->packetcounter -= err;
-    spec_ops->inc += err;
+    *(spec_ops->inc) += err;
     //st->packetcounter++;
   }
   return 0;
@@ -261,8 +261,7 @@ int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   int err;
   struct socketopts *spec_ops = se->opt;
-  //size_t tosend = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size-st->inc);
-  err = sendfile(se->be->get_shmid(se->be), spec_ops->fd, 0, st->packetcounter);
+  err = sendfile(se->be->get_shmid(se->be), spec_ops->fd, (off_t*)spec_ops->inc, st->packetcounter);
   // Increment to the next sendable packet
   if(err < 0){
     perror("Send stream data");
@@ -271,11 +270,9 @@ int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
   }
   /* Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
   else{
-    //st->packets_sent+=
+  /* sendfile increments inc	*/
     spec_ops->total_transacted_bytes +=err;
     st->packetcounter -= err;
-    spec_ops->inc += err;
-    //st->packetcounter++;
   }
   return 0;
 }

@@ -489,7 +489,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
       UDPS_EXIT_ERROR;
     }
     CHECK_AND_EXIT(se->be);
-    se->be->simple_get_writebuf(se->be, &spec_ops->inc);
+    se->be->simple_get_writebuf(se->be, NULL);
     *(spec_ops->inc) = 0;
 
     buffer_boundary(se,&st,&counter);
