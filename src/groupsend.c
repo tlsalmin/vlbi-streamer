@@ -37,6 +37,9 @@
 //#include "timer.h"
 //#include "streamer.h"
 
+#define B(x) (1l << x)
+#define UDP_SOCKET	B(0)
+#define TCP_SOCKET	B(1)
 
 //#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 /*
@@ -52,6 +55,7 @@
 #define STARTPORT 2222
 
 int def=0, defcheck=0, len=0, packet_size=0;
+int opts;
 /* Cleaned up from round 1	 	*/
 int connect_to_c(const char* t_target,const char* t_port, int * fd)
 {
@@ -60,7 +64,11 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   memset(&hints, 0,sizeof(struct addrinfo));
   //O("Connecting to %s port %s\n", t_target, t_port);
 
-  hints.ai_socktype = SOCK_DGRAM;
+  if(opts & TCP_SOCKET)
+    hints.ai_socktype = SOCK_STREAM;
+  else
+    hints.ai_socktype = SOCK_DGRAM;
+  int gotthere;
   hints.ai_family = AF_UNSPEC;
   err = getaddrinfo(t_target, t_port, &hints, &res);
   if(err != 0){
@@ -69,6 +77,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   }
   for(p = res; p != NULL; p = p->ai_next)
   {
+    gotthere=0;
     *fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if(*fd < 0)
     {
@@ -83,8 +92,13 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       E("Connect to client");
       continue;
     }
+    int yes = 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    gotthere=1;
     break;
   }
+  if(gotthere ==0)
+    return -1;
 
   freeaddrinfo(res);
   if (def == 0)
@@ -132,7 +146,26 @@ int main(int argc, char** argv){
   int runtime;
   int smallest=0;
   int n_targets=0;
+  int ret;
+  opts = 0;
   uint64_t min;
+
+  opts |= UDP_SOCKET;
+  while((ret = getopt(argc, argv, "t")) != -1)
+  {
+    switch (ret){
+      case 't':
+	opts &= ~UDP_SOCKET;
+	opts |= TCP_SOCKET;
+	break;
+      default:
+	E("Unknown parameter %c",, ret);
+	usage(argv[0]);
+    }
+  }
+  argv+=(optind-1);
+  argc-=(optind-1);
+  O("Hmsdf %d %d\n", optind, argc);
 
   if(argc != 5)
     usage();
