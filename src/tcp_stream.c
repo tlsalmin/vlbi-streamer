@@ -99,20 +99,6 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   if(!(spec_ops->opt->optbits & READMODE)){
     err = listen(spec_ops->fd, 1);
     CHECK_ERR("listen to socket");
-    spec_ops->sin_l = sizeof(struct sockaddr);
-    memset(&spec_ops->sin, 0, sizeof(struct sockaddr));
-    if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
-    {
-      E("Error in accepting socket %d",, spec_ops->fd);
-      return -1;
-    }
-    char s[INET6_ADDRSTRLEN];
-    /* Stolen from the great Beejs network guide	*/
-    /* http://beej.us/guide/bgnet/	*/
-    inet_ntop(spec_ops->sin.ss_family,
-	get_in_addr((struct sockaddr *)&spec_ops->sin),
-	s, sizeof s);
-    LOG("server: got connection from %s\n", s);
   }
 
   return 0;
@@ -137,11 +123,12 @@ int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, un
     D("Sent %ld as told",, err);
     */
   spec_ops->total_transacted_bytes += err;
-  spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
+  //spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
   **buf_incrementer += err;
   if(**buf_incrementer == bufsize)
   {
     spec_ops->opt->cumul++;
+    spec_ops->opt->total_packets += spec_ops->opt->buf_num_elems;
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
     D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
     free_the_buf(se->be);
@@ -215,19 +202,22 @@ int loop_with_recv(struct streamer_entity *se)
       break;
     }
   }
-  if(*buf_incrementer == 0){
+  if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
+    *buf_incrementer =0 ;
     se->be->cancel_writebuf(se->be);
     se->be = NULL;
+    D("Writebuf cancelled, since it was empty");
   }
   else{
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
-      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     se->be->set_ready_and_signal(se->be,0);
   }
 
   LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
-
+  if(!(get_status_from_opt(spec_ops->opt) & STATUS_ERROR))
+    set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
 
   return 0;
 }
@@ -283,6 +273,26 @@ void* tcp_preloop(void *ser)
   struct socketopts *spec_ops = (struct socketopts*)se->opt;
   reset_udpopts_stats(spec_ops);
 
+  if(!(spec_ops->opt->optbits & READMODE))
+  {
+    spec_ops->sin_l = sizeof(struct sockaddr);
+    memset(&spec_ops->sin, 0, sizeof(struct sockaddr));
+    if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
+    {
+      E("Error in accepting socket %d",, spec_ops->fd);
+      se->close_socket(se);
+      set_status_for_opt(spec_ops->opt, STATUS_ERROR);
+      pthread_exit(NULL);
+    }
+    char s[INET6_ADDRSTRLEN];
+    /* Stolen from the great Beejs network guide	*/
+    /* http://beej.us/guide/bgnet/	*/
+    inet_ntop(spec_ops->sin.ss_family,
+	get_in_addr((struct sockaddr *)&spec_ops->sin),
+	s, sizeof s);
+    LOG("server: got connection from %s\n", s);
+  }
+  GETTIME(spec_ops->opt->starting_time);
 
   LOG("TCP_STREAMER: Starting stream capture\n");
   switch (spec_ops->opt->optbits & LOCKER_CAPTURE)

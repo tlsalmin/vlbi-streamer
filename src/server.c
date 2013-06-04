@@ -100,7 +100,7 @@ int remove_from_cfgsched(struct scheduled_event *ev){
   //CHECK_CFG("remove closed recording");
   err = config_write_file(&cfg, STATEFILE);
   CHECK_CFG("Wrote config");
-  LOG("Updated config file and removed %s\n", ev->opt->filename);
+  LOG("Updated config file and removed %s from schedule\n", ev->opt->filename);
   config_destroy(&cfg);
   flock(schedlockfd, LOCK_UN);
   return 0;

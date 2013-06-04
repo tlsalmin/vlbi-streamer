@@ -264,18 +264,23 @@ void close_socket(struct streamer_entity *se){
     int ret;
     if(spec_ops->opt->optbits & READMODE){
       LOG("Closing socket on send of %s to %s\n", spec_ops->opt->filename, spec_ops->opt->hostname);
-      ret = shutdown(spec_ops->fd, SHUT_WR);
-      if(ret != 0)
-	D("Shutdown gave non-zero return");
-      ret = close(spec_ops->fd);
     }
     else{
       LOG("Closing socket on receive %s\n", spec_ops->opt->filename);
-      ret = shutdown(spec_ops->fd, SHUT_RD);
-      if(ret <0)
-	E("shutdown return something not ok");
-      ret = close(spec_ops->fd);
     }
+    //if(spec_ops->opt->optbits | (CAPTURE_W_TCPSTREAM|CAPTURE_W_TCPSPLICE))
+    if(!(spec_ops->opt->optbits & READMODE))
+    {
+      ret = shutdown(spec_ops->fd, SHUT_RD);
+      if(ret != 0)
+	D("Shutdown gave non-zero return");
+    }
+    else{
+      ret = shutdown(spec_ops->fd, SHUT_WR);
+      if(ret != 0)
+	D("Shutdown gave non-zero return");
+    }
+    ret = close(spec_ops->fd);
     if(ret <0){
       E("close return something not ok");
     }
@@ -309,9 +314,9 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
     freeaddrinfo(spec_ops->servinfo_simusend);
   LOG("UDP_STREAMER: Closed\n");
   /*
-  if(spec_ops->sin != NULL)
-    free(spec_ops->sin);
-    */
+     if(spec_ops->sin != NULL)
+     free(spec_ops->sin);
+     */
 
   /*
      if(!(spec_ops->opt->optbits & USE_RX_RING))
@@ -340,10 +345,10 @@ void reset_udpopts_stats(struct socketopts *spec_ops)
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
 {
-if (sa->sa_family == AF_INET) {
-return &(((struct sockaddr_in*)sa)->sin_addr);
-}
-return &(((struct sockaddr_in6*)sa)->sin6_addr);
+  if (sa->sa_family == AF_INET) {
+    return &(((struct sockaddr_in*)sa)->sin_addr);
+  }
+  return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 int udps_wait_function(struct sender_tracking *st, struct opt_s* opt)
 {
@@ -444,7 +449,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   unsigned long * counter;
   init_sender_tracking(spec_ops->opt, &st);
   ///if(do_wait == 1)
-    throttling_count(spec_ops->opt, &st);
+  throttling_count(spec_ops->opt, &st);
   se->be = NULL;
 
   spec_ops->total_transacted_bytes = 0;
@@ -466,13 +471,13 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   }
 
   /*
-  jump_to_next_file(spec_ops->opt, se, &st);
-  CHECK_AND_EXIT(se->be);
+     jump_to_next_file(spec_ops->opt, se, &st);
+     CHECK_AND_EXIT(se->be);
 
-  st.buf = se->be->simple_get_writebuf(se->be, NULL);
+     st.buf = se->be->simple_get_writebuf(se->be, NULL);
 
-  D("Starting stream send");
-  */
+     D("Starting stream send");
+     */
 
 
   LOG("GENERIC_SENDER: Starting stream send\n");
@@ -509,42 +514,42 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
 }
 /* TODO: A generic function would be nice, but needs dev time	*/
 /*
-int generic_recvloop(struct streamer_entity * se, int(*recvcmd)(struct streamer_entity*), unsigned long counter_up_to, struct resq_info, * resq,int (*buffer_switch_function)(struct streamer_entity *))
-{
-  long err=0;
-  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+   int generic_recvloop(struct streamer_entity * se, int(*recvcmd)(struct streamer_entity*), unsigned long counter_up_to, struct resq_info, * resq,int (*buffer_switch_function)(struct streamer_entity *))
+   {
+   long err=0;
+   struct socketopts * spec_ops = (struct socketopts*)se->opt;
 
-  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
-  CHECK_AND_EXIT(se->be);
-  se->be->simple_get_writebuf(se->be, spec_ops->inc);
-  LOG("Starting stream capture for %s\n",, spec_ops->opt->filename);
+   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+   CHECK_AND_EXIT(se->be);
+   se->be->simple_get_writebuf(se->be, spec_ops->inc);
+   LOG("Starting stream capture for %s\n",, spec_ops->opt->filename);
 
-  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
-  {
-    while((*spec_ops->inc) < counter_up_to){
-      err = recvcmd(se);
-      if(err != 0){
-	if(err < 0)
-	  E("Loop for %s ended in error",, spec_ops->opt->filename);
-	else
-	  D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
-	break;
-      }
-    }
-    if(spec_ops->inc != 0)
-    {
-      spec_ops->opt->cumul++;
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-      D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
-      free_the_buf(se->be);
-      se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
-      CHECK_AND_EXIT(se->be);
-      se->be->simple_get_writebuf(se->be, spec_ops->inc);
-    }
-  }
+   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+   {
+   while((*spec_ops->inc) < counter_up_to){
+   err = recvcmd(se);
+   if(err != 0){
+   if(err < 0)
+   E("Loop for %s ended in error",, spec_ops->opt->filename);
+   else
+   D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+   break;
+   }
+   }
+   if(spec_ops->inc != 0)
+   {
+   spec_ops->opt->cumul++;
+   unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+   D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+   free_the_buf(se->be);
+   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
+   CHECK_AND_EXIT(se->be);
+   se->be->simple_get_writebuf(se->be, spec_ops->inc);
+   }
+   }
 
-  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+   LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
 
-  return 0;
-}
-*/
+   return 0;
+   }
+   */

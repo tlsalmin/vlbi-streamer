@@ -316,20 +316,21 @@ void print_intermediate_stats(struct stats *stats){
       ,BYTES_TO_MBITSPS(stats->total_bytes), BYTES_TO_MBITSPS(stats->total_written), stats->dropped, stats->incomplete);
 }
 void print_stats(struct stats *stats, struct opt_s * opts){
+  float precisetime = floatdiff(&(opts->endtime), &(opts->starting_time));
   if(opts->optbits & READMODE){
     LOG("Stats for %s \n"
 	"Packets: %lu\n"
 	"Bytes: %lu\n"
 	"Read: %lu\n"
-	"Sendtime: %lus\n"
+	"Sendtime: %.2fs\n"
 	"Files: %lu\n"
 	"HD-failures: %d\n"
 	//"Net send Speed: %fMb/s\n"
 	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,opts->time, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,precisetime, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
   }
   else{
-    if(opts->time == 0)
+    if(precisetime == 0)
       E("SendTime is 0. Something went wrong");
     else
       LOG("Stats for %s \n"
@@ -338,12 +339,12 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 	  "Dropped: %lu\n"
 	  "Incomplete: %lu\n"
 	  "Written: %lu\n"
-	  "Recvtime: %lu\n"
+	  "Recvtime: %.2fs\n"
 	  "Files: %lu\n"
 	  "HD-failures: %d\n"
-	  "Net receive Speed: %luMb/s\n"
-	  "HD write Speed: %luMb/s\n"
-	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,opts->time, opts->cumul,opts->hd_failures, (stats->total_bytes*8)/(1024*1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	  "Net receive Speed: %5.0fMb/s\n"
+	  "HD write Speed: %5.0fMb/s\n"
+	  ,opts->filename, stats->total_packets, stats->total_bytes, stats->dropped, stats->incomplete, stats->total_written,precisetime, opts->cumul,opts->hd_failures, (((float)stats->total_bytes)*8)/(1024*1024*precisetime), (((float)stats->total_written)*8)/(1024*1024*precisetime));
   }
 }
 /* Defensive stuff to check we're not copying stuff from default	*/
@@ -933,9 +934,6 @@ int main(int argc, char **argv)
 {
   int err = 0;
   pthread_t streamer_pthread;
-#ifdef HAVE_LRT
-  struct timespec start_t;
-#endif
 
 
 #if(DAEMON)
@@ -1000,13 +998,18 @@ int main(int argc, char **argv)
   else
     LOG("STREAMER: In main, starting receiver thread \n");
 
+#ifdef HAVE_LRT
+  /*  TCP streams start counting from accept and others from here	*/
+  if(!(opt->optbits & (CAPTURE_W_TCPSPLICE|CAPTURE_W_TCPSTREAM)))
+    GETTIME(opt->starting_time);
+
+  set_status_for_opt(opt, STATUS_RUNNING);
   err = pthread_create(&streamer_pthread, NULL, opt->streamer_ent->start, (void*)opt->streamer_ent);
 
   if (err != 0){
     printf("ERROR; return code from pthread_create() is %d\n", err);
     STREAMER_ERROR_EXIT;
   }
-  set_status_for_opt(opt, STATUS_RUNNING);
 
   /* Other thread spawned so we can minimize our priority 	*/
   minimize_priority();
@@ -1022,10 +1025,6 @@ int main(int argc, char **argv)
   CPU_ZERO(&cpuset);
 #endif
 
-#ifdef HAVE_LRT
-  GETTIME(start_t);
-#else
-  //TODO
 #endif
   {
     /* READMODE shuts itself down so we just go to pthread_join			*/
@@ -1044,7 +1043,6 @@ int main(int argc, char **argv)
       pthread_mutex_unlock(&(opt->membranch->branchlock));
     }
   }
-  /* Change for cleaner */
   err = pthread_join(streamer_pthread, NULL);
   if (err<0) {
     printf("ERROR; return code from pthread_join() is %d\n", err);
@@ -1053,17 +1051,9 @@ int main(int argc, char **argv)
     D("Streamer thread exit OK");
   LOG("STREAMER: Threads finished. Getting stats for %s\n", opt->filename);
 
-#ifdef HAVE_LRT
-    struct timespec end_t;
-    clock_gettime(CLOCK_REALTIME, &end_t);
-    opt->time = ((end_t.tv_sec * BILLION + end_t.tv_nsec) - (start_t.tv_sec*BILLION + start_t.tv_nsec))/BILLION;
-#else
-    if(opt->optbits &READMODE)
-    {
-    LOGERR("STREAMER: lrt not present. Setting time to 1\n");
-    opt->time = 1;
-    }
-#endif
+  //TIMERTYPE end_t;
+  GETTIME(opt->endtime);
+  //opt->time = ((GETSECONDS(end_t) * BILLION + GETNANOS(end_t)) - (GETSECONDS(opt->starting_time)*BILLION + GETNANOS(opt->starting_time)))/BILLION;
 
   LOG("Blocking until owned buffers are released\n");
   block_until_free(opt->membranch, opt);

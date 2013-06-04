@@ -41,7 +41,7 @@ void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
 int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tracking *st)
 {
   skip_missing(opt,st,SKIP_LOADED);
-  long nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  long nuf;
   int err;
   D("Loading: %lu, packets loaded is %lu, packet probed %ld",, nuf, st->packets_loaded, st->n_packets_probed);
   if(st->files_loaded == st->n_files_probed){
@@ -64,13 +64,13 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
 	  CHECK_ERR("wait on update");
 	}
       }
-      //TODO add a wait here 
     }
     else{
       D("Not on disk so not loading");
       FIUNLOCK(opt->fi);
       return DONTRYLOADNOMORE;
     }
+    full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
   }
   FIUNLOCK(opt->fi);
   /*TODO Lets skip this perf improvement stuff for now */
@@ -96,6 +96,12 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
     AUGMENTUNLOCK;
 
     */
+  nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
+  if(nuf == 0)
+  {
+    E("Metadata error on recording %s. Cant load 0 packets",, opt->filename);
+    return DONTRYLOADNOMORE;
+  }
   /* TODO: Not checking if FH_ONDISK is set */
   D("Requested a load start on file %lu",, st->files_loaded);
   if (be == NULL){

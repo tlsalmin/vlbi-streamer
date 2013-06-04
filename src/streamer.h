@@ -295,6 +295,7 @@ struct opt_s
   TIMERTYPE wait_last_sent;
 #endif
   TIMERTYPE starting_time;
+  TIMERTYPE endtime;
   unsigned long filesize;
 
   /* Bloat TODO Find alternative place for this */
