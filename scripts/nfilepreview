@@ -31,9 +31,11 @@ do
   case $1 in
     -x) 
       NUMPREVFILES=$2
+      shift
       ;;
     -s)
       FILESIZE=$2
+      shift
       ;;
     -*) echo  $(date --rfc-3339=seconds) "Unknown argument $1";usage;exit 1; echo $(date --rfc-3339=seconds) "Errors in parameters" | tee -a  $LOGFILE ;;
   *) eval "arg_$n=$1";n=$(($n+1));;

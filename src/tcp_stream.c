@@ -208,7 +208,7 @@ int loop_with_recv(struct streamer_entity *se)
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
     //request = MIN(
-    err = recv(spec_ops->tcp_fd, buf, (bufsize - *buf_incrementer), 0);
+    err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, (bufsize - *buf_incrementer), 0);
     err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
     if(err != 0){
       D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
