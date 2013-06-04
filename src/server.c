@@ -648,7 +648,7 @@ int main(int argc, char **argv)
   err = init_active_file_index();
   CHECK_ERR("active file index");
 
-  schedlockfd = open(SCHEDLOCKFILE, O_RDWR);
+  schedlockfd = open(SCHEDLOCKFILE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
 
   /* First load defaults to opts, then check default config file	*/
   /* and lastly check command line arguments. This means config file	*/
