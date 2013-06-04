@@ -28,7 +28,8 @@ struct socketopts
   unsigned long *inc;
 
 };
-#define UDPS_EXIT do {spec_ops->opt->total_packets = st.n_packets_probed;D("Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} set_status_for_opt(spec_ops->opt,STATUS_STOPPED);if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}return 0;}while(0)
+/* TODO: packets_sent needs to be set somewhere in a tcp stream.	*/
+#define UDPS_EXIT do {spec_ops->opt->total_packets = st.n_packets_probed;D("Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} se->stop(se);return 0;}while(0)
 #define UDPS_EXIT_ERROR do {spec_ops->opt->total_packets = st.n_packets_probed; D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_ERROR;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}return -1;}while(0)
 int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect);
 int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used, uint64_t optbits);

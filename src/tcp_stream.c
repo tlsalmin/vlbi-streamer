@@ -212,6 +212,7 @@ int loop_with_recv(struct streamer_entity *se)
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
     D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
+    spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
     se->be->set_ready_and_signal(se->be,0);
   }
 
