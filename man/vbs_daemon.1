@@ -1,0 +1,18 @@
+.TH VBS_DAEMON 1 "JUNE 2013" Linux "User Manuals"
+.SH NAME
+vbs_daemon \- Service type start up script for vlbistreamer
+.SH SYNOPSIS
+.B vbs_daemon
+.SH DESCRIPTION
+.B vbs_daemon
+A script to start vlbistreamer. Differs from normal invocation by using the debian service-commands and sets the proper user privileges and priority for vlbistreamer. Also checks for hugepage initialization during startup.
+.SH FILES
+.i vlbistreamer.conf
+a libconfig-format file for vlbistreamer default options.
+.SH AUTHOR
+Tomi Salminen <tlsalmin at gmail dot com>
+.SH "SEE ALSO"
+.BR init_hugepages (1),
+.BR vbs_shutdown (1),
+.BR vbs_record (1),
+.BR vbs_send (1),
