@@ -9,7 +9,8 @@ then
 fi
 source ${scriptPath}vbs_common_functions
 
-flock -x $SCHEDULE
+(
+flock  -x 201
 echo "" > $SCHEDULE
-flock -u $SCHEDULE
+) 201>$SCHEDLOCKFILE
 echo $(date --rfc-3339=seconds) "Manually cleared schedule" | tee -a  $LOGFILE

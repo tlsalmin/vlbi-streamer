@@ -307,6 +307,7 @@ void* tcp_preloop(void *ser)
   if(err != 0)
     E("Loop stopped in error");
   D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_transacted_bytes);
+  se->close_socket(se);
   pthread_exit(NULL);
 }
 int tcp_init(struct opt_s* opt, struct streamer_entity * se)
