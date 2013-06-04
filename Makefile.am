@@ -23,6 +23,9 @@ install-data-hook:
 	touch $(logdir)/vlbistreamer.log
 	chown @USER@:@GROUP@ $(logdir)/vlbistreamer.log
 	chmod u+rw $(logdir)/vlbistreamer.log
+	touch $(rundir)/vlbistreamer_schedlockfile
+	chown @USER@:@GROUP@ $(rundir)/vlbistreamer_schedlockfile
+	chmod u+rw $(rundir)/vlbistreamer_schedlockfile
 	sed -i 's:ROOTDIRS=.*:ROOTDIRS=$(ROOTDIRS):' $(bindir)/vbs_common_functions
 	sed -i 's:SCHEDULE=.*:SCHEDULE=$(rundir)/schedule:' $(bindir)/vbs_common_functions
 	sed -i 's:LOGFILE=.*:LOGFILE=$(logdir)/vlbistreamer.log:' $(bindir)/vbs_common_functions
@@ -46,4 +49,4 @@ uninstall-hook:
 ## language-specific options.
 #AM_CPPFLAGS = $(PTHREAD_LIBS) $(LIBAIO_LIBS)
 
-SUBDIRS = src seqsrc . utests vbs_fs
+SUBDIRS = src seqsrc . utests vbs_fs man

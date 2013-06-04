@@ -1,0 +1,23 @@
+.\" Process this file with
+.\" groff -man -Tascii vlbistreamer.1
+.\"
+.TH VLBISTREAMER 7 "JUNE 2013" Linux "User Manuals"
+.SH NAME
+vlbistreamer \- Recording astronomical data
+.SH DESCRIPTION
+.B vlbistreamer
+ is designed to buffer observational data from a stations digital backend. In practice this means saving UDP-packet streams from a network connection at times specified by a schedule file.
+.SH SETUP
+Detailed installation instructions are at https://code.google.com/p/vlbi-streamer/wiki/Building. After succesfully building and installing VLBI-streamer there are a few recommended steps.
+.SH AUTHOR
+Tomi Salminen <tlsalmin at gmail dot com>
+.SH "SEE ALSO"
+.BR vbs_daemon (1),
+.BR vbs_ls (1),
+.BR vbs_record (1)
+.BR vbs_send (1)
+.BR ploss_monitor (1)
+.BR mount_volumes (1)
+.BR init_hugepages (1)
+.BR vbs_rm (1)
+.BR vbs_shutdown (1)
