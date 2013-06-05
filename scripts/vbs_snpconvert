@@ -19,9 +19,9 @@ EOF
 #Go through params
 VLBIHOST=ara.vlbi
 VBS_QUEUE="vbs_queue -m r"
-TMPSCANSFILE=./tempscansforvlbistreamer
-TMPSTARTSFILE=./tempstarttimesforvlbistreamer
-TMPENDTIMES=./tempendtimesforvlbistreamer
+TMPSCANSFILE=$(mktemp)
+TMPSTARTSFILE=$(mktemp)
+TMPENDTIMES=$(mktemp)
 EXTRAOPS=""
 EXECUTE=0
 n=1
