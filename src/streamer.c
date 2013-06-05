@@ -320,14 +320,14 @@ void print_stats(struct stats *stats, struct opt_s * opts){
   if(opts->optbits & READMODE){
     LOG("Stats for %s \n"
 	"Packets: %lu\n"
-	"Bytes: %lu\n"
-	"Read: %lu\n"
+	"Bytes sent: %lu\n"
+	"Bytes Read: %lu\n"
 	"Sendtime: %.2fs\n"
 	"Files: %lu\n"
 	"HD-failures: %d\n"
-	//"Net send Speed: %fMb/s\n"
-	//"HD read Speed: %fMb/s\n"
-	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,precisetime, opts->cumul,opts->hd_failures);//, (((float)stats->total_bytes)*(float)8)/((float)1024*(float)1024*opts->time), (stats->total_written*8)/(1024*1024*opts->time));
+	"Net send Speed: %5.0fMb/s\n"
+	"HD read Speed: %5.0fMb/s\n"
+	,opts->filename, stats->total_packets, stats->total_bytes, stats->total_written,precisetime, opts->cumul,opts->hd_failures,  (((float)stats->total_bytes)*8)/(1024*1024*precisetime), (((float)stats->total_written)*8)/(1024*1024*precisetime));
   }
   else{
     if(precisetime == 0)
