@@ -1,0 +1,70 @@
+#!/bin/bash
+usage()
+{
+cat << EOF
+$0 [OPTIONAL: a schedule file]
+
+$0 lists all the recordings in the system schedule file and their starting times in local time. If a schedule file is given, its recordings are listed
+EOF
+}
+
+SCRIPTNAME=vbs_listschedule
+scriptPath=${0%$SCRIPTNAME}
+if [ -z "$scriptPath" ]
+then
+  #invoked from PATH
+  scriptPath=$(which $0)
+  scriptPath=${scriptPath%$SCRIPTNAME}
+fi
+source ${scriptPath}vbs_common_functions
+
+if [ ! -z "$1" ]
+then
+  SCHEDULE=$1
+fi
+
+#NAME=""
+#STARTTIME="now"
+#RECORD=1
+
+#Do the state machine
+(
+flock  -x 201
+
+while read line
+do
+  if [[ $line == \{* ]]
+  then
+    NAME=""
+    STARTTIME="now"
+    RECORD=1
+    #echo $line
+  elif [[ $line == \}\;* ]]
+  then
+    echo "$NAME $RECORD $STARTTIME"
+  elif [[ $line == filename* ]]
+  then
+    NAME=${line#*\"}
+    NAME=${NAME%\"*}
+    #echo $NAME
+  elif [[ $line == record* ]]
+  then
+    RECORD=${line#*=\ }
+    RECORD=${RECORD%\;*}
+    if [ "$RECORD" -eq "0" ]
+    then
+      RECORD="Sending"
+    else
+      RECORD="Recording"
+    fi
+    #echo $RECORD
+  elif [[ $line == starting\_time* ]]
+  then
+    STARTTIME=${line#*=\ }
+    STARTTIME=${STARTTIME%L*}
+    STARTTIME="at $(date -d @$STARTTIME)"
+    #echo $STARTTIME
+  fi
+done < $SCHEDULE
+
+) 201>$SCHEDLOCKFILE
