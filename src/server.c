@@ -592,11 +592,12 @@ static void hdl (int sig, siginfo_t *siginfo, void *context)
 int main(int argc, char **argv)
 {
   int err,i_fd,w_fd,counter;
+  fprintf(stdout, "Starting version %s of %s\n", VERSION, argv[0]);
 #if(LOG_TO_FILE)
-  fprintf(stdout, "Logging to %s", LOGFILE);
+  fprintf(stdout, "Logging to %s\n", LOGFILE);
   logfile = fopen(LOGFILE, "a+");
   if(logfile == NULL){
-    fprintf(stdout, "Couldn't open logfile %s for writing", LOGFILE);
+    fprintf(stdout, "Couldn't open logfile %s for writing\n", LOGFILE);
     exit(-1);
   }
 #endif

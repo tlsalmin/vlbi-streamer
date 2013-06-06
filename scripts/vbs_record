@@ -3,7 +3,7 @@
 usage()
 {
 cat << EOF
-usage: $0 <recording name> <duration>
+Usage: $0 [OPTION]... <recording name> <duration>
 
 This script queues a recording for the vlbistreamer daemon
 EOF
