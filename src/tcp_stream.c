@@ -78,13 +78,13 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   sprintf(port,"%d", spec_ops->opt->port);
   if(!(spec_ops->opt->optbits & READMODE))
     spec_ops->opt->optbits |= SO_REUSEIT;
-  err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_STREAM, &(spec_ops->p), spec_ops->opt->optbits);
+  err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_STREAM, &(spec_ops->p), spec_ops->opt->optbits, spec_ops->opt->device_name);
   CHECK_ERR("Create socket");
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
     char port[12];
     memset(port, 0,sizeof(char)*12);
     sprintf(port,"%d", spec_ops->opt->port);
-    err = create_socket(&(spec_ops->fd_send), port, &(spec_ops->servinfo_simusend), spec_ops->opt->hostname, SOCK_STREAM, &(spec_ops->p_send), spec_ops->opt->optbits);
+    err = create_socket(&(spec_ops->fd_send), port, &(spec_ops->servinfo_simusend), spec_ops->opt->hostname, SOCK_STREAM, &(spec_ops->p_send), spec_ops->opt->optbits, NULL);
     if(err != 0)
       E("Error in creating simusend socket. Not quitting");
   }

@@ -81,7 +81,7 @@ int bind_port(struct addrinfo* si, int fd, int readmode, int do_connect){
 
   return 0;
 }
-int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used, uint64_t optbits)
+int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * hostname, int socktype, struct addrinfo ** used, uint64_t optbits, char* device_name)
 {
   int err;
   struct addrinfo hints, *p;
@@ -90,8 +90,14 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = socktype;
   hints.ai_flags = AI_PASSIVE;
-  if(hostname == NULL)
-    D("Creating socket to localhost port %s",, port);
+  if(hostname == NULL){
+    if(device_name != NULL){
+      hostname = device_name;
+      D("Creating socket to localhost port %s bound to interface %s",, port, hostname);
+    }
+    else
+      D("Creating socket to localhost port %s",, port);
+  }
   else
     D("Creating socket to %s port %s",, hostname, port);
   /* Port as integer is legacy from before I saw the light from Beej network guide	*/
@@ -108,7 +114,7 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   {
     if((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
     {
-      E("Cant bind to %s. Trying next",, p->ai_canonname);
+      E("Cant create socket to %s. Trying next",, p->ai_canonname);
       continue;
     }
     if(optbits & SO_REUSEIT)
@@ -162,6 +168,7 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     mode = opt->optbits;
   }
 
+  /*
   if(opt->device_name != NULL){
     //struct sockaddr_ll ll;
     struct ifreq ifr;
@@ -174,9 +181,8 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     D("Binding to %s",, opt->device_name);
     err = setsockopt(*fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
     CHECK_ERR("Bound to NIC");
-
-
   }
+  */
 #ifdef HAVE_LINUX_NET_TSTAMP_H
   //Stolen from http://seclists.org/tcpdump/2010/q2/99
   struct hwtstamp_config hwconfig;
