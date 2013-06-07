@@ -104,7 +104,7 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   return 0;
 }
 
-int handle_received_bytes(struct streamer_entity *se, long err, long bufsize, unsigned long ** buf_incrementer, void** buf)
+int handle_received_bytes(struct streamer_entity *se, long err, uint64_t bufsize, unsigned long ** buf_incrementer, void** buf)
 {
   struct socketopts * spec_ops = (struct socketopts*)se->opt;
   if(err < 0){
@@ -150,7 +150,7 @@ int loop_with_splice(struct streamer_entity *se)
   CHECK_AND_EXIT(se->be);
 
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
-  long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+  uint64_t bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
   int fd_out = se->be->get_shmid(se->be);
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)

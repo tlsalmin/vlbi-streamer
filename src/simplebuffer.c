@@ -624,7 +624,7 @@ int write_buffer(struct buffer_entity *be)
       D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
       if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
-	off_t rfilesize = be->recer->get_filesize(be->recer);
+	uint64_t rfilesize = be->recer->get_filesize(be->recer);
 	if(sbuf->diff != rfilesize)
 	{
 	  D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);

@@ -68,7 +68,7 @@
     }
 #define CFG_CHK_INT(x) \
     if(check==1){\
-      if(config_setting_get_int(setting) != x){\
+      if(config_setting_get_int(setting) != (x)){\
 	E(#x "doesn't check out");\
 	return -1;\
       }\
