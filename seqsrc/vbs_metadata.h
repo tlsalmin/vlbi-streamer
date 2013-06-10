@@ -45,6 +45,8 @@ struct common_control_element{
   void(*cleanup_reader)(struct common_control_element*);
   void(*cleanup_inspector)(struct common_control_element*);
   int read_count;
+  uint64_t errors;
+  uint64_t max_errors;
   void * datatype_metadata;
   void * listen_metadata;
   void * traverse_metadata;

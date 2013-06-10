@@ -31,6 +31,7 @@ void usage(char * bin)
       -q <datatype>\t A datatype(udpmon, mark5b, mark5bnet, vdif,unknown)\n\
       -t <listener>\t A listener type(tcpstream,udpstream,file)\n\
       -m <traverser>\t A type of traversing(check,output,vim)\n\
+      -e <errors>\t Max number of errors before exit (default: 30)\n\
       -p <size>\t\t A packet size\n", bin, bin,bin);
 }
 
@@ -42,19 +43,34 @@ unsigned int get_mask(int start, int end){
   }
   return returnable;
 }
+void cleanup_tcpstream(struct common_control_element* cce)
+{
+  shutdown(cce->fd, SHUT_RDWR);
+  close(cce->fd);
+}
+void cleanup_udpstream(struct common_control_element* cce)
+{
+  shutdown(cce->fd, SHUT_RD);
+  close(cce->fd);
+}
 int do_read_file(int  fd, void* buffer, int  length, int count)
 {
+  int templength, err;
   /* Inefficient oh no	*/
   while(count > 0)
   {
-    int err;
-    err =read(fd, buffer, length);
-    if(err < 0 ){
-      E("Error in read of file");
-      return -1;
+    templength = length;
+    while(templength > 0)
+    {
+      err =read(fd, buffer+(length-templength), templength);
+      if(err < 0 ){
+	E("Error in read of file");
+	return -1;
+      }
+      if(err == 0)
+	return END_OF_FD;
+      templength -= err;
     }
-    if(err == 0)
-      return END_OF_FD;
     count--;
   }
   return 0;
@@ -171,11 +187,15 @@ int handle_open_socket(struct common_control_element* cce)
   }
   else 
     cce->fd = cce->sockfd;
-  
-  if(cce->optbits & LISTEN_TCPSOCKET)
+
+  if(cce->optbits & LISTEN_TCPSOCKET){
     cce->packet_move = do_read_socket;
-  else
+    cce->cleanup_reader = cleanup_tcpstream;
+  }
+  else{
     cce->packet_move = do_read_udpsocket;
+    cce->cleanup_reader = cleanup_udpstream;
+  }
 
   return 0;
 }
@@ -197,21 +217,23 @@ int handle_open_file(struct common_control_element* cce)
       E("Cant VIM with stdin. Use |less");
       return -1;
     }
-    return 0;
   }
   else if(cce->port_or_filename == NULL)
   {
     E("No filename given");
     return -1;
   }
-  cce->listen_metadata = malloc(sizeof(struct stat));
-  st = cce->listen_metadata;
-  err = stat(cce->port_or_filename, st);
-  CHECK_ERR("Stat");
-  cce->fd = open(cce->port_or_filename, O_RDONLY);
-  if(cce->fd <0){
-    E("Error in open");
-    return -1;
+  else
+  {
+    cce->listen_metadata = malloc(sizeof(struct stat));
+    st = cce->listen_metadata;
+    err = stat(cce->port_or_filename, st);
+    CHECK_ERR("Stat");
+    cce->fd = open(cce->port_or_filename, O_RDONLY);
+    if(cce->fd <0){
+      E("Error in open");
+      return -1;
+    }
   }
   cce->cleanup_reader = cleanup_filereader;
   return 0;
@@ -333,7 +355,7 @@ int get_traverse_type_from_string(char* match)
 }
 int getopts(int argc, char **argv, struct common_control_element * cce){
   char c;
-  while ( (c = getopt(argc, argv, "q:m:t:p:o:w:")) != -1) {
+  while ( (c = getopt(argc, argv, "q:m:t:p:o:w:e:")) != -1) {
     switch (c) {
       case 'q':
 	cce->optbits &= ~LOCKER_DATATYPE;
@@ -369,6 +391,9 @@ int getopts(int argc, char **argv, struct common_control_element * cce){
       case 'w':
 	if(seqnum_preinit_wordsize(cce, atoi(optarg)) != 0)
 	  return -1;
+      case 'e':
+	cce->max_errors = atol(optarg);
+	break;
       default:
 	E("Unknown parameters %s",, optarg);
 	return -1;
@@ -391,6 +416,7 @@ int main(int argc, char ** argv)
   struct common_control_element *cce = malloc(sizeof(struct common_control_element));
   int err;
   memset(cce, 0, sizeof(struct common_control_element));
+  cce->max_errors = 30;
   if(getopts(argc, argv, cce) != 0)
   {
     E("Error in getting opts");
@@ -419,7 +445,7 @@ int main(int argc, char ** argv)
     usage(argv[0]);
     exit(-1);
   }
-    /* Why didn't I just stdin?	*/
+  /* Why didn't I just stdin?	*/
   err = -1;
   switch(cce->optbits & LOCKER_LISTEN)
   {
@@ -448,7 +474,7 @@ int main(int argc, char ** argv)
   /* Do first move here	to initialize everything 	*/
   err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, 1);
   CHECK_ERR("Move");
-  
+
   cce->running = 1;
   while(cce->running == 1)
   {
@@ -483,6 +509,10 @@ int main(int argc, char ** argv)
 	cce->running = 0;
       }
       cce->metadata_increment(cce, 1);
+    }
+    if(cce->errors > cce->max_errors){
+      LOG("Max errors in stream reached. Exiting\n");
+      cce->running = 0;
     }
   }
 

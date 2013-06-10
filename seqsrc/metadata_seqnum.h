@@ -35,6 +35,7 @@ int seqnum_check(struct common_control_element *cce)
     if(newseq != ms->count){
       LOG("Discrepancy as read %ld and count is %ld. Clean packets inbetween %ld\n", newseq, ms->count, ms->clean_count);
       ms->clean_count = 0;
+      cce->errors++;
     }
     else
       ms->clean_count++;
@@ -50,6 +51,7 @@ void seqnum_metadata_increment(struct common_control_element * cce, long count)
 }
 void seqnum_clean(struct common_control_element *cce)
 {
+  LOG("Clean packets at end %ld\n", ((struct metadata_seqnum*)cce->datatype_metadata)->clean_count);
   free(cce->datatype_metadata);
 }
 int init_seqnum_data(struct common_control_element *cce)
