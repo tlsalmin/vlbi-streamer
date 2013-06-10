@@ -7,57 +7,6 @@
 #include "active_file_index.h"
 #include "datatypes_common.h"
 
-
-long getseq_vdif(void* header, struct resq_info *resq){
-  long returnable;
-  long second = SECOND_FROM_VDIF(header);
-  long framenum = FRAMENUM_FROM_VDIF(header);
-  //D("Dat second %lu, dat framenum %lu",, second, framenum);
-  if(resq->starting_second == -1){
-    //D("Got first second as %lu, framenum %lu",, second, framenum);
-    resq->starting_second =  second;
-    return framenum;
-  }
-  if(resq->packets_per_second == -1){
-    if(second == resq->current_seq)
-      return framenum;
-    else{
-      //D("got packets per seconds as %lu",, resq->current_seq);
-      resq->packets_per_second = resq->current_seq;
-      resq->packetsecdif = second - resq->starting_second;
-    }
-  }
-  
-  if(resq->packets_per_second == 0){
-    returnable = (second - resq->starting_second)/resq->packetsecdif;
-  }
-  else
-    returnable =  (second - (long)resq->starting_second)*((long)resq->packets_per_second) + framenum;
-  //D("Returning %lu",, returnable);
-  return returnable;
-}
-int copy_metadata(void* target, void* source, struct opt_s* opt)
-{
-  switch(opt->optbits & LOCKER_DATATYPE)
-  {
-    case DATATYPE_VDIF:
-      memcpy(target, source, HSIZE_VDIF);
-      break;
-    case DATATYPE_MARK5B:
-      memcpy(target,source, HSIZE_MARK5B);
-      break;
-    case DATATYPE_UDPMON:
-      memcpy(target,source, HSIZE_UDPMON);
-      break;
-    case DATATYPE_MARK5BNET:
-      memcpy(target,source, HSIZE_MARK5BNET);
-      break;
-    default:
-      E("Unknown datatype");
-      return -1;
-  }
-  return 0;
-}
 int init_header(void** target, struct opt_s* opt)
 {
   switch(opt->optbits & LOCKER_DATATYPE)
@@ -82,13 +31,6 @@ int init_header(void** target, struct opt_s* opt)
       return -1;
   }
   return 0;
-}
-long getseq_mark5b_net(void* header){
-  //return be32toh(*((long*)(header+4)));
-  return (long)(*((int*)(header+4)));
-}
-long getseq_udpmon(void* header){
-  return be64toh(*((long*)header));
 }
 long header_match(void* target, void* match, struct opt_s * opt)
 {
@@ -188,28 +130,6 @@ int fillpattern(void * buffer, void * modelheader,struct opt_s* opt)
   }
   return 0;
 }
-int increment_header(void * modelheader, struct opt_s* opt)
-{
-  switch(opt->optbits & LOCKER_DATATYPE)
-  {
-    case DATATYPE_VDIF:
-      //memcpy(buffer,modelheader,HSIZE_VDIF
-      break;
-    case DATATYPE_MARK5B:
-      //memcpy(buffer,modelheader,HSIZE_MARK5B
-      break;
-    case DATATYPE_UDPMON:
-      SET_FRAMENUM_FOR_UDPMON(modelheader,getseq_udpmon(modelheader)+1);
-      break;
-    case DATATYPE_MARK5BNET:
-      SET_FRAMENUM_FOR_MARK5BNET(modelheader, getseq_mark5b_net(modelheader)+1);
-      break;
-    default:
-      E("Unknown datatype");
-      return -1;
-  }
-  return 0;
-}
 int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_errors)
 {
   int i;
@@ -240,7 +160,7 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
       CHECK_ERR("Fillpattern");
       errors++;
     }
-    err =  increment_header(modelheader,opt);
+    err =  increment_header(modelheader,opt->optbits);
     //CHECK_ERR("increment header");
     buffer += opt->packet_size;
   }

@@ -27,6 +27,7 @@
 #include "resourcetree.h"
 #include "confighelper.h"
 #include "active_file_index.h"
+#include "datatypes_common.h"
 #include "config.h"
 
 extern FILE* logfile;

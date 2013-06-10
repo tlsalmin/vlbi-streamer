@@ -94,18 +94,10 @@
 #define CAN_STRIP_BYTES		B(30)
 #define WAIT_START_ON_METADATA	B(31)
 
-/* 3 empty here */
-
 /* Set only if the writer can actually strip bytes from packets	*/
 
-#define LOCKER_DATATYPE		0x000000ff00000000
-#define	DATATYPE_UNKNOWN	B(32) 
-#define	DATATYPE_VDIF		B(33) 
-#define	DATATYPE_MARK5B		B(34) 
-#define DATATYPE_UDPMON		B(35)
-
-#define	DATATYPE_MARK5BNET	B(36) 
-/* Next three empty */
+/* DATATYPE-stuff is now at datatypes_common	*/
+/* Keep 32-39 empty!				*/
 
 #define FORCE_SOCKET_REACQUIRE	B(40)
 #define USE_TCP_SOCKET		B(41)
@@ -149,16 +141,6 @@
 #define MBYTES_PER_DRIVE (MBITS_PER_DRIVE/8)
 #define TOTAL_MAX_DRIVES_IN_USE 20
 
-#define VDIF_SECOND_BITSHIFT 24
-/* Grab the last 30 bits of the first 4 byte word 	*/
-#define GET_VDIF_SECONDS(buf) (0x3fffffff & ((uint32_t*)(buf)))
-#define GET_VDIF_SSEQ(buf) (0x00ffffff & (((uint32_t*)(buf))+1))
-#define GET_VDIF_SEQNUM(seconds, sseq) ((unsigned long)((((unsigned long)(seconds))<<VDIF_SECOND_BITSHIFT) | ((unsigned long)(sseq))))
-#define GET_VDIF_SEQ(buf) GET_VDIF_SEQNUM(GET_VDIF_SECONDS(buf), GET_VDIF_SSEQ(buf))
-#define GET_VDIF_SECONDS_FROM_SEQNUM(seqnum) (buf) >> VDIF_SECOND_BITSHIFT
-/* Idea for seqnuming: Have a buf first number, which grounds 	*/
-/* frame. If get_spot is negative, it belongs to the previous	*/
-/* buffer. If larger than buf, belongs to the next		*/
 
 #define FILESIZE (FILESIZEMB*MEG)
 

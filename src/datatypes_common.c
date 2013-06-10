@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 
 #include "datatypes_common.h"
 #include "logging.h"
+
 int get_sec_from_mark5b(void *buffer)
 {
   int day,sec;
@@ -147,10 +147,123 @@ long epochtime_from_vdif(void *buffer, struct tm* reftime)
 
   return 0;
 }
+uint64_t get_datatype_from_string(char * match)
+{
+  if (!strcmp(match,"unknown"))
+    return DATATYPE_UNKNOWN;
+  if (!(strcmp(match,"vdif")))
+    return DATATYPE_VDIF;
+  if (!(strcmp(match,"mark5bnet")))
+    return DATATYPE_MARK5BNET;
+  if (!(strcmp(match,"mark5b")))
+    return DATATYPE_MARK5B;
+  if (strcmp(match,"udpmon") == 0)
+    return DATATYPE_UDPMON;
+  LOG("No datatype known as %s %d\n", match,strcmp(match,"udpmon"));
+  return 0;
+}
 long epochtime_from_mark5b_net(void *buffer, struct tm* reftime)
 {
   if(*((long*)(buffer+8)) != MARK5BSYNCWORD)
     return NONEVEN_PACKET;
   else
     return epochtime_from_mark5b(buffer+8, reftime);
+}
+uint64_t get_a_count(void * buffer, int wordsize, int offset, int change_endianess)
+{
+  if(wordsize == 4){
+    uint32_t temp;
+    temp = *((uint32_t*)buffer+offset);
+    if(change_endianess == 1)
+      return (uint64_t)(be32toh(temp));
+    return (uint64_t)temp;
+  }
+  else if (wordsize == 8){
+    uint64_t temp;
+    temp = *((uint64_t*)buffer+offset);
+    if(change_endianess ==1)
+      return be64toh(temp);
+    return temp;
+  }
+  E("wordsize %d not supported",, wordsize);
+  return -1;
+}
+long getseq_mark5b_net(void* header){
+  return (long)(*((int*)(header+4)));
+}
+uint64_t getseq_udpmon(void* header){
+  //return be64toh(*((long*)header));
+  return get_a_count(header, HSIZE_UDPMON, 0, 1);
+}
+int increment_header(void * modelheader, int datatype)
+{
+  switch(datatype & LOCKER_DATATYPE)
+  {
+    case B(33):
+      //memcpy(buffer,modelheader,HSIZE_VDIF
+      break;
+    case DATATYPE_MARK5B:
+      //memcpy(buffer,modelheader,HSIZE_MARK5B
+      break;
+    case DATATYPE_UDPMON:
+      SET_FRAMENUM_FOR_UDPMON(modelheader,getseq_udpmon(modelheader)+1);
+      break;
+    case DATATYPE_MARK5BNET:
+      SET_FRAMENUM_FOR_MARK5BNET(modelheader, getseq_mark5b_net(modelheader)+1);
+      break;
+    default:
+      E("Unknown datatype");
+      return -1;
+  }
+  return 0;
+}
+long getseq_vdif(void* header, struct resq_info *resq){
+  long returnable;
+  long second = SECOND_FROM_VDIF(header);
+  long framenum = FRAMENUM_FROM_VDIF(header);
+  //D("Dat second %lu, dat framenum %lu",, second, framenum);
+  if(resq->starting_second == -1){
+    //D("Got first second as %lu, framenum %lu",, second, framenum);
+    resq->starting_second =  second;
+    return framenum;
+  }
+  if(resq->packets_per_second == -1){
+    if(second == resq->current_seq)
+      return framenum;
+    else{
+      //D("got packets per seconds as %lu",, resq->current_seq);
+      resq->packets_per_second = resq->current_seq;
+      resq->packetsecdif = second - resq->starting_second;
+    }
+  }
+  
+  if(resq->packets_per_second == 0){
+    returnable = (second - resq->starting_second)/resq->packetsecdif;
+  }
+  else
+    returnable =  (second - (long)resq->starting_second)*((long)resq->packets_per_second) + framenum;
+  //D("Returning %lu",, returnable);
+  return returnable;
+}
+int copy_metadata(void* target, void* source, uint64_t type)
+{
+  switch(type & LOCKER_DATATYPE)
+  {
+    case DATATYPE_VDIF:
+      memcpy(target, source, HSIZE_VDIF);
+      break;
+    case DATATYPE_MARK5B:
+      memcpy(target,source, HSIZE_MARK5B);
+      break;
+    case DATATYPE_UDPMON:
+      memcpy(target,source, HSIZE_UDPMON);
+      break;
+    case DATATYPE_MARK5BNET:
+      memcpy(target,source, HSIZE_MARK5BNET);
+      break;
+    default:
+      E("Unknown datatype");
+      return -1;
+  }
+  return 0;
 }

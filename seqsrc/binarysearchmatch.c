@@ -17,7 +17,8 @@
 #include <limits.h>
 #include <stdint.h>
 
-#include "common.h"
+#include "../src/datatypes_common.h"
+#include "../src/logging.h"
 //#include "mark5b.h"
 
 #define PAYLOAD (framesize-offset)
@@ -25,6 +26,10 @@
 
 #define DEFAULT_CORES 6
 #define MINMEM 2l
+#define MIN(x,y) (x < y ? x : y)
+
+#define MEG			B(20)
+#define GIG			B(30)
 
 
 int framesize;
@@ -37,7 +42,7 @@ int maxmatch;
 long read_num_packets_per_iteration;
 
 void usage(){
-  O("Usage: binarysearch -m <file1> -s <file2> -t <type> (mark5b, mark5bnet, vdif) -c <cores> -b(do be32toh to master), -a <maxmatching bytes> -b (flip endian on matcher)");
+  LOG("Usage: binarysearch -m <file1> -s <file2> -t <type> (mark5b, mark5bnet, vdif) -c <cores> -b(do be32toh to master), -a <maxmatching bytes> -b (flip endian on matcher)\n");
   exit(-1);
 }
 int read_file_to_mem(long no_packets,  int fd, void* mempoint){
@@ -48,7 +53,7 @@ int read_file_to_mem(long no_packets,  int fd, void* mempoint){
   {
     err = read(fd, tempframe, framesize);
     if(err <0){
-      O("Error in red");
+      E("Error in red");
       return -1;
     }
     memcpy(mempoint+i*PAYLOAD, tempframe+offset, PAYLOAD);
@@ -71,29 +76,29 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
     else
       reallyread = MIN(read_num_packets_per_iteration, packets-read_num_packets_per_iteration);
 
-    O("Reading %ld packets to mem\n", reallyread);
+    LOG("Reading %ld packets to mem\n", reallyread);
     err =  read_file_to_mem(reallyread, fd, haystack);
     if(err != 0){
-      O("Err in read!");
+      LOG("Err in read!");
       return -1;
     }
 
     /*
-    O("Preview of first line of haystack:\n");
+    LOG("Preview of first line of haystack:\n");
     O("%x\t%x\t%x\t%x\n", *((int32_t*)haystack), *((int32_t*)(haystack+4)), *((int32_t*)(haystack+8)), *((int32_t*)(haystack+12)));
     */
 
     running = 1;
     //uint32_t temppi;
     int reported=0;
-    O("Loaded iteration for up to packet %ld. Starting match searching\n", j);
+    LOG("Loaded iteration for up to packet %ld. Starting match searching\n", j);
     while(running){
       needle = memmem(haystack, (reallyread*(framesize-offset)), needle_prim+addtoneedle, bytelengthofmatch);
       if (needle != NULL){
 	long target = ((long)needle-(long)haystack)/(framesize-offset);
 	target = (framesize*j + target*framesize)/MEG;
 	if(reported == 0){
-	  O("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
+	  LOG("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
 	  reported =1;
 	}
 	if(bytelengthofmatch > matchlength)
@@ -101,7 +106,7 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
 	bytelengthofmatch += 4;
 	if(bytelengthofmatch > (maxmatch-addtoneedle)){
 	  running=0;
-	  O("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
+	  LOG("Found %d length needle from slave in haystack  master at byte offset %ldMB!\n", bytelengthofmatch, target);
 	  //TODO: Eww..
 	  if(keepgoing==0){
 	    keepgoing= -1;
@@ -111,7 +116,7 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
       }
       else{
 	if(reported == 1){
-	  O("Matching stopped after %d\n", bytelengthofmatch);
+	  LOG("Matching stopped after %d\n", bytelengthofmatch);
 	  reported =0;
 	}
 	if(extraiterations){
@@ -125,7 +130,7 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
 	    running = 0;
 	}
 	else{
-	  O("Abandon hope at %d length match\n", bytelengthofmatch);
+	  LOG("Abandon hope at %d length match\n", bytelengthofmatch);
 	  running=0;
 	}
       }
@@ -167,7 +172,8 @@ int match_for_whole_file(void* needle_prim, int fd,long packets, void* haystack)
 }
 
 int main(int argc, char ** argv){
-  int err, type;
+  int err;
+  uint64_t type;
   int i;
   //void* needle;
   extraiterations = 0;
@@ -186,8 +192,8 @@ int main(int argc, char ** argv){
   maxmatch = MAXMATCH;
   char c;
   int fds=0, fdm=0;
-  type = TYPE_MARK5B;
-  offset = MARK5HEADER;
+  type = DATATYPE_MARK5B;
+  offset = HSIZE_MARK5B;
   framesize = MARK5SIZE;
   struct stat st;
   int beit = 0;
@@ -202,24 +208,24 @@ int main(int argc, char ** argv){
       case 't':
 	if (!strcmp(optarg, "mark5b")){
 	  //opt->capture_type = CAPTURE_W_FANOUT;
-	  type = TYPE_MARK5B;
-	  offset = MARK5HEADER;
+	  type = DATATYPE_MARK5B;
+	  offset = HSIZE_MARK5B;
 	  framesize=MARK5SIZE;
 	}
 	else if (!strcmp(optarg, "mark5bnet")){
 	  //opt->capture_type = CAPTURE_W_UDPSTREAM;
-	  type= TYPE_MARK5BNET;
+	  type= DATATYPE_MARK5BNET;
 	}
 	else if (!strcmp(optarg, "vdif")){
 	  //opt->capture_type = CAPTURE_W_SPLICER;
-	  type = TYPE_VDIF;
+	  type = DATATYPE_VDIF;
 	}
 	else {
-	  O("Unknown file type [%s]\n", optarg);
+	  E("Unknown file type [%s]",, optarg);
 	  usage();
 	  //return -1;
 	}
-	O("Type is %s\n", optarg);
+	LOG("Type is %s\n", optarg);
 	break;
       case 'x':
 	extraiterations =1;
@@ -232,25 +238,25 @@ int main(int argc, char ** argv){
 	break;
       case 'm':
 	if(stat(optarg, &st) != 0){
-	  O("error in stat\n");
+	  E("error in stat");
 	  exit(-1);
 	}
 	filesizem=st.st_size;
 	fdm = open(optarg, O_RDONLY);
 	if(fdm == -1){
-	  O("Error opening file %s\n", optarg);
+	  E("Error opening file %s",, optarg);
 	  exit(-1);
 	}
 	break;
       case 's':
 	if(stat(optarg, &st) != 0){
-	  O("error in stat\n");
+	  E("error in stat");
 	  exit(-1);
 	}
 	filesizes=st.st_size;
 	fds = open(optarg, O_RDONLY);
 	if(fds == -1){
-	  O("Error opening file %s\n", optarg);
+	  E("Error opening file %s",, optarg);
 	  exit(-1);
 	}
 	break;
@@ -263,7 +269,7 @@ int main(int argc, char ** argv){
     }
   }
   if(filesizem == 0 || filesizes == 0){
-    O("missing files\n");
+    E("missing files");
     usage();
   }
 
@@ -273,7 +279,7 @@ int main(int argc, char ** argv){
     read_num_packets_per_iteration = read_num_packets_per_iteration << 1;
     */
 
-  O("Going to mount files in %ldMB chunks\n", (read_num_packets_per_iteration*(framesize-offset))/MEG);
+  E("Going to mount files in %ldMB chunks",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
 
   (void)type;
   packetsm = filesizem/framesize;
@@ -282,13 +288,13 @@ int main(int argc, char ** argv){
   //filem = malloc(filesizem - offset*packetsm);
   filem = malloc(read_num_packets_per_iteration*(framesize-offset));
   if(filem ==NULL){
-    O("Cant malloc %ldMB for master file \n", (read_num_packets_per_iteration*(framesize-offset))/MEG);
+    E("Cant malloc %ldMB for master file ",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
     exit(-1);
   }
   //files = malloc(filesizes - offset*packetss);
   files = malloc(read_num_packets_per_iteration*(framesize-offset));
   if(files ==NULL){
-    O("Cant malloc %ldMB for slave file \n", (read_num_packets_per_iteration*(framesize-offset))/MEG);
+    E("Cant malloc %ldMB for slave file ",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
     exit(-1);
   }
 
@@ -296,16 +302,16 @@ int main(int argc, char ** argv){
   realneedlem= malloc(maxmatch);
 
   void* tempframe = malloc(framesize);
-  O("Reading needles\n");
+  LOG("Reading needles\n");
   err = read(fdm, tempframe, framesize);
   if(err < 0){
-    O("Error in read");
+    E("Error in read");
     exit(-1);
   }
   memcpy(realneedlem, tempframe+offset, maxmatch);
   err = read(fds, tempframe, framesize);
   if(err < 0){
-    O("Error in read");
+    E("Error in read");
     exit(-1);
   }
   memcpy(realneedles, tempframe+offset, maxmatch);
@@ -329,24 +335,24 @@ int main(int argc, char ** argv){
     }
   }
 
-  O("Masters needle is \t");
-  O("%x\t%x\t%x\t%x\n", *((int32_t*)realneedlem), *((int32_t*)(realneedlem+4)), *((int32_t*)(realneedlem+8)), *((int32_t*)(realneedlem+12)));
-  O("Slaves needle is \t");
-  O("%x\t%x\t%x\t%x\n", *((int32_t*)realneedles), *((int32_t*)(realneedles+4)), *((int32_t*)(realneedles+8)), *((int32_t*)(realneedles+12)));
+  LOG("Masters needle is \t");
+  LOG("%x\t%x\t%x\t%x\n", *((int32_t*)realneedlem), *((int32_t*)(realneedlem+4)), *((int32_t*)(realneedlem+8)), *((int32_t*)(realneedlem+12)));
+  LOG("Slaves needle is \t");
+  LOG("%x\t%x\t%x\t%x\n", *((int32_t*)realneedles), *((int32_t*)(realneedles+4)), *((int32_t*)(realneedles+8)), *((int32_t*)(realneedles+12)));
 
   err = match_for_whole_file(realneedlem, fds, packetss, files);
   if(err < 0){
-    O("Error in match for fds");
+    E("Error in match for fds");
   }
   else{
-    O("Longest match for master in slave is %d bytes\n", err);
+    E("Longest match for master in slave is %d bytes",, err);
   }
   err = match_for_whole_file(realneedles, fdm, packetsm,filem);
   if(err < 0){
-    O("Error in match for fds");
+    E("Error in match for fds");
   }
   else{
-    O("Longest match for slave in master is %d bytes\n", err);
+    LOG("Longest match for slave in master is %d bytes\n", err);
   }
 
   //free(iov);

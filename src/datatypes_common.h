@@ -1,4 +1,6 @@
 #ifndef DATATYPES_COMMON_H
+#define DATATYPES_COMMON_H
+
 #define BITMASK_30 0xfffffff3
 #define BITMASK_24 0xffffff00
 #define BITMASK_12 0xfff00000
@@ -7,6 +9,10 @@
 #define RBITMASK_20 0x000fffff
 
 #define MARK5BSYNCWORD 0xABADDEED
+
+#ifndef B
+#define B(x) (1l << x)
+#endif
 
 #define SECONDS_IN_DAY 86400
 /* A threashold of 2.5h should be enough 		*/
@@ -17,12 +23,44 @@
 #define ERROR_IN_DIFF	INT32_MIN
 #define SEC_OF_DAY_FROM_TM(x) (60*60*(x)->tm_hour + 60*(x)->tm_min + (x)->tm_sec)
 
+#define END_OF_FD -INT_MAX
+
+#define LOCKER_DATATYPE		0x000000ff00000000
+#define	DATATYPE_UNKNOWN	B(32) 
+#define	DATATYPE_VDIF		B(33) 
+#define	DATATYPE_MARK5B		B(34) 
+#define DATATYPE_UDPMON		B(35)
+
+#define	DATATYPE_MARK5BNET	B(36) 
+/* Next three empty */
+
 /* Really VDIF could be 32 bytes, but we won't care about extended user stuff anyway */
 #define HSIZE_VDIF 16
 #define HSIZE_MARK5B 16
 #define HSIZE_UDPMON 8
 #define HSIZE_MARK5BNET 24
 #define POINT_TO_MARK5B_SECOND(x) ((x)+4+4)
+
+#define BOLPRINT(x) (x)?"true":"false"
+#define DATATYPEPRINT(x) (x)?"Complex":"Real"
+#define GRAB_AND_SHIFT(word,start,end) ((word & get_mask(start,end)) >> start)
+#define JUMPSIZE 1000
+#define SHIFTCHAR(x) ((((x) & 0x08) >> 3) | (((x) & 0x04) >> 1) | (((x) & 0x02) << 1) | (((x) & 0x01) << 3))
+
+#define MARK5SIZE 10016
+#define VDIFSIZE 8224
+#define MARK5NETSIZE 10032
+
+#define VDIF_SECOND_BITSHIFT 24
+/* Grab the last 30 bits of the first 4 byte word 	*/
+#define GET_VDIF_SECONDS(buf) (0x3fffffff & ((uint32_t*)(buf)))
+#define GET_VDIF_SSEQ(buf) (0x00ffffff & (((uint32_t*)(buf))+1))
+#define GET_VDIF_SEQNUM(seconds, sseq) ((unsigned long)((((unsigned long)(seconds))<<VDIF_SECOND_BITSHIFT) | ((unsigned long)(sseq))))
+#define GET_VDIF_SEQ(buf) GET_VDIF_SEQNUM(GET_VDIF_SECONDS(buf), GET_VDIF_SSEQ(buf))
+#define GET_VDIF_SECONDS_FROM_SEQNUM(seqnum) (buf) >> VDIF_SECOND_BITSHIFT
+/* Idea for seqnuming: Have a buf first number, which grounds 	*/
+/* frame. If get_spot is negative, it belongs to the previous	*/
+/* buffer. If larger than buf, belongs to the next		*/
 
 #define FRAMENUM_FROM_VDIF(x) (int64_t)(*((uint32_t*)((x)+4)) & RBITMASK_24)
 #define SET_FRAMENUM_FOR_VDIF(target,framenum) *((uint32_t*)(target+4)) = framenum & RBITMASK_24
@@ -37,7 +75,26 @@
 #define SET_FRAMENUM_FOR_MARK5B(target,framenum) *((uint32_t*)(target)) = (uint32_t)(framenum) & get_mask(0,14);
 
 #include <time.h>
+#include <stdint.h>
 
+struct resq_info{
+  unsigned long  *inc_before, *inc;
+  void  *buf, *usebuf, *bufstart, *bufstart_before;
+  /* A buffer entity before the current			*/
+  void * before;
+  long current_seq;
+  long seqstart_current;
+  int i;
+  int packets_per_second;
+  /* Special if the packets are spaced for example 	*/
+  /* every fifth second.				*/
+  int packetsecdif;
+  struct tm tm_s;
+  int starting_second;
+};
+
+int copy_metadata(void* source, void* target, uint64_t);
+long getseq_vdif(void* header, struct resq_info *resq);
 int get_day_from_mark5b(void *buffer);
 int get_sec_from_mark5b(void *buffer);
 int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day);
@@ -48,4 +105,9 @@ long epochtime_from_vdif(void *buffer, struct tm* reftime);
 long epochtime_from_mark5b_net(void *buffer, struct tm* reftime);
 int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int* errres);
 int secdiff_from_mark5b(void *buffer, struct tm* reftime, int* errres);
+long getseq_mark5b_net(void* header);
+uint64_t getseq_udpmon(void* header);
+uint64_t get_a_count(void * buffer, int wordsize, int offset, int do_be64toh);
+int increment_header(void * modelheader, int datatype);
+uint64_t get_datatype_from_string(char * match);
 #endif

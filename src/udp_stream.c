@@ -656,7 +656,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	    E("First metadata malloc failed!");
 	  }
 	  else{
-	    err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt);
+	    err = copy_metadata(spec_ops->opt->first_packet, resq->buf, spec_ops->opt->optbits);
 	    if(err != 0)
 	    {
 	      E("First metadata copying failed!");
