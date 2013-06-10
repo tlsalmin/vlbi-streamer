@@ -94,9 +94,15 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
 
   return (int64_t)mktime(&m5tm) - timezone;
 }
+int syncword_check(void *buffer)
+{
+  if(*((uint32_t*)(buffer)) == MARK5BSYNCWORD)
+    return 1;
+  return 0;
+}
 int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int *errref)
 {
-  if(*((uint32_t*)(buffer+8)) != MARK5BSYNCWORD)
+  if(syncword_check(buffer+8)!= 1)
   {
     //D("Got %X when expected %X",, *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
     if(errref != NULL)
@@ -164,7 +170,7 @@ uint64_t get_datatype_from_string(char * match)
 }
 long epochtime_from_mark5b_net(void *buffer, struct tm* reftime)
 {
-  if(*((long*)(buffer+8)) != MARK5BSYNCWORD)
+  if(syncword_check(buffer+8) != 1)
     return NONEVEN_PACKET;
   else
     return epochtime_from_mark5b(buffer+8, reftime);

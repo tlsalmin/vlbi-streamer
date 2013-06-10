@@ -3,10 +3,13 @@
 
 #define BITMASK_30 0xfffffff3
 #define BITMASK_24 0xffffff00
+#define BITMASK_16 0xffff0000
 #define BITMASK_12 0xfff00000
 #define RBITMASK_30 0x3fffffff
 #define RBITMASK_24 0x00ffffff
 #define RBITMASK_20 0x000fffff
+#define BITMASK_16_REV 0x0000ffff
+#define BITMASK_15_REV 0x00007fff
 
 #define MARK5BSYNCWORD 0xABADDEED
 
@@ -40,6 +43,8 @@
 #define HSIZE_UDPMON 8
 #define HSIZE_MARK5BNET 24
 #define POINT_TO_MARK5B_SECOND(x) ((x)+4+4)
+#define POINT_TO_MARK5B_SECONDWORD(x) ((x)+4)
+#define POINT_TO_MARK5B_SECFRAQ(x) ((x)+4+4+4)
 
 #define BOLPRINT(x) (x)?"true":"false"
 #define DATATYPEPRINT(x) (x)?"Complex":"Real"
@@ -48,8 +53,10 @@
 #define SHIFTCHAR(x) ((((x) & 0x08) >> 3) | (((x) & 0x04) >> 1) | (((x) & 0x02) << 1) | (((x) & 0x01) << 3))
 
 #define MARK5SIZE 10016
-#define VDIFSIZE 8224
 #define MARK5NETSIZE 10032
+#define MARK5OFFSET 5008
+#define MARK5NETOFFSET 5016
+#define VDIFSIZE 8224
 
 #define VDIF_SECOND_BITSHIFT 24
 /* Grab the last 30 bits of the first 4 byte word 	*/
@@ -69,6 +76,10 @@
 
 #define SECOND_FROM_MARK5B(x) ((*((uint32_t*)(POINT_TO_MARK5B_SECOND(x)))) & RBITMASK_20)
 #define DAY_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECOND(x)))) & BITMASK_12) >> 20)
+#define USERSPEC_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECONDWORD(x)))) & BITMASK_16) >> 16)
+#define SECFRAQ_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECFRAQ(x)))) & BITMASK_16) >> 16)
+#define CRC_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECFRAQ(x)))) & BITMASK_16_REV))
+#define FRAMENUM_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECONDWORD(x)))) & BITMASK_15_REV))
 
 #define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)(framenum));
 #define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint32_t*)(target+4)) = (uint32_t)(framenum);
@@ -110,4 +121,5 @@ uint64_t getseq_udpmon(void* header);
 uint64_t get_a_count(void * buffer, int wordsize, int offset, int do_be64toh);
 int increment_header(void * modelheader, int datatype);
 uint64_t get_datatype_from_string(char * match);
+int syncword_check(void *buffer);
 #endif

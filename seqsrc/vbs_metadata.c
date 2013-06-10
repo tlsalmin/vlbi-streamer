@@ -21,6 +21,7 @@
 #include "../src/logging.h"
 #include "vbs_metadata.h"
 #include "metadata_seqnum.h"
+#include "metadata_mark5b.h"
 
 void usage(char * bin)
 {
@@ -424,29 +425,6 @@ int main(int argc, char ** argv)
     exit(-1);
   }
   err = -1;
-  switch(cce->optbits & LOCKER_DATATYPE)
-  {
-    case(DATATYPE_MARK5B):
-      break;
-    case(DATATYPE_MARK5BNET):
-      break;
-    case(DATATYPE_UDPMON):
-      err = init_seqnum_data(cce);
-      break;
-    case(DATATYPE_VDIF):
-      break;
-    case(DATATYPE_UNKNOWN):
-      E("Unknown datatype");
-      usage(argv[0]);
-      exit(-1);
-  }
-  if(err != 0){
-    E("Error in setting datatype");
-    usage(argv[0]);
-    exit(-1);
-  }
-  /* Why didn't I just stdin?	*/
-  err = -1;
   switch(cce->optbits & LOCKER_LISTEN)
   {
     case LISTEN_TCPSOCKET:
@@ -468,6 +446,33 @@ int main(int argc, char ** argv)
     usage(argv[0]);
     exit(-1);
   }
+  err = -1;
+  switch(cce->optbits & LOCKER_DATATYPE)
+  {
+    case(DATATYPE_MARK5B):
+      err = init_mark5b_data(cce);
+      cce->framesize = MARK5SIZE;
+      break;
+    case(DATATYPE_MARK5BNET):
+      err = init_mark5b_data(cce);
+      cce->framesize = MARK5NETSIZE;
+      break;
+    case(DATATYPE_UDPMON):
+      err = init_seqnum_data(cce);
+      break;
+    case(DATATYPE_VDIF):
+      break;
+    case(DATATYPE_UNKNOWN):
+      E("Unknown datatype");
+      usage(argv[0]);
+      exit(-1);
+  }
+  if(err != 0){
+    E("Error in setting datatype");
+    usage(argv[0]);
+    exit(-1);
+  }
+  /* Why didn't I just stdin?	*/
 
   cce->buffer = malloc(cce->framesize);
 
