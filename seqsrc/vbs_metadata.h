@@ -48,6 +48,8 @@ struct common_control_element{
   int read_count;
   uint64_t errors;
   uint64_t max_errors;
+  long packets_per_second;
+  int initialized;
   void * datatype_metadata;
   void * listen_metadata;
   void * traverse_metadata;
