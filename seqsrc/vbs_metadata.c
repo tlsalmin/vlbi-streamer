@@ -36,6 +36,8 @@ void usage(char * bin)
       -p <size>\t\t A packet size\n", bin, bin,bin);
 }
 
+struct stat * fileinfo;
+
 unsigned int get_mask(int start, int end){
   unsigned int returnable = 0;
   while(start <= end){
@@ -58,6 +60,31 @@ int do_read_file(int  fd, void* buffer, int  length, int count)
 {
   int templength, err;
   /* Inefficient oh no	*/
+  if(!(count > 0))
+  {
+    if(count < 0)
+    {
+      if(lseek(fd, (count-1)*length, SEEK_CUR) == (off_t)-1) 
+	lseek(fd, 0, SEEK_SET);
+    }
+    if(count ==0){
+      LOG("Seeking to start of file\n");
+      lseek(fd,0,SEEK_SET);
+    }
+    else if (count == INT_MAX)
+    {
+      if(fd == 0){
+	E("Cant seek to end of pipe");
+      }
+      else{
+	/* Doing this to preserve alignment when reversing	*/
+	LOG("Seeking to end of file\n");
+	long maxseek = (fileinfo->st_size/length)*length;
+	lseek(fd, maxseek, SEEK_SET);
+      }
+    }
+    count = 1;
+  }
   while(count > 0)
   {
     templength = length;
@@ -68,8 +95,9 @@ int do_read_file(int  fd, void* buffer, int  length, int count)
 	E("Error in read of file");
 	return -1;
       }
-      if(err == 0)
+      if(err == 0){
 	return END_OF_FD;
+      }
       templength -= err;
     }
     count--;
@@ -204,10 +232,15 @@ void cleanup_filereader(struct common_control_element* cce)
 {
   close(cce->fd);
 }
+void fd_reset(struct common_control_element*cce)
+{
+  lseek(cce->fd, -(cce->framesize+(fileinfo->st_size % cce->framesize)), SEEK_END);
+  cce->packet_move(cce->fd, cce->buffer, cce->framesize, 1);
+}
 int handle_open_file(struct common_control_element* cce)
 {
   int err;
-  struct stat* st;
+  //struct stat* st;
   cce->packet_move = do_read_file;
   if(*(cce->port_or_filename) == '-')
   {
@@ -226,15 +259,16 @@ int handle_open_file(struct common_control_element* cce)
   }
   else
   {
-    cce->listen_metadata = malloc(sizeof(struct stat));
-    st = cce->listen_metadata;
-    err = stat(cce->port_or_filename, st);
+    fileinfo = malloc(sizeof(struct stat));
+    //fileinfo = cce->listen_metadata;
+    err = stat(cce->port_or_filename, fileinfo);
     CHECK_ERR("Stat");
     cce->fd = open(cce->port_or_filename, O_RDONLY);
     if(cce->fd <0){
       E("Error in open");
       return -1;
     }
+    cce->reset_to_last_known_good = fd_reset;
   }
   cce->cleanup_reader = cleanup_filereader;
   return 0;
@@ -262,7 +296,7 @@ int keyboardinput(struct common_control_element * cce){
 	  cce->hexoffset--;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, -1);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, -1);
 	cce->metadata_increment(cce, -1);
       }
       break;
@@ -272,8 +306,8 @@ int keyboardinput(struct common_control_element * cce){
 	  cce->hexoffset-=JUMPSIZE;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, JUMPSIZE);
-	cce->metadata_increment(cce, JUMPSIZE);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, -JUMPSIZE);
+	cce->metadata_increment(cce, -JUMPSIZE);
       }
       break;
     case (int)'j': 
@@ -284,8 +318,8 @@ int keyboardinput(struct common_control_element * cce){
 	  cce->hexoffset = (cce->framesize/16)-1;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, -JUMPSIZE);
-	cce->metadata_increment(cce, -JUMPSIZE);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, JUMPSIZE);
+	cce->metadata_increment(cce, JUMPSIZE);
       }
       break;
     case (int)'G': 
@@ -293,7 +327,7 @@ int keyboardinput(struct common_control_element * cce){
 	cce->hexoffset = (cce->framesize/16)-1;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, INT_MAX);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, INT_MAX);
 	cce->metadata_increment(cce, INT_MAX);
       }
       break;
@@ -302,7 +336,7 @@ int keyboardinput(struct common_control_element * cce){
 	cce->hexoffset = 0;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, 0);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, 0);
 	cce->metadata_increment(cce, 0);
       }
       break;
@@ -320,10 +354,15 @@ int keyboardinput(struct common_control_element * cce){
 	  cce->hexoffset++;
       }
       else{
-	cce->packet_move(cce->fd, cce->buffer, cce->framesize, 1);
+	err = cce->packet_move(cce->fd, cce->buffer, cce->framesize, 1);
 	cce->metadata_increment(cce, 1);
       }
       break;
+  }
+  if(err == END_OF_FD){
+    LOG("End of file!\n");
+    if(cce->reset_to_last_known_good != NULL)
+      cce->reset_to_last_known_good(cce);
   }
 #ifndef PORTABLE
   err = system ("/bin/stty cooked");
