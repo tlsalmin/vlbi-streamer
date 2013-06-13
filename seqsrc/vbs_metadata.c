@@ -149,7 +149,7 @@ int do_read_udpsocket(int fd, void* buffer, int  length, int count)
 	return -1;
       }
       */
-      templength+=err;
+      templength-=err;
     }
     count--;
   }
