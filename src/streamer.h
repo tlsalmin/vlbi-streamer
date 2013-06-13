@@ -237,7 +237,7 @@ struct opt_s
   long unsigned cumul_found;
   long unsigned last_packet;
   //pthread_mutex_t cumlock;
-  char *device_name;
+  char *address_to_bind_to;
   char *cfgfile;
   int diskids;
   struct file_index * fi;

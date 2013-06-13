@@ -420,7 +420,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
     CFG_FULL_STR(filename)
     /* Could have done these with concatenation .. */
       CFG_FULL_UINT64(opt->cumul,"cumul")
-      CFG_FULL_STR(device_name)
+      CFG_FULL_STR(address_to_bind_to)
       CFG_FULL_STR(disk2fileoutput)
       CFG_FULL_UINT64(opt->optbits, "optbits")
       CFG_FULL_UINT64(opt->last_packet, "last_packet")
@@ -515,7 +515,7 @@ int stub_full_cfg(config_setting_t *root){
   //stub_rec_cfg(root);
   CFG_ADD_INT64(packet_size);
   CFG_ADD_INT64(optbits);
-  CFG_ADD_STR(device_name);
+  CFG_ADD_STR(address_to_bind_to);
   CFG_ADD_INT64(time);
   CFG_ADD_INT(port);
   CFG_ADD_INT64(minmem);

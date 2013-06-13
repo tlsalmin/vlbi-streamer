@@ -127,7 +127,7 @@ int fanout_setup_socket(struct opt_s* opt, struct streamer_entity* se)
 
   //Get the interface index
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
+  strcpy(ifr.ifr_name, spec_ops->opt->address_to_bind_to);
   err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
   if (err < 0) {
     perror("SIOCGIFINDEX");
@@ -143,7 +143,7 @@ int fanout_setup_socket(struct opt_s* opt, struct streamer_entity* se)
   hwconfig.rx_filter = HWTSTAMP_FILTER_ALL;
 
   memset(&ifr, 0, sizeof(ifr));
-  strcpy(ifr.ifr_name, spec_ops->opt->device_name);
+  strcpy(ifr.ifr_name, spec_ops->opt->address_to_bind_to);
   ifr.ifr_data = (void *)&hwconfig;
 
   if(ioctl(spec_ops->fd, SIOCSHWTSTAMP,&ifr)<  0) {

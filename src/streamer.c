@@ -350,7 +350,7 @@ void print_stats(struct stats *stats, struct opt_s * opts){
 /* Defensive stuff to check we're not copying stuff from default	*/
 int clear_pointers(struct opt_s* opt){
   opt->filename = NULL;
-  opt->device_name = NULL;
+  opt->address_to_bind_to = NULL;
   opt->hostname = NULL;
   opt->cfgfile = NULL;
   opt->disk2fileoutput = NULL;
@@ -403,7 +403,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 //#endif
     switch (ret){
       case 'i':
-	opt->device_name = strdup(optarg);
+	opt->address_to_bind_to = strdup(optarg);
 	break;
       case 'c':
 	opt->cfgfile = (char*)malloc(sizeof(char)*FILENAME_MAX);
@@ -764,8 +764,8 @@ int close_opts(struct opt_s *opt){
     free(opt->first_packet);
   if(opt->resqut != NULL)
     free(opt->resqut);
-  if(opt->device_name != NULL)
-    free(opt->device_name);
+  if(opt->address_to_bind_to != NULL)
+    free(opt->address_to_bind_to);
   if(opt->cfgfile != NULL){
     free(opt->cfgfile);
   }

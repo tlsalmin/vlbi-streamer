@@ -113,12 +113,12 @@ int udps_bind_rx(struct socketopts * spec_ops){
     return -1;
   }
 
-  if(spec_ops->opt->device_name  !=NULL){
+  if(spec_ops->opt->address_to_bind_to  !=NULL){
     //spec_ops->sin->sin_family = PF_PACKET;           
     //struct sockaddr_ll ll;
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
-    strcpy(ifr.ifr_name, spec_ops->opt->device_name);
+    strcpy(ifr.ifr_name, spec_ops->opt->address_to_bind_to);
     err = ioctl(spec_ops->fd, SIOCGIFINDEX, &ifr);
     CHECK_ERR("SIOCGIFINDEX");
 
@@ -148,7 +148,7 @@ int setup_udp_socket(struct opt_s * opt, struct streamer_entity *se)
     char port[12];
     memset(port, 0,sizeof(char)*12);
     sprintf(port,"%d", spec_ops->opt->port);
-    err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p), spec_ops->opt->optbits, spec_ops->opt->device_name);
+    err = create_socket(&(spec_ops->fd), port, &(spec_ops->servinfo), spec_ops->opt->hostname, SOCK_DGRAM, &(spec_ops->p), spec_ops->opt->optbits, spec_ops->opt->address_to_bind_to);
     CHECK_ERR("Create socket");
   }
   if(!(opt->optbits & READMODE) && opt->hostname != NULL){
