@@ -22,6 +22,7 @@
 #include "vbs_metadata.h"
 #include "metadata_seqnum.h"
 #include "metadata_mark5b.h"
+#include "metadata_vdif.h"
 
 void usage(char * bin)
 {
@@ -127,20 +128,28 @@ int do_read_socket(int fd, void* buffer, int  length, int count)
 }
 int do_read_udpsocket(int fd, void* buffer, int  length, int count)
 {
+  int templength;
+  int err;
   while(count > 0)
   {
-    int err;
-    err =recv(fd, buffer, length, 0);
-    if(err < 0 ){
-      E("Error in read of file");
-      return -1;
-    }
-    if(err == 0)
-      return END_OF_FD;
-    if(err != length)
+    templength = length;
+    while(templength > 0)
     {
-      E("Wrong length packet received");
-      return -1;
+      err =recv(fd, buffer+(length-templength), templength, 0);
+      if(err < 0 ){
+	E("Error in read of file");
+	return -1;
+      }
+      if(err == 0)
+	return END_OF_FD;
+      /*
+      if(err != length)
+      {
+	E("Wrong length packet received");
+	return -1;
+      }
+      */
+      templength+=err;
     }
     count--;
   }
@@ -201,6 +210,24 @@ int handle_open_socket(struct common_control_element* cce)
     return -1;
   }
   freeaddrinfo(servinfo);
+  int def = cce->framesize;
+  int len,defcheck=0;
+  len = sizeof(def);
+
+  while(err == 0){
+    //D("RCVBUF size is %d",,def);
+    def  = def << 1;
+    err = setsockopt(cce->sockfd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+    if(err == 0){
+      D("Trying RCVBUF size %d",, def);
+    }
+    err = getsockopt(cce->sockfd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+    if(defcheck != (def << 1)){
+      D("Limit reached. Final size is %d Bytes",,defcheck);
+      break;
+    }
+  }
+
   if(cce->optbits & LISTEN_TCPSOCKET)
   {
     err = listen(cce->sockfd, BACKLOG);
@@ -500,6 +527,7 @@ int main(int argc, char ** argv)
       err = init_seqnum_data(cce);
       break;
     case(DATATYPE_VDIF):
+      err = init_vdif_data(cce);
       break;
     case(DATATYPE_UNKNOWN):
       E("Unknown datatype");

@@ -60,16 +60,20 @@
 
 #define VDIF_SECOND_BITSHIFT 24
 /* Grab the last 30 bits of the first 4 byte word 	*/
-#define GET_VDIF_SECONDS(buf) (0x3fffffff & ((uint32_t*)(buf)))
-#define GET_VDIF_SSEQ(buf) (0x00ffffff & (((uint32_t*)(buf))+1))
-#define GET_VDIF_SEQNUM(seconds, sseq) ((unsigned long)((((unsigned long)(seconds))<<VDIF_SECOND_BITSHIFT) | ((unsigned long)(sseq))))
-#define GET_VDIF_SEQ(buf) GET_VDIF_SEQNUM(GET_VDIF_SECONDS(buf), GET_VDIF_SSEQ(buf))
-#define GET_VDIF_SECONDS_FROM_SEQNUM(seqnum) (buf) >> VDIF_SECOND_BITSHIFT
-/* Idea for seqnuming: Have a buf first number, which grounds 	*/
-/* frame. If get_spot is negative, it belongs to the previous	*/
-/* buffer. If larger than buf, belongs to the next		*/
+#define GET_VDIF_SECONDS(buf) (0x3fffffff & be32toh(*((uint32_t*)(buf))))
+#define GET_VDIF_REF_EPOCH(buf) ((0x3f000000 & be32toh(*((uint32_t*)(buf))))>>24)
+#define GET_VDIF_SSEQ(buf) (0x00ffffff & be32toh(*(((uint32_t*)(buf))+1)))
+#define GET_VDIF_VERSION(buf) ((0xE0000000 & be32toh(*(((uint32_t*)(buf))+2)))>>29)
+#define GET_VDIF_CHANNELS(buf) ((0x1F000000 & be32toh(*(((uint32_t*)(buf))+2)))>>24)
+#define GET_VDIF_FRAME_LENGTH(buf) ((0x00FFFFFF & be32toh(*(((uint32_t*)(buf))+2))))
+#define GET_VDIF_DATATYPE(buf) ((0x80000000 & be32toh(*(((uint32_t*)(buf))+3)))>>31)
+#define GET_VDIF_BITS_PER_SAMPLE(buf) ((0xEC000000 & be32toh(*(((uint32_t*)(buf))+3)))>>26)
+#define GET_VDIF_THREAD_ID(buf) ((0x03FF0000 & be32toh(*(((uint32_t*)(buf))+3)))>>16)
+#define GET_VDIF_STATION_ID(buf) ((0x0000FFFF & be32toh(*(((uint32_t*)(buf))+3)))>>16)
+#define GET_VALID_BIT(buf) ((0x80000000 & be32toh(*((uint32_t*)buf))) >> 31)
+#define GET_LEGACY_BIT(buf) ((0x40000000 & be32toh(*((uint32_t*)buf))) >> 30)
+#define FRAMENUM_FROM_VDIF(x) (be32toh(*(((uint32_t*)x)+1)) & RBITMASK_24)
 
-#define FRAMENUM_FROM_VDIF(x) (int64_t)(*((uint32_t*)((x)+4)) & RBITMASK_24)
 #define SET_FRAMENUM_FOR_VDIF(target,framenum) *((uint32_t*)(target+4)) = framenum & RBITMASK_24
 #define SECOND_FROM_VDIF(x) (int64_t)(*((uint32_t*)(x))) & RBITMASK_30;
 #define SET_SECOND_FOR_VDIF(target,second) *((uint32_t*)(target)) = second & RBITMASK_30
@@ -80,6 +84,7 @@
 #define SECFRAQ_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECFRAQ(x)))) & BITMASK_16) >> 16)
 #define CRC_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECFRAQ(x)))) & BITMASK_16_REV))
 #define FRAMENUM_FROM_MARK5B(x) (((*((uint32_t*)(POINT_TO_MARK5B_SECONDWORD(x)))) & BITMASK_15_REV))
+#define NETFRAMENUM_FROM_MARK5BNET(x) (((*((uint32_t*)(x+4)))))
 
 #define SET_FRAMENUM_FOR_UDPMON(target,framenum) *((uint64_t*)(target)) = be64toh((uint64_t)(framenum));
 #define SET_FRAMENUM_FOR_MARK5BNET(target,framenum) *((uint32_t*)(target+4)) = (uint32_t)(framenum);
@@ -119,7 +124,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int* errres);
 long getseq_mark5b_net(void* header);
 uint64_t getseq_udpmon(void* header);
 uint64_t get_a_count(void * buffer, int wordsize, int offset, int do_be64toh);
-int increment_header(void * modelheader, int datatype);
+int increment_header(void * modelheader, uint64_t datatype);
 uint64_t get_datatype_from_string(char * match);
 int syncword_check(void *buffer);
 #endif

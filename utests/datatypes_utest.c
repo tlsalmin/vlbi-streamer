@@ -74,7 +74,7 @@ void * testarea;
 
 int testrun()
 {
-  int i, err;
+  uint32_t i, err;
   int * expected_errors = malloc(sizeof(int));
   void* packet;
   D("Initalizing buffer");
@@ -99,7 +99,7 @@ int testrun()
 	break;
     }
     if(i==0)
-      copy_metadata(opt->first_packet, testarea,opt);
+      copy_metadata(opt->first_packet, testarea,opt->optbits);
   }
 
   *expected_errors = 0;

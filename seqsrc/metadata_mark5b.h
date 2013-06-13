@@ -2,9 +2,12 @@
 #define METADATA_MARK5B_H
 #define POINT_TO_THE_RIGHT_DIRECTION cce->buffer+cce->offset+ms->netoffset
 
+
+#ifdef LOG_INCONSISTENT_PACKET
+#undef LOG_INCONSISTENT_PACKET
+#endif
 #define LOG_INCONSISTENT_PACKET(x,previous_x) LOG("Previous packet\n");mark5_printcommand(previous_x);LOG("Broken packet\n");mark5_printcommand(x)
 #define LOG_DEFAULT_BROKEN_PACKET LOG_INCONSISTENT_PACKET((ms), (ms+1))
-
 struct metadata_mark5b
 {
   int initialized;
@@ -15,6 +18,7 @@ struct metadata_mark5b
   int syncword;
   long count;
   long framenum;
+  int m5netframenum;
   //long second_of_day;
   int day_of_year;
   int second_of_day;
@@ -36,6 +40,10 @@ void copy_m5metadata(struct common_control_element *cce, struct metadata_mark5b*
   ms->CRCC = CRC_FROM_MARK5B(POINT_TO_THE_RIGHT_DIRECTION);
   ms->framenum = FRAMENUM_FROM_MARK5B(POINT_TO_THE_RIGHT_DIRECTION);
   ms->syncword = *((uint32_t*)(POINT_TO_THE_RIGHT_DIRECTION));
+  if(cce->optbits & DATATYPE_MARK5BNET)
+    ms->m5netframenum = NETFRAMENUM_FROM_MARK5BNET(cce->buffer+cce->offset);
+  else
+    ms->m5netframenum = -1;
 }
 void mark5b_metadata_increment(struct common_control_element* cce, long count)
 {
@@ -79,6 +87,8 @@ int check_m5metadata(struct common_control_element*cce)
 }
 void mark5_printcommand(struct metadata_mark5b* ms)
 {
+  if(ms->m5netframenum != -1)
+    LOG("| M5NetFrameNum: %d ", ms->m5netframenum);
   LOG("| Syncword: %5X |\n| Userspecified: %6X\t| tvg %6s\t| Framenum: %6ld|\n| Day_of_year: %6d\t| Second_of_day: %6d|\n|Fraction: 0.%6lX\t| CRCC: %6d\n", ms->syncword, ms->userspecified, BOLPRINT(ms->tvg), ms->framenum, ms->day_of_year, ms->second_of_day, ms->sec_fraction, ms->CRCC);
 }
 int mark5_printmetadata(struct common_control_element *cce)
@@ -109,6 +119,15 @@ int mark5b_discrepancy(struct common_control_element *cce)
     cce->packets_per_second = prev_ms->framenum+1;
     //LOG_DEFAULT_BROKEN_PACKET;
     LOG("Found first second boundary at second_of_day %d. Packets per second is %ld\n", prev_ms->second_of_day, cce->packets_per_second);
+  }
+  if(cce->optbits & DATATYPE_MARK5BNET)
+  {
+    /* Its plus 2 here, since were hopping whole mark5 frames and each of them consists of 2 mark5bnet frames	*/
+    if(ms->m5netframenum != prev_ms->m5netframenum+2)
+    {
+      LOG("Inconsistency as mark5bnet framenum was %d and now is %d\n", prev_ms->m5netframenum, ms->m5netframenum);
+      LOG_DEFAULT_BROKEN_PACKET;
+    }
   }
   /* If we have all we need for full metadata checking 	*/
   if((ms)->framenum != (prev_ms->framenum +1))

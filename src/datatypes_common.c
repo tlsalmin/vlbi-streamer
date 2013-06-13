@@ -201,11 +201,11 @@ uint64_t getseq_udpmon(void* header){
   //return be64toh(*((long*)header));
   return get_a_count(header, HSIZE_UDPMON, 0, 1);
 }
-int increment_header(void * modelheader, int datatype)
+int increment_header(void * modelheader, uint64_t datatype)
 {
   switch(datatype & LOCKER_DATATYPE)
   {
-    case B(33):
+    case DATATYPE_VDIF:
       //memcpy(buffer,modelheader,HSIZE_VDIF
       break;
     case DATATYPE_MARK5B:
