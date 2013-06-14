@@ -128,28 +128,20 @@ int do_read_socket(int fd, void* buffer, int  length, int count)
 }
 int do_read_udpsocket(int fd, void* buffer, int  length, int count)
 {
-  int templength;
   int err;
   while(count > 0)
   {
-    templength = length;
-    while(templength > 0)
+    err =recv(fd, buffer, length, 0);
+    if(err < 0 ){
+      E("Error in read of file");
+      return -1;
+    }
+    if(err == 0)
+      return END_OF_FD;
+    if(err != length)
     {
-      err =recv(fd, buffer+(length-templength), templength, 0);
-      if(err < 0 ){
-	E("Error in read of file");
-	return -1;
-      }
-      if(err == 0)
-	return END_OF_FD;
-      /*
-      if(err != length)
-      {
-	E("Wrong length packet received");
-	return -1;
-      }
-      */
-      templength-=err;
+      E("Wrong length packet received");
+      return -1;
     }
     count--;
   }
@@ -213,6 +205,7 @@ int handle_open_socket(struct common_control_element* cce)
   int def = cce->framesize;
   int len,defcheck=0;
   len = sizeof(def);
+  err = 0;
 
   while(err == 0){
     //D("RCVBUF size is %d",,def);
@@ -517,11 +510,11 @@ int main(int argc, char ** argv)
   {
     case(DATATYPE_MARK5B):
       err = init_mark5b_data(cce);
-      cce->framesize = MARK5SIZE;
+      cce->framesize = MARK5OFFSET;
       break;
     case(DATATYPE_MARK5BNET):
       err = init_mark5b_data(cce);
-      cce->framesize = MARK5NETSIZE;
+      cce->framesize = MARK5NETOFFSET;
       break;
     case(DATATYPE_UDPMON):
       err = init_seqnum_data(cce);

@@ -46,6 +46,7 @@ struct common_control_element{
   void(*cleanup_inspector)(struct common_control_element*);
   void(*reset_to_last_known_good)(struct common_control_element *);
   int read_count;
+  int netoffset;
   uint64_t errors;
   uint64_t max_errors;
   long packets_per_second;
