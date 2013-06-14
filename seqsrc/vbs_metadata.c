@@ -477,6 +477,7 @@ int main(int argc, char ** argv)
   int err;
   memset(cce, 0, sizeof(struct common_control_element));
   cce->max_errors = 30;
+  cce->framesize = 1024
   if(getopts(argc, argv, cce) != 0)
   {
     E("Error in getting opts");
@@ -509,12 +510,12 @@ int main(int argc, char ** argv)
   switch(cce->optbits & LOCKER_DATATYPE)
   {
     case(DATATYPE_MARK5B):
-      err = init_mark5b_data(cce);
       cce->framesize = MARK5OFFSET;
+      err = init_mark5b_data(cce);
       break;
     case(DATATYPE_MARK5BNET):
-      err = init_mark5b_data(cce);
       cce->framesize = MARK5NETOFFSET;
+      err = init_mark5b_data(cce);
       break;
     case(DATATYPE_UDPMON):
       err = init_seqnum_data(cce);
