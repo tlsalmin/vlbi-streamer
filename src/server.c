@@ -20,7 +20,9 @@
  * along with vlbi-streamer.  If not, see <http://www.gnu.org/licenses/>.
  * 
  */
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <sys/inotify.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,9 +36,6 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/file.h>
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -722,7 +721,7 @@ int main(int argc, char **argv)
   CHECK_LTZ("Inotify init", i_fd);
 
   LOG("Starting watch on statefile %s\n", STATEFILE);
-  w_fd = inotify_add_watch(i_fd, STATEFILE, IN_MODIFY);
+  w_fd = inotify_add_watch(i_fd, STATEFILE, IN_MODIFY|IN_ATTRIB|IN_CLOSE_WRITE);
   CHECK_LTZ("Add watch",w_fd);
 
   /* Make the inotify nonblocking for simpler loop 			*/

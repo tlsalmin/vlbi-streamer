@@ -172,15 +172,6 @@ AS_IF([test "x$enable_ppriority" != "xno"], [
 PPRIORITY=$enable_ppriority
 AC_SUBST(PPRIORITY)
 
-AC_MSG_CHECKING([--enable-filesizemb argument])
-AC_ARG_ENABLE(filesizemb,
-	      [  --enable-filesizemb         Set file size in MB (default: 512).],
-    [enable_filesizemb=$enableval],
-    [enable_filesizemb=512])
-AC_MSG_RESULT($enable_filesizemb)
-AS_IF([test "x$FILESIZEMB" = x], [FILESIZEMB=$enable_filesizemb])
-AC_DEFINE_UNQUOTED(FILESIZEMB, ${FILESIZEMB}, [file size])
-
 
 AC_MSG_CHECKING([--enable-senddebug argument])
 AC_ARG_ENABLE(senddebug,

@@ -37,5 +37,7 @@
 #define CALL_AND_CHECK(x,...)\
     err = x(__VA_ARGS__);\
   CHECK_ERR(#x);
+#define CHECK_CFG_CUSTOM(x,y) do{if(y == CONFIG_FALSE){E(x);return -1;}else{D(x);}}while(0)
+#define CHECK_CFG(x) CHECK_CFG_CUSTOM(x,err)
 
 #endif

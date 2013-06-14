@@ -196,8 +196,6 @@ int calculate_buffer_sizes_simple(struct opt_s * opt){
     rxring_packetadjustment(opt);
   }
   opt->buf_division = B(3);
-  //while(opt->packet_size*BLOCK_ALIGN*opt->buf_division >= MAXFILESIZE*MEG)
-    //opt->buf_division  >>= 1;
   while(opt->packet_size*BLOCK_ALIGN*opt->buf_division <= opt->filesize*MEG)
     opt->buf_division  <<= 1;
   opt->buf_num_elems = (BLOCK_ALIGN*opt->buf_division);
@@ -358,7 +356,6 @@ int clear_pointers(struct opt_s* opt){
 }
 int clear_and_default(struct opt_s* opt, int create_cfg){
   memset(opt, 0, sizeof(struct opt_s));
-  opt->filesize = FILESIZE;
 #if(DAEMON)
   opt->status = STATUS_NOT_STARTED;
 #if(PROTECT_STATUS_W_RWLOCK)
@@ -388,7 +385,6 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
 #endif
-
 
   return 0;
 }

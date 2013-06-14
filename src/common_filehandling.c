@@ -43,7 +43,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   skip_missing(opt,st,SKIP_LOADED);
   long nuf;
   int err;
-  D("Loading: %lu, packets loaded is %lu, packet probed %ld",, nuf, st->packets_loaded, st->n_packets_probed);
+  D("Packets loaded is %lu, packet probed %ld",, st->packets_loaded, st->n_packets_probed);
   if(st->files_loaded == st->n_files_probed){
     D("Loaded up to n_files!");
     return DONTRYLOADNOMORE;
@@ -136,21 +136,6 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   LOCK(be->headlock);
   unsigned long *inc;
   be->simple_get_writebuf(be, &inc);
-  /* Why the hell did i do this? :D */
-  /*
-     if(nuf == opt->buf_num_elems)
-   *inc = FILESIZE;
-   else
-   */
-  /*
-     if(nuf == opt->buf_num_elems){
-   *inc = FILESIZE;
-   }
-   else{
-   D("Loading incomplete file so setting inc not to whole file");
-   *inc = nuf*opt->packet_size;
-   }
-   */
   *inc = nuf*(opt->packet_size);
 
   be->set_ready(be, 1);

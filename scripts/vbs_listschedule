@@ -23,10 +23,6 @@ then
   SCHEDULE=$1
 fi
 
-#NAME=""
-#STARTTIME="now"
-#RECORD=1
-
 #Do the state machine
 (
 flock  -x 201
@@ -38,10 +34,11 @@ do
     NAME=""
     STARTTIME="now"
     RECORD=1
+    ID=${prevline%=}
     #echo $line
   elif [[ $line == \}\;* ]]
   then
-    echo "$NAME $RECORD $STARTTIME"
+    echo "$NAME $RECORD $STARTTIME ID: $ID"
   elif [[ $line == filename* ]]
   then
     NAME=${line#*\"}
@@ -65,6 +62,7 @@ do
     STARTTIME="at $(date -d @$STARTTIME)"
     #echo $STARTTIME
   fi
+  prevline=$line
 done < $SCHEDULE
 
 ) 201>$SCHEDLOCKFILE
