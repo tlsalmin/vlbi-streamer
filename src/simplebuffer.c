@@ -121,12 +121,6 @@ int sbuf_release(void* buffo)
   sbuf->opt = NULL;
   sbuf->diff = 0;
 
-  //sbuf->opt_old = sbuf->opt;
-  //sbuf->file_seqnum_old = sbuf->file_seqnum;
-  
-
-  //sbuf->opt = sbuf->opt_default;
-  //sbuf->file_seqnum = -1;
   return 0;
 }
 void preheat_buffer(void* buf, struct opt_s* opt)
@@ -754,78 +748,80 @@ void *sbuf_simple_write_loop(void *buffo)
 	  if(sbuf->opt->optbits & READMODE){
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_INMEM, ADDTOFILESTATUS);
 	    D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fileid);
+	    LOCK(be->headlock);
 	    set_loaded(sbuf->opt->membranch, be->self);
 	  }
-	  else{
+	  else
+	  {
+	    D("Write cycle complete for recording %s. Setting self to free since done on file %ld",, sbuf->opt->filename, sbuf->fileid);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
-	    D("Write cycle complete for recording %s. Setting self to free since done on file %ld",, sbuf->opt->filename, sbuf->fileid);
 	    if(wake_up_waiters(sbuf->opt->fi) != 0)
 	      E("Error in waking up waiters");
+	    LOCK(be->headlock);
 	    set_free(sbuf->opt->membranch, be->self);
 	  }
 	  D("Write/read complete!");
-	  LOCK(be->headlock);
 	  sbuf->ready_to_act = 0;
 	  UNLOCK(be->headlock);
 	}
       }
     }
-    }
-    D("Finished on id %d",,sbuf->bufnum);
-    pthread_exit(NULL);
   }
-  void sbuf_cancel_writebuf(struct buffer_entity *be)
-  {
-    D("Cancelling request for buffer");
-    struct simplebuf *sbuf = be->opt;
+  D("Finished on id %d",,sbuf->bufnum);
+  pthread_exit(NULL);
+}
+void sbuf_cancel_writebuf(struct buffer_entity *be)
+{
+  D("Cancelling request for buffer");
+  struct simplebuf *sbuf = be->opt;
+  LOCK(be->headlock);
+  sbuf->ready_to_act = 0;
+  UNLOCK(be->headlock);
+  set_free(sbuf->opt->membranch, be->self);
+}
+void sbuf_stop_running(struct buffer_entity *be)
+{
+  D("Stopping sbuf thread");
+  ((struct simplebuf*)be->opt)->running = 0;
+  LOCK(be->headlock);
+  pthread_cond_signal(be->iosignal);
+  UNLOCK(be->headlock);
+  D("Stopped and signalled");
+}
+void sbuf_set_ready(struct buffer_entity *be, int mutex_free)
+{
+  if(mutex_free == 0)
     LOCK(be->headlock);
-    sbuf->ready_to_act = 0;
+  ((struct simplebuf*)be->opt)->ready_to_act = 1;
+  if(mutex_free == 0)
     UNLOCK(be->headlock);
-    set_free(sbuf->opt->membranch, be->self);
-  }
-  void sbuf_stop_running(struct buffer_entity *be)
-  {
-    D("Stopping sbuf thread");
-    ((struct simplebuf*)be->opt)->running = 0;
-    LOCK(be->headlock);
-    pthread_cond_signal(be->iosignal);
-    UNLOCK(be->headlock);
-    D("Stopped and signalled");
-  }
-  void sbuf_set_ready(struct buffer_entity *be, int mutex_free)
-  {
-    if(mutex_free == 0)
-      LOCK(be->headlock);
-    ((struct simplebuf*)be->opt)->ready_to_act = 1;
-    if(mutex_free == 0)
-      UNLOCK(be->headlock);
-  }
+}
 int sbuf_getshmid(struct buffer_entity* be)
 {
   return ((struct simplebuf*)be->opt)->shmid;
 }
-  void sbuf_set_ready_and_signal(struct buffer_entity *be, int mutex_free)
-  {
-    if(mutex_free == 0)
-      LOCK(be->headlock);
-    ((struct simplebuf*)be->opt)->ready_to_act = 1;
-    pthread_cond_signal(be->iosignal);
-    if(mutex_free == 0)
-      UNLOCK(be->headlock);
-  }
-  int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
-  {
-    be->init = sbuf_init;
-    be->simple_get_writebuf = sbuf_getbuf;
-    be->close = sbuf_close;
-    be->write_loop = sbuf_simple_write_loop;
-    be->stop = sbuf_stop_running;
-    be->set_ready = sbuf_set_ready;
-    be->set_ready_and_signal = sbuf_set_ready_and_signal;
-    be->acquire = sbuf_acquire;
-    be->cancel_writebuf = sbuf_cancel_writebuf;
-    be->get_shmid = sbuf_getshmid;
+void sbuf_set_ready_and_signal(struct buffer_entity *be, int mutex_free)
+{
+  if(mutex_free == 0)
+    LOCK(be->headlock);
+  ((struct simplebuf*)be->opt)->ready_to_act = 1;
+  pthread_cond_signal(be->iosignal);
+  if(mutex_free == 0)
+    UNLOCK(be->headlock);
+}
+int sbuf_init_buf_entity(struct opt_s * opt, struct buffer_entity *be)
+{
+  be->init = sbuf_init;
+  be->simple_get_writebuf = sbuf_getbuf;
+  be->close = sbuf_close;
+  be->write_loop = sbuf_simple_write_loop;
+  be->stop = sbuf_stop_running;
+  be->set_ready = sbuf_set_ready;
+  be->set_ready_and_signal = sbuf_set_ready_and_signal;
+  be->acquire = sbuf_acquire;
+  be->cancel_writebuf = sbuf_cancel_writebuf;
+  be->get_shmid = sbuf_getshmid;
 
-    return be->init(opt,be); 
-  }
+  return be->init(opt,be); 
+}

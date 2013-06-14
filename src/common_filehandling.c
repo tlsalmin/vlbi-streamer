@@ -50,7 +50,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   }
   FI_READLOCK(opt->fi);
   if(!(FH_STATUS(st->files_loaded) & FH_ONDISK)){
-    if(FH_STATUS(st->files_loaded) & (FH_BUSY|FH_INMEM))
+    if(FH_STATUS(st->files_loaded) & (FH_BUSY))
     {
       if(st->files_in_loading > 0){
 	FIUNLOCK(opt->fi);
@@ -58,10 +58,18 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
       }
       else
       {
-	while(FH_STATUS(st->files_loaded) & (FH_BUSY|FH_INMEM))
+	while((FH_STATUS(st->files_loaded) & (FH_BUSY)) && !(FH_STATUS(st->files_loaded) & FH_ONDISK))
 	{
+	  FI_CONDLOCK(opt->fi);
+	  FIUNLOCK(opt->fi);
 	  err = mutex_free_wait_on_update(opt->fi);
-	  CHECK_ERR("wait on update");
+	  FI_CONDUNLOCK(opt->fi);
+	  if(err != 0)
+	  {
+	    E("on wait on update");
+	    return -1;
+	  }
+	  FI_READLOCK(opt->fi);
 	}
       }
     }
@@ -75,27 +83,27 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   FIUNLOCK(opt->fi);
   /*TODO Lets skip this perf improvement stuff for now */
   /*
-  if(st->head_loaded->status & FH_INMEM){
-    struct buffer_entity *tempen;
-    AUGMENTUNLOCK;
-    if((tempen = get_lingering(opt->membranch, opt, st->head_loaded, 0)) != NULL){
-      D("Found lingering file!");
-      if(be != NULL){
-	D("Had a ready buffer, but found lingering. Setting old to free");
-	set_free(opt->membranch, be->self);
-      }
-      be = tempen;
-      st->packets_loaded+=nuf;
-      st->head_loaded = st->head_loaded->next;
-      return 0;
-    }
-    else
-      D("Didn't find lingering file");
-  }
-  else
-    AUGMENTUNLOCK;
+     if(st->head_loaded->status & FH_INMEM){
+     struct buffer_entity *tempen;
+     AUGMENTUNLOCK;
+     if((tempen = get_lingering(opt->membranch, opt, st->head_loaded, 0)) != NULL){
+     D("Found lingering file!");
+     if(be != NULL){
+     D("Had a ready buffer, but found lingering. Setting old to free");
+     set_free(opt->membranch, be->self);
+     }
+     be = tempen;
+     st->packets_loaded+=nuf;
+     st->head_loaded = st->head_loaded->next;
+     return 0;
+     }
+     else
+     D("Didn't find lingering file");
+     }
+     else
+     AUGMENTUNLOCK;
 
-    */
+*/
   nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   if(nuf == 0)
   {
@@ -130,19 +138,19 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   be->simple_get_writebuf(be, &inc);
   /* Why the hell did i do this? :D */
   /*
-  if(nuf == opt->buf_num_elems)
-    *inc = FILESIZE;
-  else
-  */
+     if(nuf == opt->buf_num_elems)
+   *inc = FILESIZE;
+   else
+   */
   /*
-  if(nuf == opt->buf_num_elems){
-    *inc = FILESIZE;
-  }
-  else{
-    D("Loading incomplete file so setting inc not to whole file");
-    *inc = nuf*opt->packet_size;
-  }
-  */
+     if(nuf == opt->buf_num_elems){
+   *inc = FILESIZE;
+   }
+   else{
+   D("Loading incomplete file so setting inc not to whole file");
+   *inc = nuf*opt->packet_size;
+   }
+   */
   *inc = nuf*(opt->packet_size);
 
   be->set_ready(be, 1);
@@ -162,12 +170,12 @@ int loadup_n(struct opt_s *opt, struct sender_tracking * st)
 
   int loadup = MIN(st->allocated_to_load, opt->n_threads);
   /*
-  for(i=0;i<loadup;i++)
-  {
-    if(FH_STATUS(st->files_loaded) & FH_BUSY)
-  }
-  FIUNLOCK(opt->fi);
-  */
+     for(i=0;i<loadup;i++)
+     {
+     if(FH_STATUS(st->files_loaded) & FH_BUSY)
+     }
+     FIUNLOCK(opt->fi);
+     */
 
   /* Check if theres empties right at the start */
   /* Added && for files might be skipped in start_loading */
@@ -205,10 +213,10 @@ inline int should_i_be_running(struct opt_s *opt, struct sender_tracking *st)
   }
   /* Check if the receiver is still running */
   /*
-  if(opt->optbits & READMODE && (st->status_probed & FILESTATUS_RECORDING)){
-    return 1;
-  }
-  */
+     if(opt->optbits & READMODE && (st->status_probed & FILESTATUS_RECORDING)){
+     return 1;
+     }
+     */
   if(st->n_packets_probed > st->packets_sent)
     return 1;
   /* If we still have files */
@@ -259,7 +267,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       err = wait_on_update(opt->fi);
       CHECK_ERR("wait on update");
       full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
-  st->total_bytes_to_send = st->n_packets_probed*opt->packet_size;
+      st->total_bytes_to_send = st->n_packets_probed*opt->packet_size;
     }
     else{
       D("Ending jump to next file. All done");
