@@ -477,7 +477,7 @@ int main(int argc, char ** argv)
   int err;
   memset(cce, 0, sizeof(struct common_control_element));
   cce->max_errors = 30;
-  cce->framesize = 1024
+  cce->framesize = 1024;
   if(getopts(argc, argv, cce) != 0)
   {
     E("Error in getting opts");
