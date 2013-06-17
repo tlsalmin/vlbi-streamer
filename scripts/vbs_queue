@@ -6,6 +6,7 @@ OPTIONS:
       -a MYY		Wait MYY microseconds between packet sends
       -c CFGFILE	Load config from cfg-file CFGFILE
       -C 		Run connect before starting send on UDP-packets.
+      -g 		Use the largest available recv or send parameters in TCP
       -i INTERFACE	Which interface to bind to.
       -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
@@ -63,6 +64,10 @@ do
       EXTRAOPS="$EXTRAOPS
       offset = ${2};"
       shift
+      ;;
+    -g)
+      EXTRAOPS="$EXTRAOPS
+      use_largest_transac = 1;"
       ;;
     -l)
       EXTRAOPS="$EXTRAOPS

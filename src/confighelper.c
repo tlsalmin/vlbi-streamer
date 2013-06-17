@@ -408,6 +408,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	}
       }
     }
+    CFG_FULL_BOOLEAN(USE_LARGEST_TRANSAC, "use_largest_transac")
     CFG_FULL_BOOLEAN(USE_HUGEPAGE, "use_hugepage")
     //CFG_FULL_BOOLEAN(CHECK_SEQUENCE, "check_sequence")
     CFG_FULL_BOOLEAN(USE_RX_RING, "use_rx_ring")

@@ -189,14 +189,16 @@ int loop_with_recv(struct streamer_entity *se)
 
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
   long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
-  //int fd_out = se->be->get_shmid(se->be);
-  //long request;
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
-    //request = MIN(
-    //err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, (bufsize - *buf_incrementer), 0);
-    err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, MIN(spec_ops->opt->packet_size,(bufsize-*buf_incrementer)), 0);
+    /* In local area receive using the packet_size as recv-argument seems to yield better results	*/
+    /* This is set as an option, since long range transfers might benefit by getting a larger planning	*/
+    /* window when using the whole buffer as a size							*/
+    if(spec_ops->opt->optbits & USE_LARGEST_TRANSAC)
+      err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, (bufsize - *buf_incrementer), 0);
+    else
+      err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, MIN(spec_ops->opt->packet_size,(bufsize-*buf_incrementer)), 0);
     err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
     if(err != 0){
       D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
@@ -228,7 +230,10 @@ int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
   int err;
   struct socketopts *spec_ops = se->opt;
 
-  err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), st->packetcounter, MSG_NOSIGNAL);
+  if(spec_ops->opt->optbits & USE_LARGEST_TRANSAC)
+    err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), st->packetcounter, MSG_NOSIGNAL);
+  else
+    err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), MIN(spec_ops->opt->packet_size, st->packetcounter), MSG_NOSIGNAL);
   // Increment to the next sendable packet
   if(err < 0){
     perror("Send stream data");

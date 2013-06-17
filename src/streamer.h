@@ -74,12 +74,7 @@
 #define CAPTURE_W_TCPSPLICE	B(17)
 #define CAPTURE_W_LOCALSOCKET	B(18)
 
-/* How fanout works */
-/*
-#define LOCKER_FANOUT		0x0000f000
-#define PACKET_FANOUT_HASH     	0x01 << 12
-#define PACKET_FANOUT_LB        0x01 << 13
-*/
+/* These are for 
 
 /* Global stuff */
 //#define CHECK_SEQUENCE 		B(12)
@@ -110,6 +105,7 @@
 #define READMODE		B(47)
 
 #define USE_HUGEPAGE		B(48)
+#define USE_LARGEST_TRANSAC	B(49)
 
 #define MEG			B(20)
 #define GIG			B(30)
