@@ -7,13 +7,13 @@ OPTIONS:
       -c CFGFILE	Load config from cfg-file CFGFILE
       -C 		Run connect before starting send on UDP-packets.
       -g 		Use the largest available recv or send parameters in TCP
-      -i INTERFACE	Which interface to bind to.
+      -i ADDRESS	Which address to bind to.
       -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
       -n IP		Simultaneously send stream to IP
       -p SIZE		Expect SIZE size payload on packets. Reject everything else.
       -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,mark5bnet)
-      -r RATE		Expected network rate in MB(default: 10000)
+      -r RATE		Expected network rate in Mb/s(default: 10000)
       -s SOCKET		Socket number(Default: 2222)
       -S 		Write to a single file (bottlenecks unless used with a raid)
       -e POSIX_TIME	start event at START_TIME (time since epoch or anything the date command accepts)
@@ -57,7 +57,7 @@ do
       ;;
     -i)
       EXTRAOPS="$EXTRAOPS
-      device_name = \"$2\";"
+      address_to_bind_to = \"$2\";"
       shift
       ;;
     -f)

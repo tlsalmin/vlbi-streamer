@@ -53,6 +53,7 @@ do
       case $doit in
 	n|N) exit 1;;
       esac
+      printf "\n"
       ;;
     -a) 
       FORMAT=1
@@ -139,6 +140,7 @@ USED_MOUNTPOINTS=$(mount | grep ${ROOTDIRS}| cut -d ' ' -f 3)
 USED_DEVICES=$(mount | grep ${ROOTDIRS}| cut -d ' ' -f 3)
 
 k=0
+#What would be cool: Do this next loop in parallel
 for i in "${DRIVES[@]}"
 do
   if [ "$REARRANGE" -eq "0" ]

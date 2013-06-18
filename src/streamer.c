@@ -1201,7 +1201,7 @@ int print_midstats(struct schedule* sched, struct stats* old_stats)
   oper_to_all(sched->default_opt->diskbranch,BRANCHOP_GETSTATS,(void*)&tempstats);
   neg_stats(&tempstats, old_stats);
   total_mbits = BYTES_TO_MBITSPS(tempstats.total_written);
-  LOG("HD-Speed:\t%5.0fMB/s\n" , total_mbits/timedif);
+  LOG("HD-Speed:\t%5.0fMb/s\n" , total_mbits/timedif);
   add_stats(old_stats, &tempstats);
 
   LOG("Ringbuffers: ");
