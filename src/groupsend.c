@@ -41,6 +41,8 @@
 #define UDP_SOCKET	B(0)
 #define TCP_SOCKET	B(1)
 
+#define TCP_BONUS 256
+
 //#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 /*
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
@@ -144,6 +146,8 @@ int main(int argc, char** argv){
   int dont_run = 0;
   struct timespec tval_start, tval;
   int runtime;
+  int portn;
+  size_t sendbuffer;
   int smallest=0;
   int n_targets=0;
   int ret;
@@ -151,12 +155,19 @@ int main(int argc, char** argv){
   uint64_t min;
 
   opts |= UDP_SOCKET;
-  while((ret = getopt(argc, argv, "t")) != -1)
+  while((ret = getopt(argc, argv, "tp:")) != -1)
   {
     switch (ret){
       case 't':
 	opts &= ~UDP_SOCKET;
 	opts |= TCP_SOCKET;
+	break;
+      case 'p':
+	portn = atoi(optarg);
+	if(portn <= 0 || portn >= 65536){
+	  E("Illegal port %d",, portn);
+	  usage(argv[0]);
+	}
 	break;
       default:
 	E("Unknown parameter %c",, ret);
@@ -195,15 +206,20 @@ int main(int argc, char** argv){
   //O("Starting %d streams to %s with packet size %d\n", streams, target, packet_size);
 
   int * sockets = (int*)malloc(sizeof(int)*streams);
-  void* buf = malloc(packet_size);
+  /* Lets shove a multiple of packet_size for TCP to get better throughput	*/
+  if(opts & TCP_SOCKET)
+    sendbuffer = packet_size*TCP_SOCKET;
+  else
+    sendbuffer = packet_size;
 
+  void* buf = malloc(sendbuffer);
 
   port = malloc(sizeof(char)*8);
 
   O("Connecting");
   for(i=0;i<streams;i++){
     memset(port, 0, sizeof(char)*8);
-    sprintf(port, "%d", STARTPORT+i);
+    sprintf(port, "%d", portn+i);
     err = connect_to_c(targets[i%n_targets], port, &sockets[i]);
     if(err != 0){
       E("Error in connect");
@@ -224,7 +240,7 @@ int main(int argc, char** argv){
 	smallest = i; 
       }
     }
-    err = send(sockets[smallest], buf,packet_size, 0);
+    err = send(sockets[smallest], buf,sendbuffer, 0);
     if(err > 0)
       sent[smallest] += err;
     else if(err < 0){
@@ -249,6 +265,6 @@ int main(int argc, char** argv){
   }
   free(sockets);
   for(i=0;i<streams;i++)
-    O("Sent %ld bytes to %d port\n", sent[i], i);
+    O("Sent %ld bytes to port %d\n", sent[i], portn+i);
   return 0;
 }
