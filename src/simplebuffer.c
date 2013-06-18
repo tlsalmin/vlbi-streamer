@@ -717,7 +717,7 @@ void *sbuf_simple_write_loop(void *buffo)
 
     if(sbuf->diff > 0){
       D("Blocking reads/writes. Left to read/write %ld for file %lu",,sbuf->diff,sbuf->fileid);
-      ASSERT((unsigned)sbuf->diff <= CALC_BUFSIZE_FROM_OPT(sbuf->opt));
+      ASSERT((unsigned)sbuf->diff <= CALC_BUFSIZE_FROM_OPT_NOOFFSET(sbuf->opt));
       savedif = sbuf->diff;
       ret = -1;
 

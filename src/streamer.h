@@ -191,6 +191,7 @@ define CALC_BUF_SIZE(x) calculate_buffer_sizes(x)
 #define WRITEND_WANTS_PAGESIZE(x) ((x)->optbits &(REC_SPLICER))
 
 #define CALC_BUFSIZE_FROM_OPT(opt) ((opt)->buf_num_elems*((opt)->packet_size-(opt)->offset))
+#define CALC_BUFSIZE_FROM_OPT_NOOFFSET(opt) ((opt)->buf_num_elems*((opt)->packet_size))
 
 #include <pthread.h>
 #include <config.h>

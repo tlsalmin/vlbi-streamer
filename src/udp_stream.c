@@ -671,7 +671,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	(*(resq->inc))+=spec_ops->opt->packet_size;
 	resq->i++;
       }
-      ASSERT((unsigned)*resq->inc <= CALC_BUFSIZE_FROM_OPT(spec_ops->opt));
+      ASSERT((unsigned)*resq->inc <= CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt));
       spec_ops->total_transacted_bytes +=(unsigned int) received;
       spec_ops->opt->total_packets++;
       if(spec_ops->opt->last_packet == spec_ops->opt->total_packets){
