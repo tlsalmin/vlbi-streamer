@@ -74,11 +74,6 @@
 #define CAPTURE_W_TCPSPLICE	B(17)
 #define CAPTURE_W_LOCALSOCKET	B(18)
 
-/* These are for 
-
-/* Global stuff */
-//#define CHECK_SEQUENCE 		B(12)
-
 #define WILL_GIVE_SOCKET	B(24)
 #define VERBOSE			B(25)
 #define MOUNTPOINT_VERBOSE	B(26)

@@ -56,7 +56,7 @@ void seqnum_clean(struct common_control_element *cce)
 }
 int init_seqnum_data(struct common_control_element *cce)
 {
-  struct metadata_seqnum* ms;
+  struct metadata_seqnum* ms=NULL;
   if(cce->framesize <= 0|| cce->framesize > MAX_FRAMESIZE){
     E("Illegal framesize %d",, cce->framesize);
     return -1;
