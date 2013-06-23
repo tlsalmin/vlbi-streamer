@@ -295,7 +295,6 @@ int main(int argc, char** argv){
       GETTIME(tval);
       pthread_rwlock_unlock(&rwl);
       O("%ld %0.2Lf\n", get_sec_diff(&tval_start,&tval), (((long double)total-(long double)total_last)*((long double)8))/(((long double)(1024*1024))*((long double)nanodiff(&tval_temp, &tval)/((long double)BILLION))));
-      O("Dat nanodiff %Lf\n", ((long double)nanodiff(&tval_temp, &tval)/((long double)BILLION)));
       total_last = total;
       total = 0;
       if(GETSECONDS(tval)-GETSECONDS(tval_start) > runtime)
