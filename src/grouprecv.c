@@ -150,6 +150,7 @@ void usage()
 size_t sendbuffer;
 pthread_rwlock_t rwl;
 volatile int running;
+volatile int got_accept=0;
 void * buf;
 
 struct sillystruct{
@@ -172,6 +173,7 @@ void * sendthread(void * opts)
     running=0;
     pthread_exit(NULL);
   }
+  got_accept=1;
   while(running == 1){
     err = recv(fd, buf,sendbuffer, 0);
 
@@ -313,6 +315,10 @@ int main(int argc, char** argv){
       O("%ld %0.2Lf\n", get_sec_diff(&tval_start,&tval), (((long double)total-(long double)total_last)*((long double)8))/(((long double)(1024*1024))*((long double)nanodiff(&tval_temp, &tval)/((long double)BILLION))));
       total_last = total;
       total = 0;
+      if(got_accept ==0){
+	runtime++;
+	GETTIME(tval_start);
+      }
       if(GETSECONDS(tval)-GETSECONDS(tval_start) > runtime)
       {
 	O("All done\n");
