@@ -41,6 +41,7 @@
 #define B(x) (1l << x)
 #define UDP_SOCKET	B(0)
 #define TCP_SOCKET	B(1)
+#define SINGLEPORT	B(2)
 
 #define TCP_BONUS 256
 
@@ -56,6 +57,21 @@
     do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
 #define STARTPORT 2222
+#define MAX_TARGETS 16
+#define HOSTNAME_MAXLEN    256
+size_t sendbuffer;
+pthread_rwlock_t rwl;
+volatile int running;
+volatile int got_accept=0;
+int streams;
+void * buf;
+
+struct sillystruct{
+  int fd;
+  int seq;
+  pthread_t pt;
+  uint64_t sent;
+};
 
 int def=0, defcheck=0, len=0, packet_size=0;
 int opts;
@@ -97,7 +113,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       E("bind");
       continue;
     }
-    err = listen(*fd, 1);
+    err = listen(*fd, streams);
     if(err < 0)
     {
       close(*fd);
@@ -145,20 +161,6 @@ void usage()
   O("USAGE: groupsend <comma separated list of targets> <streams> <packet_size> <time>\n");
   exit(-1);
 }
-#define MAX_TARGETS 16
-#define HOSTNAME_MAXLEN    256
-size_t sendbuffer;
-pthread_rwlock_t rwl;
-volatile int running;
-volatile int got_accept=0;
-void * buf;
-
-struct sillystruct{
-  int fd;
-  int seq;
-  pthread_t pt;
-  uint64_t sent;
-};
 
 void * sendthread(void * opts)
 {
@@ -167,7 +169,9 @@ void * sendthread(void * opts)
   struct sockaddr temp;
   socklen_t sin_l= sizeof(struct sockaddr);
   struct sillystruct* st = (struct sillystruct*)opts;
+  pthread_rwlock_wrlock(&rwl);
   fd = accept(st->fd, &temp, &sin_l);
+  pthread_rwlock_unlock(&rwl);
   if(fd <0){
     perror("accept");
     running=0;
@@ -198,9 +202,9 @@ void * sendthread(void * opts)
 
 int main(int argc, char** argv){
   char * targets[MAX_TARGETS], *port;
-  int streams;
   TIMERTYPE tval_start, tval,sleep,tval_temp;
   int runtime;
+  int mainfd=0;
   int portn;
   int n_targets=0;
   int ret;
@@ -217,12 +221,15 @@ int main(int argc, char** argv){
   ZEROTIME(tval);
 
   opts |= UDP_SOCKET;
-  while((ret = getopt(argc, argv, "tp:")) != -1)
+  while((ret = getopt(argc, argv, "tp:s")) != -1)
   {
     switch (ret){
       case 't':
 	opts &= ~UDP_SOCKET;
 	opts |= TCP_SOCKET;
+	break;
+      case 's':
+	opts |= SINGLEPORT;
 	break;
       case 'p':
 	portn = atoi(optarg);
@@ -238,7 +245,6 @@ int main(int argc, char** argv){
   }
   argv+=(optind-1);
   argc-=(optind-1);
-  O("Hmsdf %d %d\n", optind, argc);
 
   if(argc != 5)
     usage();
@@ -277,11 +283,26 @@ int main(int argc, char** argv){
   for(i=0;i<streams;i++){
     memset(port, 0, sizeof(char)*8);
     sprintf(port, "%d", portn+i);
-    err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
-    if(err != 0){
-      E("Error in connect");
-      running=0;
-      break;
+    if(opts & SINGLEPORT)
+    {
+      if (mainfd == 0){
+	err = connect_to_c(targets[i%n_targets], port, &mainfd);
+	if(err != 0){
+	  E("Error in connect");
+	  running=0;
+	  break;
+	}
+      }
+      st[i].fd = mainfd;
+    }
+    else{
+
+      err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
+      if(err != 0){
+	E("Error in connect");
+	running=0;
+	break;
+      }
     }
     st[i].seq = i;
   }

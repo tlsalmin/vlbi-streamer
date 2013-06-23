@@ -295,6 +295,10 @@ struct opt_s
   pthread_mutex_t * writequeue;
   pthread_cond_t * writequeue_signal;
   
+  /* For TCP transfers. Expects stream_multiply accepts/connects on	*/
+  /* both ends and divides the transfer to individual streams		*/
+  int stream_multiply;
+
   int status;
 #if(PROTECT_STATUS_W_RWLOCK)
   pthread_rwlock_t statuslock;

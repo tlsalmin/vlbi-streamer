@@ -41,9 +41,23 @@
 #define B(x) (1l << x)
 #define UDP_SOCKET	B(0)
 #define TCP_SOCKET	B(1)
+#define SINGLEPORT	B(2)
 
 #define TCP_BONUS 256
 
+#define MAX_TARGETS 16
+#define HOSTNAME_MAXLEN    256
+size_t sendbuffer;
+pthread_rwlock_t rwl;
+volatile int running;
+void * buf;
+
+struct sillystruct{
+  int fd;
+  int seq;
+  pthread_t pt;
+  uint64_t sent;
+};
 //#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 /*
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
@@ -138,19 +152,6 @@ void usage()
   O("USAGE: groupsend <comma separated list of targets> <streams> <packet_size> <time>\n");
   exit(-1);
 }
-#define MAX_TARGETS 16
-#define HOSTNAME_MAXLEN    256
-size_t sendbuffer;
-pthread_rwlock_t rwl;
-volatile int running;
-void * buf;
-
-struct sillystruct{
-  int fd;
-  int seq;
-  pthread_t pt;
-  uint64_t sent;
-};
 
 void * sendthread(void * opts)
 {
@@ -199,12 +200,15 @@ int main(int argc, char** argv){
   ZEROTIME(tval);
 
   opts |= UDP_SOCKET;
-  while((ret = getopt(argc, argv, "tp:")) != -1)
+  while((ret = getopt(argc, argv, "tp:s")) != -1)
   {
     switch (ret){
       case 't':
 	opts &= ~UDP_SOCKET;
 	opts |= TCP_SOCKET;
+	break;
+      case 's':
+	opts |= SINGLEPORT;
 	break;
       case 'p':
 	portn = atoi(optarg);
@@ -220,7 +224,6 @@ int main(int argc, char** argv){
   }
   argv+=(optind-1);
   argc-=(optind-1);
-  O("Hmsdf %d %d\n", optind, argc);
 
   if(argc != 5)
     usage();
@@ -258,7 +261,10 @@ int main(int argc, char** argv){
   O("Connecting");
   for(i=0;i<streams;i++){
     memset(port, 0, sizeof(char)*8);
-    sprintf(port, "%d", portn+i);
+    if(opts & SINGLEPORT)
+      sprintf(port, "%d", portn);
+    else
+      sprintf(port, "%d", portn+i);
     err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
     if(err != 0){
       E("Error in connect");
