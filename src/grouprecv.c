@@ -88,15 +88,23 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       continue;
     }
 
-    err = connect(*fd, res->ai_addr, res->ai_addrlen);
+    int yes = 1;
+    err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    err = bind(*fd, res->ai_addr, res->ai_addrlen);
     if(err < 0)
     {
       close(*fd);
-      E("Connect to client");
+      E("bind");
       continue;
     }
-    int yes = 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    err = listen(*fd, 1);
+    if(err < 0)
+    {
+      close(*fd);
+      E("listen");
+      continue;
+    }
+
     gotthere=1;
     break;
   }
@@ -129,7 +137,6 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       E("Error in setting SO_SNDBUF");
   }
 
-
   return 0;
 }
 
@@ -155,17 +162,26 @@ struct sillystruct{
 void * sendthread(void * opts)
 {
   int err;
+  int fd;
+  struct sockaddr temp;
+  socklen_t sin_l= sizeof(struct sockaddr);
   struct sillystruct* st = (struct sillystruct*)opts;
+  fd = accept(st->fd, &temp, &sin_l);
+  if(fd <0){
+    perror("accept");
+    running=0;
+    pthread_exit(NULL);
+  }
   while(running == 1){
-    err = send(st->fd, buf,sendbuffer, 0);
+    err = recv(fd, buf,sendbuffer, 0);
 
     if(err < 0){
-      perror("Sending");
+      perror("Receiving");
       running = 0;
       break;
     }
     else if(err == 0){
-      O("Socket shutdown");
+      O("Socket shutdown\n");
       running = 0;
       break;
     }
