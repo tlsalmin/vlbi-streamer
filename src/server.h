@@ -7,7 +7,6 @@
 #define LOGFILE	LOCALSTATEDIR "/log/vlbistreamer.log"
 /* Not actually used heh.. */
 #define MAX_SCHEDULED 512
-#define MAX_RUNNING 4
 #define SECS_TO_START_IN_ADVANCE 1
 #define MAX_INOTIFY_EVENTS MAX_SCHEDULED
 #define IDSTRING_LENGTH 24

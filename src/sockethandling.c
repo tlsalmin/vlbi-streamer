@@ -112,7 +112,7 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
     D("Trying to connect socket to %s:%s",, hostname, port);
   for(p = *servinfo; p != NULL; p = p->ai_next)
   {
-    if((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
+    if((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <= 0)
     {
       E("Cant create socket to %s. Trying next",, p->ai_canonname);
       continue;
@@ -153,7 +153,7 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
     err = 0;
     break;
   }
-  if(err != 0 || *fd < 0){
+  if(err != 0 || *fd <= 0){
     E("Couldn't get socket at all. Exiting as failed");
     return -1;
   }
