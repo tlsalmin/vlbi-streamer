@@ -328,9 +328,9 @@ int main(int argc, char** argv){
     }
     for(i=0;i<streams;i++)
     {
-      pthread_join(st[i].pt, NULL);
       shutdown(st[i].fd, SHUT_RDWR);
       close(st[i].fd);
+      pthread_join(st[i].pt, NULL);
     }
   }
 
