@@ -97,14 +97,28 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
   CHECK_ERR("Common init");
 
   if(!(spec_ops->opt->optbits & READMODE)){
-    err = listen(spec_ops->fd, 1);
+    err = listen(spec_ops->fd, spec_ops->opt->stream_multiply);
+    LOG("Stream multiply is %d\n", spec_ops->opt->stream_multiply);
     CHECK_ERR("listen to socket");
   }
 
   return 0;
 }
+int change_buffer(struct streamer_entity *se, void**buf, uint64_t ** buf_incrementer)
+{
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+  spec_ops->opt->cumul++;
+  spec_ops->opt->total_packets += spec_ops->opt->buf_num_elems;
+  unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+  D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+  free_the_buf(se->be);
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
+  CHECK_AND_EXIT(se->be);
+  *buf = se->be->simple_get_writebuf(se->be, buf_incrementer);
+  return 0;
+}
 
-int handle_received_bytes(struct streamer_entity *se, long err, uint64_t bufsize, unsigned long ** buf_incrementer, void** buf)
+int handle_received_bytes(struct streamer_entity *se, long err, uint64_t bufsize, uint64_t ** buf_incrementer, void** buf)
 {
   struct socketopts * spec_ops = (struct socketopts*)se->opt;
   if(err < 0){
@@ -117,26 +131,19 @@ int handle_received_bytes(struct streamer_entity *se, long err, uint64_t bufsize
     return 1;
   }
   /*
-  else if(err != (bufsize-**buf_incrementer))
-    D("Supposed to send %ld but sent only %ld",, (bufsize-**buf_incrementer), err);
-  else
-    D("Sent %ld as told",, err);
-    */
+     else if(err != (bufsize-**buf_incrementer))
+     D("Supposed to send %ld but sent only %ld",, (bufsize-**buf_incrementer), err);
+     else
+     D("Sent %ld as told",, err);
+     */
   spec_ops->total_transacted_bytes += err;
   //spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
   **buf_incrementer += err;
   if(**buf_incrementer == bufsize)
   {
-    spec_ops->opt->cumul++;
-    spec_ops->opt->total_packets += spec_ops->opt->buf_num_elems;
-    unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-    D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
-    free_the_buf(se->be);
-    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
-    CHECK_AND_EXIT(se->be);
-    *buf = se->be->simple_get_writebuf(se->be, buf_incrementer);
+    err = change_buffer(se, buf, buf_incrementer);
+    CHECK_ERR("Change buffer");
   }
-
   return 0;
 }
 
@@ -167,8 +174,8 @@ int loop_with_splice(struct streamer_entity *se)
     se->be = NULL;
   }
   else{
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
-      D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     se->be->set_ready_and_signal(se->be,0);
   }
@@ -192,9 +199,9 @@ int loop_with_recv(struct streamer_entity *se)
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
-    /* In local area receive using the packet_size as recv-argument seems to yield better results	*/
-    /* This is set as an option, since long range transfers might benefit by getting a larger planning	*/
-    /* window when using the whole buffer as a size							*/
+    /* In local area receive using the packet_size as recv-argument seems to yield better results       */
+    /* This is set as an option, since long range transfers might benefit by getting a larger planning  */
+    /* window when using the whole buffer as a size                                                     */
     if(spec_ops->opt->optbits & USE_LARGEST_TRANSAC)
       err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, (bufsize - *buf_incrementer), 0);
     else
@@ -225,15 +232,85 @@ int loop_with_recv(struct streamer_entity *se)
 
   return 0;
 }
+int loop_with_multistream_recv(struct streamer_entity *se)
+{
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+  long err;
+  int stream_iterator=0;
+  int fd_now;
+  uint64_t *buf_incrementer;
+  uint32_t offsets_for_multiply[spec_ops->opt->stream_multiply];
+  uint32_t pready_for_multiply[spec_ops->opt->stream_multiply];
+  memset(&offsets_for_multiply, 0, sizeof(uint32_t)*spec_ops->opt->stream_multiply);
+  memset(&pready_for_multiply, 0, sizeof(uint32_t)*spec_ops->opt->stream_multiply);
+
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+  CHECK_AND_EXIT(se->be);
+
+  void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
+  uint64_t bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+  int remainder = spec_ops->opt->buf_num_elems % spec_ops->opt->stream_multiply;
+
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
+  {
+    fd_now = spec_ops->fds_for_multiply[stream_iterator];
+    if(fd_now != 0)
+    {
+      err = recv(fd_now, buf+stream_iterator*spec_ops->opt->packet_size+offsets_for_multiply[stream_iterator], (spec_ops->opt->packet_size-offsets_for_multiply[stream_iterator]), 0);
+      if(err < 0){
+	//err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
+	E("Error in tcp loop of transfer %s",, spec_ops->opt->filename);
+	break;
+      }
+      else if(err==0)
+      {
+	D("Closed %d socket for filename %s",, stream_iterator, spec_ops->opt->filename);
+	close(fd_now);
+	spec_ops->fds_for_multiply[stream_iterator] = 0;
+      }
+      else
+      {
+	spec_ops->total_transacted_bytes += err;
+	offsets_for_multiply[stream_iterator] += err;
+	if(offsets_for_multiply[stream_iterator] == spec_ops->opt->packet_size){
+	  pready_for_multiply[stream_iterator]++;
+	  offsets_for_multiply[stream_iterator] = 0;
+	}
+	*buf_incrementer+=err;
+      }
+      if(*buf_incrementer == bufsize)
+      {
+	remainder = (remainder + spec_ops->opt->buf_num_elems) % spec_ops->opt->stream_multiply;
+      }
+    }
+    stream_iterator = (stream_iterator+1)%spec_ops->opt->stream_multiply;
+  }
+  if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
+    *buf_incrementer =0 ;
+    se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+    D("Writebuf cancelled, since it was empty");
+  }
+  else{
+    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    spec_ops->opt->cumul++;
+    spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
+    se->be->set_ready_and_signal(se->be,0);
+  }
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+  if(!(get_status_from_opt(spec_ops->opt) & STATUS_ERROR))
+    set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
+
+  return 0;
+}
 int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   int err;
   struct socketopts *spec_ops = se->opt;
 
-  if(spec_ops->opt->optbits & USE_LARGEST_TRANSAC)
-    err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), st->packetcounter, MSG_NOSIGNAL);
-  else
-    err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), MIN(spec_ops->opt->packet_size, st->packetcounter), MSG_NOSIGNAL);
+  err = send(spec_ops->fd, se->be->buffer+(*spec_ops->inc), MIN(spec_ops->opt->packet_size, st->packetcounter), MSG_NOSIGNAL);
   // Increment to the next sendable packet
   if(err < 0){
     perror("Send stream data");
@@ -267,7 +344,7 @@ int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
   }
   /* Proper counting for TCP. Might be half a packet etc so we need to save reminder etc.	*/
   else{
-  /* sendfile increments inc	*/
+    /* sendfile increments inc	*/
     spec_ops->total_transacted_bytes +=err;
     st->packetcounter -= err;
   }
@@ -275,7 +352,7 @@ int tcp_sendfilecmd(struct streamer_entity* se, struct sender_tracking *st)
 }
 void* tcp_preloop(void *ser)
 {
-  int err;
+  int err,i;
   struct streamer_entity * se = (struct streamer_entity *)ser;
   struct socketopts *spec_ops = (struct socketopts*)se->opt;
   reset_udpopts_stats(spec_ops);
@@ -284,12 +361,28 @@ void* tcp_preloop(void *ser)
   {
     spec_ops->sin_l = sizeof(struct sockaddr);
     memset(&spec_ops->sin, 0, sizeof(struct sockaddr));
-    if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
+    if(spec_ops->opt->optbits & CAPTURE_W_TCPSTREAM){
+      if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
+      {
+	E("Error in accepting socket %d",, spec_ops->fd);
+	se->close_socket(se);
+	set_status_for_opt(spec_ops->opt, STATUS_ERROR);
+	pthread_exit(NULL);
+      }
+    }
+    else
     {
-      E("Error in accepting socket %d",, spec_ops->fd);
-      se->close_socket(se);
-      set_status_for_opt(spec_ops->opt, STATUS_ERROR);
-      pthread_exit(NULL);
+      spec_ops->fds_for_multiply = malloc(sizeof(int)*spec_ops->opt->stream_multiply);
+      for(i=0;i<spec_ops->opt->stream_multiply;i++)
+      {
+	if((spec_ops->fds_for_multiply[i] = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
+	{
+	  E("Error in accepting socket %d",, spec_ops->fd);
+	  se->close_socket(se);
+	  set_status_for_opt(spec_ops->opt, STATUS_ERROR);
+	  pthread_exit(NULL);
+	}
+      }
     }
     char s[INET6_ADDRSTRLEN];
     /* Stolen from the great Beejs network guide	*/
@@ -305,21 +398,27 @@ void* tcp_preloop(void *ser)
   switch (spec_ops->opt->optbits & LOCKER_CAPTURE)
   {
     case(CAPTURE_W_TCPSTREAM):
-      if (spec_ops->opt->optbits & READMODE)
-	err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
+      if(spec_ops->opt->optbits & READMODE)
+      err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
       else
 	err = loop_with_recv(se);
       break;
+    case(CAPTURE_W_MULTISTREAM):
+      if (spec_ops->opt->optbits & READMODE)
+      err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
+      else
+	err = loop_with_multistream_recv(se);
+      break;
     case(CAPTURE_W_TCPSPLICE):
       if (spec_ops->opt->optbits & READMODE)
-	err =  generic_sendloop(se, 0, tcp_sendfilecmd, bboundary_bytenum);
+      err =  generic_sendloop(se, 0, tcp_sendfilecmd, bboundary_bytenum);
       else
 	err = loop_with_splice(se);
       break;
     default:
       E("Undefined recceive loop");
       err = -1;
-    break;
+      break;
   }
   if(err != 0)
     E("Loop stopped in error");

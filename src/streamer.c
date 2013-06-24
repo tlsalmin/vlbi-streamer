@@ -382,6 +382,8 @@ int clear_and_default(struct opt_s* opt, int create_cfg){
   opt->maxmem = MAX_MEM_GIG;
   opt->optbits |= SIMPLE_BUFFER;
 
+  opt->stream_multiply = 1;
+
 #if(!DAEMON)
   opt->optbits |= GET_A_FILENAME_AS_ARG;
 #endif

@@ -11,6 +11,7 @@ OPTIONS:
       -f OFFSET		Strip offset amount of bytes from header of each packet
       -l LAST_PACKET	number of last packet to be received
       -n IP		Simultaneously send stream to IP
+      -u N		Multiply a TCP stream to use N different streams(must be same on both sides)
       -p SIZE		Expect SIZE size payload on packets. Reject everything else.
       -q DATATYPE	Receive DATATYPE type of data and resequence (DATATYPE: vdif, mark5b,udpmon,mark5bnet)
       -r RATE		Expected network rate in Mb/s(default: 10000)
@@ -63,6 +64,11 @@ do
     -f)
       EXTRAOPS="$EXTRAOPS
       offset = ${2};"
+      shift
+      ;;
+    -u)
+      EXTRAOPS="$EXTRAOPS
+      stream_multiply = ${2};"
       shift
       ;;
     -g)

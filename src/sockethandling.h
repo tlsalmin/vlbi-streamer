@@ -19,6 +19,7 @@ struct socketopts
   struct addrinfo *servinfo_simusend;
   size_t sinsize;
   int wrongsizeerrors;
+  int * fds_for_multiply;
 
   unsigned long missing;
   unsigned long total_transacted_bytes;

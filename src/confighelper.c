@@ -305,6 +305,9 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  case CAPTURE_W_TCPSTREAM:
 	    err = config_setting_set_string(setting, "tcpstream");
 	    break;
+	  case CAPTURE_W_MULTISTREAM:
+	    err = config_setting_set_string(setting, "multistream");
+	    break;
 	  case CAPTURE_W_TCPSPLICE:
 	    err = config_setting_set_string(setting, "tcpsplice");
 	    break;
@@ -331,20 +334,19 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	}
 	*/
 	else if (!strcmp(config_setting_get_string(setting), "disk2file")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DISK2FILE;
 	  opt->optbits |= READMODE;
 	}
 	else if (!strcmp(config_setting_get_string(setting), "dummy")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_DUMMY;
 	}
 	else if (!strcmp(config_setting_get_string(setting), "tcpstream")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_TCPSTREAM;
 	}
+	else if (!strcmp(config_setting_get_string(setting), "multistream")){
+	  opt->optbits |= CAPTURE_W_MULTISTREAM;
+	}
 	else if (!strcmp(config_setting_get_string(setting), "tcpsplice")){
-	  //opt->capture_type = CAPTURE_W_SPLICER;
 	  opt->optbits |= CAPTURE_W_TCPSPLICE;
 	}
 	else {
@@ -427,6 +429,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       CFG_FULL_UINT64(opt->last_packet, "last_packet")
       CFG_FULL_UINT64(opt->time, "time")
       CFG_FULL_INT(opt->port, "port")
+      CFG_FULL_INT(opt->stream_multiply, "stream_multiply")
       CFG_FULL_UINT64(opt->minmem, "minmem")
       CFG_FULL_UINT64(opt->maxmem, "maxmem")
       CFG_FULL_INT(opt->n_threads, "n_threads")

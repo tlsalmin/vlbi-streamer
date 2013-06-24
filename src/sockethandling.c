@@ -318,6 +318,8 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
     freeaddrinfo(spec_ops->servinfo);
   if(spec_ops->servinfo_simusend != NULL)
     freeaddrinfo(spec_ops->servinfo_simusend);
+  if(spec_ops->fds_for_multiply != NULL)
+    free(spec_ops->fds_for_multiply);
   LOG("UDP_STREAMER: Closed\n");
   /*
      if(spec_ops->sin != NULL)
