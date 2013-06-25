@@ -29,6 +29,30 @@ struct socketopts
   unsigned long *inc;
 
 };
+#define THREADSTATUS_KEEP_RUNNING 	B(0)
+#define THREADSTATUS_ALL_FULL	 	B(1)
+#define THREADSTATUS_CLEAN_EXIT	 	B(2)
+#define THREADSTATUS_ERROR	 	B(3)
+#define THREADSTATUS_PACKETS_REGISTERED	B(4)
+
+struct multistream_recv_data{
+  int status;
+  long unsigned *cumul;
+  int seq;
+  int* end_remainder;
+  int* start_remainder;
+  int fd;
+  void * buf;
+  uint64_t bytes_received;
+  int * threads_ready_or_err;
+  struct socketopts* spec_ops;
+  pthread_mutex_t * recv_mutex;
+  pthread_cond_t * recv_cond;
+  pthread_mutex_t * mainthread_mutex;
+  pthread_cond_t * mainthread_cond;
+  pthread_t pt;
+};
+
 /* TODO: packets_sent needs to be set somewhere in a tcp stream.	*/
 #define UDPS_EXIT do {spec_ops->opt->total_packets = st.n_packets_probed;D("Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} se->stop(se);return 0;}while(0)
 #define UDPS_EXIT_ERROR do {spec_ops->opt->total_packets = st.n_packets_probed; D("UDP_STREAMER: Closing sender thread. Left to send %lu, total sent: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} spec_ops->opt->status = STATUS_ERROR;if(spec_ops->fd != 0){if(close(spec_ops->fd) != 0){E("Error in closing fd");}}return -1;}while(0)

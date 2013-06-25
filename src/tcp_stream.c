@@ -232,6 +232,239 @@ int loop_with_recv(struct streamer_entity *se)
 
   return 0;
 }
+
+void * threaded_multistream_recv(void * data)
+{
+  uint64_t offset;
+  uint64_t packets_ready;
+  uint64_t max_packets;
+  int err;
+  void * correct_bufspot;
+  struct multistream_recv_data* td = (struct multistream_recv_data*)data;
+  struct socketopts *spec_ops = td->spec_ops;
+
+  while(td->status & THREADSTATUS_KEEP_RUNNING)
+  {
+    pthread_mutex_lock(td->recv_mutex);
+    while(td->status & THREADSTATUS_ALL_FULL)
+    {
+      pthread_cond_wait(td->recv_cond, td->recv_mutex);
+    }
+    if(!(td->status & THREADSTATUS_KEEP_RUNNING)){
+      D("Exit called for all threads");
+      break;
+    }
+    pthread_mutex_unlock(td->recv_mutex);
+    packets_ready =0;
+    td->bytes_received=0;
+    offset = 0;
+
+    max_packets = (spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-*(td->start_remainder))+*(td->end_remainder)))/spec_ops->opt->stream_multiply;
+    if(td->seq >= *(td->start_remainder))
+      max_packets++;
+    if(td->seq < (*td->end_remainder))
+      max_packets++;
+
+    correct_bufspot = td->buf+(td->seq*spec_ops->opt->packet_size);
+
+    while(packets_ready < max_packets)
+    {
+      err = recv(td->fd, correct_bufspot+offset, spec_ops->opt->packet_size-offset, 0);
+      if(err < 0)
+      {
+	E("Error in recv of a thread");
+	td->status = THREADSTATUS_ERROR;
+	break;
+      }
+      else if(err == 0){
+	D("Clean exit on thread %d",, td->seq);
+	td->status = THREADSTATUS_CLEAN_EXIT;
+	break;
+      }
+      if(err+offset == spec_ops->opt->packet_size)
+      {
+	packets_ready++;
+	correct_bufspot += spec_ops->opt->packet_size*spec_ops->opt->stream_multiply;
+	offset=0;
+	td->bytes_received += err;
+      }
+      else{
+	offset+=err;
+	td->bytes_received += err;
+      }
+    }
+    pthread_mutex_lock(td->mainthread_mutex);
+    if(packets_ready == max_packets){
+      td->status |= THREADSTATUS_ALL_FULL;
+    }
+    *(td->threads_ready_or_err) += 1;
+    pthread_cond_signal(td->mainthread_cond);
+    pthread_mutex_unlock(td->mainthread_mutex);
+  }
+  pthread_exit(NULL);
+}
+int loop_with_threaded_multistream_recv(struct streamer_entity *se)
+{
+  struct socketopts * spec_ops = (struct socketopts*)se->opt;
+  long err;
+  int i;
+  uint64_t *buf_incrementer;
+  int threads_ready_or_err =0;
+  int active_threads = spec_ops->opt->stream_multiply;
+  int errorflag=0;
+  pthread_mutex_t recv_mutex;
+  pthread_cond_t recv_cond;
+  pthread_mutex_t mainthread_mutex;
+  pthread_cond_t mainthread_cond;
+  struct multistream_recv_data *threads = malloc(sizeof(struct multistream_recv_data)*spec_ops->opt->stream_multiply);
+  memset(threads, 0 , sizeof(struct multistream_recv_data*)*spec_ops->opt->stream_multiply);
+
+  err = pthread_mutex_init(&recv_mutex, NULL);
+  CHECK_ERR("recv mutex init");
+  err = pthread_mutex_init(&mainthread_mutex, NULL);
+  CHECK_ERR("maintread mutex init");
+  err = pthread_cond_init(&recv_cond, NULL);
+  CHECK_ERR("recv cond init");
+  err = pthread_cond_init(&mainthread_cond, NULL);
+  CHECK_ERR("mainthread cond init");
+
+  se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
+  if(se->be == NULL)
+  {
+    E("Error in getting a buffer. Exiting");
+    free(threads);
+    return -1;
+  }
+
+  void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
+  int end_remainder = spec_ops->opt->buf_num_elems % spec_ops->opt->stream_multiply;
+  int start_remainder = spec_ops->opt->stream_multiply;
+
+  /* Formatting loop	*/
+  for(i=0;i<spec_ops->opt->stream_multiply;i++)
+  {
+    threads[i].cumul = &spec_ops->opt->cumul;
+    threads[i].start_remainder = &start_remainder;
+    threads[i].end_remainder = &end_remainder;
+    threads[i].fd = spec_ops->fds_for_multiply[i];
+    threads[i].buf = buf;
+    threads[i].seq = i;
+    threads[i].spec_ops = spec_ops;
+    threads[i].recv_mutex = &recv_mutex;
+    threads[i].mainthread_mutex = &mainthread_mutex;
+    threads[i].recv_cond = &recv_cond;
+    threads[i].mainthread_cond= &mainthread_cond;
+    threads[i].status |= THREADSTATUS_KEEP_RUNNING;
+    threads[i].threads_ready_or_err = &threads_ready_or_err;
+    err = pthread_create(&threads[i].pt, NULL, threaded_multistream_recv, (void*)&threads[i]);
+    if(err != 0){
+      E("Error in creating receiving thread");
+      free(threads);
+      return -1;
+    }
+  }
+
+  /* Mainloop		*/
+  while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING && active_threads > 0)
+  {
+    D("Starting main loop");
+    pthread_mutex_lock(&mainthread_mutex);
+    while(threads_ready_or_err < active_threads)
+      pthread_cond_wait(&mainthread_cond, &mainthread_mutex);
+    pthread_mutex_unlock(&mainthread_mutex);
+
+    D("All threads ready");
+    for(i=0;i<spec_ops->opt->stream_multiply;i++)
+    {
+      spec_ops->total_transacted_bytes += threads[i].bytes_received;
+      *buf_incrementer += threads[i].bytes_received;
+      if(threads[i].status & THREADSTATUS_CLEAN_EXIT){
+	active_threads--;
+	pthread_join(threads[i].pt, NULL);
+	D("One thread had clean exit");
+      }
+      if(threads[i].status & THREADSTATUS_ERROR){
+	D("One thread ended in err. Stopping everything");
+	active_threads = 0;
+	errorflag=1;
+	break;
+      }
+    }
+    if(errorflag ==1 || active_threads ==0 ){
+      D("Breaking out of main loop");
+      break;
+    }
+
+    if(end_remainder == 0)
+      start_remainder = spec_ops->opt->stream_multiply;
+    else
+      start_remainder = end_remainder;
+    end_remainder = (spec_ops->opt->buf_num_elems-(spec_ops->opt->stream_multiply-end_remainder)) % spec_ops->opt->stream_multiply;
+
+    D("Chancing buffer");
+    err = change_buffer(se, &buf, &buf_incrementer);
+
+    if(err != 0)
+      break;
+
+    pthread_mutex_lock(&recv_mutex);
+    for(i=0;i<spec_ops->opt->stream_multiply;i++)
+    {
+      /* Clears the full flag	*/
+      if(threads[i].status & THREADSTATUS_KEEP_RUNNING)
+	threads[i].status = THREADSTATUS_KEEP_RUNNING;
+    }
+    D("Broadcasting for threads to continue");
+    pthread_cond_broadcast(&recv_cond);
+    threads_ready_or_err=0;
+    pthread_mutex_unlock(&recv_mutex);
+    D("Buffer complete in multithreaded");
+  }
+  /* Double rundown loop	*/
+  pthread_mutex_lock(&recv_mutex);
+  for(i=0;i<spec_ops->opt->stream_multiply;i++)
+  {
+    *buf_incrementer += threads[i].bytes_received;
+    threads[i].status = 0;
+    if(threads[i].fd != 0)
+    {
+      shutdown(threads[i].fd, SHUT_RD);
+      close(threads[i].fd);
+    }
+  }
+  pthread_cond_broadcast(&recv_cond);
+  pthread_mutex_unlock(&recv_mutex);
+  for(i=0;i<spec_ops->opt->stream_multiply;i++)
+  {
+    pthread_join(threads[i].pt, NULL);
+  }
+  if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
+    *buf_incrementer =0 ;
+    se->be->cancel_writebuf(se->be);
+    se->be = NULL;
+    D("Writebuf cancelled, since it was empty");
+  }
+  else{
+    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    spec_ops->opt->cumul++;
+    spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
+    se->be->set_ready_and_signal(se->be,0);
+  }
+
+  pthread_mutex_destroy(&recv_mutex);
+  pthread_mutex_destroy(&mainthread_mutex);
+  pthread_cond_destroy(&recv_cond);
+  pthread_cond_destroy(&mainthread_cond);
+
+  free(threads);
+
+  LOG("%s Saved %lu files and %lu packets\n",spec_ops->opt->filename, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+  if(!(get_status_from_opt(spec_ops->opt) & STATUS_ERROR))
+    set_status_for_opt(spec_ops->opt, STATUS_STOPPED);
+
+  return 0;
+}
 int loop_with_multistream_recv(struct streamer_entity *se)
 {
   struct socketopts * spec_ops = (struct socketopts*)se->opt;
@@ -407,7 +640,7 @@ void* tcp_preloop(void *ser)
       if (spec_ops->opt->optbits & READMODE)
       err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
       else
-	err = loop_with_multistream_recv(se);
+	err = loop_with_threaded_multistream_recv(se);
       break;
     case(CAPTURE_W_TCPSPLICE):
       if (spec_ops->opt->optbits & READMODE)

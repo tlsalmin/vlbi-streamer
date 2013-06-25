@@ -835,6 +835,9 @@ int prep_streamer(struct opt_s* opt){
     case CAPTURE_W_TCPSTREAM:
       err = tcp_init(opt, opt->streamer_ent);
       break;
+    case CAPTURE_W_MULTISTREAM:
+      err = tcp_init(opt, opt->streamer_ent);
+      break;
     case CAPTURE_W_TCPSPLICE:
       err = tcp_init(opt, opt->streamer_ent);
       break;
