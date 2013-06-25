@@ -104,7 +104,7 @@ int setup_tcp_socket(struct opt_s *opt, struct streamer_entity *se)
 
   return 0;
 }
-int change_buffer(struct streamer_entity *se, void**buf, uint64_t ** buf_incrementer)
+void* change_buffer(struct streamer_entity *se, uint64_t ** buf_incrementer)
 {
   struct socketopts * spec_ops = (struct socketopts*)se->opt;
   spec_ops->opt->cumul++;
@@ -113,38 +113,11 @@ int change_buffer(struct streamer_entity *se, void**buf, uint64_t ** buf_increme
   D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
   free_the_buf(se->be);
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
-  CHECK_AND_EXIT(se->be);
-  *buf = se->be->simple_get_writebuf(se->be, buf_incrementer);
-  return 0;
-}
-
-int handle_received_bytes(struct streamer_entity *se, long err, uint64_t bufsize, uint64_t ** buf_incrementer, void** buf)
-{
-  struct socketopts * spec_ops = (struct socketopts*)se->opt;
-  if(err < 0){
-    E("Error in splice receive");
-    return -1;
+  if(se->be == NULL){
+    E("Could not get a buffer. Returning null");
+    return NULL;
   }
-  else if(err == 0)
-  {
-    D("Socket shutdown");
-    return 1;
-  }
-  /*
-     else if(err != (bufsize-**buf_incrementer))
-     D("Supposed to send %ld but sent only %ld",, (bufsize-**buf_incrementer), err);
-     else
-     D("Sent %ld as told",, err);
-     */
-  spec_ops->total_transacted_bytes += err;
-  //spec_ops->opt->total_packets += err/spec_ops->opt->packet_size;
-  **buf_incrementer += err;
-  if(**buf_incrementer == bufsize)
-  {
-    err = change_buffer(se, buf, buf_incrementer);
-    CHECK_ERR("Change buffer");
-  }
-  return 0;
+  return se->be->simple_get_writebuf(se->be, buf_incrementer);
 }
 
 int loop_with_splice(struct streamer_entity *se)
@@ -163,10 +136,25 @@ int loop_with_splice(struct streamer_entity *se)
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
     err = sendfile(fd_out, spec_ops->tcp_fd, NULL, (bufsize - *buf_incrementer));
-    err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
-    if(err != 0){
-      D("Finishing tcp splice loop for %s",, spec_ops->opt->filename);
+    if(err < 0){
+      E("Error in splice receive");
       break;
+    }
+    else if(err == 0)
+    {
+      D("Socket shutdown");
+      break;
+    }
+    spec_ops->total_transacted_bytes += err;
+    *buf_incrementer += err;
+    if(*buf_incrementer == bufsize)
+    {
+      buf = change_buffer(se, &buf_incrementer);
+      if(buf ==NULL)
+      {
+	E("Could not get a buffer");
+	break;
+      }
     }
   }
   if(*buf_incrementer == 0){
@@ -195,7 +183,7 @@ int loop_with_recv(struct streamer_entity *se)
   CHECK_AND_EXIT(se->be);
 
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
-  long bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
+  uint64_t bufsize = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 
   while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
   {
@@ -206,10 +194,25 @@ int loop_with_recv(struct streamer_entity *se)
       err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, (bufsize - *buf_incrementer), 0);
     else
       err = recv(spec_ops->tcp_fd, buf+*buf_incrementer, MIN(spec_ops->opt->packet_size,(bufsize-*buf_incrementer)), 0);
-    err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
-    if(err != 0){
-      D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+    if(err < 0){
+      E("Error in TCP receive");
       break;
+    }
+    else if(err == 0)
+    {
+      D("Socket shutdown");
+      break;
+    }
+    spec_ops->total_transacted_bytes += err;
+    *buf_incrementer += err;
+    if(*buf_incrementer == bufsize)
+    {
+      buf = change_buffer(se, &buf_incrementer);
+      if(buf ==NULL)
+      {
+	E("Could not get a buffer");
+	break;
+      }
     }
   }
   if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
@@ -256,20 +259,37 @@ void * threaded_multistream_recv(void * data)
     }
     pthread_mutex_unlock(td->recv_mutex);
     packets_ready =0;
-    td->bytes_received=0;
     offset = 0;
 
+    if((td->seq-*td->start_remainder) >= 0)
+    {
+      D("FIRST");
+      correct_bufspot = td->buf+((td->seq-*td->start_remainder)*spec_ops->opt->packet_size);
+    }
+    else{
+      D("SECOND");
+      correct_bufspot = td->buf+((td->seq+(spec_ops->opt->stream_multiply-*td->start_remainder))*spec_ops->opt->packet_size);
+    }
+
+    ASSERT(((spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-*(td->start_remainder))+*(td->end_remainder))) % spec_ops->opt->stream_multiply) == 0);
+
     max_packets = (spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-*(td->start_remainder))+*(td->end_remainder)))/spec_ops->opt->stream_multiply;
-    if(td->seq >= *(td->start_remainder))
+    if((td->seq - *(td->start_remainder)) >= 0)
       max_packets++;
     if(td->seq < (*td->end_remainder))
       max_packets++;
 
-    correct_bufspot = td->buf+(td->seq*spec_ops->opt->packet_size);
+    D("Thread %d calculated to acquire %ld packets",, td->seq, max_packets);
+
+    //ASSERT((correct_bufspot+(max_packets)*(spec_ops->opt->packet_size)*spec_ops->opt->stream_multiply) <= (td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)));
 
     while(packets_ready < max_packets)
     {
-      err = recv(td->fd, correct_bufspot+offset, spec_ops->opt->packet_size-offset, 0);
+      /*
+      if(td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt) <= correct_bufspot+offset)
+	D("Diff is %ld, packets ready %ld, max_packets %ld",, td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)- correct_bufspot+offset, packets_ready, max_packets);
+	*/
+      err = recv(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
       if(err < 0)
       {
 	E("Error in recv of a thread");
@@ -281,18 +301,19 @@ void * threaded_multistream_recv(void * data)
 	td->status = THREADSTATUS_CLEAN_EXIT;
 	break;
       }
-      if(err+offset == spec_ops->opt->packet_size)
+      if(err+offset >= spec_ops->opt->packet_size)
       {
 	packets_ready++;
 	correct_bufspot += spec_ops->opt->packet_size*spec_ops->opt->stream_multiply;
 	offset=0;
-	td->bytes_received += err;
       }
       else{
 	offset+=err;
-	td->bytes_received += err;
       }
     }
+    td->bytes_received = spec_ops->opt->packet_size*packets_ready;
+    D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
+    ASSERT(packets_ready <= max_packets);
     pthread_mutex_lock(td->mainthread_mutex);
     if(packets_ready == max_packets){
       td->status |= THREADSTATUS_ALL_FULL;
@@ -337,8 +358,9 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
   }
 
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
+  D("Dat buf_incrementer %ld",, *buf_incrementer);
   int end_remainder = spec_ops->opt->buf_num_elems % spec_ops->opt->stream_multiply;
-  int start_remainder = spec_ops->opt->stream_multiply;
+  int start_remainder = 0;
 
   /* Formatting loop	*/
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
@@ -354,7 +376,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     threads[i].mainthread_mutex = &mainthread_mutex;
     threads[i].recv_cond = &recv_cond;
     threads[i].mainthread_cond= &mainthread_cond;
-    threads[i].status |= THREADSTATUS_KEEP_RUNNING;
+    threads[i].status = THREADSTATUS_KEEP_RUNNING;
     threads[i].threads_ready_or_err = &threads_ready_or_err;
     err = pthread_create(&threads[i].pt, NULL, threaded_multistream_recv, (void*)&threads[i]);
     if(err != 0){
@@ -378,15 +400,20 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     {
       spec_ops->total_transacted_bytes += threads[i].bytes_received;
       *buf_incrementer += threads[i].bytes_received;
+      D("Thread %d has written %ld bytes",, threads[i].seq, threads[i].bytes_received);
+      threads[i].bytes_received=0;
       if(threads[i].status & THREADSTATUS_CLEAN_EXIT){
 	active_threads--;
 	pthread_join(threads[i].pt, NULL);
+	threads[i].pt = 0;
 	D("One thread had clean exit");
       }
       if(threads[i].status & THREADSTATUS_ERROR){
 	D("One thread ended in err. Stopping everything");
 	active_threads = 0;
 	errorflag=1;
+	pthread_join(threads[i].pt, NULL);
+	threads[i].pt = 0;
 	break;
       }
     }
@@ -395,14 +422,15 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
       break;
     }
 
-    if(end_remainder == 0)
-      start_remainder = spec_ops->opt->stream_multiply;
-    else
-      start_remainder = end_remainder;
+    start_remainder = end_remainder;
     end_remainder = (spec_ops->opt->buf_num_elems-(spec_ops->opt->stream_multiply-end_remainder)) % spec_ops->opt->stream_multiply;
 
-    D("Chancing buffer");
-    err = change_buffer(se, &buf, &buf_incrementer);
+    D("Chancing buffer. start_remainder %d end_remainder %d",, start_remainder, end_remainder);
+    buf = change_buffer(se, &buf_incrementer);
+    if(buf == NULL){
+      E("Could not get a buffer");
+      break;
+    }
 
     if(err != 0)
       break;
@@ -410,6 +438,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     pthread_mutex_lock(&recv_mutex);
     for(i=0;i<spec_ops->opt->stream_multiply;i++)
     {
+      threads[i].buf = buf;
       /* Clears the full flag	*/
       if(threads[i].status & THREADSTATUS_KEEP_RUNNING)
 	threads[i].status = THREADSTATUS_KEEP_RUNNING;
@@ -436,7 +465,8 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
   pthread_mutex_unlock(&recv_mutex);
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
   {
-    pthread_join(threads[i].pt, NULL);
+    if(threads[i].pt != 0)
+      pthread_join(threads[i].pt, NULL);
   }
   if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
     *buf_incrementer =0 ;

@@ -182,8 +182,8 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   //Moved buffer init to writer(Choosable by netreader-thread)
   int err;
   struct simplebuf * sbuf = (struct simplebuf*) malloc(sizeof(struct simplebuf));
-  memset(sbuf, 0, sizeof(struct simplebuf));
   CHECK_ERR_NONNULL_AUTO(sbuf);
+  memset(sbuf, 0, sizeof(struct simplebuf));
 
   be->opt = sbuf;
   sbuf->opt = opt;
@@ -308,10 +308,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
 	LOG("Max allocatable memory %ld MB. still reserving %lu MB more\n", maxmem/MEG, hog_memory/MEG);
 	//return -1;
       }
-      D("Memaligning buffer with %i sized %lu n_elements",,sbuf->opt->buf_num_elems, sbuf->opt->packet_size);
       err = posix_memalign((void**)&(be->buffer), sysconf(_SC_PAGESIZE), hog_memory);
-      //sbuf->buffer = malloc(((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size));
-      //madvise(sbuf->buffer,   ((unsigned long)sbuf->opt->buf_num_elems)*((unsigned long)sbuf->opt->packet_size),MADV_SEQUENTIAL|MADV_WILLNEED); 
       preheat_buffer(be->buffer, opt);
 
     }
