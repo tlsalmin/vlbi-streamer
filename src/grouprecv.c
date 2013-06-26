@@ -34,6 +34,11 @@
 #include <netinet/in.h>
 #include <endian.h>
 #include "timer.h"
+#ifdef LOG_TO_FILE
+#undef LOG_TO_FILE
+#define LOG_TO_FILE 0
+#endif
+#include "logging.h"
 //#include "udp_stream.h"
 //#include "timer.h"
 //#include "streamer.h"
@@ -53,13 +58,10 @@
 
 //#define O(...) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__);
 #define O(...) fprintf(stdout, __VA_ARGS__)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
 
 #define STARTPORT 2222
 #define MAX_TARGETS 16
 #define HOSTNAME_MAXLEN    256
-size_t sendbuffer;
 pthread_rwlock_t rwl;
 volatile int running;
 volatile int got_accept=0;
@@ -76,12 +78,12 @@ struct sillystruct{
 int def=0, defcheck=0, len=0, packet_size=0;
 int opts;
 /* Cleaned up from round 1	 	*/
-int connect_to_c(const char* t_target,const char* t_port, int * fd)
+int connect_to_c(const char* t_port, int * fd)
 {
   int err;
   struct addrinfo hints, *res, *p;
   memset(&hints, 0,sizeof(struct addrinfo));
-  //O("Connecting to %s port %s\n", t_target, t_port);
+  O("Creating socket for port %s\n", t_port);
 
   if(opts & TCP_SOCKET)
     hints.ai_socktype = SOCK_STREAM;
@@ -89,9 +91,9 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     hints.ai_socktype = SOCK_DGRAM;
   int gotthere;
   hints.ai_family = AF_UNSPEC;
-  err = getaddrinfo(t_target, t_port, &hints, &res);
+  err = getaddrinfo(NULL, t_port, &hints, &res);
   if(err != 0){
-    E("Error in getaddrinfo: %s for %s:%s",, gai_strerror(err), t_target, t_port);
+    E("Error in getaddrinfo: %s for %s",, gai_strerror(err),  t_port);
     return -1;
   }
   for(p = res; p != NULL; p = p->ai_next)
@@ -113,14 +115,16 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
       E("bind");
       continue;
     }
-    err = listen(*fd, streams);
-    if(err < 0)
+    if(opts&TCP_SOCKET)
     {
-      close(*fd);
-      E("listen");
-      continue;
+      err = listen(*fd, streams);
+      if(err < 0)
+      {
+	close(*fd);
+	E("listen");
+	continue;
+      }
     }
-
     gotthere=1;
     break;
   }
@@ -158,19 +162,23 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
 
 void usage()
 {
-  O("USAGE: groupsend <comma separated list of targets> <streams> <packet_size> <time>\n");
+  O("USAGE: grouprecv <starting_port> <streams> <packet_size> <time>\n");
   exit(-1);
 }
 
-void * sendthread(void * opts)
+void * sendthread(void * optsi)
 {
   int err;
   int fd;
   struct sockaddr temp;
   socklen_t sin_l= sizeof(struct sockaddr);
-  struct sillystruct* st = (struct sillystruct*)opts;
+  struct sillystruct* st = (struct sillystruct*)optsi;
+  D("Starting receive on fd %d",, st->fd);
   pthread_rwlock_wrlock(&rwl);
-  fd = accept(st->fd, &temp, &sin_l);
+  if(opts & TCP_SOCKET)
+    fd = accept(st->fd, &temp, &sin_l);
+  else
+    fd = st->fd;
   pthread_rwlock_unlock(&rwl);
   if(fd <0){
     perror("accept");
@@ -179,8 +187,7 @@ void * sendthread(void * opts)
   }
   got_accept=1;
   while(running == 1){
-    err = recv(fd, buf,sendbuffer, 0);
-
+    err = recv(fd, buf,packet_size, 0);
     if(err < 0){
       perror("Receiving");
       running = 0;
@@ -197,6 +204,7 @@ void * sendthread(void * opts)
       pthread_rwlock_unlock(&rwl);
     }
   }
+  D("exiting receive thread");
   pthread_exit(NULL);
 }
 
@@ -221,7 +229,7 @@ int main(int argc, char** argv){
   ZEROTIME(tval);
 
   opts |= UDP_SOCKET;
-  while((ret = getopt(argc, argv, "tp:s")) != -1)
+  while((ret = getopt(argc, argv, "ts")) != -1)
   {
     switch (ret){
       case 't':
@@ -231,16 +239,10 @@ int main(int argc, char** argv){
       case 's':
 	opts |= SINGLEPORT;
 	break;
-      case 'p':
-	portn = atoi(optarg);
-	if(portn <= 0 || portn >= 65536){
-	  E("Illegal port %d",, portn);
-	  usage(argv[0]);
-	}
-	break;
       default:
 	E("Unknown parameter %c",, ret);
 	usage(argv[0]);
+	break;
     }
   }
   argv+=(optind-1);
@@ -249,21 +251,9 @@ int main(int argc, char** argv){
   if(argc != 5)
     usage();
 
-  char * temp = argv[1], *temp2;
   int i=0, err = 0;
-  while((temp2 = index(temp, ',')) != NULL){
-    targets[n_targets] = malloc(sizeof(char)*HOSTNAME_MAXLEN);
-    memset(targets[n_targets], 0, sizeof(char)*HOSTNAME_MAXLEN);
-    memcpy(targets[n_targets], temp, temp2-temp);
-    n_targets++;
-    temp = temp2+1;
-  }
-  targets[n_targets] = temp;
-  n_targets++;
-  for(i=0;i<n_targets;i++)
-  {
-    O("Target %d is %s\n", i, targets[i]);
-  }
+
+  portn = atoi(argv[1]);
   streams = atoi(argv[2]);
   packet_size = atoi(argv[3]);
 
@@ -271,11 +261,10 @@ int main(int argc, char** argv){
   struct sillystruct* st = malloc(sizeof(struct sillystruct)*streams);
   memset(st, 0,sizeof(struct sillystruct)*streams);
 
-  //O("Starting %d streams to %s with packet size %d\n", streams, target, packet_size);
+  O("Starting %d streams receiving from port %d with packet size %d\n", streams, portn, packet_size);
 
-  sendbuffer = packet_size;
 
-  buf = malloc(sendbuffer);
+  buf = malloc(packet_size);
 
   port = malloc(sizeof(char)*8);
 
@@ -286,23 +275,14 @@ int main(int argc, char** argv){
     if(opts & SINGLEPORT)
     {
       if (mainfd == 0){
-	err = connect_to_c(targets[i%n_targets], port, &mainfd);
-	if(err != 0){
-	  E("Error in connect");
-	  running=0;
-	  break;
-	}
+	err = connect_to_c( port, &mainfd);
+	CHECK_ERR("connect");
       }
       st[i].fd = mainfd;
     }
     else{
-
-      err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
-      if(err != 0){
-	E("Error in connect");
-	running=0;
-	break;
-      }
+      err = connect_to_c( port, &st[i].fd);
+      CHECK_ERR("Connect");
     }
     st[i].seq = i;
   }
@@ -316,11 +296,7 @@ int main(int argc, char** argv){
     for(i=0;i<streams;i++)
     {
       err = pthread_create(&st[i].pt, NULL, sendthread,  &st[i]);
-      if(err != 0){
-	perror("create thread");
-	running=0;
-	break;
-      }
+      CHECK_ERR("Thread create");
     }
     COPYTIME(tval_start, tval_temp);
     while(running==1)

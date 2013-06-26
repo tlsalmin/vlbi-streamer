@@ -279,15 +279,18 @@ int loop_with_recv(struct streamer_entity *se)
   return 0;
 }
 
-void * threaded_multistream_recv(void * data)
+void * threaded_multistream(void * data)
 {
   uint64_t offset;
   uint64_t packets_ready;
   uint64_t max_packets;
+  uint64_t elems_in_buf;
   int err;
   void * correct_bufspot;
   struct multistream_recv_data* td = (struct multistream_recv_data*)data;
   struct socketopts *spec_ops = td->spec_ops;
+  /* For easier pointing	*/
+  struct sender_tracking *st = spec_ops->bufdata->st;
 
   while(td->status & THREADSTATUS_KEEP_RUNNING)
   {
@@ -317,7 +320,12 @@ void * threaded_multistream_recv(void * data)
 
     ASSERT(((spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-(spec_ops->bufdata->start_remainder))+(spec_ops->bufdata->end_remainder))) % spec_ops->opt->stream_multiply) == 0);
 
-    max_packets = (spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-(spec_ops->bufdata->start_remainder))+(spec_ops->bufdata->end_remainder)))/spec_ops->opt->stream_multiply;
+    if(spec_ops->opt->optbits & READMODE && ((st->n_packets_probed - st->packets_sent) < spec_ops->opt->buf_num_elems))
+      elems_in_buf = st->n_packets_probed-st->packets_sent;
+    else
+      elems_in_buf = spec_ops->opt->buf_num_elems;
+
+    max_packets = (elems_in_buf-((spec_ops->opt->stream_multiply-(spec_ops->bufdata->start_remainder))+(spec_ops->bufdata->end_remainder)))/spec_ops->opt->stream_multiply;
     if((td->seq - (spec_ops->bufdata->start_remainder)) >= 0)
       max_packets++;
     if(td->seq < (spec_ops->bufdata->end_remainder))
@@ -333,7 +341,10 @@ void * threaded_multistream_recv(void * data)
 	 if(td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt) <= correct_bufspot+offset)
 	 D("Diff is %ld, packets ready %ld, max_packets %ld",, td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)- correct_bufspot+offset, packets_ready, max_packets);
 	 */
-      err = recv(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
+      if(spec_ops->opt->optbits & READMODE)
+	err = send(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
+      else
+	err = recv(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
       if(err < 0)
       {
 	E("Error in recv of a thread");
@@ -396,11 +407,12 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     spec_ops->td[i].seq = i;
     spec_ops->td[i].spec_ops = spec_ops;
     spec_ops->td[i].status = THREADSTATUS_KEEP_RUNNING;
-    err = pthread_create(&spec_ops->td[i].pt, NULL, threaded_multistream_recv, (void*)&spec_ops->td[i]);
+    err = pthread_create(&spec_ops->td[i].pt, NULL, threaded_multistream, (void*)&spec_ops->td[i]);
     if(err != 0){
       E("Error in creating receiving thread");
       return -1;
     }
+    spec_ops->bufdata->initialized = 1;
   }
 
   /* Mainloop		*/
@@ -467,7 +479,6 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     D("Buffer complete in multithreaded");
   }
   D("Entering double rundown loop");
-  /* Double rundown loop	*/
   pthread_mutex_lock(&spec_ops->bufdata->recv_mutex);
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
   {
@@ -477,15 +488,11 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     {
       shutdown(spec_ops->td[i].fd, SHUT_RD);
       close(spec_ops->td[i].fd);
+      spec_ops->td[i].fd =0;
     }
   }
   pthread_cond_broadcast(&spec_ops->bufdata->recv_cond);
   pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
-  for(i=0;i<spec_ops->opt->stream_multiply;i++)
-  {
-    if(spec_ops->td[i].pt != 0)
-      pthread_join(spec_ops->td[i].pt, NULL);
-  }
   if(*buf_incrementer == 0 || *buf_incrementer < spec_ops->opt->packet_size){
     *buf_incrementer =0 ;
     se->be->cancel_writebuf(se->be);
@@ -584,6 +591,81 @@ if(!(get_status_from_opt(spec_ops->opt) & STATUS_ERROR))
   return 0;
   }
   */
+int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *st)
+{
+  struct socketopts* spec_ops = (struct socketopts*)se->opt;
+  int err,i, errorflag=1;
+  if(spec_ops->bufdata->initialized == 0)
+  {
+    spec_ops->bufdata->st = st;
+    for(i=0;i<spec_ops->opt->stream_multiply;i++)
+    {
+      spec_ops->td[i].seq = i;
+      spec_ops->td[i].spec_ops = spec_ops;
+      spec_ops->td[i].status = THREADSTATUS_KEEP_RUNNING|THREADSTATUS_ALL_FULL;
+      err = pthread_create(&spec_ops->td[i].pt, NULL, threaded_multistream, (void*)&spec_ops->td[i]);
+      if(err != 0){
+	E("Error in creating receiving thread");
+	return -1;
+      }
+    }
+    spec_ops->bufdata->initialized = 1;
+  }
+
+  spec_ops->bufdata->start_remainder = spec_ops->bufdata->end_remainder;
+  spec_ops->bufdata->end_remainder = (spec_ops->opt->buf_num_elems-(spec_ops->opt->stream_multiply-spec_ops->bufdata->end_remainder)) % spec_ops->opt->stream_multiply;
+
+  pthread_mutex_lock(&spec_ops->bufdata->recv_mutex);
+  for(i=0;i<spec_ops->opt->stream_multiply;i++)
+  {
+      spec_ops->td[i].buf = se->be->buffer;
+      /* Clears the full flag	*/
+      if(spec_ops->td[i].status & THREADSTATUS_KEEP_RUNNING)
+	spec_ops->td[i].status = THREADSTATUS_KEEP_RUNNING;
+  }
+  D("Broadcasting for spec_ops->td to continue");
+  pthread_cond_broadcast(&spec_ops->bufdata->recv_cond);
+  spec_ops->bufdata->threads_ready_or_err=0;
+  pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
+
+  pthread_mutex_lock(&spec_ops->bufdata->mainthread_mutex);
+  while(spec_ops->bufdata->threads_ready_or_err < spec_ops->bufdata->active_threads)
+    pthread_cond_wait(&spec_ops->bufdata->mainthread_cond, &spec_ops->bufdata->mainthread_mutex);
+  pthread_mutex_unlock(&spec_ops->bufdata->mainthread_mutex);
+
+  D("All threads ready");
+  for(i=0;i<spec_ops->opt->stream_multiply;i++)
+  {
+    spec_ops->total_transacted_bytes +=spec_ops->td[i].bytes_received;
+    st->packetcounter -= spec_ops->td[i].bytes_received;
+    *(spec_ops->inc) += spec_ops->td[i].bytes_received;
+    //spec_ops->total_transacted_bytes += spec_ops->td[i].bytes_received;
+    //*buf_incrementer += spec_ops->td[i].bytes_received;
+    D("Thread %d has written %ld bytes",, spec_ops->td[i].seq, spec_ops->td[i].bytes_received);
+    spec_ops->td[i].bytes_received=0;
+    if(spec_ops->td[i].status & THREADSTATUS_CLEAN_EXIT){
+      spec_ops->bufdata->active_threads--;
+      pthread_join(spec_ops->td[i].pt, NULL);
+      spec_ops->td[i].pt = 0;
+      D("One thread had clean exit");
+    }
+    if(spec_ops->td[i].status & THREADSTATUS_ERROR){
+      D("One thread ended in err. Stopping everything");
+      spec_ops->bufdata->active_threads = 0;
+      errorflag=1;
+      pthread_join(spec_ops->td[i].pt, NULL);
+      spec_ops->td[i].pt = 0;
+      break;
+    }
+  }
+  if(errorflag ==1)
+    return -1;
+  /*
+  else  if(spec_ops->bufdata->active_threads ==0)
+    return 0;
+    */
+  return 0;
+}
 int tcp_sendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   int err;
@@ -681,7 +763,7 @@ void* tcp_preloop(void *ser)
       break;
     case(CAPTURE_W_MULTISTREAM):
       if (spec_ops->opt->optbits & READMODE)
-      err = generic_sendloop(se, 0, tcp_sendcmd, bboundary_bytenum);
+      err = generic_sendloop(se, 0, tcp_multistreamsendcmd, bboundary_bytenum);
       else
 	err = loop_with_threaded_multistream_recv(se);
       break;
@@ -700,6 +782,32 @@ void* tcp_preloop(void *ser)
     E("Loop stopped in error");
   if(spec_ops->opt->optbits & CAPTURE_W_MULTISTREAM)
   {
+    if(spec_ops->bufdata != NULL && spec_ops->bufdata->initialized == 1)
+    {
+      /*  Recv and send a bit different so this is a bit messy	*/
+      if(spec_ops->opt->optbits & READMODE)
+      {
+	/* Double rundown loop	*/
+	pthread_mutex_lock(&spec_ops->bufdata->recv_mutex);
+	for(i=0;i<spec_ops->opt->stream_multiply;i++)
+	{
+	  spec_ops->td[i].status = 0;
+	  if(spec_ops->td[i].fd != 0)
+	  {
+	    shutdown(spec_ops->td[i].fd, SHUT_RD);
+	    close(spec_ops->td[i].fd);
+	  }
+	}
+	pthread_cond_broadcast(&spec_ops->bufdata->recv_cond);
+	pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
+      }
+      for(i=0;i<spec_ops->opt->stream_multiply;i++)
+      {
+	if(spec_ops->td[i].pt != 0)
+	  pthread_join(spec_ops->td[i].pt, NULL);
+      }
+
+    }
     pthread_mutex_destroy(&spec_ops->bufdata->recv_mutex);
     pthread_mutex_destroy(&spec_ops->bufdata->mainthread_mutex);
     pthread_cond_destroy(&spec_ops->bufdata->recv_cond);

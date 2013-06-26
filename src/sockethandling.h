@@ -43,6 +43,8 @@ struct multistream_currentbufdata
   int start_remainder;
   int threads_ready_or_err;
   int active_threads;
+  int initialized;
+  struct sender_tracking *st;
   pthread_mutex_t  recv_mutex;
   pthread_cond_t  recv_cond;
   pthread_mutex_t  mainthread_mutex;
