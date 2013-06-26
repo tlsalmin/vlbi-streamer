@@ -19,7 +19,9 @@ struct socketopts
   struct addrinfo *servinfo_simusend;
   size_t sinsize;
   int wrongsizeerrors;
-  int * fds_for_multiply;
+  //int * fds_for_multiply;
+  struct multistream_recv_data* td;
+  struct multistream_currentbufdata* bufdata;
 
   unsigned long missing;
   unsigned long total_transacted_bytes;
@@ -27,7 +29,6 @@ struct socketopts
   unsigned long files_sent; 
   unsigned long out_of_order;
   unsigned long *inc;
-
 };
 #define THREADSTATUS_KEEP_RUNNING 	B(0)
 #define THREADSTATUS_ALL_FULL	 	B(1)
@@ -35,21 +36,26 @@ struct socketopts
 #define THREADSTATUS_ERROR	 	B(3)
 #define THREADSTATUS_PACKETS_REGISTERED	B(4)
 
+/* Global stuff for stream	*/
+struct multistream_currentbufdata
+{
+  int end_remainder;
+  int start_remainder;
+  int threads_ready_or_err;
+  int active_threads;
+  pthread_mutex_t  recv_mutex;
+  pthread_cond_t  recv_cond;
+  pthread_mutex_t  mainthread_mutex;
+  pthread_cond_t  mainthread_cond;
+};
+/* Stuff for a single thread	*/
 struct multistream_recv_data{
   int status;
-  long unsigned *cumul;
   int seq;
-  int* end_remainder;
-  int* start_remainder;
   int fd;
   void * buf;
   uint64_t bytes_received;
-  int * threads_ready_or_err;
   struct socketopts* spec_ops;
-  pthread_mutex_t * recv_mutex;
-  pthread_cond_t * recv_cond;
-  pthread_mutex_t * mainthread_mutex;
-  pthread_cond_t * mainthread_cond;
   pthread_t pt;
 };
 

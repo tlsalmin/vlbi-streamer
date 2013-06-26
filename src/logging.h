@@ -23,6 +23,7 @@
 #define CHECK_ERR_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return y;}else{D(x);}}while(0)
 #define CHECK_ERR_CUST_QUIET(x,y) do{if(y!=0){perror(x);E("ERROR:"x);return -1;}}while(0)
 #define CHECK_ERR(x) CHECK_ERR_CUST(x,err)
+#define CHECK_ERR_AND_FREE(x,freethis) do{if(err!=0){perror(x);E("ERROR:"x);free(freethis);(freethis)=NULL;return -1;}else{D(x);}}while(0)
 #define CHECK_ERR_QUIET(x) CHECK_ERR_CUST_QUIET(x,err)
 #define CHECK_ERRP_CUST(x,y) do{if(y!=0){perror(x);E("ERROR:"x);pthread_exit(NULL);}else{D(x);}}while(0)
 #define CHECK_ERRP(x) CHECK_ERRP_CUST(x,err)

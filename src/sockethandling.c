@@ -318,8 +318,10 @@ int close_streamer_opts(struct streamer_entity *se, void *stats){
     freeaddrinfo(spec_ops->servinfo);
   if(spec_ops->servinfo_simusend != NULL)
     freeaddrinfo(spec_ops->servinfo_simusend);
-  if(spec_ops->fds_for_multiply != NULL)
-    free(spec_ops->fds_for_multiply);
+  if(spec_ops->td != NULL)
+    free(spec_ops->td);
+  if(spec_ops->bufdata != NULL)
+    free(spec_ops->bufdata);
   LOG("UDP_STREAMER: Closed\n");
   /*
      if(spec_ops->sin != NULL)
@@ -455,6 +457,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct sender_tracking st;
   unsigned long * counter;
+  struct multistream_recv_data * threads = NULL;
   init_sender_tracking(spec_ops->opt, &st);
   ///if(do_wait == 1)
   throttling_count(spec_ops->opt, &st);
