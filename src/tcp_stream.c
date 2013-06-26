@@ -255,6 +255,7 @@ void * threaded_multistream_recv(void * data)
     }
     if(!(td->status & THREADSTATUS_KEEP_RUNNING)){
       D("Exit called for all threads");
+      pthread_mutex_unlock(td->recv_mutex);
       break;
     }
     pthread_mutex_unlock(td->recv_mutex);
@@ -263,11 +264,11 @@ void * threaded_multistream_recv(void * data)
 
     if((td->seq-*td->start_remainder) >= 0)
     {
-      D("FIRST");
+      //D("FIRST");
       correct_bufspot = td->buf+((td->seq-*td->start_remainder)*spec_ops->opt->packet_size);
     }
     else{
-      D("SECOND");
+      //D("SECOND");
       correct_bufspot = td->buf+((td->seq+(spec_ops->opt->stream_multiply-*td->start_remainder))*spec_ops->opt->packet_size);
     }
 
@@ -279,7 +280,7 @@ void * threaded_multistream_recv(void * data)
     if(td->seq < (*td->end_remainder))
       max_packets++;
 
-    D("Thread %d calculated to acquire %ld packets",, td->seq, max_packets);
+    //D("Thread %d calculated to acquire %ld packets",, td->seq, max_packets);
 
     //ASSERT((correct_bufspot+(max_packets)*(spec_ops->opt->packet_size)*spec_ops->opt->stream_multiply) <= (td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)));
 
@@ -312,7 +313,7 @@ void * threaded_multistream_recv(void * data)
       }
     }
     td->bytes_received = spec_ops->opt->packet_size*packets_ready;
-    D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
+    //D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
     ASSERT(packets_ready <= max_packets);
     pthread_mutex_lock(td->mainthread_mutex);
     if(packets_ready == max_packets){
@@ -417,7 +418,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
 	break;
       }
     }
-    if(errorflag ==1 || active_threads ==0 ){
+    if(errorflag ==1 || active_threads ==0 || *buf_incrementer != CALC_BUFSIZE_FROM_OPT(spec_ops->opt) ){
       D("Breaking out of main loop");
       break;
     }
@@ -449,6 +450,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     pthread_mutex_unlock(&recv_mutex);
     D("Buffer complete in multithreaded");
   }
+  D("Entering double rundown loop");
   /* Double rundown loop	*/
   pthread_mutex_lock(&recv_mutex);
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
@@ -636,7 +638,7 @@ void* tcp_preloop(void *ser)
     else
     {
       spec_ops->fds_for_multiply = malloc(sizeof(int)*spec_ops->opt->stream_multiply);
-      for(i=0;i<spec_ops->opt->stream_multiply;i++)
+      for(i=0;i<spec_ops->opt->stream_multiply  && spec_ops->fd > 0;i++)
       {
 	if((spec_ops->fds_for_multiply[i] = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
 	{
