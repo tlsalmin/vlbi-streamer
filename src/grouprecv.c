@@ -39,16 +39,11 @@
 #define LOG_TO_FILE 0
 #endif
 #include "logging.h"
-//#include "udp_stream.h"
-//#include "timer.h"
-//#include "streamer.h"
 
 #define B(x) (1l << x)
 #define UDP_SOCKET	B(0)
 #define TCP_SOCKET	B(1)
 #define SINGLEPORT	B(2)
-
-#define TCP_BONUS 256
 
 //#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
 /*
@@ -106,8 +101,10 @@ int connect_to_c(const char* t_port, int * fd)
       continue;
     }
 
+    /*
     int yes = 1;
     err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    */
     err = bind(*fd, res->ai_addr, res->ai_addrlen);
     if(err < 0)
     {
@@ -117,13 +114,16 @@ int connect_to_c(const char* t_port, int * fd)
     }
     if(opts&TCP_SOCKET)
     {
-      err = listen(*fd, streams);
+      D("called listen");
+      err = listen(*fd, 1);
       if(err < 0)
       {
 	close(*fd);
 	E("listen");
 	continue;
       }
+      int testfd = accept(*fd, NULL, NULL);
+      D("Hur");
     }
     gotthere=1;
     break;
@@ -139,11 +139,11 @@ int connect_to_c(const char* t_port, int * fd)
     while(err == 0){
       //O("RCVBUF size is %d",,def);
       def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
       if(err == 0){
 	//O("Trying SNDBUF size %d\n", def);
       }
-      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+      err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
 	O("Limit reached. Final size is %d Bytes\n",defcheck);
 	def = defcheck;
@@ -152,7 +152,7 @@ int connect_to_c(const char* t_port, int * fd)
     }
   }
   else{
-    err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+    err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
     if(err!= 0)
       E("Error in setting SO_SNDBUF");
   }
@@ -169,18 +169,23 @@ void usage()
 void * sendthread(void * optsi)
 {
   int err;
-  int fd;
+  int fd=0;
   struct sockaddr temp;
   socklen_t sin_l= sizeof(struct sockaddr);
   struct sillystruct* st = (struct sillystruct*)optsi;
   D("Starting receive on fd %d",, st->fd);
-  pthread_rwlock_wrlock(&rwl);
-  if(opts & TCP_SOCKET)
+  if(opts & TCP_SOCKET){
+    D("Waiting for accept");
+    if(opts & SINGLEPORT)
+      pthread_rwlock_wrlock(&rwl);
     fd = accept(st->fd, &temp, &sin_l);
+    if(opts & SINGLEPORT)
+      pthread_rwlock_unlock(&rwl);
+    D("And we have accept");
+  }
   else
     fd = st->fd;
-  pthread_rwlock_unlock(&rwl);
-  if(fd <0){
+  if(fd <=0){
     perror("accept");
     running=0;
     pthread_exit(NULL);
@@ -198,26 +203,23 @@ void * sendthread(void * optsi)
       running = 0;
       break;
     }
-    else{
-      pthread_rwlock_rdlock(&rwl);
-      st->sent += err;
-      pthread_rwlock_unlock(&rwl);
-    }
+    pthread_rwlock_rdlock(&rwl);
+    st->sent += err;
+    pthread_rwlock_unlock(&rwl);
   }
   D("exiting receive thread");
   pthread_exit(NULL);
 }
 
 int main(int argc, char** argv){
-  char * targets[MAX_TARGETS], *port;
+  char *port;
   TIMERTYPE tval_start, tval,sleep,tval_temp;
   int runtime;
   int mainfd=0;
   int portn;
-  int n_targets=0;
   int ret;
-    uint64_t total=0;
-    uint64_t total_last=0;
+  uint64_t total=0;
+  uint64_t total_last=0;
   pthread_rwlock_init(&rwl, NULL);
   running = 1;
   opts = 0;
@@ -335,9 +337,5 @@ int main(int argc, char** argv){
 
   pthread_rwlock_destroy(&rwl);
   free(buf);
-  for(i=0;i<n_targets-1;i++)
-  {
-    free(targets[i]);
-  }
   return 0;
 }
