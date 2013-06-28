@@ -383,11 +383,13 @@ int main(int argc, char** argv){
       }
       COPYTIME(tval, tval_temp);
     }
+    total_last = 0;
     for(i=0;i<streams;i++)
     {
-      pthread_join(st[i].pt, NULL);
       shutdown(st[i].fd, SHUT_RDWR);
       close(st[i].fd);
+      pthread_join(st[i].pt, NULL);
+      total_last += st[i].sent;
     }
   }
 
