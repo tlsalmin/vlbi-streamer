@@ -304,6 +304,10 @@ void * threaded_multistream(void * data)
       pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
       break;
     }
+    if(!(td->status & THREADSTATUS_KEEP_RUNNING)){
+      pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
+      break;
+    }
     pthread_mutex_unlock(&spec_ops->bufdata->recv_mutex);
     packets_ready =0;
     offset = 0;
@@ -335,7 +339,7 @@ void * threaded_multistream(void * data)
 
     //ASSERT((correct_bufspot+(max_packets)*(spec_ops->opt->packet_size)*spec_ops->opt->stream_multiply) <= (td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)));
 
-    while(packets_ready < max_packets)
+    while(packets_ready < max_packets && td->status & THREADSTATUS_KEEP_RUNNING)
     {
       /*
 	 if(td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt) <= correct_bufspot+offset)
@@ -347,7 +351,7 @@ void * threaded_multistream(void * data)
 	err = recv(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
       if(err < 0)
       {
-	E("Error in recv of a thread");
+	E("Error in recv/send of a thread");
 	td->status = THREADSTATUS_ERROR;
 	break;
       }
@@ -368,7 +372,7 @@ void * threaded_multistream(void * data)
     }
     td->bytes_received = spec_ops->opt->packet_size*packets_ready;
     D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
-    ASSERT(packets_ready <= max_packets);
+    //ASSERT(packets_ready <= max_packets);
     pthread_mutex_lock(&spec_ops->bufdata->mainthread_mutex);
     if(packets_ready == max_packets){
       td->status |= THREADSTATUS_ALL_FULL;
@@ -796,7 +800,7 @@ void* tcp_preloop(void *ser)
 	  spec_ops->td[i].status = 0;
 	  if(spec_ops->td[i].fd != 0)
 	  {
-	    shutdown(spec_ops->td[i].fd, SHUT_RD);
+	    shutdown(spec_ops->td[i].fd, SHUT_WR);
 	    close(spec_ops->td[i].fd);
 	  }
 	}
@@ -808,7 +812,6 @@ void* tcp_preloop(void *ser)
 	if(spec_ops->td[i].pt != 0)
 	  pthread_join(spec_ops->td[i].pt, NULL);
       }
-
     }
     pthread_mutex_destroy(&spec_ops->bufdata->recv_mutex);
     pthread_mutex_destroy(&spec_ops->bufdata->mainthread_mutex);
