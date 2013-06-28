@@ -45,13 +45,6 @@
 #define TCP_SOCKET	B(1)
 #define SINGLEPORT	B(2)
 
-//#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-/*
-#define LOG(...) fprintf(stdout, __VA_ARGS__)
-#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
-    */
-
-//#define O(...) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__);
 #define O(...) fprintf(stdout, __VA_ARGS__)
 
 #define STARTPORT 2222
@@ -84,6 +77,7 @@ int connect_to_c(const char* t_port, int * fd)
     hints.ai_socktype = SOCK_STREAM;
   else
     hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_flags = AI_PASSIVE;
   int gotthere;
   hints.ai_family = AF_UNSPEC;
   err = getaddrinfo(NULL, t_port, &hints, &res);
@@ -94,7 +88,7 @@ int connect_to_c(const char* t_port, int * fd)
   for(p = res; p != NULL; p = p->ai_next)
   {
     gotthere=0;
-    *fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    *fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if(*fd < 0)
     {
       E("Socket to client");
@@ -105,7 +99,7 @@ int connect_to_c(const char* t_port, int * fd)
     int yes = 1;
     err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
     */
-    err = bind(*fd, res->ai_addr, res->ai_addrlen);
+    err = bind(*fd, p->ai_addr, p->ai_addrlen);
     if(err < 0)
     {
       close(*fd);
@@ -115,15 +109,20 @@ int connect_to_c(const char* t_port, int * fd)
     if(opts&TCP_SOCKET)
     {
       D("called listen");
-      err = listen(*fd, 1);
+      if(opts & SINGLEPORT)
+	err = listen(*fd, streams);
+      else
+	err = listen(*fd, 1);
       if(err < 0)
       {
 	close(*fd);
 	E("listen");
 	continue;
       }
+      /*
       int testfd = accept(*fd, NULL, NULL);
       D("Hur");
+      */
     }
     gotthere=1;
     break;
@@ -157,6 +156,8 @@ int connect_to_c(const char* t_port, int * fd)
       E("Error in setting SO_SNDBUF");
   }
 
+  D("All ok. got fd %d",, *fd);
+
   return 0;
 }
 
@@ -166,19 +167,18 @@ void usage()
   exit(-1);
 }
 
-void * sendthread(void * optsi)
+void * recvthread(void * optsi)
 {
   int err;
   int fd=0;
   struct sockaddr temp;
-  socklen_t sin_l= sizeof(struct sockaddr);
   struct sillystruct* st = (struct sillystruct*)optsi;
   D("Starting receive on fd %d",, st->fd);
   if(opts & TCP_SOCKET){
     D("Waiting for accept");
     if(opts & SINGLEPORT)
       pthread_rwlock_wrlock(&rwl);
-    fd = accept(st->fd, &temp, &sin_l);
+    fd = accept(st->fd, NULL, NULL);
     if(opts & SINGLEPORT)
       pthread_rwlock_unlock(&rwl);
     D("And we have accept");
@@ -276,7 +276,8 @@ int main(int argc, char** argv){
     sprintf(port, "%d", portn+i);
     if(opts & SINGLEPORT)
     {
-      if (mainfd == 0){
+      if (mainfd == 0)
+      {
 	err = connect_to_c( port, &mainfd);
 	CHECK_ERR("connect");
       }
@@ -297,7 +298,7 @@ int main(int argc, char** argv){
     O("Into send-loop\n");
     for(i=0;i<streams;i++)
     {
-      err = pthread_create(&st[i].pt, NULL, sendthread,  &st[i]);
+      err = pthread_create(&st[i].pt, NULL, recvthread,  &st[i]);
       CHECK_ERR("Thread create");
     }
     COPYTIME(tval_start, tval_temp);

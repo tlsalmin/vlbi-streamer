@@ -34,6 +34,8 @@
 #include <netinet/in.h>
 #include <endian.h>
 #include "timer.h"
+
+#include "logging.h"
 //#include "udp_stream.h"
 //#include "timer.h"
 //#include "streamer.h"
@@ -42,8 +44,7 @@
 #define UDP_SOCKET	B(0)
 #define TCP_SOCKET	B(1)
 #define SINGLEPORT	B(2)
-
-#define TCP_BONUS 256
+#define RECVIT		B(3)
 
 #define MAX_TARGETS 16
 #define HOSTNAME_MAXLEN    256
@@ -51,6 +52,7 @@ size_t sendbuffer;
 pthread_rwlock_t rwl;
 volatile int running;
 void * buf;
+  int streams;
 
 struct sillystruct{
   int fd;
@@ -58,17 +60,7 @@ struct sillystruct{
   pthread_t pt;
   uint64_t sent;
 };
-//#define O(str, ...) do { fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-/*
-#define LOG(...) fprintf(stdout, __VA_ARGS__)
-#define LOGERR(...) fprintf(stderr, __VA_ARGS__)
-    */
-
-//#define O(...) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__);
 #define O(...) fprintf(stdout, __VA_ARGS__)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
-
 #define STARTPORT 2222
 
 int def=0, defcheck=0, len=0, packet_size=0;
@@ -79,7 +71,6 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   int err;
   struct addrinfo hints, *res, *p;
   memset(&hints, 0,sizeof(struct addrinfo));
-  //O("Connecting to %s port %s\n", t_target, t_port);
 
   if(opts & TCP_SOCKET)
     hints.ai_socktype = SOCK_STREAM;
@@ -87,6 +78,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     hints.ai_socktype = SOCK_DGRAM;
   int gotthere;
   hints.ai_family = AF_UNSPEC;
+  hints.ai_flags = AI_PASSIVE;
   err = getaddrinfo(t_target, t_port, &hints, &res);
   if(err != 0){
     E("Error in getaddrinfo: %s for %s:%s",, gai_strerror(err), t_target, t_port);
@@ -95,22 +87,56 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   for(p = res; p != NULL; p = p->ai_next)
   {
     gotthere=0;
-    *fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    *fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
     if(*fd < 0)
     {
       E("Socket to client");
       continue;
     }
 
-    err = connect(*fd, res->ai_addr, res->ai_addrlen);
-    if(err < 0)
+    if(opts & RECVIT)
     {
-      close(*fd);
-      E("Connect to client");
-      continue;
+      err = bind(*fd, p->ai_addr, p->ai_addrlen);
+      if(err != 0)
+      {
+	close(*fd);
+	E("bind");
+	continue;
+      }
+      if(opts & TCP_SOCKET)
+      {
+	D("called listen");
+	if(opts & SINGLEPORT)
+	  err = listen(*fd, streams);
+	else
+	  err = listen(*fd, 1);
+	if(err != 0)
+	{
+	  close(*fd);
+	  E("listen");
+	  continue;
+	}
+	/*
+	   int testfd = accept(*fd, NULL, NULL);
+	   D("Hur");
+	   */
+      }
+      if(opts & RECVIT)
+      {
+	int yes = 1;
+	err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+      }
     }
-    int yes = 1;
-    err = setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    else
+    {
+      err = connect(*fd, p->ai_addr, p->ai_addrlen);
+      if(err < 0)
+      {
+	close(*fd);
+	E("Connect to client");
+	continue;
+      }
+    }
     gotthere=1;
     break;
   }
@@ -125,11 +151,17 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     while(err == 0){
       //O("RCVBUF size is %d",,def);
       def  = def << 1;
-      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+      if(opts & RECVIT)
+	err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+      else
+	err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
       if(err == 0){
 	//O("Trying SNDBUF size %d\n", def);
       }
-      err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
+      if(opts & RECVIT)
+	err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
+      else
+	err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
 	O("Limit reached. Final size is %d Bytes\n",defcheck);
 	def = defcheck;
@@ -138,7 +170,10 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     }
   }
   else{
-    err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
+    if(opts & RECVIT)
+      err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
+    else
+      err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
     if(err!= 0)
       E("Error in setting SO_SNDBUF");
   }
@@ -153,12 +188,25 @@ void usage()
   exit(-1);
 }
 
-void * sendthread(void * opts)
+void * sendthread(void * optsi)
 {
   int err;
-  struct sillystruct* st = (struct sillystruct*)opts;
+  struct sillystruct* st = (struct sillystruct*)optsi;
+  int fd = st->fd;
+  if(opts & TCP_SOCKET && opts & RECVIT){
+    D("Waiting for accept on socket %d",, fd);
+    if(opts & SINGLEPORT)
+      pthread_rwlock_wrlock(&rwl);
+    fd = accept(fd, NULL, NULL);
+    if(opts & SINGLEPORT)
+      pthread_rwlock_unlock(&rwl);
+    D("And we have accept");
+  }
   while(running == 1){
-    err = send(st->fd, buf,sendbuffer, 0);
+    if(opts & RECVIT)
+      err = recv(fd, buf,packet_size, 0);
+    else
+      err = send(fd, buf,sendbuffer, 0);
 
     if(err < 0){
       perror("Sending");
@@ -181,14 +229,14 @@ void * sendthread(void * opts)
 
 int main(int argc, char** argv){
   char * targets[MAX_TARGETS], *port;
-  int streams;
   TIMERTYPE tval_start, tval,sleep,tval_temp;
   int runtime;
+  int mainfd=0;
   int portn;
   int n_targets=0;
   int ret;
-    uint64_t total=0;
-    uint64_t total_last=0;
+  uint64_t total=0;
+  uint64_t total_last=0;
   pthread_rwlock_init(&rwl, NULL);
   running = 1;
   opts = 0;
@@ -200,7 +248,7 @@ int main(int argc, char** argv){
   ZEROTIME(tval);
 
   opts |= UDP_SOCKET;
-  while((ret = getopt(argc, argv, "tp:s")) != -1)
+  while((ret = getopt(argc, argv, "tp:sr")) != -1)
   {
     switch (ret){
       case 't':
@@ -209,6 +257,9 @@ int main(int argc, char** argv){
 	break;
       case 's':
 	opts |= SINGLEPORT;
+	break;
+      case 'r':
+	opts |= RECVIT;
 	break;
       case 'p':
 	portn = atoi(optarg);
@@ -239,6 +290,8 @@ int main(int argc, char** argv){
   }
   targets[n_targets] = temp;
   n_targets++;
+  if(opts & RECVIT)
+    portn = atoi(argv[1]);
   for(i=0;i<n_targets;i++)
   {
     O("Target %d is %s\n", i, targets[i]);
@@ -265,11 +318,31 @@ int main(int argc, char** argv){
       sprintf(port, "%d", portn);
     else
       sprintf(port, "%d", portn+i);
-    err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
-    if(err != 0){
-      E("Error in connect");
-      running=0;
-      break;
+    if(opts & RECVIT)
+    {
+      if(opts & SINGLEPORT)
+      {
+	if(mainfd == 0)
+	{
+	  err = connect_to_c(NULL, port, &mainfd);
+	  CHECK_ERR("connect");
+	}
+	st[i].fd = mainfd;
+      }
+      else
+      {
+	err = connect_to_c(NULL, port, &st[i].fd);
+	CHECK_ERR("Connect");
+      }
+    }
+    else
+    {
+      err = connect_to_c(targets[i%n_targets], port, &st[i].fd);
+      if(err != 0){
+	E("Error in connect");
+	running=0;
+	break;
+      }
     }
     st[i].seq = i;
   }
