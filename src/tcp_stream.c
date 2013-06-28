@@ -318,10 +318,10 @@ void * threaded_multistream(void * data)
       correct_bufspot = td->buf+((td->seq+(spec_ops->opt->stream_multiply-spec_ops->bufdata->start_remainder))*spec_ops->opt->packet_size);
     }
 
-    ASSERT(((spec_ops->opt->buf_num_elems-((spec_ops->opt->stream_multiply-(spec_ops->bufdata->start_remainder))+(spec_ops->bufdata->end_remainder))) % spec_ops->opt->stream_multiply) == 0);
+    D("Probed %ld sent %ld",, st->n_packets_probed, st->packetcounter);
 
-    if(spec_ops->opt->optbits & READMODE && ((st->n_packets_probed - st->packets_sent) < spec_ops->opt->buf_num_elems))
-      elems_in_buf = st->n_packets_probed-st->packets_sent;
+    if(spec_ops->opt->optbits & READMODE && (st->packetcounter/spec_ops->opt->packet_size) < spec_ops->opt->buf_num_elems)
+      elems_in_buf = st->packetcounter/spec_ops->opt->packet_size;
     else
       elems_in_buf = spec_ops->opt->buf_num_elems;
 
@@ -331,7 +331,7 @@ void * threaded_multistream(void * data)
     if(td->seq < (spec_ops->bufdata->end_remainder))
       max_packets++;
 
-    //D("Thread %d calculated to acquire %ld packets",, td->seq, max_packets);
+    D("Thread %d calculated to acquire %ld packets of %ld elems_in_buf",, td->seq, max_packets, elems_in_buf);
 
     //ASSERT((correct_bufspot+(max_packets)*(spec_ops->opt->packet_size)*spec_ops->opt->stream_multiply) <= (td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)));
 
@@ -367,7 +367,7 @@ void * threaded_multistream(void * data)
       }
     }
     td->bytes_received = spec_ops->opt->packet_size*packets_ready;
-    //D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
+    D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
     ASSERT(packets_ready <= max_packets);
     pthread_mutex_lock(&spec_ops->bufdata->mainthread_mutex);
     if(packets_ready == max_packets){
@@ -594,7 +594,7 @@ if(!(get_status_from_opt(spec_ops->opt) & STATUS_ERROR))
 int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *st)
 {
   struct socketopts* spec_ops = (struct socketopts*)se->opt;
-  int err,i, errorflag=1;
+  int err,i, errorflag=0;
   if(spec_ops->bufdata->initialized == 0)
   {
     spec_ops->bufdata->st = st;
@@ -613,7 +613,7 @@ int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *s
   }
 
   spec_ops->bufdata->start_remainder = spec_ops->bufdata->end_remainder;
-  spec_ops->bufdata->end_remainder = (spec_ops->opt->buf_num_elems-(spec_ops->opt->stream_multiply-spec_ops->bufdata->end_remainder)) % spec_ops->opt->stream_multiply;
+  spec_ops->bufdata->end_remainder = ((st->packetcounter/spec_ops->opt->packet_size)-(spec_ops->opt->stream_multiply-spec_ops->bufdata->end_remainder)) % spec_ops->opt->stream_multiply;
 
   pthread_mutex_lock(&spec_ops->bufdata->recv_mutex);
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
@@ -637,7 +637,7 @@ int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *s
   for(i=0;i<spec_ops->opt->stream_multiply;i++)
   {
     spec_ops->total_transacted_bytes +=spec_ops->td[i].bytes_received;
-    st->packetcounter -= spec_ops->td[i].bytes_received;
+      st->packetcounter -= spec_ops->td[i].bytes_received;
     *(spec_ops->inc) += spec_ops->td[i].bytes_received;
     //spec_ops->total_transacted_bytes += spec_ops->td[i].bytes_received;
     //*buf_incrementer += spec_ops->td[i].bytes_received;
@@ -658,8 +658,10 @@ int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *s
       break;
     }
   }
-  if(errorflag ==1)
+  if(errorflag ==1){
+    E("Errorflag was raised");
     return -1;
+  }
   /*
   else  if(spec_ops->bufdata->active_threads ==0)
     return 0;
