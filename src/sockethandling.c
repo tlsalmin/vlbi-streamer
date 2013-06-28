@@ -457,7 +457,6 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
   struct socketopts *spec_ops = (struct socketopts *)se->opt;
   struct sender_tracking st;
   unsigned long * counter;
-  struct multistream_recv_data * threads = NULL;
   init_sender_tracking(spec_ops->opt, &st);
   ///if(do_wait == 1)
   throttling_count(spec_ops->opt, &st);

@@ -171,7 +171,6 @@ void * recvthread(void * optsi)
 {
   int err;
   int fd=0;
-  struct sockaddr temp;
   struct sillystruct* st = (struct sillystruct*)optsi;
   D("Starting receive on fd %d",, st->fd);
   if(opts & TCP_SOCKET){

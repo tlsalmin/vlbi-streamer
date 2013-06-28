@@ -35,6 +35,10 @@
 #include <endian.h>
 #include "timer.h"
 
+#ifdef LOG_TO_FILE
+#undef LOG_TO_FILE
+#define LOG_TO_FILE 0
+#endif
 #include "logging.h"
 //#include "udp_stream.h"
 //#include "timer.h"
