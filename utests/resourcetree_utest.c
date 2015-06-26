@@ -68,7 +68,7 @@ int simple_test_no_compare(){
     root = root->child;
   }
   if(i != ENTITIES){
-    E("Different n of entities in list! n was %d when wanted %d",, i, ENTITIES);
+    E("Different n of entities in list! n was %d when wanted %d", i, ENTITIES);
     retval = -1;
   }
   free_entities(entities, ENTITIES);
@@ -98,7 +98,7 @@ int simple_test_compare(){
     root = root->child;
   }
   if(i != ENTITIES){
-    E("Different n of entities in list! n was %d when wanted %d",, i, ENTITIES);
+    E("Different n of entities in list! n was %d when wanted %d", i, ENTITIES);
     retval = -1;
   }
   free_entities(entities, ENTITIES);
@@ -139,11 +139,11 @@ int simple_test_change_branches(){
     root2 = root2->child;
   }
   if(i != ENTITIES-100){
-    E("Different n of entities in list! n was %d when wanted %d",, i, ENTITIES-100);
+    E("Different n of entities in list! n was %d when wanted %d", i, ENTITIES-100);
     retval = -1;
   }
   if(j != ENTITIES+100){
-    E("Different n of entities in list! n was %d when wanted %d",, j, ENTITIES+100);
+    E("Different n of entities in list! n was %d when wanted %d", j, ENTITIES+100);
     retval = -1;
   }
   free_entities(entities, ENTITIES);
@@ -160,7 +160,7 @@ void * mainloop(void* tdr)
   //struct file_index *fi;
   td->status = THREAD_STATUS_STARTED;
 
-  D("%i Getting ent with id  %ld!",, td->thread_id, intid);
+  D("%i Getting ent with id  %ld!", td->thread_id, intid);
   re = get_free(opt->diskbranch, opt, &intid, acq,0);
   if(re == NULL){
     THREAD_EXIT_ERROR("Cant get ent");
@@ -168,16 +168,16 @@ void * mainloop(void* tdr)
   if(*acq != 0)
     THREAD_EXIT_ERROR("Acquire failed");
 
-  D("setting %ld as loaded",, intid);
+  D("setting %ld as loaded", intid);
   set_loaded(opt->diskbranch, re->self);
 
-  D("getting %ld from loaded",, intid);
+  D("getting %ld from loaded", intid);
   re = get_loaded(opt->diskbranch, re->getid(re), opt);
   if(re == NULL)
     THREAD_EXIT_ERROR("Cant get loaded ent");
 
   
-  D("Setting %d to free",, re->getid(re));
+  D("Setting %d to free", re->getid(re));
   set_free(opt->diskbranch, re->self);
 
   usleep(sleeptime);
@@ -251,14 +251,14 @@ int main(void)
   {
     err = pthread_create(&thread_data[i].ptd, NULL, mainloop, (void*)&thread_data[i]);
     if(err != 0)
-      E("Error in thread init for %d",, i);
+      E("Error in thread init for %d", i);
   }
 
   for(i=0;i<N_THREADS;i++)
   {
     err = pthread_join(thread_data[i].ptd, NULL);
     if(err != 0)
-      E("Error in pthread join for %d",, i);
+      E("Error in pthread join for %d", i);
   }
 
   for(i=0;i<N_THREADS;i++)

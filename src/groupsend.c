@@ -51,8 +51,13 @@
 
 //#define O(...) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__);
 #define O(...) fprintf(stdout, __VA_ARGS__)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+#define E(_fmt, _args...)                                                     \
+  do                                                                          \
+    {                                                                         \
+      fprintf(stderr, "ERROR: %s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,      \
+              __func__, ## _args);                                            \
+    }                                                                         \
+  while(0)
 
 #define STARTPORT 2222
 
@@ -74,7 +79,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   hints.ai_family = AF_UNSPEC;
   err = getaddrinfo(t_target, t_port, &hints, &res);
   if(err != 0){
-    E("Error in getaddrinfo: %s for %s:%s",, gai_strerror(err), t_target, t_port);
+    E("Error in getaddrinfo: %s for %s:%s", gai_strerror(err), t_target, t_port);
     return -1;
   }
   for(p = res; p != NULL; p = p->ai_next)
@@ -108,7 +113,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     def = packet_size;
     len = sizeof(def);
     while(err == 0){
-      //O("RCVBUF size is %d",,def);
+      //O("RCVBUF size is %d",def);
       def  = def << 1;
       err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
       if(err == 0){
@@ -165,12 +170,12 @@ int main(int argc, char** argv){
       case 'p':
 	portn = atoi(optarg);
 	if(portn <= 0 || portn >= 65536){
-	  E("Illegal port %d",, portn);
+	  E("Illegal port %d", portn);
 	  usage(argv[0]);
 	}
 	break;
       default:
-	E("Unknown parameter %c",, ret);
+	E("Unknown parameter %c", ret);
 	usage(argv[0]);
     }
   }

@@ -198,7 +198,7 @@ int do_sending(struct options* opts)
   memcpy(&(serv_addr.sin_addr),target->h_addr_list[0], target->h_length);
   serv_addr.sin_port = htons(opts->port);
 
-  D("Target is %s according to gethostbyname",, target->h_addr_list[0]);
+  D("Target is %s according to gethostbyname", target->h_addr_list[0]);
   fd = socket(AF_INET, SOCK_DGRAM, 0);
   CHECK_LTZ("Socket", fd);
 
@@ -292,7 +292,7 @@ int main(int argc, char** argv)
       case 's':
 	opts->port = atoi(optarg);
 	if(opts->port < 1 || opts->port > 65536){
-	  E("Cant set port to %d",, opts->port);
+	  E("Cant set port to %d", opts->port);
 	  usage(argv[0]);
 	}
 	break;
@@ -312,18 +312,18 @@ int main(int argc, char** argv)
       case 'p':
 	opts->packet_size = atoi(optarg);
 	if(opts->packet_size < 1 ||  opts->packet_size > 65536){
-	  E("Cant set packet size to %ld",, opts->packet_size);
+	  E("Cant set packet size to %ld", opts->packet_size);
 	  usage(argv[0]);
 	}
 	break;
       default:
-	E("Unknown parameter %c",, ret);
+	E("Unknown parameter %c", ret);
 	usage(argv[0]);
     }
   }
   D("Opts gotten. Checking parameters");
   if(argc -optind != 2){
-    E("Wrong number of arguments. Expect 2, when got %d",, argc-optind);
+    E("Wrong number of arguments. Expect 2, when got %d", argc-optind);
     usage(argv[0]);
   }
   argv +=optind;

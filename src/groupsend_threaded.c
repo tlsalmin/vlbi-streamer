@@ -85,7 +85,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
   hints.ai_flags = AI_PASSIVE;
   err = getaddrinfo(t_target, t_port, &hints, &res);
   if(err != 0){
-    E("Error in getaddrinfo: %s for %s:%s",, gai_strerror(err), t_target, t_port);
+    E("Error in getaddrinfo: %s for %s:%s", gai_strerror(err), t_target, t_port);
     return -1;
   }
   for(p = res; p != NULL; p = p->ai_next)
@@ -153,7 +153,7 @@ int connect_to_c(const char* t_target,const char* t_port, int * fd)
     def = packet_size;
     len = sizeof(def);
     while(err == 0){
-      //O("RCVBUF size is %d",,def);
+      //O("RCVBUF size is %d",def);
       def  = def << 1;
       if(opts & RECVIT)
 	err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
@@ -198,7 +198,7 @@ void * sendthread(void * optsi)
   struct sillystruct* st = (struct sillystruct*)optsi;
   int fd = st->fd;
   if(opts & TCP_SOCKET && opts & RECVIT){
-    D("Waiting for accept on socket %d",, fd);
+    D("Waiting for accept on socket %d", fd);
     if(opts & SINGLEPORT)
       pthread_rwlock_wrlock(&rwl);
     fd = accept(fd, NULL, NULL);
@@ -268,12 +268,12 @@ int main(int argc, char** argv){
       case 'p':
 	portn = atoi(optarg);
 	if(portn <= 0 || portn >= 65536){
-	  E("Illegal port %d",, portn);
+	  E("Illegal port %d", portn);
 	  usage(argv[0]);
 	}
 	break;
       default:
-	E("Unknown parameter %c",, ret);
+	E("Unknown parameter %c", ret);
 	usage(argv[0]);
     }
   }

@@ -31,7 +31,7 @@ void* localsocket_service(void* opts)
     }
     else
     {
-      D("local socket says %s",, inputbuffer);
+      D("local socket says %s", inputbuffer);
       memset(inputbuffer, 0, sizeof(char)*BUFFER_SIZE);
     }
   }

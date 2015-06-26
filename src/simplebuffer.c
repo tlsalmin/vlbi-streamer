@@ -58,13 +58,13 @@ int sbuf_check(struct buffer_entity *be, int tout)
   int ret = 0;
   struct simplebuf * sbuf = (struct simplebuf * )be->opt;
   //while ((ret = be->recer->check(be->recer))>0){
-  DD("Checking for ready writes. asyndiff: %ld bytes, diff: %ld bytes",,sbuf->asyncdiff,sbuf->diff);
+  DD("Checking for ready writes. asyndiff: %ld bytes, diff: %ld bytes",sbuf->asyncdiff,sbuf->diff);
   /* Still doesn't really wait DURR */
   ret = be->recer->check(be->recer, 0);
   if(ret > 0){
     /* Write done so decrement async_writes_submitted */
     //sbuf->async_writes_submitted--;
-    D("%d byte Writes complete on seqnum %lu",, ret, sbuf->fileid);
+    D("%d byte Writes complete on seqnum %lu", ret, sbuf->fileid);
     //unsigned long num_written;
 
     //num_written = ret/sbuf->opt->packet_size;
@@ -72,19 +72,19 @@ int sbuf_check(struct buffer_entity *be, int tout)
     sbuf->asyncdiff-=ret;
   }
   else if (ret == AIO_END_OF_FILE){
-    //D("End of file on id %lu",, sbuf->file_seqnum);
-    D("End of file on id %lu",, sbuf->fileid);
+    //D("End of file on id %lu", sbuf->file_seqnum);
+    D("End of file on id %lu", sbuf->fileid);
     sbuf->asyncdiff = 0;
   }
   else if (ret == 0){
-    DD("No writes to report on %lu",, sbuf->fileid);
+    DD("No writes to report on %lu", sbuf->fileid);
 #ifdef UGLY_TIMEOUT_FIX
     if(tout == 1)
       usleep(1000);
 #endif
   }
   else{
-    E("Error in write check on seqdum %lu",, sbuf->fileid);
+    E("Error in write check on seqdum %lu", sbuf->fileid);
     return -1;
   }
   return 0;
@@ -257,7 +257,7 @@ int sbuf_init(struct opt_s* opt, struct buffer_entity * be)
   if(!(sbuf->opt->optbits & USE_RX_RING)){
     //unsigned long hog_memory = sbuf->opt->buf_num_elems*sbuf->opt->packet_size;
     unsigned long hog_memory = sbuf->opt->filesize;
-    D("Trying to hog %lu MB of memory",,hog_memory/MEG);
+    D("Trying to hog %lu MB of memory",hog_memory/MEG);
     /* TODO: Make a check for available number of hugepages */
 #if(HAVE_HUGEPAGES)
     if(sbuf->optbits & USE_HUGEPAGE){
@@ -329,7 +329,7 @@ int sbuf_close(struct buffer_entity* be, void *stats)
   (void)stats;
 
   struct simplebuf * sbuf = (struct simplebuf *) be->opt;
-  D("Closing simplebuf for id %d ",, sbuf->bufnum);
+  D("Closing simplebuf for id %d ", sbuf->bufnum);
   LOCK_DESTROY(be->headlock);
   LOCK_FREE(be->headlock);
   free(be->iosignal);
@@ -408,7 +408,7 @@ int simple_end_transaction(struct buffer_entity *be)
     wrote_extra++;
   }
     */
-  D("Have to write %lu extra bytes so count is %lu",, wrote_extra, count);
+  D("Have to write %lu extra bytes so count is %lu", wrote_extra, count);
 
   if(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE && !(sbuf->opt->optbits & READMODE))
     ASSERT(wrote_extra == 0 || sbuf->opt->status != STATUS_RUNNING);
@@ -420,7 +420,7 @@ int simple_end_transaction(struct buffer_entity *be)
     sbuf->diff = 0;
   }
   else if(ret<0){
-    E("Error in Rec entity write: %ld. Left to write:%ld bytes",, ret,sbuf->diff);
+    E("Error in Rec entity write: %ld. Left to write:%ld bytes", ret,sbuf->diff);
     close_recer(be,ret);
     return -1;
   }
@@ -431,7 +431,7 @@ int simple_end_transaction(struct buffer_entity *be)
     //if(sbuf->opt->optbits & ASYNC_WRITE)
     //sbuf->async_writes_submitted++;
     if((unsigned long)ret != count){
-      E("Write wrote %ld out of %lu",, ret, count);
+      E("Write wrote %ld out of %lu", ret, count);
       /* TODO: Handle incrementing so we won't lose data */
       sbuf->diff -=  ret;
       sbuf->bufoffset += ret;
@@ -481,12 +481,12 @@ int simple_write_bytes(struct buffer_entity *be)
     count = limit;
   }
   if (limit != count && WRITEND_USES_DIRECTIO(sbuf->opt)){
-    D("Only need to finish transaction. limit %lu, count %lu",, limit, count);
+    D("Only need to finish transaction. limit %lu, count %lu", limit, count);
     return simple_end_transaction(be);
   }
   //ASSERT(count % 4096 == 0);
 
-  DD("Starting write with count %lu",,count);
+  DD("Starting write with count %lu",count);
   ret = be->recer->write(be->recer, sbuf->bufoffset, count);
   if(ret == EOF)
   {
@@ -494,7 +494,7 @@ int simple_write_bytes(struct buffer_entity *be)
     sbuf->diff = 0;
   }
   else if(ret<0){
-    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %ld bytes offset: %lu count: %lu\n",, ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
+    E("RINGBUF: Error in Rec entity write: %ld. Left to write: %ld bytes offset: %lu count: %lu\n", ret,sbuf->diff, (unsigned long)sbuf->bufoffset, count);
     close_recer(be,ret);
     return -1;
   }
@@ -507,7 +507,7 @@ int simple_write_bytes(struct buffer_entity *be)
   }
   else{
     if((unsigned long)ret != count){
-      E("Write wrote %ld out of %lu\n",, ret, count);
+      E("Write wrote %ld out of %lu\n", ret, count);
       sbuf->diff -= ret;
       sbuf->bufoffset+=ret;
     }
@@ -540,7 +540,7 @@ int sbuf_async_loop(struct buffer_entity *be)
       return -1;
     }
     else{
-      DD("Only checking. Not writing. asyncdiff still %ld bytes",,sbuf->asyncdiff);
+      DD("Only checking. Not writing. asyncdiff still %ld bytes",sbuf->asyncdiff);
       err = sbuf_check(be,1);
       CHECK_ERR_QUIET("Async check");
     }
@@ -551,11 +551,11 @@ int sbuf_sync_loop(struct buffer_entity *be)
 {
   struct simplebuf * sbuf = (struct simplebuf *)be->opt;
   int err;
-  DD("Starting write loop for %ld bytes",, sbuf->diff);
+  DD("Starting write loop for %ld bytes", sbuf->diff);
   while(sbuf->diff > 0){
     err = simple_write_bytes(be);
     CHECK_ERR_QUIET("sync bytes written");
-    DD("Writeloop done. diff:  %ld",,sbuf->diff);
+    DD("Writeloop done. diff:  %ld",sbuf->diff);
   }
   return 0;
 }
@@ -566,23 +566,23 @@ int write_buffer(struct buffer_entity *be)
 
   if(be->recer == NULL){
     ret = 0;
-    D("Getting rec entity for buffer: file %ld, filename %s",, sbuf->fileid, sbuf->opt->filename);
+    D("Getting rec entity for buffer: file %ld, filename %s", sbuf->fileid, sbuf->opt->filename);
 
     if(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE)
     {
       pthread_mutex_lock(sbuf->opt->writequeue);
       while(sbuf->opt->next_fd_id_to_write < sbuf->fileid){
 	if(sbuf->opt->optbits & READMODE)
-	  D("Waiting for file seq %ld to come up for sending. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
+	  D("Waiting for file seq %ld to come up for sending. Now %ld", sbuf->fileid,sbuf->opt->next_fd_id_to_write);
 	else
-	  D("Waiting for file seq %ld to come up for recording. Now %ld",, sbuf->fileid,sbuf->opt->next_fd_id_to_write);
+	  D("Waiting for file seq %ld to come up for recording. Now %ld", sbuf->fileid,sbuf->opt->next_fd_id_to_write);
 	pthread_cond_wait(sbuf->opt->writequeue_signal, sbuf->opt->writequeue);
       }
       pthread_mutex_unlock(sbuf->opt->writequeue);
       if(sbuf->opt->optbits & READMODE)
-	D("My turn to read %ld",, sbuf->fileid);
+	D("My turn to read %ld", sbuf->fileid);
       else
-	D("My turn to write %ld",, sbuf->fileid);
+	D("My turn to write %ld", sbuf->fileid);
     }
     /* If we're reading, we need a specific recorder_entity */
     if(sbuf->opt->optbits & READMODE){
@@ -593,13 +593,13 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       //memset(sbuf->filename_old, 0, sizeof(char)*FILENAME_MAX);
-      D("Getting rec entity id %d for file %lu",, sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
+      D("Getting rec entity id %d for file %lu", sbuf->opt->fi->files[sbuf->fileid].diskid, sbuf->fileid);
       be->recer = (struct recording_entity*)get_specific(sbuf->opt->diskbranch, sbuf->opt, sbuf->fileid, sbuf->running, sbuf->opt->fi->files[sbuf->fileid].diskid, &ret);
       /* TODO: This is a real bummer. Handle! 	*/
       if (be->recer == NULL || ret !=0){
 	E("Specific writer fails on acquired.");
 	E("Shutting it down and removing from list");
-	E("Wanted %ld from %d",, sbuf->fileid, (sbuf->opt->fi->files[sbuf->fileid]).diskid);
+	E("Wanted %ld from %d", sbuf->fileid, (sbuf->opt->fi->files[sbuf->fileid]).diskid);
 	if(be->recer == NULL)
 	  E("Recer was null");
 	else
@@ -612,13 +612,13 @@ int write_buffer(struct buffer_entity *be)
 	return -1;
       }
       be->recer->setshmid(be->recer, sbuf->shmid, be->buffer);
-      D("Got rec entity %d to load %s file %lu!",, be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
+      D("Got rec entity %d to load %s file %lu!", be->recer->getid(be->recer), sbuf->opt->fi->filename, sbuf->fileid);
       if(!(sbuf->opt->optbits & WRITE_TO_SINGLE_FILE))
       {
 	uint64_t rfilesize = be->recer->get_filesize(be->recer);
 	if(sbuf->diff != rfilesize)
 	{
-	  D("Adjusting filesize from %lu to %lu",, sbuf->diff, rfilesize);
+	  D("Adjusting filesize from %lu to %lu", sbuf->diff, rfilesize);
 	  sbuf->diff = rfilesize;
 	}
       }
@@ -641,12 +641,12 @@ int write_buffer(struct buffer_entity *be)
       }
       else{
 	be->recer->setshmid(be->recer, sbuf->shmid, be->buffer);
-	D("Updating file_index %s on id %lu for in mem and busy ",, sbuf->opt->fi->filename, sbuf->fileid);
+	D("Updating file_index %s on id %lu for in mem and busy ", sbuf->opt->fi->filename, sbuf->fileid);
 	add_file(sbuf->opt->fi, sbuf->fileid, be->recer->getid(be->recer), FH_INMEM|FH_BUSY);
 	if(!(sbuf->opt->optbits & DATATYPE_UNKNOWN))
 	{
 	  if(check_and_fill(be->buffer, sbuf->opt, sbuf->fileid, NULL) != 0)
-	    E("Error in check and fill for %s id %ld",, sbuf->opt->filename, sbuf->fileid);
+	    E("Error in check and fill for %s id %ld", sbuf->opt->filename, sbuf->fileid);
 	}
 	ASSERT(be->recer->getid(be->recer) < sbuf->opt->n_drives);
 	//update_fileholder(sbuf->opt->fi, sbuf->fileid, FH_INMEM|FH_BUSY, ADDTOFILESTATUS, be->recer->getid(be->recer));
@@ -672,19 +672,19 @@ int write_buffer(struct buffer_entity *be)
   /* If we've succesfully written everything: set everything free etc */
   if(sbuf->diff == 0){
     if(sbuf->opt->optbits & READMODE)
-      D("Operation complete for Reading file %ld of %s. Releasing recpoint",, sbuf->fileid, sbuf->opt->filename);
+      D("Operation complete for Reading file %ld of %s. Releasing recpoint", sbuf->fileid, sbuf->opt->filename);
     else
-      D("Operation complete for Recording file %ld of %s. Releasing recpoint",, sbuf->fileid, sbuf->opt->filename);
+      D("Operation complete for Recording file %ld of %s. Releasing recpoint", sbuf->fileid, sbuf->opt->filename);
 
     /* Might have closed recer already 	*/
     if(sbuf->opt->optbits & READMODE)
-      D("Recpoint released for reading of %ld filename %s",, sbuf->fileid, sbuf->opt->filename);
+      D("Recpoint released for reading of %ld filename %s", sbuf->fileid, sbuf->opt->filename);
     else
-      D("Recpoint released for writing of %ld filename %s",, sbuf->fileid, sbuf->opt->filename);
+      D("Recpoint released for writing of %ld filename %s", sbuf->fileid, sbuf->opt->filename);
   }
   else
   {
-    E("Diff not lowered to 0 on %s fileid %ld",, sbuf->opt->filename, sbuf->fileid);
+    E("Diff not lowered to 0 on %s fileid %ld", sbuf->opt->filename, sbuf->fileid);
   }
   if(be->recer != NULL)
     set_free(sbuf->opt->diskbranch, be->recer->self);
@@ -713,7 +713,7 @@ void *sbuf_simple_write_loop(void *buffo)
     }
 
     if(sbuf->diff > 0){
-      D("Blocking reads/writes. Left to read/write %ld for file %lu",,sbuf->diff,sbuf->fileid);
+      D("Blocking reads/writes. Left to read/write %ld for file %lu",sbuf->diff,sbuf->fileid);
       ASSERT((unsigned)sbuf->diff <= CALC_BUFSIZE_FROM_OPT_NOOFFSET(sbuf->opt));
       savedif = sbuf->diff;
       ret = -1;
@@ -723,9 +723,9 @@ void *sbuf_simple_write_loop(void *buffo)
 	ret = write_buffer(be);
 	if(ret != 0){
 	  if(sbuf->opt->optbits & READMODE)
-	    E("Error in read of write_buffer file %s fileid %ld. Returning diff and bufoffset",, sbuf->opt->filename, sbuf->fileid);
+	    E("Error in read of write_buffer file %s fileid %ld. Returning diff and bufoffset", sbuf->opt->filename, sbuf->fileid);
 	  else
-	    E("Error in rec of write_buffer file %s fileid %ld. Returning diff and bufoffset",, sbuf->opt->filename, sbuf->fileid);
+	    E("Error in rec of write_buffer file %s fileid %ld. Returning diff and bufoffset", sbuf->opt->filename, sbuf->fileid);
 	  sbuf->diff = savedif;
 	  sbuf->bufoffset = be->buffer;
 	  if(sbuf->opt->optbits & READMODE){
@@ -744,13 +744,13 @@ void *sbuf_simple_write_loop(void *buffo)
 
 	  if(sbuf->opt->optbits & READMODE){
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_INMEM, ADDTOFILESTATUS);
-	    D("Read cycle complete. Setting self to loaded with %lu",, sbuf->fileid);
+	    D("Read cycle complete. Setting self to loaded with %lu", sbuf->fileid);
 	    LOCK(be->headlock);
 	    set_loaded(sbuf->opt->membranch, be->self);
 	  }
 	  else
 	  {
-	    D("Write cycle complete for recording %s. Setting self to free since done on file %ld",, sbuf->opt->filename, sbuf->fileid);
+	    D("Write cycle complete for recording %s. Setting self to free since done on file %ld", sbuf->opt->filename, sbuf->fileid);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_BUSY, DELFROMFILESTATUS);
 	    update_fileholder_status(sbuf->opt->fi, sbuf->fileid, FH_ONDISK, ADDTOFILESTATUS);
 	    if(wake_up_waiters(sbuf->opt->fi) != 0)
@@ -765,7 +765,7 @@ void *sbuf_simple_write_loop(void *buffo)
       }
     }
   }
-  D("Finished on id %d",,sbuf->bufnum);
+  D("Finished on id %d",sbuf->bufnum);
   pthread_exit(NULL);
 }
 void sbuf_cancel_writebuf(struct buffer_entity *be)

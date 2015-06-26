@@ -198,7 +198,7 @@ long aiow_check(struct recording_entity * re,int tout){
   struct common_io_info * ioi = (struct common_io_info *)re->opt;
   //errno=0;
   //perror("fcntl");
-  //E("Dat fcntl %d errno %d",, fcntl(ioi->fd, F_GETFL), errno);
+  //E("Dat fcntl %d errno %d", fcntl(ioi->fd, F_GETFL), errno);
   //perror("fcntl");
   long ret;
   static struct timespec timeout = { 0, 0 };
@@ -207,9 +207,9 @@ long aiow_check(struct recording_entity * re,int tout){
   struct extra_parameters *ep = (struct extra_parameters *)ioi->extra_param;
   //io_context_t * ctx = ep->ctx;
   if(tout == 1){
-    D("Timeout set on check for %s",, ioi->curfilename);
+    D("Timeout set on check for %s", ioi->curfilename);
     ret = io_getevents(ep->ctx, 0, 1, &event, &rtout);
-    D("Released on %s",, ioi->curfilename);
+    D("Released on %s", ioi->curfilename);
   }
   else{
     ret = io_getevents(ep->ctx, 0, 1, &event, &timeout);
@@ -224,17 +224,17 @@ long aiow_check(struct recording_entity * re,int tout){
       //pthread_spin_unlock((ioi->opt->augmentlock));
 #endif
       ret = event.res;
-      D("Check return %ld, read/written %lu bytes",, ret, event.res);
+      D("Check return %ld, read/written %lu bytes", ret, event.res);
     }
     else{
       if(errno == 0 && event.res == 0){
-	D("end of file! event.red: %ld  %d",, event.res, errno);
+	D("end of file! event.red: %ld  %d", event.res, errno);
 	perror("AIOW: Check");
 	//return -1;//event.res;
 	return AIO_END_OF_FILE;
       } 
       else{
-	E("Write check return error event.res: %ld, fd: %d,  file: %s",, event.res, ioi->fd, ioi->curfilename);
+	E("Write check return error event.res: %ld, fd: %d,  file: %s", event.res, ioi->fd, ioi->curfilename);
 	if(ioi->opt->optbits & READMODE)
 	  E("Happened in readmode");
 	perror("AIOW: Check");
@@ -261,7 +261,7 @@ int aiow_wait_for_write(struct recording_entity* re){
   //Not sure if this works, since io_queue_run doesn't
   //work (have to use io_getevents), or then I just
   //don't know how to use it
-  D("Buffer full %s. Going to sleep\n",, ioi->curfilename);
+  D("Buffer full %s. Going to sleep\n", ioi->curfilename);
   //Doesn't really sleep :/
   //return io_queue_wait(ep->ctx, &timeout);
   return usleep(5000);

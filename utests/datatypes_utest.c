@@ -31,7 +31,7 @@ uint32_t form_hexliteral_from_int(uint32_t m)
     j++;
   }
 
-  //D("Dat string %s",, temp);
+  //D("Dat string %s", temp);
 
   return (uint32_t)floor(powler);
 }
@@ -143,7 +143,7 @@ int testrun()
   for(i=0;i<DO_ERRORS;i++)
   {
     int packetnum = (rand() % (opt->buf_num_elems-1));
-    D("Doing error in packetnum %d",, packetnum);
+    D("Doing error in packetnum %d", packetnum);
     memset(testarea+packetnum*(opt->packet_size), 0, 32);
   }
   *expected_errors = DO_ERRORS;
@@ -151,10 +151,10 @@ int testrun()
   CHECK_ERR("Check and fill fileid");
   if(*expected_errors > 0 && *expected_errors <= DO_ERRORS)
   {
-    D("Amount of errors reasonable: %d",, *expected_errors);
+    D("Amount of errors reasonable: %d", *expected_errors);
   }
   else{
-    E("Unreasonable amount of errors: %d",, *expected_errors);
+    E("Unreasonable amount of errors: %d", *expected_errors);
     return -1;
   }
   D("Checking fixed area");
@@ -225,7 +225,7 @@ int testrun()
       }
       if(tempdiff != 0)
       {
-	E("Should get 0 for diff. Got %d",, tempdiff);
+	E("Should get 0 for diff. Got %d", tempdiff);
 	return -1;
       }
       lerr = epochtime_from_mark5b_net((void*)teststring, &gmtime_s);
@@ -248,7 +248,7 @@ int testrun()
       break;
   }
   if(lerr != temptime.tv_sec){
-    E("didnt get %ld from epochtime-counter, got %ld",, temptime.tv_sec,lerr);
+    E("didnt get %ld from epochtime-counter, got %ld", temptime.tv_sec,lerr);
     return -1;
   }
   int temp;
@@ -285,12 +285,12 @@ int testrun()
     }
     if(sec != i)
     {
-      E("Got %d for sec when expected %d",, sec, i);
+      E("Got %d for sec when expected %d", sec, i);
       return -1;
     }
     if(day != i%365)
     {
-      E("Got %d for sec when expected %d",, day, i%365);
+      E("Got %d for sec when expected %d", day, i%365);
       return -1;
     }
   }
@@ -318,7 +318,7 @@ int main(void)
   TEST_START(HEXTRICKS);
   int i;
   for(i=0;i<58237215;i++){
-    D("%d as %X",, i, form_hexliteral_from_int(i));
+    D("%d as %X", i, form_hexliteral_from_int(i));
   }
 
   TEST_END(HEXTRICKS);

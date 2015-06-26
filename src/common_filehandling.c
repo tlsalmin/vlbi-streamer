@@ -20,7 +20,7 @@ void skip_missing(struct opt_s* opt, struct sender_tracking* st, int lors)
     while(*target <= st->n_files_probed && opt->fi->files[*target].status & FH_MISSING){
       long nuf = MIN((opt->fi->n_files - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
 
-      D("Skipping a file, fileholder set to FH_MISSING for file %lu",, st->files_loaded);
+      D("Skipping a file, fileholder set to FH_MISSING for file %lu", st->files_loaded);
 
       /* files skipped is just for statistics so don't want to log it twice	*/
       if(lors == SKIP_SENT)
@@ -43,7 +43,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   skip_missing(opt,st,SKIP_LOADED);
   long nuf;
   int err;
-  D("Packets loaded is %lu, packet probed %ld",, st->packets_loaded, st->n_packets_probed);
+  D("Packets loaded is %lu, packet probed %ld", st->packets_loaded, st->n_packets_probed);
   if(st->files_loaded == st->n_files_probed){
     D("Loaded up to n_files!");
     return DONTRYLOADNOMORE;
@@ -107,11 +107,11 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   nuf = MIN((st->n_packets_probed - st->packets_loaded), ((unsigned long)opt->buf_num_elems));
   if(nuf == 0)
   {
-    E("Metadata error on recording %s. Cant load 0 packets",, opt->filename);
+    E("Metadata error on recording %s. Cant load 0 packets", opt->filename);
     return DONTRYLOADNOMORE;
   }
   /* TODO: Not checking if FH_ONDISK is set */
-  D("Requested a load start on file %lu",, st->files_loaded);
+  D("Requested a load start on file %lu", st->files_loaded);
   if (be == NULL){
     if(check_if_free(opt->membranch) != 0){
       D("No more free buffers");
@@ -131,7 +131,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   CHECK_AND_EXIT(be);
 
   st->files_in_loading++;
-  D("Setting seqnum %lu to load %lu packets",,st->files_loaded, nuf);
+  D("Setting seqnum %lu to load %lu packets",st->files_loaded, nuf);
 
   LOCK(be->headlock);
   unsigned long *inc;
@@ -141,7 +141,7 @@ int start_loading(struct opt_s * opt, struct buffer_entity *be, struct sender_tr
   be->set_ready(be, 1);
   pthread_cond_signal(be->iosignal);
   UNLOCK(be->headlock);
-  D("Loading request complete for id %lu",, st->files_loaded);
+  D("Loading request complete for id %lu", st->files_loaded);
 
   st->packets_loaded+=nuf;
   st->files_loaded++;
@@ -217,7 +217,7 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
 {
   if(opt->wait_nanoseconds == 0){
     st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, opt->n_threads);
-    D("No wait set, so setting to use %d buffers",, st->allocated_to_load);
+    D("No wait set, so setting to use %d buffers", st->allocated_to_load);
   }
   else
   {
@@ -226,7 +226,7 @@ void throttling_count(struct opt_s* opt, struct sender_tracking * st)
     st->allocated_to_load = MIN(TOTAL_MAX_DRIVES_IN_USE, rate_in_bytes/(MBYTES_PER_DRIVE*MILLION) + 1);
     if(st->allocated_to_load <5)
       st->allocated_to_load =5;
-    D("rate as %d ns. Setting to use max %d buffers",, opt->wait_nanoseconds, st->allocated_to_load);
+    D("rate as %d ns. Setting to use max %d buffers", opt->wait_nanoseconds, st->allocated_to_load);
   }
 }
 /* TODO: This logic needs to be rethunked! Lots of cases to consider with live sending */
@@ -238,7 +238,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   //st->n_files_probed = get_n_files(opt->fi);
   //st->status_probed = get_status(opt->fi);
   if(se->be != NULL){
-    D("Buffer empty for: %lu",, st->files_sent);
+    D("Buffer empty for: %lu", st->files_sent);
     st->files_sent++;
     /* Not too efficient to free and then get a new, but doing this for simpler logic	 */
     D("Freeing used buffer for other use");
@@ -248,7 +248,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   }
   while(st->files_sent == st->n_files_probed){
     if((st->status_probed = get_status(opt->fi)) & FILESTATUS_RECORDING){
-      D("All sent with %ld packets, but we're still recording on %s",,st->packets_sent, opt->filename);	
+      D("All sent with %ld packets, but we're still recording on %s",st->packets_sent, opt->filename);	
       err = wait_on_update(opt->fi);
       CHECK_ERR("wait on update");
       full_metadata_update(opt->fi, &st->n_files_probed, &st->n_packets_probed, &st->status_probed);
@@ -264,7 +264,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
   //st->status_probed = get_status(opt->fi);
   /* -1 here, since indexes start at 0 */
   while(st->files_loaded < st->n_files_probed && st->allocated_to_load > 0){
-    D("Still files to be loaded. Loading %lu. Allocated %d",, st->files_loaded, st->allocated_to_load);
+    D("Still files to be loaded. Loading %lu. Allocated %d", st->files_loaded, st->allocated_to_load);
     /* start_loading increments files_loaded */
     err = start_loading(opt, se->be, st);
     if(err == DONTRYLOADNOMORE){
@@ -274,7 +274,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
     CHECK_ERR("Loading file");
   }
   if(st->files_in_loading == 0){
-    D("Can't start loading and can't go to wait for loading files on %s. Waiting and running again",, opt->filename);
+    D("Can't start loading and can't go to wait for loading files on %s. Waiting and running again", opt->filename);
     err = wait_on_update(opt->fi);
     CHECK_ERR("wait on update");
     return jump_to_next_file(opt, se, st);
@@ -282,7 +282,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
 
   //se->be = NULL;
   while(se->be == NULL){
-    D("Getting new loaded for file %lu, filename %s",, st->files_sent, opt->filename);
+    D("Getting new loaded for file %lu, filename %s", st->files_sent, opt->filename);
     FI_READLOCK(opt->fi);
     skip_missing(opt,st,SKIP_SENT);
     FIUNLOCK(opt->fi);
@@ -305,17 +305,17 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
        return jump_to_next_file(opt, se, st);
        }
        else
-       D("Got lingering loaded file %lu to send.",, opt->fileholders->id);
+       D("Got lingering loaded file %lu to send.", opt->fileholders->id);
        }
        else
        */
     if(st->files_in_loading > 0)
     {
-      D("File should be waiting for us now or soon with status %lu. in loading %ld",, st->files_sent, st->files_in_loading);
+      D("File should be waiting for us now or soon with status %lu. in loading %ld", st->files_sent, st->files_in_loading);
       se->be = get_loaded(opt->membranch, st->files_sent, opt);
       //buf = se->be->simple_get_writebuf(se->be, &inc);
       if(se->be != NULL){
-	D("Got loaded file %lu to send.",, st->files_sent);
+	D("Got loaded file %lu to send.", st->files_sent);
 	st->files_in_loading--;
       }
       else{
@@ -324,7 +324,7 @@ int jump_to_next_file(struct opt_s *opt, struct streamer_entity *se, struct send
       }
     }
     else{
-      E("No files in loading so shouldn't get here. Loaded %ld, sent %ld, in loading: %ld. Filename %s ",, st->files_loaded, st->files_sent,st->files_in_loading, opt->filename);
+      E("No files in loading so shouldn't get here. Loaded %ld, sent %ld, in loading: %ld. Filename %s ", st->files_loaded, st->files_sent,st->files_in_loading, opt->filename);
       return -1;
     }
   }

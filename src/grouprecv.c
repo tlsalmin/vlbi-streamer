@@ -82,7 +82,7 @@ int connect_to_c(const char* t_port, int * fd)
   hints.ai_family = AF_UNSPEC;
   err = getaddrinfo(NULL, t_port, &hints, &res);
   if(err != 0){
-    E("Error in getaddrinfo: %s for %s",, gai_strerror(err),  t_port);
+    E("Error in getaddrinfo: %s for %s", gai_strerror(err),  t_port);
     return -1;
   }
   for(p = res; p != NULL; p = p->ai_next)
@@ -136,7 +136,7 @@ int connect_to_c(const char* t_port, int * fd)
     def = packet_size;
     len = sizeof(def);
     while(err == 0){
-      //O("RCVBUF size is %d",,def);
+      //O("RCVBUF size is %d",def);
       def  = def << 1;
       err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
       if(err == 0){
@@ -156,7 +156,7 @@ int connect_to_c(const char* t_port, int * fd)
       E("Error in setting SO_SNDBUF");
   }
 
-  D("All ok. got fd %d",, *fd);
+  D("All ok. got fd %d", *fd);
 
   return 0;
 }
@@ -172,7 +172,7 @@ void * recvthread(void * optsi)
   int err;
   int fd=0;
   struct sillystruct* st = (struct sillystruct*)optsi;
-  D("Starting receive on fd %d",, st->fd);
+  D("Starting receive on fd %d", st->fd);
   if(opts & TCP_SOCKET){
     D("Waiting for accept");
     if(opts & SINGLEPORT)
@@ -241,7 +241,7 @@ int main(int argc, char** argv){
 	opts |= SINGLEPORT;
 	break;
       default:
-	E("Unknown parameter %c",, ret);
+	E("Unknown parameter %c", ret);
 	usage(argv[0]);
 	break;
     }

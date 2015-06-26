@@ -64,7 +64,7 @@ int common_open_new_file(void * recco, void *opti,void* acq){
   if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
   {
     sprintf(ioi->curfilename, "%s%i%s%s%s%s", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename); 
-    D("Ready to read/write %ld from/to continuous file %s",, ioi->file_seqnum, ioi->curfilename);
+    D("Ready to read/write %ld from/to continuous file %s", ioi->file_seqnum, ioi->curfilename);
   }
   else{
     sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
@@ -76,11 +76,11 @@ int common_open_new_file(void * recco, void *opti,void* acq){
     tempflags = re->get_w_flags();
 
 
-  D("Opening file %s",,ioi->curfilename);
+  D("Opening file %s",ioi->curfilename);
 
   if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE && ioi->opt->singlefile_fd != 0){
     ioi->fd = ioi->opt->singlefile_fd;
-    D("Copying old fd %d for use",, ioi->fd);
+    D("Copying old fd %d for use", ioi->fd);
   }
   else
   {
@@ -94,12 +94,12 @@ int common_open_new_file(void * recco, void *opti,void* acq){
 	CHECK_ERR("Init directory");
 	err = common_open_file(&(ioi->fd),tempflags, ioi->curfilename, 0);
 	if(err!=0){
-	  E("Init: Error in file open %s",, ioi->curfilename);
+	  E("Init: Error in file open %s", ioi->curfilename);
 	  return err;
 	}
       }
       else{
-	E("Init: Error in file open %s",, ioi->curfilename);
+	E("Init: Error in file open %s", ioi->curfilename);
 	return err;
       }
     }
@@ -116,11 +116,11 @@ int common_open_new_file(void * recco, void *opti,void* acq){
       err = stat(ioi->curfilename, &statinfo);
       if(err != 0)
       {
-	E("Error in statting %s",, ioi->curfilename);
+	E("Error in statting %s", ioi->curfilename);
 	return -1;
       }
       ioi->filesize = statinfo.st_size;
-      D("Filesize is %lu",, ioi->filesize);
+      D("Filesize is %lu", ioi->filesize);
     }
   }
 
@@ -128,7 +128,7 @@ int common_open_new_file(void * recco, void *opti,void* acq){
   if(ioi->opt->optbits & WRITE_TO_SINGLE_FILE)
   {
     ioi->offset = (CALC_BUFSIZE_FROM_OPT(ioi->opt))*ioi->file_seqnum;
-    D("Continous file, so offset set to %ld",, ioi->offset);
+    D("Continous file, so offset set to %ld", ioi->offset);
   }
   else
     ioi->offset = 0;
@@ -143,7 +143,7 @@ int common_finish_file(void *recco){
   {
     pthread_mutex_lock(ioi->opt->writequeue);
     ioi->opt->next_fd_id_to_write++;
-    D("Increased filenum to %ld",, ioi->opt->next_fd_id_to_write);
+    D("Increased filenum to %ld", ioi->opt->next_fd_id_to_write);
     pthread_cond_broadcast(ioi->opt->writequeue_signal);
     pthread_mutex_unlock(ioi->opt->writequeue);
   }
@@ -179,7 +179,7 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
       /* Goddang what's the big idea setting O_RDONLY to 00 */
       if(!(flags & (O_WRONLY|O_RDWR))){
 	perror("File open");
-	E("File %s not found, eventhought we wan't to read",,filename);
+	E("File %s not found, eventhought we wan't to read",filename);
 	return EACCES;
       }
       else{
@@ -200,20 +200,20 @@ int common_open_file(int *fd, int flags, char * filename, loff_t fallosize){
   }
 
   //This will overwrite existing file.TODO: Check what is the desired default behaviour 
-  D("COMMON_WRT: Opening file %s",, filename);
+  D("COMMON_WRT: Opening file %s", filename);
   *fd = open(filename, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
   if(*fd < 0){
     if(flags & O_WRONLY){
       /* Silent version since, acquire stumbles here and it  	*/
       /* Works as planned. Could do string processing		*/
       /* to check the dir etc. but meh				*/
-      D("File opening failed with write on for %s. Acquire should create dir",,filename);
+      D("File opening failed with write on for %s. Acquire should create dir",filename);
       return *fd;
     }
     fprintf(stderr,"Error: %s on %s\n",strerror(errno), filename);
     return *fd;
   }
-  D(" File opened as fd %d",, *fd);
+  D(" File opened as fd %d", *fd);
   if(fallosize > 0){
     err = fallocate(*fd, 0,0, fallosize);
     if(err < 0){
@@ -248,7 +248,7 @@ int common_writecfg(struct recording_entity *re, void *opti){
   if(stat(dirname,&sb) != 0){
     //perror("Error Opening dir");
     //ERR_IN_INIT;
-    D("The dir %s doesn't exist. Probably no files written to it. Returning ok",, dirname);
+    D("The dir %s doesn't exist. Probably no files written to it. Returning ok", dirname);
     free(cfgname);
     free(dirname);
     return 0;
@@ -327,7 +327,7 @@ int init_directory(struct recording_entity *re){
   /* Create directory */
 
   sprintf(dirname, "%s%i%s%s", ROOTDIRS, ioi->id, "/",ioi->opt->filename);
-  D("Creating directory %s",, dirname);
+  D("Creating directory %s", dirname);
   if(ioi->opt->optbits & READMODE){
     struct stat sb;
 
@@ -336,7 +336,7 @@ int init_directory(struct recording_entity *re){
       ERR_IN_INIT;
     }
     else if (!S_ISDIR(sb.st_mode)){
-      E("%s Not a directory. Not initializing this reader",,dirname);
+      E("%s Not a directory. Not initializing this reader",dirname);
       free(dirname);
       return -1;
       //ERR_IN_INIT;
@@ -353,7 +353,7 @@ int init_directory(struct recording_entity *re){
 	D("Directory exist. OK!");
       }
       else{
-	E("COMMON_WRT: Init: Error in file open: %s",, dirname);
+	E("COMMON_WRT: Init: Error in file open: %s", dirname);
 	free(dirname);
 	return errno;
 	//ERR_IN_INIT;
@@ -420,7 +420,7 @@ int common_w_init(struct opt_s* opt, struct recording_entity *re){
   ioi->bytes_exchanged = 0;
 
   /* Only after everything ok add to the diskbranches */
-  D("Adding writer %d to diskbranch",,ioi->id);
+  D("Adding writer %d to diskbranch",ioi->id);
   struct listed_entity *le = (struct listed_entity*)malloc(sizeof(struct listed_entity));
   memset(le, 0, sizeof(struct listed_entity));
   le->entity = (void*)re;
@@ -517,7 +517,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
     char filename[FILENAME_MAX];
     struct stat statbuf;
     sprintf(filename, "%s%i/%s/%s", ROOTDIRS, ioi->id, opt->filename,  opt->filename); 
-    D("Writing/reading to/from single file %s",, filename);
+    D("Writing/reading to/from single file %s", filename);
     err = stat(filename, &statbuf);
     CHECK_ERR("Stat main data file");
 
@@ -541,7 +541,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
   regex_t regex;
 
   sprintf(dirname, "%s%i%s%s%s", ROOTDIRS, ioi->id, "/",opt->filename, "/"); 
-  D("Checking for files and updating fileholders on %s",, dirname);
+  D("Checking for files and updating fileholders on %s", dirname);
 
 
   /* GRRR can't get [:digit:]{8} to work so I'll just do it manually */
@@ -574,7 +574,7 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
       err = regexec(&regex, namelist[i]->d_name, 0,NULL,0);
       /* If we match a data file */
       if( !err ){
-	D("Regexp matched %s",, namelist[i]->d_name);
+	D("Regexp matched %s", namelist[i]->d_name);
 	/* Grab the INDEXING_LENGTH last chars from ent->d_name, which is the	*/
 	/* The files index							*/
 	char * start_of_index= namelist[i]->d_name+(strlen(namelist[i]->d_name))-INDEXING_LENGTH;
@@ -584,10 +584,10 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	//temp = atoi(the_index);
 	temp = atoi(start_of_index);
 	if((unsigned long)temp >= opt->fi->n_files)
-	  E("Extra files found in dir named! Temp read %i, the_index: %s",, temp, start_of_index);
+	  E("Extra files found in dir named! Temp read %i, the_index: %s", temp, start_of_index);
 	else
 	{
-	  D("Identified %s as %d",,start_of_index,  temp);
+	  D("Identified %s as %d",start_of_index,  temp);
 	  fh = &(opt->fi->files[temp]);
 	  fh->status &= ~FH_MISSING;
 	  fh->status |= FH_ONDISK;
@@ -596,12 +596,12 @@ int common_check_files(struct recording_entity *re, void* opt_ss){
 	}
       }
       else if( err == REG_NOMATCH ){
-	D("Regexp didn't match %s",, namelist[i]->d_name);
+	D("Regexp didn't match %s", namelist[i]->d_name);
       }
       else{
 	char msgbuf[100];
 	regerror(err, &regex, msgbuf, sizeof(msgbuf));
-	E("Regex match failed: %s",, msgbuf);
+	E("Regex match failed: %s", msgbuf);
       }
       free(namelist[i]);
       }

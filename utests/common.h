@@ -4,7 +4,7 @@
 #define TEST_START(name) fprintf(stdout, "TEST_START: " #name "\n")
 #define TEST_END(name) fprintf(stdout, "TEST_END: " #name "\n")
 #define THREAD_EXIT_ON_ERROR(x) do{if(x){E("Fail!"); td->status = THREAD_STATUS_ERROR;pthread_exit(NULL);}}while(0)
-#define THREAD_EXIT_ERROR(x) do{E("Error on thread %i",, td->thread_id);E(x); td->status = THREAD_STATUS_ERROR;pthread_exit(NULL);}while(0)
+#define THREAD_EXIT_ERROR(x) do{E("Error on thread %i", td->thread_id);E(x); td->status = THREAD_STATUS_ERROR;pthread_exit(NULL);}while(0)
 
 #define THREAD_STATUS_NOT_STARTED 	B(0)
 #define THREAD_STATUS_STARTED 		B(1)
@@ -20,10 +20,23 @@
 #undef E
 #define LOG(...) fprintf(stdout, __VA_ARGS__)
 #define LOGERR(...) fprintf(stderr, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(stdout,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(stderr,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ ); } while(0)
+#define D(_fmt, _args...)                                                     \
+  do                                                                          \
+    {                                                                         \
+      if (DEBUG_OUTPUT)                                                       \
+        {                                                                     \
+          fprintf(stdout ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,         \
+                  __func__, ##_args);                                         \
+        }                                                                     \
+    }                                                                         \
+  while(0)
+#define E(_fmt, _args...)                                                     \
+  do                                                                          \
+    {                                                                         \
+      fprintf(stderr, "ERROR: %s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,      \
+              __func__, ## _args);                                            \
+    }                                                                         \
+  while(0)
 #endif
 
 struct thread_data {

@@ -12,9 +12,7 @@
 #define AFILES 10
 #define FILES_PER_AFILE 1000
 
-
 char ** filenames;
-
 
 void *testfunc(void *tdr)
 {
@@ -79,14 +77,14 @@ int main(void)
   {
     err = pthread_create(&thread_data[i].ptd, NULL, testfunc, (void*)&thread_data[i]);
     if(err != 0)
-      E("Error in thread init for %d",, i);
+      E("Error in thread init for %d", i);
   }
 
   for(i=0;i<THREADS;i++)
   {
     err = pthread_join(thread_data[i].ptd, NULL);
     if(err != 0)
-      E("Error in pthread join for %d",, i);
+      E("Error in pthread join for %d", i);
   }
 
   for(i=0;i<THREADS;i++)

@@ -90,7 +90,7 @@ void * partnerloop(void* opts)
       SP_WAIT;
     left_to_splice = sp->tosplice;
     SP_UNLOCKIT;
-    D("Got a job to write %ld",, left_to_splice);
+    D("Got a job to write %ld", left_to_splice);
 
     while(left_to_splice > 0)
     {
@@ -116,7 +116,7 @@ void * partnerloop(void* opts)
 	break;
       }
       left_to_splice-=err;
-      D("Done a loop for %ld left %ld",, err, left_to_splice);
+      D("Done a loop for %ld left %ld", err, left_to_splice);
     }
     D("Job done");
 
@@ -152,7 +152,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   D("Can change pipesize!");
   fcntl(sp->pipes[1], F_SETPIPE_SZ, MAX_PIPE_SIZE);
   maxbytes_inpipe = fcntl(sp->pipes[1], F_GETPIPE_SZ);
-  D("SPLICEWRITER: Maximum pipe size set to %d",, maxbytes_inpipe);
+  D("SPLICEWRITER: Maximum pipe size set to %d", maxbytes_inpipe);
 #else
   /* Old headers so can't query the size. presume its 64KB */
   maxbytes_inpipe = 65536;
@@ -216,7 +216,7 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
   struct common_io_info * ioi = (struct common_io_info*) re->opt;
   struct splice_ops *sp = (struct splice_ops *)ioi->extra_param;
   //int maxbytes_inpipe = sp->max_pipe_length * sp->pagesize;
-  D("SPLICEWRITER: Issuing write of %lu to %s",, count, ioi->curfilename);
+  D("SPLICEWRITER: Issuing write of %lu to %s", count, ioi->curfilename);
   //LOG("SPLICEWRITER: Issuing write of %lu to %s start: %lu\n", count, ioi->curfilename, (unsigned long)start);
 
   D("Informing partner on write");
@@ -254,7 +254,7 @@ long splice_write(struct recording_entity * re,void * start, size_t count){
       ret = vmsplice(sp->pipes[1], sp->iov, n_vecs, SPLICE_F_GIFT);
     }
 
-    //D("Done aloop ret %ld count %ld and nvecs %d",, ret, trycount, n_vecs);
+    //D("Done aloop ret %ld count %ld and nvecs %d", ret, trycount, n_vecs);
     if(ret<0){
       fprintf(stderr, "SPLICEWRITER: Splice failed for %ld bytes on fd %d\n", ret,ioi->fd);
       break;

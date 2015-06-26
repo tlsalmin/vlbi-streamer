@@ -221,7 +221,7 @@ int diff_max(int a , int b, int max){
 int increment(struct ringbuf * rbuf, int *head, int *restrainer){
   //if(*head == (*restrainer-1)){
   if(diff_max(*head, *restrainer, rbuf->opt->buf_num_elems) == 1){
-    D("Can't give buffer as head at %d restained by %d",, *head,*restrainer);
+    D("Can't give buffer as head at %d restained by %d", *head,*restrainer);
     return 0;
   }
   else{
@@ -554,7 +554,7 @@ void *rbuf_write_loop(void *buffo){
     {
 #if(DEBUG_OUTPUT)
       //fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
-      D("Not enough to write: %d left %d running",, diff, rbuf->running);
+      D("Not enough to write: %d left %d running", diff, rbuf->running);
 #endif
       pthread_cond_wait(be->iosignal, be->headlock);
     }

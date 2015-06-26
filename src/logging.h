@@ -9,14 +9,27 @@
 #endif
 #define LOG(...) fprintf(LOGTONORMAL, __VA_ARGS__)
 #define LOGERR(...) fprintf(LOGTOERR, __VA_ARGS__)
-#define D(str, ...)\
-    do { if(DEBUG_OUTPUT) fprintf(LOGTONORMAL,"%s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__); } while(0)
-#define E(str, ...)\
-    do { fprintf(LOGTOERR,"ERROR: %s:%d:%s(): " str "\n",__FILE__,__LINE__,__func__ __VA_ARGS__ );perror("Error message"); } while(0)
+#define D(_fmt, _args...)                                                     \
+  do                                                                          \
+    {                                                                         \
+      if (DEBUG_OUTPUT)                                                       \
+        {                                                                     \
+          fprintf(LOGTONORMAL ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
+                  __func__, ##_args);                                         \
+        }                                                                     \
+    }                                                                         \
+  while(0)
+#define E(_fmt, _args...)                                                     \
+  do                                                                          \
+    {                                                                         \
+      fprintf(LOGTOERR, "ERROR: %s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
+              __func__, ## _args);                                            \
+    }                                                                         \
+  while(0)
 
 
 #define DEBUG_OUTPUT_2 0
-#define DD(str, ...) if(DEBUG_OUTPUT_2)D(str, __VA_ARGS__)
+#define DD(...) if(DEBUG_OUTPUT_2)D(__VA_ARGS__)
 
 #define CHECK_AND_EXIT(x) do { if(x == NULL){ E("Couldn't get any x so quitting"); pthread_exit(NULL); } } while(0)
 #define INIT_ERROR return -1;

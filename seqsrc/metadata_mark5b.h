@@ -81,7 +81,7 @@ int check_m5metadata(struct common_control_element*cce)
     //cce->offset = MARK5OFFSET + ms->netoffset;
     cce->packet_move(cce->fd, cce->buffer, cce->framesize, 1);
     if(syncword_check(POINT_TO_THE_RIGHT_DIRECTION) == 0){
-      E("Cant find syncword. This is not mark5 data. Syncword was %X",, *((uint32_t*)POINT_TO_THE_RIGHT_DIRECTION));
+      E("Cant find syncword. This is not mark5 data. Syncword was %X", *((uint32_t*)POINT_TO_THE_RIGHT_DIRECTION));
       return -1;
     }
   }

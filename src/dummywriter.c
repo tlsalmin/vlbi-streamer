@@ -30,7 +30,7 @@ int dummy_acquire(void* recco, void* opti, void * acq)
 
   sprintf(ioi->curfilename, "%s%i%s%s%s%s.%08ld", ROOTDIRS, ioi->id, "/",ioi->opt->filename, "/",ioi->opt->filename,ioi->file_seqnum); 
 
-  D("Opening file(not really!) %s",,ioi->curfilename);
+  D("Opening file(not really!) %s",ioi->curfilename);
 
   ioi->filesize = ioi->opt->buf_num_elems *  ioi->opt->packet_size;
 

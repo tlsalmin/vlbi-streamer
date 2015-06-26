@@ -38,12 +38,12 @@ int prep_dummy_file_index(struct opt_s *opt)
   int j;
   if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
   {
-    D("filename %s Already exists, so just going along with this..",, opt->filename);
+    D("filename %s Already exists, so just going along with this..", opt->filename);
     opt->cumul_found = get_n_files(opt->fi);
     return 0;
   }
   else
-    D("filename %s Not found in index. Creating new",, opt->filename);
+    D("filename %s Not found in index. Creating new", opt->filename);
   opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING, 0);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FI_WRITELOCK(opt->fi);
@@ -77,11 +77,11 @@ int start_thread(struct scheduled_event * ev)
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
   }
   else{
-    D("num elems wtf %d",, ev->opt->buf_num_elems);
+    D("num elems wtf %d", ev->opt->buf_num_elems);
     err = prep_dummy_file_index(ev->opt);
     CHECK_ERR("Prep dummies");
     ev->opt->hostname = NULL;
-    D("num elems wtf %d",, ev->opt->buf_num_elems);
+    D("num elems wtf %d", ev->opt->buf_num_elems);
   }
   err = pthread_create(&ev->pt, NULL, vlbistreamer, (void*)ev->opt); 
   CHECK_ERR("streamer thread create");
@@ -98,7 +98,7 @@ int close_thread(struct scheduled_event *ev)
   err = pthread_join(ev->pt,NULL);
   CHECK_ERR("pthread join");
   if(ev->opt->optbits & READMODE){
-    D("Pthread sender joining on %s",, ev->opt->filename);
+    D("Pthread sender joining on %s", ev->opt->filename);
     err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
     if(err != 0){
       E("Error in disassociate");
@@ -106,7 +106,7 @@ int close_thread(struct scheduled_event *ev)
     }
   }
   else{
-    D("Pthread recorder joining on %s",, ev->opt->filename);
+    D("Pthread recorder joining on %s", ev->opt->filename);
     disassociate(ev->opt->fi, FILESTATUS_RECORDING);
     if(err != 0){
       E("Error in disassociate");
@@ -132,7 +132,7 @@ int format_threads(struct opt_s* original, struct opt_s* copies)
     events[i].opt = &(copies[i]);
     events[i].stats = &(stats[i]);
     /* This will give the same filename to each pair */
-    D("Giving %d filename %s",, i, filenames[i/2]);
+    D("Giving %d filename %s", i, filenames[i/2]);
     copies[i].filename = filenames[i/2];
     if((i % 2) == 1){
       copies[i].optbits |= READMODE;
@@ -211,7 +211,7 @@ int main()
   CHECK_ERR("Close event");
   if(stats[0].total_bytes > 0)
   {
-    D("Captured %ld bytes",, stats[0].total_bytes);
+    D("Captured %ld bytes", stats[0].total_bytes);
   }
   else{
     E("No bytes captured!");
@@ -242,10 +242,10 @@ int main()
     CHECK_ERR("Close thread");
     if(stats[i].total_bytes > 0)
     {
-      D("Captured %ld bytes",, stats[i].total_bytes);
+      D("Captured %ld bytes", stats[i].total_bytes);
     }
     else{
-      E("No bytes captured on id %d!",, i);
+      E("No bytes captured on id %d!", i);
       return -1;
     }
   }
@@ -266,10 +266,10 @@ int main()
   CHECK_ERR("Close thread");
   if (stats[1].total_bytes == PACKET_SIZE*NUMBER_OF_PACKETS*N_FILES_PER_BOM)
   {
-    D("sent %ld bytes correctly",, stats[1].total_bytes);
+    D("sent %ld bytes correctly", stats[1].total_bytes);
   }
   else{
-    E("Not enough bytes sent. Only %ld!",, stats[1].total_bytes);
+    E("Not enough bytes sent. Only %ld!", stats[1].total_bytes);
     return -1;
   }
 
@@ -293,10 +293,10 @@ int main()
     CHECK_ERR("Close thread");
     if (stats[i].total_bytes == PACKET_SIZE*NUMBER_OF_PACKETS*N_FILES_PER_BOM)
     {
-      D("sent %ld bytes correctly",, stats[i].total_bytes);
+      D("sent %ld bytes correctly", stats[i].total_bytes);
     }
     else{
-      E("Not enough bytes sent. Only %ld for id %i!",, stats[i].total_bytes,i);
+      E("Not enough bytes sent. Only %ld for id %i!", stats[i].total_bytes,i);
       return -1;
     }
   }
@@ -321,10 +321,10 @@ int main()
   D("Closed a pair. Checking bytes");
   if (stats[0].total_bytes == stats[1].total_bytes)
   {
-    D("sent %ld bytes correctly",, stats[0].total_bytes);
+    D("sent %ld bytes correctly", stats[0].total_bytes);
   }
   else{
-    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
+    E("Not enough bytes sent. Only %ld sent when %ld received!", stats[1].total_bytes, stats[0].total_bytes);
     return -1;
   }
   CHECK_BRANCHES;
@@ -348,10 +348,10 @@ int main()
   D("Closed a pair. Checking bytes");
   if (stats[0].total_bytes == stats[1].total_bytes)
   {
-    D("sent %ld bytes correctly",, stats[0].total_bytes);
+    D("sent %ld bytes correctly", stats[0].total_bytes);
   }
   else{
-    E("Not enough bytes sent. Only %ld sent when %ld received!",, stats[1].total_bytes, stats[0].total_bytes);
+    E("Not enough bytes sent. Only %ld sent when %ld received!", stats[1].total_bytes, stats[0].total_bytes);
     return -1;
   }
   CHECK_BRANCHES;
@@ -380,28 +380,28 @@ int main()
   {
     if(i % 2 == 0)
     {
-      D("Waiting for %s recording to stop",, events[i].opt->filename);
+      D("Waiting for %s recording to stop", events[i].opt->filename);
       err = close_thread(&(events[i]));
       CHECK_ERR("Close receiver");
     }
     else
     {
-      D("Waiting for %s sending to stop",, events[i].opt->filename);
+      D("Waiting for %s sending to stop", events[i].opt->filename);
       err = close_thread(&(events[i]));
       CHECK_ERR("Close thread");
       D("Closed a pair. Checking bytes");
       if (stats[i].total_bytes == stats[i-1].total_bytes)
       {
-	D("sent %ld bytes correctly",, stats[i].total_bytes);
+	D("sent %ld bytes correctly", stats[i].total_bytes);
       }
       else{
-	E("Not enough bytes sent. Only %ld sent when %ld received on %s!",, stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
+	E("Not enough bytes sent. Only %ld sent when %ld received on %s!", stats[i].total_bytes, stats[i-1].total_bytes, events[i].opt->filename);
 	retval--;
       }
     }
   }
   if(retval != 0){
-    E("Atleast one thread didn't send & receive the same. Errors: %d",, retval);
+    E("Atleast one thread didn't send & receive the same. Errors: %d", retval);
     return -1;
   }
   CHECK_BRANCHES;

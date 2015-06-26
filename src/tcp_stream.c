@@ -153,7 +153,7 @@ void* change_buffer(struct streamer_entity *se, uint64_t ** buf_incrementer)
   spec_ops->opt->cumul++;
   spec_ops->opt->total_packets += spec_ops->opt->buf_num_elems;
   unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-  D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+  D("A buffer filled for %s. Next file: %ld. Packets now %ld", spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
   free_the_buf(se->be);
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
   if(se->be == NULL){
@@ -206,7 +206,7 @@ int loop_with_splice(struct streamer_entity *se)
   }
   else{
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
-    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     se->be->set_ready_and_signal(se->be,0);
   }
@@ -266,7 +266,7 @@ int loop_with_recv(struct streamer_entity *se)
   }
   else{
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
-    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
     se->be->set_ready_and_signal(se->be,0);
@@ -322,7 +322,7 @@ void * threaded_multistream(void * data)
       correct_bufspot = td->buf+((td->seq+(spec_ops->opt->stream_multiply-spec_ops->bufdata->start_remainder))*spec_ops->opt->packet_size);
     }
 
-    D("Probed %ld sent %ld",, st->n_packets_probed, st->packetcounter);
+    D("Probed %ld sent %ld", st->n_packets_probed, st->packetcounter);
 
     if(spec_ops->opt->optbits & READMODE && (st->packetcounter/spec_ops->opt->packet_size) < spec_ops->opt->buf_num_elems)
       elems_in_buf = st->packetcounter/spec_ops->opt->packet_size;
@@ -335,7 +335,7 @@ void * threaded_multistream(void * data)
     if(td->seq < (spec_ops->bufdata->end_remainder))
       max_packets++;
 
-    D("Thread %d calculated to acquire %ld packets of %ld elems_in_buf",, td->seq, max_packets, elems_in_buf);
+    D("Thread %d calculated to acquire %ld packets of %ld elems_in_buf", td->seq, max_packets, elems_in_buf);
 
     //ASSERT((correct_bufspot+(max_packets)*(spec_ops->opt->packet_size)*spec_ops->opt->stream_multiply) <= (td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)));
 
@@ -343,7 +343,7 @@ void * threaded_multistream(void * data)
     {
       /*
 	 if(td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt) <= correct_bufspot+offset)
-	 D("Diff is %ld, packets ready %ld, max_packets %ld",, td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)- correct_bufspot+offset, packets_ready, max_packets);
+	 D("Diff is %ld, packets ready %ld, max_packets %ld", td->buf+CALC_BUFSIZE_FROM_OPT_NOOFFSET(spec_ops->opt)- correct_bufspot+offset, packets_ready, max_packets);
 	 */
       if(spec_ops->opt->optbits & READMODE)
 	err = send(td->fd, correct_bufspot+offset, (spec_ops->opt->packet_size-offset), 0);
@@ -356,7 +356,7 @@ void * threaded_multistream(void * data)
 	break;
       }
       else if(err == 0){
-	D("Clean exit on thread %d",, td->seq);
+	D("Clean exit on thread %d", td->seq);
 	td->status = THREADSTATUS_CLEAN_EXIT;
 	break;
       }
@@ -371,7 +371,7 @@ void * threaded_multistream(void * data)
       }
     }
     td->bytes_received = spec_ops->opt->packet_size*packets_ready;
-    D("seq %d was supposed to get %ld packets but got %ld",, td->seq, max_packets, packets_ready);
+    D("seq %d was supposed to get %ld packets but got %ld", td->seq, max_packets, packets_ready);
     //ASSERT(packets_ready <= max_packets);
     pthread_mutex_lock(&spec_ops->bufdata->mainthread_mutex);
     if(packets_ready == max_packets){
@@ -400,7 +400,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
   }
 
   void *buf = se->be->simple_get_writebuf(se->be, &buf_incrementer);
-  D("Dat buf_incrementer %ld",, *buf_incrementer);
+  D("Dat buf_incrementer %ld", *buf_incrementer);
   spec_ops->bufdata->end_remainder = spec_ops->opt->buf_num_elems % spec_ops->opt->stream_multiply;
   spec_ops->bufdata->start_remainder = 0;
 
@@ -433,7 +433,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     {
       spec_ops->total_transacted_bytes += spec_ops->td[i].bytes_received;
       *buf_incrementer += spec_ops->td[i].bytes_received;
-      D("Thread %d has written %ld bytes",, spec_ops->td[i].seq, spec_ops->td[i].bytes_received);
+      D("Thread %d has written %ld bytes", spec_ops->td[i].seq, spec_ops->td[i].bytes_received);
       spec_ops->td[i].bytes_received=0;
       if(spec_ops->td[i].status & THREADSTATUS_CLEAN_EXIT){
 	spec_ops->bufdata->active_threads--;
@@ -458,7 +458,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     spec_ops->bufdata->start_remainder = spec_ops->bufdata->end_remainder;
     spec_ops->bufdata->end_remainder = (spec_ops->opt->buf_num_elems-(spec_ops->opt->stream_multiply-spec_ops->bufdata->end_remainder)) % spec_ops->opt->stream_multiply;
 
-    D("Chancing buffer. spec_ops->bufdata->start_remainder %d spec_ops->bufdata->end_remainder %d",, spec_ops->bufdata->start_remainder, spec_ops->bufdata->end_remainder);
+    D("Chancing buffer. spec_ops->bufdata->start_remainder %d spec_ops->bufdata->end_remainder %d", spec_ops->bufdata->start_remainder, spec_ops->bufdata->end_remainder);
     buf = change_buffer(se, &buf_incrementer);
     if(buf == NULL){
       E("Could not get a buffer");
@@ -505,7 +505,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
   }
   else{
     unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
-    D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+    D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
     se->be->set_ready_and_signal(se->be,0);
@@ -548,12 +548,12 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
  err = recv(fd_now, buf+stream_iterator*spec_ops->opt->packet_size+offsets_for_multiply[stream_iterator], (spec_ops->opt->packet_size-offsets_for_multiply[stream_iterator]), 0);
  if(err < 0){
 //err = handle_received_bytes(se, err, bufsize, &buf_incrementer, &buf);
-E("Error in tcp loop of transfer %s",, spec_ops->opt->filename);
+E("Error in tcp loop of transfer %s", spec_ops->opt->filename);
 break;
 }
 else if(err==0)
 {
-D("Closed %d socket for filename %s",, stream_iterator, spec_ops->opt->filename);
+D("Closed %d socket for filename %s", stream_iterator, spec_ops->opt->filename);
 close(fd_now);
 spec_ops->fds_for_multiply[stream_iterator] = 0;
 }
@@ -582,7 +582,7 @@ offsets_for_multiply[stream_iterator] = 0;
  }
  else{
  unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
- D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+ D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
  spec_ops->opt->cumul++;
  spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
  se->be->set_ready_and_signal(se->be,0);
@@ -645,7 +645,7 @@ int tcp_multistreamsendcmd(struct streamer_entity* se, struct sender_tracking *s
     *(spec_ops->inc) += spec_ops->td[i].bytes_received;
     //spec_ops->total_transacted_bytes += spec_ops->td[i].bytes_received;
     //*buf_incrementer += spec_ops->td[i].bytes_received;
-    D("Thread %d has written %ld bytes",, spec_ops->td[i].seq, spec_ops->td[i].bytes_received);
+    D("Thread %d has written %ld bytes", spec_ops->td[i].seq, spec_ops->td[i].bytes_received);
     spec_ops->td[i].bytes_received=0;
     if(spec_ops->td[i].status & THREADSTATUS_CLEAN_EXIT){
       spec_ops->bufdata->active_threads--;
@@ -729,7 +729,7 @@ void* tcp_preloop(void *ser)
     if(spec_ops->opt->optbits & CAPTURE_W_TCPSTREAM){
       if((spec_ops->tcp_fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
       {
-	E("Error in accepting socket %d",, spec_ops->fd);
+	E("Error in accepting socket %d", spec_ops->fd);
 	se->close_socket(se);
 	set_status_for_opt(spec_ops->opt, STATUS_ERROR);
 	pthread_exit(NULL);
@@ -741,7 +741,7 @@ void* tcp_preloop(void *ser)
       {
 	if((spec_ops->td[i].fd = accept(spec_ops->fd, (struct sockaddr*)&(spec_ops->sin), &(spec_ops->sin_l))) < 0)
 	{
-	  E("Error in accepting socket %d",, spec_ops->fd);
+	  E("Error in accepting socket %d", spec_ops->fd);
 	  se->close_socket(se);
 	  set_status_for_opt(spec_ops->opt, STATUS_ERROR);
 	  pthread_exit(NULL);
@@ -818,7 +818,7 @@ void* tcp_preloop(void *ser)
     pthread_cond_destroy(&spec_ops->bufdata->recv_cond);
     pthread_cond_destroy(&spec_ops->bufdata->mainthread_cond);
   }
-  D("Saved %lu files and %lu bytes",, spec_ops->opt->cumul, spec_ops->total_transacted_bytes);
+  D("Saved %lu files and %lu bytes", spec_ops->opt->cumul, spec_ops->total_transacted_bytes);
   se->close_socket(se);
   pthread_exit(NULL);
 }

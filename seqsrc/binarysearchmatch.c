@@ -16,6 +16,7 @@
 #include <sys/uio.h>
 #include <limits.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "../src/datatypes_common.h"
 #include "../src/logging.h"
@@ -221,7 +222,7 @@ int main(int argc, char ** argv){
 	  type = DATATYPE_VDIF;
 	}
 	else {
-	  E("Unknown file type [%s]",, optarg);
+	  E("Unknown file type [%s]", optarg);
 	  usage();
 	  //return -1;
 	}
@@ -244,7 +245,7 @@ int main(int argc, char ** argv){
 	filesizem=st.st_size;
 	fdm = open(optarg, O_RDONLY);
 	if(fdm == -1){
-	  E("Error opening file %s",, optarg);
+	  E("Error opening file %s: %s", optarg, strerror(errno));
 	  exit(-1);
 	}
 	break;
@@ -256,7 +257,7 @@ int main(int argc, char ** argv){
 	filesizes=st.st_size;
 	fds = open(optarg, O_RDONLY);
 	if(fds == -1){
-	  E("Error opening file %s",, optarg);
+	  E("Error opening file %s: %s", optarg, strerror(errno));
 	  exit(-1);
 	}
 	break;
@@ -279,7 +280,7 @@ int main(int argc, char ** argv){
     read_num_packets_per_iteration = read_num_packets_per_iteration << 1;
     */
 
-  E("Going to mount files in %ldMB chunks",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
+  E("Going to mount files in %ldMB chunks", (read_num_packets_per_iteration*(framesize-offset))/MEG);
 
   (void)type;
   packetsm = filesizem/framesize;
@@ -288,13 +289,13 @@ int main(int argc, char ** argv){
   //filem = malloc(filesizem - offset*packetsm);
   filem = malloc(read_num_packets_per_iteration*(framesize-offset));
   if(filem ==NULL){
-    E("Cant malloc %ldMB for master file ",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
+    E("Cant malloc %ldMB for master file ", (read_num_packets_per_iteration*(framesize-offset))/MEG);
     exit(-1);
   }
   //files = malloc(filesizes - offset*packetss);
   files = malloc(read_num_packets_per_iteration*(framesize-offset));
   if(files ==NULL){
-    E("Cant malloc %ldMB for slave file ",, (read_num_packets_per_iteration*(framesize-offset))/MEG);
+    E("Cant malloc %ldMB for slave file ", (read_num_packets_per_iteration*(framesize-offset))/MEG);
     exit(-1);
   }
 
@@ -345,7 +346,7 @@ int main(int argc, char ** argv){
     E("Error in match for fds");
   }
   else{
-    E("Longest match for master in slave is %d bytes",, err);
+    E("Longest match for master in slave is %d bytes", err);
   }
   err = match_for_whole_file(realneedles, fdm, packetsm,filem);
   if(err < 0){

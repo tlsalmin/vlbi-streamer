@@ -127,7 +127,7 @@ void set_free(struct entity_list_branch *br, struct listed_entity* en)
     D("We have waiters for us");
 
     LOCK(&(en->waitlock));
-    D("Currently bottom is %d and top is %d",, en->waiters_bottom, en->waiters_head);
+    D("Currently bottom is %d and top is %d", en->waiters_bottom, en->waiters_head);
     ADD_SAFELY_INT16T(en->waiters_bottom);
     pthread_cond_signal(&(en->waitsig));
     UNLOCK(&(en->waitlock));
@@ -237,7 +237,7 @@ void set_loaded(struct entity_list_branch *br, struct listed_entity* en)
 void* get_loaded(struct entity_list_branch *br, long unsigned seq, void* opt)
 {
   int gotfrom= 0;
-  D("Querying for loaded entity %lu",, seq);
+  D("Querying for loaded entity %lu", seq);
   LOCK(&(br->branchlock));
   //struct listed_entity * temp = get_w_check(br, CHECK_LOADED ,seq,  opt);
   struct listed_entity * temp = get_from_all(br, &seq,  opt, CHECK_BY_SEQ, MUTEX_FREE, &gotfrom);
@@ -255,7 +255,7 @@ void* get_loaded(struct entity_list_branch *br, long unsigned seq, void* opt)
     ADD_SAFELY_INT16T(temp->waiters_head);
     int16_t myqueue = temp->waiters_head;
     while(temp->waiters_bottom != myqueue){
-      D("Waiting on %ld our queue %d bottom %d",, seq, myqueue, temp->waiters_bottom);
+      D("Waiting on %ld our queue %d bottom %d", seq, myqueue, temp->waiters_bottom);
       WAIT_FOR_IT(&(temp->waitsig), &(temp->waitlock));
       }
     UNLOCK(&(temp->waitlock));
@@ -287,12 +287,12 @@ void block_until_free(struct entity_list_branch *br, void* val1)
     ADD_SAFELY_INT16T(shouldntfind->waiters_head);
     int16_t myqueue = shouldntfind->waiters_head;
     while(shouldntfind->waiters_bottom != myqueue){
-      D("Waiting for busy to end. bottom %d and myqueue %d",, shouldntfind->waiters_bottom, myqueue);
+      D("Waiting for busy to end. bottom %d and myqueue %d", shouldntfind->waiters_bottom, myqueue);
       WAIT_FOR_IT(&(shouldntfind->waitsig), &(shouldntfind->waitlock));
     }
     UNLOCK(&(shouldntfind->waitlock));
     LOCK(&(br->branchlock));
-    D("Got %d ",, myqueue);
+    D("Got %d ", myqueue);
     mutex_free_change_branch(&br->freelist,shouldntfind);
     int ret = shouldntfind->release(shouldntfind->entity);
     if(ret != 0)
@@ -433,12 +433,12 @@ struct listed_entity* get_w_check(struct entity_list_branch *br, int branch_to_c
 	D("Rec point disappeared!");
 	return NULL;
       }
-      D("Failed to get specific. Sleeping waiting for %lu",,seq);
+      D("Failed to get specific. Sleeping waiting for %lu",seq);
       pthread_cond_wait(&(br->busysignal), &(br->branchlock));
-      D("Woke up! Checking for %lu again",, seq);
+      D("Woke up! Checking for %lu again", seq);
     }
   }
-  D("Found specific elem id %lu!",, seq);
+  D("Found specific elem id %lu!", seq);
   return le;
 }
 */
@@ -449,7 +449,7 @@ void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int ju
   struct listed_entity * temp = NULL;
   struct fileholder* fh = (struct fileholder*)fhh;
   LOCK(&(br->branchlock));
-  D("Checking if %lu is already in the buffers",, fh->id);
+  D("Checking if %lu is already in the buffers", fh->id);
   temp = loop_and_check(br->freelist, (void*)&(fh->id), (void*)opt, CHECK_BY_OLDSEQ);
   if(temp ==NULL && just_check == 0){
     // If we really want to get that lingering 
@@ -463,7 +463,7 @@ void* get_lingering(struct entity_list_branch * br, void* opt, void* fhh, int ju
     }
   }
   if(temp !=NULL && just_check == 0){
-    D("File %lu found in buffer! Setting to loaded",, fh->id);
+    D("File %lu found in buffer! Setting to loaded", fh->id);
     mutex_free_change_branch(&(br->freelist), &(br->loadedlist), temp);
     if(temp->acquire !=NULL){
       D("Running acquire on entity");
@@ -510,7 +510,7 @@ void* get_specific(struct entity_list_branch *br,void * opt,unsigned long seq, u
     ADD_SAFELY_INT16T(temp->waiters_head);
     mypriority = temp->waiters_head;
     while(mypriority != temp->waiters_bottom){
-      D("Prio is %d and we have %d",, temp->waiters_bottom, mypriority);
+      D("Prio is %d and we have %d", temp->waiters_bottom, mypriority);
       pthread_cond_wait(&(temp->waitsig), &(temp->waitlock));
     }
     UNLOCK(&(temp->waitlock));

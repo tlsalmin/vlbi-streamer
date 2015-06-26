@@ -11,7 +11,7 @@ int get_sec_from_mark5b(void *buffer)
   int day,sec;
   int n;
   if((n=sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", &day, &sec)) != 2){
-    E("sscanf got only %d from buffer",, n);
+    E("sscanf got only %d from buffer", n);
     return -1;
   }
   return sec;
@@ -21,7 +21,7 @@ int get_day_from_mark5b(void *buffer)
   int day,sec;
   int n;
   if((n=sscanf((char*)POINT_TO_MARK5B_SECOND(buffer), "%03d%05d", &day, &sec)) != 2){
-    E("sscanf got only %d from buffer",, n);
+    E("sscanf got only %d from buffer", n);
     return -1;
   }
   return day;
@@ -36,8 +36,8 @@ int get_sec_and_day_from_mark5b(void *buffer, int * sec, int * day)
   //sprintf(temp, "%X", *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))) & RBITMASK_20);
   sprintf(temp, "%X", SECOND_FROM_MARK5B(buffer));
   *sec = atoi(temp);
-  //D("day %d sec %d",, *day, *sec);
-  //D("At point: %X",, *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))));
+  //D("day %d sec %d", *day, *sec);
+  //D("At point: %X", *((uint32_t*)(POINT_TO_MARK5B_SECOND(buffer))));
   return 0;
   /*
   int err = sscanf(((char*)(POINT_TO_MARK5B_SECOND(buffer))), "%03d%05d", day, sec);
@@ -57,7 +57,7 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   err = get_sec_and_day_from_mark5b(buffer, &m5seconds, &m5days);
   if(err != 0)
   {
-    E("Didnt't get day and sec from sscanf. Got %d",, err);
+    E("Didnt't get day and sec from sscanf. Got %d", err);
     return ERROR_IN_DIFF;
   }
   /* We will presume its about on the same day */
@@ -65,7 +65,7 @@ long epochtime_from_mark5b(void *buffer, struct tm* reftime)
   /* Oh **** its Modified julian date crap */
   /*
   if(m5days != reftime->tm_yday){
-    D("Different day in mark5data: in mark5b: %d, right now %d. Better just wait than to try to count this..",, m5days, reftime->tm_yday);
+    D("Different day in mark5data: in mark5b: %d, right now %d. Better just wait than to try to count this..", m5days, reftime->tm_yday);
     return DIFFERENT_DAY;
   }
   */
@@ -104,7 +104,7 @@ int secdiff_from_mark5b_net(void *buffer, struct tm* reftime, int *errref)
 {
   if(syncword_check(buffer+8)!= 1)
   {
-    //D("Got %X when expected %X",, *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
+    //D("Got %X when expected %X", *((int32_t*)(buffer+8)), MARK5BSYNCWORD);
     if(errref != NULL)
       *errref = NONEVEN_PACKET;
     return NONEVEN_PACKET;
@@ -122,7 +122,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
   /* TODO: Ask me to debug this in 2038 */
   if(err != 0)
   {
-    E("Didnt't get day and sec from sscanf. Got %d",, err);
+    E("Didnt't get day and sec from sscanf. Got %d", err);
     if(errref != NULL)
       *errref = -1;
     return ERROR_IN_DIFF;
@@ -143,7 +143,7 @@ int secdiff_from_mark5b(void *buffer, struct tm* reftime, int *errref)
     diff = secofday - m5seconds;
     //diff = m5seconds-secofday;
 
-  //D("Diff is %d. Buffer has %d and secofday is %d",, diff, m5seconds,secofday);
+  //D("Diff is %d. Buffer has %d and secofday is %d", diff, m5seconds,secofday);
   return diff;
 }
 long epochtime_from_vdif(void *buffer, struct tm* reftime)
@@ -191,7 +191,7 @@ uint64_t get_a_count(void * buffer, int wordsize, int offset, int change_endiane
       return be64toh(temp);
     return temp;
   }
-  E("wordsize %d not supported",, wordsize);
+  E("wordsize %d not supported", wordsize);
   return -1;
 }
 long getseq_mark5b_net(void* header){
@@ -227,9 +227,9 @@ long getseq_vdif(void* header, struct resq_info *resq){
   long returnable;
   long second = SECOND_FROM_VDIF(header);
   long framenum = FRAMENUM_FROM_VDIF(header);
-  //D("Dat second %lu, dat framenum %lu",, second, framenum);
+  //D("Dat second %lu, dat framenum %lu", second, framenum);
   if(resq->starting_second == -1){
-    //D("Got first second as %lu, framenum %lu",, second, framenum);
+    //D("Got first second as %lu, framenum %lu", second, framenum);
     resq->starting_second =  second;
     return framenum;
   }
@@ -237,7 +237,7 @@ long getseq_vdif(void* header, struct resq_info *resq){
     if(second == resq->current_seq)
       return framenum;
     else{
-      //D("got packets per seconds as %lu",, resq->current_seq);
+      //D("got packets per seconds as %lu", resq->current_seq);
       resq->packets_per_second = resq->current_seq;
       resq->packetsecdif = second - resq->starting_second;
     }
@@ -248,7 +248,7 @@ long getseq_vdif(void* header, struct resq_info *resq){
   }
   else
     returnable =  (second - (long)resq->starting_second)*((long)resq->packets_per_second) + framenum;
-  //D("Returning %lu",, returnable);
+  //D("Returning %lu", returnable);
   return returnable;
 }
 int copy_metadata(void* target, void* source, uint64_t type)

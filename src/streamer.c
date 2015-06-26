@@ -111,7 +111,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
       opt->packet_size++;
       extra++;
     }
-    D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+    D("While using RX-ring we need to reserve %d extra bytes per buffer element", extra);
   }
 
   /* TODO: do_w_stuff gets warped  from MB to num of elems*/
@@ -161,7 +161,7 @@ int calculate_buffer_sizes(struct opt_s *opt){
   }
   else{
     if(opt->optbits & USE_RX_RING){
-      D("The 16 aligned restriction of RX-ring resulted in %ld MB larger memory use",, extra*opt->buf_num_elems*opt->n_threads/MEG);
+      D("The 16 aligned restriction of RX-ring resulted in %ld MB larger memory use", extra*opt->buf_num_elems*opt->n_threads/MEG);
     }
 
     LOG("STREAMER: Alignment found between "
@@ -183,7 +183,7 @@ int rxring_packetadjustment(struct opt_s * opt){
     opt->packet_size++;
     extra++;
   }
-  D("While using RX-ring we need to reserve %d extra bytes per buffer element",, extra);
+  D("While using RX-ring we need to reserve %d extra bytes per buffer element", extra);
   return extra;
 }
 int calculate_buffer_sizes_simple(struct opt_s * opt){ 
@@ -542,7 +542,7 @@ int parse_options(int argc, char **argv, struct opt_s* opt){
 	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	else{
-	  E("Unknown datatype %s",, optarg);
+	  E("Unknown datatype %s", optarg);
 	  opt->optbits |= DATATYPE_UNKNOWN;
 	}
 	break;
@@ -685,10 +685,10 @@ int init_rbufs(struct opt_s *opt){
   int i, err;
   err = CALC_BUF_SIZE(opt);
   CHECK_ERR("calc bufsize");
-  D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets",, opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
+  D("nthreads as %d, which means %lu MB of used memory, packetsize: %lu each file has %d packets", opt->n_threads, (opt->n_threads*opt->packet_size*opt->buf_num_elems)/(1024*1024), opt->packet_size, opt->buf_num_elems);
 #ifdef TUNE_AFFINITY
   long processors = sysconf(_SC_NPROCESSORS_ONLN);
-  D("Polled %ld processors",,processors);
+  D("Polled %ld processors",processors);
   int cpusetter =2;
   CPU_ZERO(&opt->cpuset);
 #endif
@@ -720,7 +720,7 @@ int init_rbufs(struct opt_s *opt){
     CPU_SET(cpusetter,&(opt->cpuset));
     cpusetter++;
 
-    D("Tuning buffer thread %i to processor %i",,i,cpusetter);
+    D("Tuning buffer thread %i to processor %i",i,cpusetter);
     err = pthread_setaffinity_np(opt->rbuf_pthreads[i], sizeof(cpu_set_t), &(opt->cpuset));
     if(err != 0){
       perror("Affinity");
@@ -728,7 +728,7 @@ int init_rbufs(struct opt_s *opt){
     }
     CPU_ZERO(&(opt->cpuset));
 #endif //TUNE_AFFINITY
-    D("Pthread number %d got id %lu",, i,opt->rbuf_pthreads[i]);
+    D("Pthread number %d got id %lu", i,opt->rbuf_pthreads[i]);
   }
   return 0;
 }
@@ -744,7 +744,7 @@ int close_rbufs(struct opt_s *opt, struct stats* da_stats){
       retval--;
     }
     else
-      D("%dth buffer exit OK",,i);
+      D("%dth buffer exit OK",i);
   }
 #endif //UGLY_FIX_ON_RBUFTHREAD_EXIT
   free(opt->rbuf_pthreads);
@@ -1021,7 +1021,7 @@ int main(int argc, char **argv)
   CPU_SET(0,&(opt->cpuset));
   err = pthread_setaffinity_np(streamer_pthread, sizeof(cpu_set_t), &cpuset);
   if(err != 0){
-    E("Error: setting affinity: %d",,err);
+    E("Error: setting affinity: %d",err);
   }
   CPU_ZERO(&cpuset);
 #endif
@@ -1069,7 +1069,7 @@ int main(int argc, char **argv)
 #endif
 
 #if(DAEMON)
-  D("Streamer thread exiting for %s",,opt->filename);
+  D("Streamer thread exiting for %s",opt->filename);
   pthread_exit(NULL);
 #else
   close_opts(opt);
@@ -1102,7 +1102,7 @@ int close_streamer(struct opt_s *opt){
 int write_cfg(config_t *cfg, char* filename){
   int err = config_write_file(cfg,filename);
   if(err == CONFIG_FALSE){
-    E("Failed to write CFG to %s",,filename);
+    E("Failed to write CFG to %s",filename);
     return -1;
   }
   else
@@ -1128,8 +1128,8 @@ int read_cfg(config_t *cfg, char * filename){
   CHECK_ERR("lock read_cfg");
   err = config_read_file(cfg,filename);
   if(err == CONFIG_FALSE){
-    E("%s:%d - %s",, filename, config_error_line(cfg), config_error_text(cfg));
-    E("Failed to read CFG from %s",,filename);
+    E("%s:%d - %s", filename, config_error_line(cfg), config_error_text(cfg));
+    E("Failed to read CFG from %s",filename);
     retval =  -1;
   }
   flock(fd, LOCK_UN);
@@ -1244,7 +1244,7 @@ inline int iden_from_opt(struct opt_s *opt, void* val1, void* val2, int iden_typ
  */
 int minimize_priority(){
   pid_t tid  = syscall(SYS_gettid);
-  D("Setting tid %d prio from %d to %d",, tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);
+  D("Setting tid %d prio from %d to %d", tid, getpriority(PRIO_PROCESS, tid), MIN_PRIO_FOR_UNIMPORTANT);
   /* manpage said to clear this	*/
   errno=0;
   if((setpriority(PRIO_PROCESS, tid, MIN_PRIO_FOR_UNIMPORTANT)) != 0)

@@ -147,7 +147,7 @@ void* disk2file(void * streamo)
       err = (long)writev(d2fopt->fd, iov, i);
       if(err < 0){
 	perror("D2f: Error on write");
-	E("Tried to write %d vecs ",, i);
+	E("Tried to write %d vecs ", i);
 	D2FEXIT;
       }
       else{

@@ -1,9 +1,9 @@
 #ifndef CONFIGCOMMON_H
 #define CONFIGCOMMON_H
 #define SET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Set "x); err = config_setting_set_int64(setting,y); CHECK_CFG(x);}while(0) 	
-#define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);D("Got "x" is: %lu",,y);}while(0) 	
+#define GET_I64(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int64(setting);D("Got "x" is: %lu",y);}while(0) 	
 #define SET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Set "x); err = config_setting_set_int(setting,y); CHECK_CFG(x);}while(0) 	
-#define GET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int(setting);D("Got "x" is: %d",,y);}while(0) 	
+#define GET_I(x,y) do{setting = config_lookup(cfg, x); CHECK_ERR_NONNULL(setting,"Get "x); y = config_setting_get_int(setting);D("Got "x" is: %d",y);}while(0) 	
 
 #define CFG_ELIF(x) else if(strcmp(config_setting_name(setting), x)==0)
 #define CFG_GET_STR(x) \

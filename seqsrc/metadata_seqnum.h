@@ -17,7 +17,7 @@ int seqnum_preinit_wordsize(struct common_control_element *cce, int wordsize)
   ms = cce->datatype_metadata;
   ms->wordsize = wordsize;
   if((ms->wordsize <= 0)|| (ms->wordsize > 16)){
-    E("Illegal framesize %d",, ms->wordsize);
+    E("Illegal framesize %d", ms->wordsize);
     return -1;
   }
   return 0;
@@ -58,7 +58,7 @@ int init_seqnum_data(struct common_control_element *cce)
 {
   struct metadata_seqnum* ms=NULL;
   if(cce->framesize <= 0|| cce->framesize > MAX_FRAMESIZE){
-    E("Illegal framesize %d",, cce->framesize);
+    E("Illegal framesize %d", cce->framesize);
     return -1;
   }
   if(cce->datatype_metadata == NULL){
@@ -181,7 +181,7 @@ int main(int argc, char** argv){
     }
     fd = open(filename, O_RDONLY);
     if(fd == -1){
-      E("Error opening file %s",, filename);
+      E("Error opening file %s", filename);
       exit(-1);
     }
   }

@@ -45,7 +45,7 @@ int write_cfgs_to_disks(struct opt_s *opt){
 /* is a discrepancy. If write is 1, the option is written to the cfg	*/
 /* instead for being read from the cfg					*/
 int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int write){
-  D("Option root parse, check: %d, write %d",,check,write);
+  D("Option root parse, check: %d, write %d",check,write);
   config_setting_t * setting;
   int err=0,index=0,filesize_found=0;
   /* filesize is deprecated! */
@@ -75,7 +75,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	filesize = opt->packet_size*opt->buf_num_elems;
 	err = config_setting_set_int64(setting,filesize);
 	if(err != CONFIG_TRUE){
-	  E("Writing filesize: %d",, err);
+	  E("Writing filesize: %d", err);
 	  return -1;
 	}
       }
@@ -94,7 +94,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	int filesizemb = (opt->packet_size*opt->buf_num_elems)/MEG;
 	err = config_setting_set_int(setting,filesizemb);
 	if(err != CONFIG_TRUE){
-	  E("Writing filesize: %d",, err);
+	  E("Writing filesize: %d", err);
 	  return -1;
 	}
       }
@@ -114,7 +114,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       else if(write==1){
 	err = config_setting_set_int64(setting,opt->packet_size);
 	if(err != CONFIG_TRUE){
-	  E("Writing packetsize: %d",, err);
+	  E("Writing packetsize: %d", err);
 	  return -1;
 	}
       }
@@ -147,7 +147,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
 	  value=1;
 	err = config_setting_set_int(setting, value);
 	if(err != CONFIG_TRUE){
-	  E("Writing recordmode: %d",, err);
+	  E("Writing recordmode: %d", err);
 	  return -1;
 	}
       }
@@ -169,7 +169,7 @@ int set_from_root(struct opt_s * opt, config_setting_t *root, int check, int wri
       else if(write==1){
 	err = config_setting_set_int64(setting, opt->starting_time.tv_sec);
 	if(err != CONFIG_TRUE){
-	  E("Writing starting_time: %d",, err);
+	  E("Writing starting_time: %d", err);
 	  return -1;
 	}
       }
@@ -598,7 +598,7 @@ int init_cfg(struct opt_s *opt){
     for(i=0;i<opt->n_drives;i++){
       sprintf(path, "%s%d%s%s%s%s%s", ROOTDIRS, i, "/", opt->filename, "/",opt->filename ,".cfg");
       if(! config_read_file(&(opt->cfg),path)){
-	D("%s:%d - %s",, path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
+	D("%s:%d - %s", path, config_error_line(&opt->cfg), config_error_text(&opt->cfg));
       }
       else{
 	LOG("Config found on %s\n",path); 
@@ -606,7 +606,7 @@ int init_cfg(struct opt_s *opt){
 	if(found == 0){
 	  set_from_root(opt,root,0,0);
 	  found = 1;
-	  D("Getting opts from first config, cumul is %lu",, opt->cumul);
+	  D("Getting opts from first config, cumul is %lu", opt->cumul);
 
 	  int j;
 	  opt->fi = add_fileindex(opt->filename, opt->cumul, FILESTATUS_SENDING,0);
@@ -630,15 +630,15 @@ int init_cfg(struct opt_s *opt){
 	  //opt->fileholders = fh_orig;
 	  /* This might differ from cfg nowadays */
 	  opt->buf_num_elems = opt->filesize / opt->packet_size;
-	  D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
+	  D("Packet size is %ld so num elems is %d", opt->packet_size, opt->buf_num_elems);
 	  D("opts read from first config");
 	}
 	else{
 	  err = set_from_root(opt,root,1,0);
 	  if( err != 0)
-	    E("Discrepancy in config at %s",, path);
+	    E("Discrepancy in config at %s", path);
 	  else
-	    D("Config at %s conforms to previous",, path);
+	    D("Config at %s conforms to previous", path);
 	}
       }
     }
@@ -695,12 +695,12 @@ int init_cfg(struct opt_s *opt){
     while(opt->buf_num_elems > 0 && CALC_BUFSIZE_FROM_OPT(opt) % BLOCK_ALIGN != 0)
       opt->buf_num_elems--;
     if(opt->buf_num_elems == 0){
-      E("Cant find alignment for single file write and block aling for %ld size packets",, opt->packet_size);
+      E("Cant find alignment for single file write and block aling for %ld size packets", opt->packet_size);
       return -1;
     }
     /* Shouldn't be used after this, but setting it still	*/
     opt->filesize = CALC_BUFSIZE_FROM_OPT(opt);
-    D("Have to cut %ld MB from each buffer for alignment",, (oldsize - opt->filesize)/MEG);
+    D("Have to cut %ld MB from each buffer for alignment", (oldsize - opt->filesize)/MEG);
   }
 
   D("CFG init done");

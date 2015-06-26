@@ -170,7 +170,7 @@ int handle_open_socket(struct common_control_element* cce)
 
   err = getaddrinfo(NULL, cce->port_or_filename, &hints, &servinfo);
   if(err != 0){
-    E("getaddrinfo: %s",, gai_strerror(err));
+    E("getaddrinfo: %s", gai_strerror(err));
   }
   for(p = servinfo; p!= NULL; p = p->ai_next)
   {
@@ -208,15 +208,15 @@ int handle_open_socket(struct common_control_element* cce)
   err = 0;
 
   while(err == 0){
-    //D("RCVBUF size is %d",,def);
+    //D("RCVBUF size is %d",def);
     def  = def << 1;
     err = setsockopt(cce->sockfd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
     if(err == 0){
-      D("Trying RCVBUF size %d",, def);
+      D("Trying RCVBUF size %d", def);
     }
     err = getsockopt(cce->sockfd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
     if(defcheck != (def << 1)){
-      D("Limit reached. Final size is %d Bytes",,defcheck);
+      D("Limit reached. Final size is %d Bytes",defcheck);
       break;
     }
   }
@@ -421,7 +421,7 @@ int getopts(int argc, char **argv, struct common_control_element * cce){
 	cce->optbits &= ~LOCKER_DATATYPE;
 	cce->optbits |= get_datatype_from_string(optarg);
 	if((cce->optbits & LOCKER_DATATYPE) == 0){
-	  E("No datatype known as %s",, optarg);
+	  E("No datatype known as %s", optarg);
 	  return -1;
 	}
 	break;
@@ -444,7 +444,7 @@ int getopts(int argc, char **argv, struct common_control_element * cce){
       case 'p':
 	cce->framesize = atoi(optarg);
 	if(cce->framesize <= 0|| cce->framesize > MAX_FRAMESIZE){
-	  E("Illegal framesize %d",, cce->framesize);
+	  E("Illegal framesize %d", cce->framesize);
 	  return -1;
 	}
 	break;
@@ -455,14 +455,14 @@ int getopts(int argc, char **argv, struct common_control_element * cce){
 	cce->max_errors = atol(optarg);
 	break;
       default:
-	E("Unknown parameters %s",, optarg);
+	E("Unknown parameters %s", optarg);
 	return -1;
     }
   }
   argc -=optind;
   argv += optind;
   if(argc != 1){
-    E("Wrong number of non-option arguments. Got %d when expected 1",, argc);
+    E("Wrong number of non-option arguments. Got %d when expected 1", argc);
     return -1;
   }
   cce->port_or_filename = argv[0];

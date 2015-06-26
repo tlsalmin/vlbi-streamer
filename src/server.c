@@ -107,7 +107,7 @@ int remove_from_cfgsched(struct scheduled_event *ev){
 int free_and_close(void *le){
   struct scheduled_event * ev = (struct scheduled_event*) le;
 
-  D("optstatus: %d",, ev->opt->status);
+  D("optstatus: %d", ev->opt->status);
   int err;
   if(ev->opt->optbits & READMODE)
   {
@@ -199,11 +199,11 @@ int start_event(struct scheduled_event *ev)
   /* Special case when recording was stripped and buf_num_elems is different */
   if((opt->optbits & READMODE) && opt->offset_onwrite != 0){
     opt->buf_num_elems = opt->filesize / (opt->packet_size+opt->offset_onwrite);
-    D("Packet size is %ld so num elems is %d since offset_onwrite was %d",, opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
+    D("Packet size is %ld so num elems is %d since offset_onwrite was %d", opt->packet_size, opt->buf_num_elems, opt->offset_onwrite);
   }
   else{
     opt->buf_num_elems = opt->filesize / opt->packet_size;
-    D("Packet size is %ld so num elems is %d",, opt->packet_size, opt->buf_num_elems);
+    D("Packet size is %ld so num elems is %d", opt->packet_size, opt->buf_num_elems);
   }
   ev->opt->status = STATUS_RUNNING;
   if(ev->opt->optbits & VERBOSE){
@@ -265,7 +265,7 @@ int start_scheduled(struct schedule *sched){
       //err = start_event(ev, sched);
       err = start_event(ev);
       if(err != 0){
-	E("Something went wrong in recording %s start",, ev->opt->filename);
+	E("Something went wrong in recording %s start", ev->opt->filename);
 	//remove_recording(le,sched->br.freelist);
 	remove_from_branch(&sched->br, le, MUTEX_FREE);
       }
@@ -391,7 +391,7 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
       /* Get the rest of the opts		*/
       err = set_from_root(opt, root, 0,0);
       if(err != 0){
-	E("Broken schedule config. Not scheduling %s",, se->idstring);
+	E("Broken schedule config. Not scheduling %s", se->idstring);
 	free_and_close(se);
 	return 0;
       }
@@ -420,7 +420,7 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
   if(!(se->opt->optbits & CAPTURE_W_LOCALSOCKET))
   {
     LOG("New request is for session: %s\n", opt->filename);
-    D("Opts checked, port is %d",, opt->port);
+    D("Opts checked, port is %d", opt->port);
   }
 
   add_to_entlist(&(sched->br), le);
@@ -428,7 +428,7 @@ int add_recording(config_setting_t* root, struct schedule* sched, int socketinte
   {
     err = start_event(se);
     if(err != 0){
-      E("Something went wrong in recording %s start",, se->opt->filename);
+      E("Something went wrong in recording %s start", se->opt->filename);
       //remove_recording(le,sched->br.freelist);
       remove_from_branch(&sched->br, le, MUTEX_FREE);
     }
@@ -687,7 +687,7 @@ int main(int argc, char **argv)
       }
       else
       {
-	D("Local socket listening as %s",, lsock_name.sun_path);
+	D("Local socket listening as %s", lsock_name.sun_path);
       }
     }
   }

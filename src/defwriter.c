@@ -53,7 +53,7 @@ long def_write(struct recording_entity * re, void * start, size_t count){
 
   /* Loop until we've gotten everything written */
   while(downcount >0){
-    DD("Issuing write of %lu with start %lu to %s",, downcount,(long unsigned)start, ioi->curfilename);
+    DD("Issuing write of %lu with start %lu to %s", downcount,(long unsigned)start, ioi->curfilename);
     if(ioi->opt->optbits & READMODE)
       ret = read(ioi->fd, start, downcount);
     else
@@ -73,15 +73,15 @@ long def_write(struct recording_entity * re, void * start, size_t count){
       }
       else{
 	perror("DEFWRITER: Error on write/read");
-	E("Error happened on %s with count: %lu fd: %d error: %ld\n",, ioi->curfilename,  downcount,ioi->fd, ret);
+	E("Error happened on %s with count: %lu fd: %d error: %ld\n", ioi->curfilename,  downcount,ioi->fd, ret);
 	return ret;
 	//return -1;
       }
     }
     else{
-      DD("Write done for %ld\n",, ret);
+      DD("Write done for %ld\n", ret);
       if((unsigned long)ret < downcount)
-	E(" Write wrote only %ld out of %lu",, ret, downcount);
+	E(" Write wrote only %ld out of %lu", ret, downcount);
       total_w += ret;
       downcount -= ret;
       ioi->bytes_exchanged += ret;

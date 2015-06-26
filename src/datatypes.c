@@ -104,7 +104,7 @@ void * create_initial_header(long fileid, struct opt_s *opt)
       E("Unknown datatype");
       return NULL;
   }
-  D("Setting header to %lX",, *hdr);
+  D("Setting header to %lX", *hdr);
   return header;
 }
 int fillpattern(void * buffer, void * modelheader,struct opt_s* opt)
@@ -155,7 +155,7 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
     match = header_match(buffer, modelheader, opt);
     if(match != 0)
     {
-      D("A hole to fill found!. Match missed by %ld",, match);
+      D("A hole to fill found!. Match missed by %ld", match);
       err = fillpattern(buffer, modelheader,opt);
       CHECK_ERR("Fillpattern");
       errors++;
@@ -167,7 +167,7 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
   /* Expected errors not yet used */
   if(expected_errors != NULL)
     *expected_errors = errors;
-  D("Check and fill showed %d holes",, errors);
+  D("Check and fill showed %d holes", errors);
   free(modelheader);
   return 0;
 }

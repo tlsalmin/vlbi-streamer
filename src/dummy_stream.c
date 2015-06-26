@@ -10,7 +10,7 @@
 /*
 #ifdef UDPS_EXIT
 #undef UDPS_EXIT
-#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu",, st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} set_status_for_opt(spec_ops->opt,STATUS_STOPPED);if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
+#define UDPS_EXIT do {D("UDP_STREAMER: Closing sender thread. Total sent %lu, Supposed to send: %lu", st.packets_sent, spec_ops->opt->total_packets); if(se->be != NULL){set_free(spec_ops->opt->membranch, se->be->self);} set_status_for_opt(spec_ops->opt,STATUS_STOPPED);if(spec_ops->fd != 0)pthread_exit(NULL);}while(0)
 #endif
 */
 int setup_dummy_socket(struct opt_s *opt, struct streamer_entity *se)
@@ -118,7 +118,7 @@ void * dummy_receiver(void *streamo)
       break;
     }
   }
-  D("Loop finished for receiving %s",, spec_ops->opt->filename);
+  D("Loop finished for receiving %s", spec_ops->opt->filename);
   /* Release last used buffer */
   if(resq->before != NULL){
     *(resq->inc_before) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
@@ -129,7 +129,7 @@ void * dummy_receiver(void *streamo)
   else{
     if(spec_ops->opt->fi != NULL){
       unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-      D("N packets is now %lu",, n_now);
+      D("N packets is now %lu", n_now);
     }
 
     se->be->set_ready_and_signal(se->be,0);
@@ -143,7 +143,7 @@ void * dummy_receiver(void *streamo)
   /* Set total captured packets as saveable. This should be changed to just */
   /* Use opts total packets anyway.. */
   //spec_ops->opt->total_packets = spec_ops->total_captured_packets;
-  D("Saved %lu files and %lu packets for recname %s",, spec_ops->opt->cumul, spec_ops->opt->total_packets, spec_ops->opt->filename);
+  D("Saved %lu files and %lu packets for recname %s", spec_ops->opt->cumul, spec_ops->opt->total_packets, spec_ops->opt->filename);
   LOG("UDP_STREAMER: Closing receiver thread\n");
   //spec_ops->running = 0;
   /* Main thread will free if we have a real datatype */

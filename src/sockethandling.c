@@ -93,28 +93,28 @@ int create_socket(int *fd, char * port, struct addrinfo ** servinfo, char * host
   if(hostname == NULL){
     if(device_name != NULL){
       hostname = device_name;
-      D("Creating socket to localhost port %s bound to interface %s",, port, hostname);
+      D("Creating socket to localhost port %s bound to interface %s", port, hostname);
     }
     else
-      D("Creating socket to localhost port %s",, port);
+      D("Creating socket to localhost port %s", port);
   }
   else
-    D("Creating socket to %s port %s",, hostname, port);
+    D("Creating socket to %s port %s", hostname, port);
   /* Port as integer is legacy from before I saw the light from Beej network guide	*/
   err = getaddrinfo(hostname, port, &hints, servinfo);
   if(err != 0){
-    E("Error in getting address info %s",, gai_strerror(err));
+    E("Error in getting address info %s", gai_strerror(err));
     return -1;
   }
   err = -1;
   *fd = -1;
   if(hostname != NULL && port != NULL)
-    D("Trying to connect socket to %s:%s",, hostname, port);
+    D("Trying to connect socket to %s:%s", hostname, port);
   for(p = *servinfo; p != NULL; p = p->ai_next)
   {
     if((*fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <= 0)
     {
-      E("Cant create socket to %s. Trying next",, p->ai_canonname);
+      E("Cant create socket to %s. Trying next", p->ai_canonname);
       continue;
     }
     if(optbits & SO_REUSEIT)
@@ -178,7 +178,7 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     err = ioctl(*fd, SIOCGIFINDEX, &ifr);
     CHECK_ERR_LTZ("Interface index find");
 
-    D("Binding to %s",, opt->device_name);
+    D("Binding to %s", opt->device_name);
     err = setsockopt(*fd, SOL_SOCKET, SO_BINDTODEVICE, (void*)&ifr, sizeof(ifr));
     CHECK_ERR("Bound to NIC");
   }
@@ -210,15 +210,15 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     D("Doing the double sndbuf-loop");
     def = opt->packet_size;
     while(err == 0){
-      //D("RCVBUF size is %d",,def);
+      //D("RCVBUF size is %d",def);
       def  = def << 1;
       err = setsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &def, (socklen_t) len);
       if(err == 0){
-	D("Trying SNDBUF size %d",, def);
+	D("Trying SNDBUF size %d", def);
       }
       err = getsockopt(*fd, SOL_SOCKET, SO_SNDBUF, &defcheck, (socklen_t * )&len);
     if(defcheck != (def << 1)){
-      D("Limit reached. Final size is %d Bytes",,defcheck);
+      D("Limit reached. Final size is %d Bytes",defcheck);
       break;
     }
     }
@@ -228,15 +228,15 @@ int socket_common_init_stuff(struct opt_s *opt, int mode, int* fd)
     D("Doing the double rcvbuf-loop");
     def = opt->packet_size;
     while(err == 0){
-      //D("RCVBUF size is %d",,def);
+      //D("RCVBUF size is %d",def);
       def  = def << 1;
       err = setsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &def, (socklen_t) len);
       if(err == 0){
-	D("Trying RCVBUF size %d",, def);
+	D("Trying RCVBUF size %d", def);
       }
       err = getsockopt(*fd, SOL_SOCKET, SO_RCVBUF, &defcheck, (socklen_t * )&len);
       if(defcheck != (def << 1)){
-	D("Limit reached. Final size is %d Bytes",,defcheck);
+	D("Limit reached. Final size is %d Bytes",defcheck);
 	break;
       }
     }
@@ -441,14 +441,14 @@ void bboundary_bytenum(struct streamer_entity* se, struct sender_tracking *st, u
   struct socketopts *spec_ops = se->opt;
   *counter = &st->packetcounter;
   **counter = MIN(st->total_bytes_to_send-spec_ops->total_transacted_bytes, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
-  D("Packetboundary called for %s. Next boundary is %ld bytes",,spec_ops->opt->filename,  **counter);
+  D("Packetboundary called for %s. Next boundary is %ld bytes",spec_ops->opt->filename,  **counter);
 }
 void bboundary_packetnum(struct streamer_entity* se, struct sender_tracking *st, unsigned long **counter)
 {
   struct socketopts *spec_ops = se->opt;
   *counter = &st->packetcounter;
   **counter = MIN(st->n_packets_probed-st->packets_sent, spec_ops->opt->buf_num_elems);
-  D("Packetboundary called for %s. Next boundary is %ld packets",,spec_ops->opt->filename,  **counter);
+  D("Packetboundary called for %s. Next boundary is %ld packets",spec_ops->opt->filename,  **counter);
 }
 int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(struct streamer_entity*, struct sender_tracking*), void(*buffer_boundary)(struct streamer_entity*, struct sender_tracking*, unsigned long **))
 {
@@ -532,7 +532,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch, spec_ops->opt,&(spec_ops->opt->cumul), NULL,1);
    CHECK_AND_EXIT(se->be);
    se->be->simple_get_writebuf(se->be, spec_ops->inc);
-   LOG("Starting stream capture for %s\n",, spec_ops->opt->filename);
+   LOG("Starting stream capture for %s\n", spec_ops->opt->filename);
 
    while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING)
    {
@@ -540,9 +540,9 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
    err = recvcmd(se);
    if(err != 0){
    if(err < 0)
-   E("Loop for %s ended in error",, spec_ops->opt->filename);
+   E("Loop for %s ended in error", spec_ops->opt->filename);
    else
-   D("Finishing tcp recv loop for %s",, spec_ops->opt->filename);
+   D("Finishing tcp recv loop for %s", spec_ops->opt->filename);
    break;
    }
    }
@@ -550,7 +550,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
    {
    spec_ops->opt->cumul++;
    unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-   D("A buffer filled for %s. Next file: %ld. Packets now %ld",, spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
+   D("A buffer filled for %s. Next file: %ld. Packets now %ld", spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
    free_the_buf(se->be);
    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
    CHECK_AND_EXIT(se->be);

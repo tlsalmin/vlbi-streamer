@@ -107,7 +107,7 @@ int splice_to_socket(struct options* opts,int  pipe)
   memcpy(&(serv_addr.sin_addr),target->h_addr_list[0], target->h_length);
   serv_addr.sin_port = htons(opts->port);
 
-  D("Target is %s according to gethostbyname",, target->h_addr_list[0]);
+  D("Target is %s according to gethostbyname", target->h_addr_list[0]);
   if(opts->opts & TCP_MODE)
     fd = socket(AF_INET, SOCK_STREAM, 0);
   else
@@ -125,7 +125,7 @@ int splice_to_socket(struct options* opts,int  pipe)
     D("Doing the counter one time!");
     countermon = vmsplice(pipe, &ciov, 1, SPLICE_F_GIFT);
     if(countermon != ciov.iov_len)
-      E("Counter didn't write %ld bytes",, ciov.iov_len);
+      E("Counter didn't write %ld bytes", ciov.iov_len);
     (*end_of_counter)++;
   }
 
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
       case 's':
 	opts->port = atoi(optarg);
 	if(opts->port < 1 || opts->port > 65536){
-	  E("Cant set port to %d",, opts->port);
+	  E("Cant set port to %d", opts->port);
 	  usage(argv[0]);
 	}
 	break;
@@ -211,18 +211,18 @@ int main(int argc, char** argv)
       case 'p':
 	opts->packet_size = atoi(optarg);
 	if(opts->packet_size < 1 ||  opts->packet_size > 65536){
-	  E("Cant set packet size to %d",, opts->packet_size);
+	  E("Cant set packet size to %d", opts->packet_size);
 	  usage(argv[0]);
 	}
 	break;
       default:
-	E("Unknown parameter %c",, ret);
+	E("Unknown parameter %c", ret);
 	usage(argv[0]);
     }
   }
   D("Opts gotten. Checking parameters");
   if(argc -optind != 2){
-    E("Wrong number of arguments. Expect 2, when got %d",, argc-optind);
+    E("Wrong number of arguments. Expect 2, when got %d", argc-optind);
     usage(argv[0]);
   }
   argv +=optind;
@@ -242,9 +242,9 @@ int main(int argc, char** argv)
 #else
   opts->maxbytes_inpipe = 65536;
 #endif
-  D("Maximum pipe size set to %d",, opts->maxbytes_inpipe);
+  D("Maximum pipe size set to %d", opts->maxbytes_inpipe);
 
-  D("Target is %s and filename %s",, opts->target, opts->filename);
+  D("Target is %s and filename %s", opts->target, opts->filename);
 
   childpid = fork();
 
@@ -267,7 +267,7 @@ int main(int argc, char** argv)
       E("Error in splicing");
       retval = -1;
     }
-    D("Waiting for childpid %d",, childpid);
+    D("Waiting for childpid %d", childpid);
     if(waitpid(childpid, &retval, WNOHANG) == 0)
     {
       D("Pid not exited. Lets close the other pipe end. Maybe it'll wake up");

@@ -30,7 +30,7 @@ int writev_init(struct opt_s * opt, struct recording_entity *re){
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
-  D("Preparing iovecs. IOV_MAX is %d",, IOV_MAX);
+  D("Preparing iovecs. IOV_MAX is %d", IOV_MAX);
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
   ioi->extra_param = (void*)malloc(sizeof(struct iovec)*IOV_MAX); 
   CHECK_ERR_NONNULL(ioi->extra_param, "Malloc extra params");
@@ -59,7 +59,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
   if(ioi->opt->optbits & READMODE)
     return def_write(re,start,count);
 
-  D("Issued write of %lu from %lu on %s. offset is %d file offset %ld",, count, (long)start, ioi->curfilename, ioi->opt->offset, ioi->offset);
+  D("Issued write of %lu from %lu on %s. offset is %d file offset %ld", count, (long)start, ioi->curfilename, ioi->opt->offset, ioi->offset);
   total_i=0;
   n_vecs = count/ioi->opt->packet_size;
   while(total_i < n_vecs){
@@ -70,11 +70,11 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
     err = (long)pwritev(ioi->fd, iov, i, ioi->offset);
     if(err < 0){
       perror("WRITEV: Error on write");
-      E("Tried to write %ld vecs for %ld bytes",, i, count);
+      E("Tried to write %ld vecs for %ld bytes", i, count);
       return -1;
     }
     else if((unsigned long)err !=  i*(ioi->opt->packet_size - ioi->opt->offset))
-      E("Wrote %ld when should have %ld",, err, (i * (ioi->opt->packet_size - ioi->opt->offset)));
+      E("Wrote %ld when should have %ld", err, (i * (ioi->opt->packet_size - ioi->opt->offset)));
     //start += i*ioi->opt->packet_size;
     ioi->offset += i*(ioi->opt->packet_size - ioi->opt->offset);
     total_i += i;
@@ -89,7 +89,7 @@ long writev_write(struct recording_entity * re, void * start, size_t count){
 #endif
   ioi->bytes_exchanged += total_i*(ioi->opt->packet_size - ioi->opt->offset);
 
-  D("Writev wrote %lu for %s",, total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
+  D("Writev wrote %lu for %s", total_i*(ioi->opt->packet_size- ioi->opt->offset), ioi->curfilename);
   fdatasync(ioi->fd);
   if(posix_fadvise(ioi->fd, orig_offset, count, POSIX_FADV_DONTNEED)!= 0)
     E("Error in posix_fadvise");

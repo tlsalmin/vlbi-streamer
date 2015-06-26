@@ -87,7 +87,7 @@ int udps_bind_rx(struct socketopts * spec_ops){
   //req.tp_block_nr = spec_ops->opt->n_threads;
   req.tp_block_nr = total_mem_div_blocksize;
 
-  D("Block size: %d B Frame size: %d B Block nr: %d Frame nr: %d Max order:",,req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
+  D("Block size: %d B Frame size: %d B Block nr: %d Frame nr: %d Max order:",req.tp_block_size, req.tp_frame_size, req.tp_block_nr, req.tp_frame_nr);
 
   err = setsockopt(spec_ops->fd, SOL_PACKET, PACKET_RX_RING, (void *) &req, sizeof(req));
   CHECK_ERR("RX_RING SETSOCKOPT");
@@ -103,7 +103,7 @@ int udps_bind_rx(struct socketopts * spec_ops){
   long maxmem = sysconf(_SC_AVPHYS_PAGES)*sysconf(_SC_PAGESIZE);
   unsigned long hog_memory =  (unsigned long)req.tp_block_size*((unsigned long)req.tp_block_nr);
   if((long unsigned)maxmem < hog_memory){
-    E("Error in mem init. Memory available: %ld Memory wanted:  %lu",,maxmem, hog_memory);
+    E("Error in mem init. Memory available: %ld Memory wanted:  %lu",maxmem, hog_memory);
     return -1;
   }
 
@@ -198,7 +198,7 @@ int udp_sender_sendcmd(struct streamer_entity *se, struct sender_tracking *st)
     //break;
   }
   else if((unsigned)err != spec_ops->opt->packet_size){
-    E("Sent only %d, when wanted to send %ld",, err, spec_ops->opt->packet_size);
+    E("Sent only %d, when wanted to send %ld", err, spec_ops->opt->packet_size);
   }
   else{
     st->packets_sent++;
@@ -248,7 +248,7 @@ void* udp_rxring(void *streamo)
   spec_ops->out_of_order = 0;
   spec_ops->incomplete = 0;
   spec_ops->missing = 0;
-  D("PKT OFFSET %lu tpacket_offset %lu",, PKT_OFFSET, sizeof(struct tpacket_hdr));
+  D("PKT OFFSET %lu tpacket_offset %lu", PKT_OFFSET, sizeof(struct tpacket_hdr));
 
   pfd.fd = spec_ops->fd;
   pfd.revents = 0;
@@ -311,7 +311,7 @@ void* udp_rxring(void *streamo)
 	spec_ops->opt->cumul++;
       }
 #ifdef SHOW_PACKET_METADATA
-      D("Metadata for %ld packet: status: %lu, len: %u, snaplen: %u, MAC: %hd, net: %hd, sec %u, usec: %u\n",, j, hdr->tp_status, hdr->tp_len, hdr->tp_snaplen, hdr->tp_mac, hdr->tp_net, hdr->tp_sec, hdr->tp_usec);
+      D("Metadata for %ld packet: status: %lu, len: %u, snaplen: %u, MAC: %hd, net: %hd, sec %u, usec: %u\n", j, hdr->tp_status, hdr->tp_len, hdr->tp_snaplen, hdr->tp_mac, hdr->tp_net, hdr->tp_sec, hdr->tp_usec);
 #endif
 
       hdr->tp_status = TP_STATUS_KERNEL;
@@ -327,7 +327,7 @@ void* udp_rxring(void *streamo)
     /* What? legacy stuff i presume */
     spec_ops->opt->cumul++;
   }
-  D("Saved %lu files",, spec_ops->opt->cumul);
+  D("Saved %lu files", spec_ops->opt->cumul);
   D("Exiting mmap polling");
   //spec_ops->running = 0;
   //spec_ops->opt->status = STATUS_STOPPED;
@@ -358,7 +358,7 @@ int jump_to_next_buf(struct streamer_entity* se, struct resq_info* resq){
   /* Check if we have all the packets for this file */
   if((unsigned long)*(resq->inc) == (spec_ops->opt->buf_num_elems*(spec_ops->opt->packet_size)))
   {
-    D("All packets for current file received OK. rsqinc: %ld, needed: %lu",, *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
+    D("All packets for current file received OK. rsqinc: %ld, needed: %lu", *resq->inc, spec_ops->opt->buf_num_elems*spec_ops->opt->packet_size);
 #ifdef FORCE_WRITE_TO_FILESIZE
     *(resq->inc) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 #endif
@@ -419,7 +419,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     (*(resq->inc))+=spec_ops->opt->packet_size;
     resq->i++;
     resq->buf+= spec_ops->opt->packet_size;
-    D("Got first packet with seqnum %ld",, seqnum);
+    D("Got first packet with seqnum %ld", seqnum);
     return header;
   }
 
@@ -436,15 +436,15 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     return header;
   }
   else if(seqnum == resq->current_seq){
-    D("Packet with same seqnum %ld! Dropping..",, seqnum);
+    D("Packet with same seqnum %ld! Dropping..", seqnum);
     return NULL;
   }
   else{
     long diff_from_start = seqnum - resq->seqstart_current;
     long diff_to_current = seqnum - (resq->current_seq);
-    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %ld,  diff_from_start %ld, diff_from_current %ld seqstart %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
+    D("Current status: i: %d, cumul: %lu, current_seq %ld, seqnum: %ld inc: %ld,  diff_from_start %ld, diff_from_current %ld seqstart %ld", resq->i, spec_ops->opt->cumul, resq->current_seq, seqnum, *resq->inc,  diff_from_start, diff_to_current, resq->seqstart_current);
     if (diff_to_current < 0){
-      D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld",, seqnum, resq->current_seq);
+      D("Delayed packet. Returning correct pos. Seqnum: %ld old seqnum: %ld", seqnum, resq->current_seq);
       if(diff_from_start < 0){
 	D("Delayed beyond file. Writing to buffer_before");
 
@@ -494,7 +494,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       // seqnum > current
       else
       {
-	D("Seqnum larger than current: %ld, old seqnum: %ld",, seqnum, resq->current_seq);
+	D("Seqnum larger than current: %ld, old seqnum: %ld", seqnum, resq->current_seq);
 	if (diff_from_start >= spec_ops->opt->buf_num_elems){
 	  D("Packet ahead of time beyond this buffer!");
 	  if(diff_from_start >= spec_ops->opt->buf_num_elems*2){
@@ -540,10 +540,10 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	  //void * temp = memcpy(resq->usebuf, resq->buf, spec_ops->opt->packet_size);
 
 	  /*
-	     D("memcpy copied stuff to %lu from start, when diff was %ld",, (long unsigned)((temp-resq->bufstart)/spec_ops->opt->packet_size), diff_from_start);
-	     D("Indabuff %lu",, be64toh(*((unsigned long*)temp)));
-	     D("Indabuff usebuf %lu",, be64toh(*((unsigned long*)resq->usebuf)));
-	     D("Indabuff shoulda %lu",, be64toh(*((unsigned long*)resq->bufstart + (((unsigned long)diff_from_start)*spec_ops->opt->packet_size))));
+	     D("memcpy copied stuff to %lu from start, when diff was %ld", (long unsigned)((temp-resq->bufstart)/spec_ops->opt->packet_size), diff_from_start);
+	     D("Indabuff %lu", be64toh(*((unsigned long*)temp)));
+	     D("Indabuff usebuf %lu", be64toh(*((unsigned long*)resq->usebuf)));
+	     D("Indabuff shoulda %lu", be64toh(*((unsigned long*)resq->bufstart + (((unsigned long)diff_from_start)*spec_ops->opt->packet_size))));
 
 */
 
@@ -575,10 +575,10 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
       }
       else{
 	perror("RECV error");
-	E("Buf start: %lu, end: %lu",, (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
+	E("Buf start: %lu, end: %lu", (long unsigned)resq->buf, (long unsigned)(resq->buf+spec_ops->opt->packet_size*spec_ops->opt->buf_num_elems));
 	fprintf(stderr, "UDP_STREAMER: Buf was at %lu\n", (long unsigned)resq->buf);
 	if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
-	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld",, resq->i, spec_ops->opt->cumul, resq->current_seq,  *resq->inc,  resq->seqstart_current);
+	  E("Current status: i: %d, cumul: %lu, current_seq %ld,  inc: %ld,   seqstart %ld", resq->i, spec_ops->opt->cumul, resq->current_seq,  *resq->inc,  resq->seqstart_current);
 	}
       }
       //spec_ops->running = 0;
@@ -588,7 +588,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     else if((long unsigned)received != spec_ops->opt->packet_size){
       if(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
-	E("Received packet of size %d, when expected %lu",, received, spec_ops->opt->packet_size);
+	E("Received packet of size %d, when expected %lu", received, spec_ops->opt->packet_size);
 	spec_ops->incomplete++;
 	spec_ops->wrongsizeerrors++;
 	if(spec_ops->wrongsizeerrors > WRONGSIZELIMITBEFOREEXIT){
@@ -687,10 +687,10 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     struct socketopts* spec_ops = (struct socketopts*)se->opt;
     if((unsigned)resq->i == spec_ops->opt->buf_num_elems)
     {
-      D("Buffer filled, Getting another for %s",, spec_ops->opt->filename);
+      D("Buffer filled, Getting another for %s", spec_ops->opt->filename);
       ASSERT(spec_ops->opt->fi != NULL);
       unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
-      D("%s : N packets is now %lu",,spec_ops->opt->filename, n_now);
+      D("%s : N packets is now %lu",spec_ops->opt->filename, n_now);
 
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
 	D("Jumping to next buffer normally");
@@ -710,11 +710,11 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 	(*resq->inc) = CALC_BUFSIZE_FROM_OPT(spec_ops->opt);
 #endif
 
-	D("%s Freeing used buffer to write %lu bytes for file %lu",, spec_ops->opt->filename, *(resq->inc), spec_ops->opt->cumul-1);
+	D("%s Freeing used buffer to write %lu bytes for file %lu", spec_ops->opt->filename, *(resq->inc), spec_ops->opt->cumul-1);
 	free_the_buf(se->be);
 	se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
 	CHECK_AND_EXIT(se->be);
-	D("Got new free for %s. Grabbing buffer",, spec_ops->opt->filename);
+	D("Got new free for %s. Grabbing buffer", spec_ops->opt->filename);
 	resq->buf = se->be->simple_get_writebuf(se->be, &resq->inc);
       }
     }
@@ -794,7 +794,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
 
 
     //while(get_status_from_opt(spec_ops->opt) == STATUS_RUNNING){
-    D("Entering receive loop for %s",, spec_ops->opt->filename);
+    D("Entering receive loop for %s", spec_ops->opt->filename);
     while(get_status_from_opt(spec_ops->opt) & STATUS_RUNNING){
       err = handle_buffer_switch(se,resq);
       if(err != 0){
@@ -829,14 +829,14 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     else{
       if(spec_ops->opt->fi != NULL){
 	unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
-	D("N packets is now %lu and received nu, %lu",, n_now, spec_ops->opt->total_packets);
+	D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
       }
       spec_ops->opt->cumul++;
       se->be->set_ready_and_signal(se->be,0);
     }
     /* Set total captured packets as saveable. This should be changed to just */
     /* Use opts total packets anyway.. */
-    D("Saved %lu files and %lu packets",, spec_ops->opt->cumul, spec_ops->opt->total_packets);
+    D("Saved %lu files and %lu packets", spec_ops->opt->cumul, spec_ops->opt->total_packets);
 
     /* Main thread will free if we have a real datatype */
     if(spec_ops->opt->optbits & DATATYPE_UNKNOWN)
