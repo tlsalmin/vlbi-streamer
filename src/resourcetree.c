@@ -39,6 +39,17 @@ extern FILE* logfile;
   }\
   return le;
 
+
+static int ret_zero_if_stillshouldrun(void *opti)
+{
+  struct opt_s *opt = (struct opt_s *)opti;
+  if (get_status_from_opt(opt) & STATUS_RUNNING)
+    return 0;
+  else
+    return -1;
+}
+
+
 inline void add_before_ent(struct listed_entity * new, struct listed_entity * old)
 {
   new->child = old;

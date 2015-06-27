@@ -1444,15 +1444,6 @@ int minimize_priority()
   return 0;
 }
 #endif
-int ret_zero_if_stillshouldrun(void *opti)
-{
-  struct opt_s *opt = (struct opt_s *)opti;
-  if (get_status_from_opt(opt) & STATUS_RUNNING)
-    return 0;
-  else
-    return -1;
-}
-
 inline int get_status_from_opt(struct opt_s *opt)
 {
   int returnable;

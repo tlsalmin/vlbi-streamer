@@ -35,12 +35,13 @@ pthread_mutex_t mainlock = PTHREAD_MUTEX_INITIALIZER;
 
 int init_active_file_index()
 {
+  files = NULL;
+  LOG("Initializing active file index\n");
   if (pthread_mutex_init(&mainlock, NULL) != 0)
     {
-      perror("active_file_index mainlock init");
+      E("Failed to initialize active_file_index lock: %s", strerror(errno));
       return -1;
     }
-  files = NULL;
   return 0;
 }
 

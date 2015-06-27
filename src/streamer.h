@@ -414,7 +414,6 @@ struct schedule{
   int n_scheduled;
   int n_running;
 };
-int ret_zero_if_stillshouldrun(void * opt);
 
 /* TODO: Doc these */
 int init_rbufs(struct opt_s *opt);
