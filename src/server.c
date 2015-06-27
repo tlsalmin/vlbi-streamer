@@ -41,6 +41,7 @@
 #include <sys/un.h>
 #include <sys/types.h>
 
+#include "logging_main.h"
 #include "config.h"
 #include "localsocket_service.h"
 #include "streamer.h"
@@ -51,7 +52,6 @@
 
 
 static volatile int running = 0;
-extern FILE *logfile;
 
 int schedlockfd;
 struct schedule *sched;
@@ -592,14 +592,6 @@ int main(int argc, char **argv)
 {
   int err,i_fd,w_fd,counter;
   fprintf(stdout, "Starting version %s of %s\n", VERSION, argv[0]);
-#if(LOG_TO_FILE)
-  fprintf(stdout, "Logging to %s\n", LOGFILE);
-  logfile = fopen(LOGFILE, "a+");
-  if(logfile == NULL){
-    fprintf(stdout, "Couldn't open logfile %s for writing\n", LOGFILE);
-    exit(-1);
-  }
-#endif
   struct sockaddr_un lsock_name;
   int local_sock;
 #if(PPRIORITY)
@@ -815,11 +807,7 @@ int main(int argc, char **argv)
       err = print_midstats(sched, stats_full);
       CHECK_ERR("print stats");
     }
-#if(LOG_TO_FILE)
-    fflush(logfile);
-#else
-    fflush(stdout);
-#endif
+    fflush(file_out);
     if(check_if_alive(sched->default_opt->membranch) != 0){
       E("Memtree dead! Exiting!");
       running = 0;
@@ -881,8 +869,9 @@ int main(int argc, char **argv)
   err = close_active_file_index();
   CHECK_ERR("Close active file index");
 
-#if(LOG_TO_FILE)
-  fclose(logfile);
-#endif
+  if (file_out != stdout)
+    {
+      fclose(file_out);
+    }
   return 0;
 }

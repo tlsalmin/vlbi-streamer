@@ -17,11 +17,7 @@
 #include <sys/mman.h> /* For madvise */
 
 #include "config.h"
-#if(LOG_TO_FILE)
-#undef LOG_TO_FILE
-#define LOG_TO_FILE 0
-#endif
-#include "logging.h"
+#include "logging_main.h"
 
 #define DEFAULT_PORT 		2222
 #define DEFAULT_PACKET_SIZE	5016

@@ -433,6 +433,7 @@ int close_streamer(struct opt_s *opt);
 int init_branches(struct opt_s *opt);
 void shutdown_thread(struct opt_s *opt);
 int prep_priority(struct opt_s * opt, int priority);
+int log_to_file(const char *path);
 int prep_streamer(struct opt_s * opt);
 #if(DAEMON)
 int print_midstats(struct schedule* sched, struct stats* old_stats); 

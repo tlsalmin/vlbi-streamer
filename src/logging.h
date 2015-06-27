@@ -1,20 +1,25 @@
 #ifndef LOGGING_H
 #define LOGGING_H
-#if(LOG_TO_FILE)
-#define LOGTONORMAL logfile
-#define LOGTOERR logfile
+
+#include <stdio.h>
+
+#ifdef LOGGING_MAIN_H
+#define SETASEXTERN
 #else
-#define LOGTONORMAL stdout
-#define LOGTOERR stderr
+#define SETASEXTERN extern
 #endif
-#define LOG(...) fprintf(LOGTONORMAL, __VA_ARGS__)
-#define LOGERR(...) fprintf(LOGTOERR, __VA_ARGS__)
+
+SETASEXTERN FILE *file_out;
+SETASEXTERN FILE *file_err;
+
+#define LOG(...) fprintf(file_out, __VA_ARGS__)
+#define LOGERR(...) fprintf(file_err, __VA_ARGS__)
 #define D(_fmt, _args...)                                                     \
   do                                                                          \
     {                                                                         \
       if (DEBUG_OUTPUT)                                                       \
         {                                                                     \
-          fprintf(LOGTONORMAL ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
+          fprintf(file_out ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
                   __func__, ##_args);                                         \
         }                                                                     \
     }                                                                         \
@@ -22,7 +27,7 @@
 #define E(_fmt, _args...)                                                     \
   do                                                                          \
     {                                                                         \
-      fprintf(LOGTOERR, "ERROR: %s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
+      fprintf(file_err, "ERROR: %s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
               __func__, ## _args);                                            \
     }                                                                         \
   while(0)

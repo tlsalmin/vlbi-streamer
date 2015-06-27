@@ -17,11 +17,7 @@
 #include <sys/types.h>
 
 #include "config.h"
-#ifdef LOG_TO_FILE
-#undef LOG_TO_FILE
-#define LOG_TO_FILE 0
-#endif
-#include "logging.h"
+#include "logging_main.h"
 #define STATEFILE LOCALSTATEDIR "/opt/vlbistreamer/schedule"
 
 int fd,err;
@@ -41,6 +37,7 @@ int main(int argc, char ** argv)
 {
   char * recname;
   config_t cfg;
+
   if(argc != 2)
     usage(argv[0]);
   

@@ -4,7 +4,6 @@
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
 EXTRA_DIST=vlbistreamer.conf
 cfgdir = $(sysconfdir)/
-cfg_DATA = vlbistreamer.conf
 rundir = $(localstatedir)/opt/vlbistreamer
 logdir = $(localstatedir)/log
 dist_bin_SCRIPTS = scripts/*
@@ -18,6 +17,7 @@ install-data-hook:
 	touch $(rundir)/schedule
 	chown -R @USER@:@GROUP@ $(rundir)
 	chmod -R u+rw $(rundir)
+	if [ ! -e $(cfgdir)/vlbistreamer.conf ] ;then cp vlbistreamer.conf $(cfgdir)/ ;fi
 	chown @USER@:@GROUP@ $(cfgdir)/vlbistreamer.conf
 	chmod u+rw $(cfgdir)/vlbistreamer.conf
 	touch $(logdir)/vlbistreamer.log

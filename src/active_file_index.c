@@ -8,6 +8,9 @@
 #define _GNU_SOURCE
 #endif
 
+//init struct to 128 files at start
+#define INITIAL_SIZE 128
+
 struct file_index *files = NULL;
 pthread_mutex_t mainlock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -41,7 +44,7 @@ int init_active_file_index()
   return 0;
 }
 
-int close_file_index_mutex_free(struct file_index *closing)
+static int close_file_index_mutex_free(struct file_index *closing)
 {
   int retval = 0;
   struct file_index *temp;
@@ -78,14 +81,18 @@ int close_file_index_mutex_free(struct file_index *closing)
           temp = temp->next;
         }
       if (notfound == 0)
-        temp->next = closing->next;
+        {
+          temp->next = closing->next;
+        }
     }
+
   free(closing->files);
   pthread_mutex_destroy(&(closing->wait_mutex));
   pthread_cond_destroy(&(closing->waiting));
   pthread_rwlock_destroy(&(closing->augmentlock));
   free(closing->filename);
   free(closing);
+
   return retval;
 }
 
@@ -132,7 +139,7 @@ int add_file_mutexfree(struct file_index *fi, long unsigned id, int diskid,
     }
   fi->files[id].diskid = diskid;
   fi->files[id].status = status;
-  D("Added file %ld of %s with status FH_MISSING: %ld", id, fi->filename,
+  D("Added file %lu of %s with status FH_MISSING: %d", id, fi->filename,
     status & FH_MISSING);
   return 0;
 }
@@ -422,11 +429,6 @@ int update_fileholder(struct file_index *fi, unsigned long filenum,
   fi->files[filenum].diskid = recid;
   FIUNLOCK(fi);
   return 0;
-}
-
-inline void zero_fileholder(struct fileholder *fh)
-{
-  memset(fh, 0, sizeof(struct fileholder));
 }
 
 int remove_specific_from_fileholders(char *name, int recid)

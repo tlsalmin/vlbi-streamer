@@ -128,17 +128,6 @@ AS_IF([test "x$enable_preemptkernel" != "xno"], [
 		     ], AC_DEFINE(PREEMPTKERNEL, 0, [use busyloop]))
 AM_CONDITIONAL([PREEMPTKERNEL], [test "${enable_preemptkernel}" = "yes"])
 
-AC_MSG_CHECKING([--enable-logtofile argument])
-AC_ARG_ENABLE(logtofile,
-	      [  --enable-logtofile         Enable logging to file.],
-    [enable_logtofile=$enableval],
-    [enable_logtofile="yes"])
-AC_MSG_RESULT($enable_logtofile)
-AS_IF([test "x$enable_logtofile" != "xno"], [
-       AC_DEFINE(LOG_TO_FILE, 1, [log to file ])
-       ], AC_DEFINE(LOG_TO_FILE, 0, [log to file]))
-AM_CONDITIONAL([LOG_TO_FILE], [test "${enable_logtofile}" = "yes"])
-
 AC_MSG_CHECKING([--enable-daemon argument])
 AC_ARG_ENABLE(daemon,
     [  --enable-daemon         Compile software as daemon(Default: yes).],

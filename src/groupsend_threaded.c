@@ -35,14 +35,7 @@
 #include <endian.h>
 #include "timer.h"
 
-#ifdef LOG_TO_FILE
-#undef LOG_TO_FILE
-#define LOG_TO_FILE 0
-#endif
-#include "logging.h"
-//#include "udp_stream.h"
-//#include "timer.h"
-//#include "streamer.h"
+#include "logging_main.h"
 
 #define B(x) (1l << x)
 #define UDP_SOCKET	B(0)
@@ -245,7 +238,6 @@ int main(int argc, char** argv){
   running = 1;
   opts = 0;
 
-
   ZEROTIME(sleep);
   ZEROTIME(tval_start);
   ZEROTIME(tval_temp);
@@ -269,12 +261,12 @@ int main(int argc, char** argv){
 	portn = atoi(optarg);
 	if(portn <= 0 || portn >= 65536){
 	  E("Illegal port %d", portn);
-	  usage(argv[0]);
+	  usage();
 	}
 	break;
       default:
 	E("Unknown parameter %c", ret);
-	usage(argv[0]);
+	usage();
     }
   }
   argv+=(optind-1);

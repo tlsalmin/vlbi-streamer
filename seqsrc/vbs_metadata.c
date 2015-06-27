@@ -15,10 +15,9 @@
 #include <ctype.h>
 
 #include "../src/datatypes_common.h"
-#define LOG_TO_FILE 0
 #define BACKLOG 1024
 #define DEBUG_OUTPUT 0
-#include "../src/logging.h"
+#include "../src/logging_main.h"
 #include "vbs_metadata.h"
 #include "metadata_seqnum.h"
 #include "metadata_mark5b.h"

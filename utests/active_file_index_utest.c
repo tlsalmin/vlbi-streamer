@@ -2,10 +2,6 @@
 #include <string.h>
 #include "../src/active_file_index.h"
 #include "../src/config.h"
-#ifdef LOG_TO_FILE
-#undef LOG_TO_FILE
-#define LOG_TO_FILE 0
-#endif
 #include "common.h"
 
 #define THREADS 100

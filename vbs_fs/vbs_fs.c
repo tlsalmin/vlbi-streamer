@@ -45,7 +45,7 @@
 #endif
 
 #include "../src/configcommon.h"
-#include "../src/logging.h"
+#include "../src/logging_main.h"
 #define DEBUG_OUTPUT 1
 #define B(x) (1l << x)
 #define VBS_DATA ((struct vbs_state *) (fuse_get_context()->private_data))
@@ -1169,7 +1169,7 @@ void * do_operation(void* opts)
   if(pid == 0){
     D("Child pid for %s is alive", ro->filename);
     close(pipes[0]);
-    int fd=-1, flags, flags2;
+    int fd=-1, flags = 0, flags2 = 0;
     if(ro->status & RO_STATUS_DOREAD){
       flags2 = S_IRUSR;
       flags = O_RDONLY;

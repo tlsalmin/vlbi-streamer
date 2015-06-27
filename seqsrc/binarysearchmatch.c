@@ -19,7 +19,7 @@
 #include <errno.h>
 
 #include "../src/datatypes_common.h"
-#include "../src/logging.h"
+#include "../src/logging_main.h"
 //#include "mark5b.h"
 
 #define PAYLOAD (framesize-offset)

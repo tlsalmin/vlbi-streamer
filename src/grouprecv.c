@@ -34,11 +34,7 @@
 #include <netinet/in.h>
 #include <endian.h>
 #include "timer.h"
-#ifdef LOG_TO_FILE
-#undef LOG_TO_FILE
-#define LOG_TO_FILE 0
-#endif
-#include "logging.h"
+#include "logging_main.h"
 
 #define B(x) (1l << x)
 #define UDP_SOCKET	B(0)
@@ -223,7 +219,6 @@ int main(int argc, char** argv){
   running = 1;
   opts = 0;
 
-
   ZEROTIME(sleep);
   ZEROTIME(tval_start);
   ZEROTIME(tval_temp);
@@ -242,7 +237,7 @@ int main(int argc, char** argv){
 	break;
       default:
 	E("Unknown parameter %c", ret);
-	usage(argv[0]);
+	usage();
 	break;
     }
   }
