@@ -5,10 +5,6 @@
 #include <check.h>
 #include <stdlib.h>
 #include <pthread.h>
-#ifdef DEBUG_OUTPUT
-#undef DEBUG_OUTPUT
-#endif
-#define DEBUG_OUTPUT 1
 #include "logging_main.h"
 
 typedef enum
