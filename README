@@ -1,5 +1,14 @@
-Heh this might be used..
+UPDATE: Since code.google.com doesn't offer downloads anymore, its better to clone the repository and build from there. The current downloads are much older than the git master branch.
 
-fuse for debian:
-libfuse-dev 
-libfuse2
+NEXPReS WP8 outlined modular VLBI data recorder and streamer. vlbi-streamer scalably writes 
+to n-drives in unblocking IO-style.
+
+Research leading to these results has received funding from the European
+Union's Seventh Framework Programme (FP7/2007‑ 2013) under grant agreement
+n° RI-261525 NEXPReS.
+
+[http://www.nexpres.eu/ http://www.nexpres.eu/sites/nexpres.eu/files/cms/images-gallery/EU_flag_75px.jpg] [http://www.nexpres.eu http://www.nexpres.eu/sites/nexpres.eu/files/cms/images-gallery/FP7_RGB_65px.jpg]
+
+http://www.nexpres.eu
+
+Thesis on this available at: https://code.google.com/p/vlbistreamer-thesis/
