@@ -142,7 +142,7 @@ int check_and_fill(void * buffer, struct opt_s* opt, long fileid, int *expected_
   /* If wrapper added for unit tests */
   if(opt->fi != NULL)
   {
-    long packets_left = get_n_packets(opt->fi) - opt->buf_num_elems*fileid;
+    long packets_left = afi_get_n_packets(opt->fi) - opt->buf_num_elems*fileid;
     real_number_of_elements = MIN(opt->buf_num_elems, packets_left);
   }
   else

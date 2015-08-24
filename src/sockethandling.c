@@ -549,7 +549,7 @@ int generic_sendloop(struct streamer_entity * se, int do_wait, int(*sendcmd)(str
    if(spec_ops->inc != 0)
    {
    spec_ops->opt->cumul++;
-   unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+   unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
    D("A buffer filled for %s. Next file: %ld. Packets now %ld", spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
    free_the_buf(se->be);
    se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);

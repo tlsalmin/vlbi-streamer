@@ -743,10 +743,8 @@ int init_cfg(struct opt_s *opt)
                   D("Getting opts from first config, cumul is %lu",
                     opt->cumul);
 
-                  int j;
-                  opt->fi =
-                    add_fileindex(opt->filename, opt->cumul,
-                                  FILESTATUS_SENDING, 0);
+                  opt->fi = afi_add(opt->filename, opt->cumul,
+                                    AFI_SEND, 0);
                   if (opt->fi == NULL)
                     {
                       E("File index add");
@@ -754,17 +752,8 @@ int init_cfg(struct opt_s *opt)
                       break;
                     }
 
-                  FI_WRITELOCK(opt->fi);
-                  opt->fi->n_packets = opt->total_packets;
-                  struct fileholder *fh = opt->fi->files;
+                  (void)afi_add_to_packets(opt->fi, opt->total_packets);
 
-                  for (j = 0; (unsigned)j < opt->fi->n_files; j++)
-                    {
-                      fh->diskid = -1;
-                      fh->status = FH_MISSING;
-                      fh++;
-                    }
-                  FIUNLOCK(opt->fi);
                   //opt->fileholders = fh_orig;
                   /* This might differ from cfg nowadays */
                   opt->buf_num_elems = opt->filesize / opt->packet_size;
@@ -786,9 +775,9 @@ int init_cfg(struct opt_s *opt)
         {
           LOG("No config file found! This means no recording %s found\n",
               opt->filename);
-          if ((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
+          if ((opt->fi = afi_get(opt->filename, true)) != NULL)
             {
-              opt->packet_size = get_packet_size(opt->fi);
+              opt->packet_size = afi_get_packet_size(opt->fi);
               LOG
                 ("%s is a Live recording exists. Everything is fine and packet size is %ld\n",
                  opt->filename, opt->packet_size);
@@ -815,9 +804,8 @@ int init_cfg(struct opt_s *opt)
          CHECK_ERR_NONNULL(root, "Get root");
          stub_rec_cfg(root, NULL);
        */
-      opt->fi =
-        add_fileindex(opt->filename, 0, FILESTATUS_RECORDING,
-                      opt->packet_size);
+      opt->fi = afi_add(opt->filename, 0, AFI_RECORD,
+                        opt->packet_size);
       if (opt->fi == NULL)
         {
           E("opt-fi init");

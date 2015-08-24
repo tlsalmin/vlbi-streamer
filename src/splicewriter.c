@@ -187,7 +187,7 @@ int init_splice(struct opt_s *opts, struct recording_entity * re){
   return 0;
 }
 
-inline unsigned int setup_nvecs(struct splice_ops *sp, void* start, size_t count)
+unsigned int setup_nvecs(struct splice_ops *sp, void* start, size_t count)
 {
   unsigned int i;
   unsigned int n_vecs = MIN(sp->max_pipe_length, count/sp->pagesize);

@@ -32,9 +32,8 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include "config.h"
-#if(DEBUG_OUTPUT)
 #include <time.h>
-#endif
+#include <time.h>
 
 #include "aiowriter.h"
 #include "streamer.h"
@@ -51,28 +50,7 @@ extern FILE* logfile;
 #endif
 //Nanoseconds for waiting on busy io
 #define TIMEOUT_T 100
-/*
-struct io_info{
-  io_context_t * ctx;
-};
-*/
 
-
-/* Fatal error handler */
-/*
-static void wr_done(io_context_t ctx, struct iocb *iocb, long res, long res2){
-  fprintf(stdout, "This will never make it to print\n");
-  if(res2 != 0)
-    io_error("aio write", res2);
-  if(res != iocb->u.c.nbytes){
-    fprintf(stderr, "write missed bytes expect %lu got %li", iocb->u.c.nbytes, res2);
-  }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "Write callback done. Wrote %li bytes\n", res);
-#endif
-  free(iocb);
-}
-*/
 struct extra_parameters{
   io_context_t ctx;
   struct iocb ib[MAX_EVENTS];
@@ -92,9 +70,7 @@ int aiow_init(struct opt_s* opt, struct recording_entity *re){
 
   struct common_io_info * ioi = (struct common_io_info *) re->opt;
 
-#if(DEBUG_OUTPUT)
   D("Preparing iostructs");
-#endif
   //ib[0] = (struct iocb*) malloc(sizeof(struct iocb));
   ioi->extra_param = (void*) malloc(sizeof(struct extra_parameters));
   CHECK_ERR_NONNULL(ioi->extra_param, "Malloc extra params");
@@ -128,9 +104,7 @@ int aiow_get_r_fflags(){
 }
 long aiow_write(struct recording_entity * re,void * start,size_t count){
   long ret;
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Performing read/write\n");
-#endif
+  D("AIOW: Performing read/write");
 
   struct common_io_info * ioi = (struct common_io_info * )re->opt;
   struct extra_parameters * ep = (struct extra_parameters*)ioi->extra_param;
@@ -143,19 +117,16 @@ long aiow_write(struct recording_entity * re,void * start,size_t count){
     else
       io_prep_pwrite(&(ep->ib[ep->i]), ioi->fd, start, count, ioi->offset);
   }
-  else{
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "AIOWRITER: Requests full! Returning 0\n");
-#endif
-    //TODO: IOwait or sleep
-    return 0;
+  else
+    {
+      D("AIOWRITER: Requests full! Returning 0");
+      //TODO: IOwait or sleep
+      return 0;
     }
 
   //io_set_callback(ib[0], wr_done);
 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Prepared read/write for %lu bytes\n", count);
-#endif
+  D("AIOW: Prepared read/write for %lu bytes", count);
   struct iocb * ibi[1];
   ibi[0] = &(ep->ib[ep->i]);
 
@@ -165,9 +136,7 @@ long aiow_write(struct recording_entity * re,void * start,size_t count){
   ep->used_events++;
   ep->i = (ep->i + 1)%MAX_EVENTS;
 
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "AIOW: Submitted %ld reads/writes\n", ret);
-#endif
+  D("AIOW: Submitted %ld reads/writes", ret);
   if(ret <0){
     /* an errno == 0 means that the submit just failed. 	*/
     /* This is probably due to too many requests pending 	*/

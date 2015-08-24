@@ -35,6 +35,7 @@
 #include <sys/syscall.h>
 #include <sys/file.h>
 #include <sys/resource.h>       /*Query max allocatable memory */
+#include <libconfig.h>
 //TODO: Add explanations for includes
 #include <netdb.h>              // struct hostent
 #include <time.h>
@@ -1130,7 +1131,7 @@ int main(int argc, char **argv)
       oper_to_all(opt->diskbranch, BRANCHOP_CHECK_FILES, (void *)opt);
       LOG
         ("For recording %s: %lu files were found out of %lu total. file index shows %ld files\n",
-         opt->filename, opt->cumul_found, opt->cumul, get_n_files(opt->fi));
+         opt->filename, opt->cumul_found, opt->cumul, afi_get_n_files(opt->fi));
     }
 #endif //HAVE_LIBCONFIG_H
 

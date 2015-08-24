@@ -100,8 +100,6 @@ void* disk2file(void * streamo)
 
   throttling_count(opt, &st);
 
-  //loadup_n(opt, &st);
-
   opt->status = STATUS_RUNNING;
   se->be = NULL;
 
@@ -120,12 +118,12 @@ void* disk2file(void * streamo)
 
   LOG("D2F running\n");
 
-  long packetpeek = get_n_packets(opt->fi);
+  long packetpeek = afi_get_n_packets(opt->fi);
 
   while(should_i_be_running(opt, &st) == 1){
     if(total_i == (unsigned int)opt->buf_num_elems || (st.packets_sent - packetpeek == 0)){
       err = jump_to_next_file(opt, se, &st);
-      packetpeek = get_n_packets(opt->fi);
+      packetpeek = afi_get_n_packets(opt->fi);
       if(err == ALL_DONE){
 	D2FEXIT;
       }

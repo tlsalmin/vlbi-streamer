@@ -689,7 +689,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     {
       D("Buffer filled, Getting another for %s", spec_ops->opt->filename);
       ASSERT(spec_ops->opt->fi != NULL);
-      unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+      unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
       D("%s : N packets is now %lu",spec_ops->opt->filename, n_now);
 
       if(!(spec_ops->opt->optbits & DATATYPE_UNKNOWN)){
@@ -828,7 +828,7 @@ void*  calc_bufpos_general(void* header, struct streamer_entity* se, struct resq
     }
     else{
       if(spec_ops->opt->fi != NULL){
-	unsigned long n_now = add_to_packets(spec_ops->opt->fi, resq->i);
+	unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, resq->i);
 	D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
       }
       spec_ops->opt->cumul++;

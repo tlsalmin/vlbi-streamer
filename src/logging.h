@@ -14,16 +14,19 @@ SETASEXTERN FILE *file_err;
 
 #define LOG(...) fprintf(file_out, __VA_ARGS__)
 #define LOGERR(...) fprintf(file_err, __VA_ARGS__)
+#ifdef DEBUG_OUTPUT
+#define DEBUG_DEF(...) __VA_ARGS__
 #define D(_fmt, _args...)                                                     \
   do                                                                          \
     {                                                                         \
-      if (DEBUG_OUTPUT)                                                       \
-        {                                                                     \
-          fprintf(file_out ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,    \
-                  __func__, ##_args);                                         \
-        }                                                                     \
+      fprintf(file_out ,"%s:%d:%s(): " _fmt "\n",__FILE__,__LINE__,           \
+              __func__, ##_args);                                             \
     }                                                                         \
   while(0)
+#else
+#define D(...)
+#define DEBUG_DEF(...)
+#endif
 #define E(_fmt, _args...)                                                     \
   do                                                                          \
     {                                                                         \

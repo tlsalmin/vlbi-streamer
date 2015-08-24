@@ -109,25 +109,6 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
 
 #ifdef HAVE_HUGEPAGES
   if(rbuf->opt->optbits & USE_HUGEPAGE){
-    /* Init fd for hugetlbfs					*/
-    /* HUGETLB not yet supported on mmap so using MAP_PRIVATE	*/
-    /*
-
-    char hugefs[FILENAME_MAX];
-    find_hugetlbfs(hugefs, FILENAME_MAX);
-    
-    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: Initializing hugetlbfs file as %s\n", hugefs);
-#endif
-
-    common_open_file(&(rbuf->huge_fd), O_RDWR,hugefs,0);
-    //rbuf->huge_fd = open(hugefs, O_RDWR|O_CREAT, 0755);
-    */
-
-    /* TODO: Check other flags aswell				*/
-    /* TODO: Not sure if shared needed as threads share id 	*/
-    //rbuf->buffer = mmap(NULL, (rbuf->opt->buf_num_elems)*(rbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_SHARED|MAP_HUGETLB, rbuf->huge_fd,0);
     rbuf->buffer = mmap(NULL, ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->packet_size), PROT_READ|PROT_WRITE , MAP_ANONYMOUS|MAP_SHARED|MAP_HUGETLB, 0,0);
     if(rbuf->buffer ==MAP_FAILED){
       perror("MMAP");
@@ -137,26 +118,20 @@ int rbuf_init(struct opt_s* opt, struct buffer_entity * be){
     }
     else{
       err = 0;
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: mmapped to hugepages\n");
-#endif
+      D("RINGBUF: mmapped to hugepages");
     }
   }
   else
 #endif /* HAVE_HUGEPAGES */
   {
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: Memaligning buffer\n");
-#endif
+    D("RINGBUF: Memaligning buffer");
     err = posix_memalign((void**)&(rbuf->buffer), sysconf(_SC_PAGESIZE), ((unsigned long)rbuf->opt->buf_num_elems)*((unsigned long)rbuf->opt->packet_size));
   }
   if (err < 0 || rbuf->buffer == 0) {
     perror("make_write_buffer");
     return -1;
   }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "RINGBUF: Memory allocated\n");
-#endif
+  D("RINGBUF: Memory allocated");
 
   return 0;
 }
@@ -167,34 +142,16 @@ int  rbuf_close(struct buffer_entity* be, void *stats){
   free(be->headlock);
   free(be->iosignal);
 
-  //int ret = 0;
-  /*
-  if(be->recer->close != NULL)
-    be->recer->close(be->recer, stats);
-    */
 #ifdef HAVE_HUGEPAGES
   if(rbuf->opt->optbits & USE_HUGEPAGE){
     munmap(rbuf->buffer, rbuf->opt->packet_size*rbuf->opt->buf_num_elems);
-    /*
-    close(rbuf->huge_fd);
-    char hugefs[FILENAME_MAX];
-    find_hugetlbfs(hugefs, FILENAME_MAX);
-    
-    sprintf(hugefs, "%s%s%ld", hugefs,"/",pthread_self());
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "Removing hugetlbfs file %s\n", hugefs);
-#endif
-    remove(hugefs);
-    */
   }
   else
 #endif /* HAVE_HUGEPAGES */
     free(rbuf->buffer);
   free(rbuf);
   //free(be->recer);
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "RINGBUF: Buffer closed\n");
-#endif
+  D("RINGBUF: Buffer closed");
   return 0;
 }
 
@@ -268,9 +225,7 @@ void * rbuf_get_buf_to_write(struct buffer_entity *be){
 
   if(!increment(rbuf, head, rest)){
     spot = NULL;
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF_H: BUF FULL\n");
-#endif
+    D("RINGBUF_H: BUF FULL");
   }
   else
     spot = rbuf->buffer + (((long unsigned)*head)*(long unsigned)rbuf->opt->packet_size);
@@ -313,9 +268,8 @@ int write_bytes(struct buffer_entity * be, int head, int *tail, int diff){
     }
     count = (endi) * ((long)(rbuf->opt->packet_size));
 
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, %lu bytes\n", *tail, *tail+endi, endi, rbuf->opt->buf_num_elems, count);
-#endif
+    D("RINGBUF: Blocking writes. Write from %i to %lu diff %lu elems %i, "
+      "%lu bytes", *tail, *tail+endi, endi, rbuf->opt->buf_num_elems, count);
     ret = be->recer->write(be->recer, start, count);
     if(ret<0){
       fprintf(stderr, "RINGBUF: Error in Rec entity write: %ld\n", ret);
@@ -372,115 +326,6 @@ void *rbuf_read_loop(void *buffo){
   struct ringbuf * rbuf = (struct ringbuf *)be->opt;
   int diff,ret=0;
   int *head, *tail;
-  //TODO: Needs a lot of rewrite so just comment for now
-  /*
-  unsigned long packets_left = be->recer->get_n_packets(be->recer);
-  unsigned long minp;
-#ifdef DO_WRITES_IN_FIXED_BLOCKS
-  int limited_head;
-#endif
-  rbuf_init_head_n_tail(rbuf,&head,&tail);
-
-  rbuf->running = 1;
-  while(rbuf->running){
-    minp = min(rbuf->opt->do_w_stuff_every, packets_left);
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: Locking head\n");
-#endif
-    pthread_mutex_lock(be->headlock);
-    while(((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) < minp) && rbuf->running){
-#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-      rbuf->is_blocked = 1;
-#endif
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: diff not enough %d. Going to sleep\n", diff);
-#endif
-      pthread_cond_wait(be->iosignal, be->headlock);
-    }
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d\n", diff, *tail, *head);
-#endif
-#ifdef CHECK_FOR_BLOCK_BEFORE_SIGNAL
-    rbuf->is_blocked = 0;
-#endif
-
-    pthread_mutex_unlock(be->headlock);
-
-#ifdef DO_WRITES_IN_FIXED_BLOCKS
-    diff = minp;//diff < minp ? diff : minp;
-    limited_head = (*tail+diff)%rbuf->opt->buf_num_elems;
-#else
-    limited_head = *head;
-#endif
-    if(diff > 0){
-      if(minp < rbuf->opt->do_w_stuff_every)
-	ret = end_transaction(be,limited_head, tail,diff);
-      else
-	ret = write_bytes(be,limited_head, tail,diff);
-      if(ret!=0){
-	fprintf(stderr, "RINGBUG: Write returned error %d\n", ret);
-	// If streamer is blocked, wake it up 	
-	// TODO: Move to separate function 	
-	be->se->stop(be->se);
-	{
-	  pthread_mutex_lock(be->headlock);
-	  pthread_cond_signal(be->iosignal);
-	  pthread_mutex_unlock(be->headlock);
-	}
-	rbuf->running = 0;
-	break;
-      }
-      else{
-	// If we either just wrote the stuff in write_after_checks(synchronious 
-	// blocking write or check in async mode) returned a > 0 amount of writes 
-	// done 
-	// Update: Only signal if the streamer is blocked 
-	if(!(rbuf->opt->optbits & ASYNC_WRITE))
-	  {
-	    // Signal if thread is waiting for space 
-	    pthread_mutex_lock(be->headlock);
-#if(DEBUG_OUTPUT)
-	    fprintf(stdout, "RINGBUF: Trying to wake up streamer\n");
-#endif
-	    pthread_cond_signal(be->iosignal);
-	    pthread_mutex_unlock(be->headlock);
-	  }
-	else
-	  rbuf_check(be);
-	// Decrement the packet number we wan't to read
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "RINGBUF: Packets left %lu\n", packets_left);
-#endif
-	packets_left-=diff;
-	// If we've done loading all the packets, run ringbuf down 
-	if(packets_left <= 0){
-#if(DEBUG_OUTPUT)
-	  fprintf(stdout, "RINGBUF: All packets read!\n");
-#endif
-	  rbuf->running =0;
-	}
-      }
-    }
-  }
-  // Main thread stopped so just write
-  // TODO: On asynch io, this will not check the last writes 
-  if(ret >=0){
-    // TODO: Move away from silly async-wait times and 	
-    // Just use a counter for number of writes 	
-    if(rbuf->opt->optbits & ASYNC_WRITE){
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Checking ASYNC writes status\n");
-#endif
-      while(rbuf->async_writes_submitted >0){
-	usleep(100);
-	rbuf_check(be);
-      }
-    }
-  }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "RINGBUF: Closing rbuf thread\n");
-#endif
-*/
   pthread_exit(NULL);
 }
 /* Need to do 512 byte aligned write at end */
@@ -495,9 +340,7 @@ int end_transaction(struct buffer_entity * be, int head, int *tail, int diff){
     count++;
     wrote_extra++;
   }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "RINGBUF: Have to write %lu extra bytes\n", wrote_extra);
-#endif
+  D("RINGBUF: Have to write %lu extra bytes", wrote_extra);
 
   ret = be->recer->write(be->recer, start, count);
   if(ret<0){
@@ -541,9 +384,7 @@ void *rbuf_write_loop(void *buffo){
   while(rbuf->running){
     //Check if we've written a whole buf and need to change our backend and set ourselves free
     if(i == rbuf->opt->buf_num_elems){
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Write cycle complete. Setting self to free\n");
-#endif
+      D("RINGBUF: Write cycle complete. Setting self to free");
       i=0;
       set_free(rbuf->opt->membranch, be->self);
       set_free(rbuf->opt->diskbranch, be->recer->self);
@@ -552,15 +393,11 @@ void *rbuf_write_loop(void *buffo){
     pthread_mutex_lock(be->headlock);
     while(((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) < dow_div_packet) && rbuf->running)
     {
-#if(DEBUG_OUTPUT)
-      //fprintf(stdout, "RINGBUF: Not enough to write %d\n", diff);
       D("Not enough to write: %d left %d running", diff, rbuf->running);
-#endif
       pthread_cond_wait(be->iosignal, be->headlock);
     }
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d\n", diff, *tail, *head);
-#endif
+    D("RINGBUF: Writing: diffmax reported: we have %d left. tail: %d, head: %d",
+      diff, *tail, *head);
     pthread_mutex_unlock(be->headlock);
     /* We're not yet attached to a backend write-end. Go get one */
     if(be->recer == NULL){
@@ -603,15 +440,6 @@ void *rbuf_write_loop(void *buffo){
 #endif
 	  {
 	    i+= diff;
-	    // Signal if thread is waiting for space 
-	    /*
-	    pthread_mutex_lock(be->headlock);
-#if(DEBUG_OUTPUT)
-	    fprintf(stdout, "RINGBUF: Trying to wake up streamer\n");
-#endif
-	    pthread_cond_signal(be->iosignal);
-	    pthread_mutex_unlock(be->headlock);
-	    */
 	  }
 	  else
 	    rbuf_check(be);
@@ -619,9 +447,7 @@ void *rbuf_write_loop(void *buffo){
       }
     }
   }
-#if(DEBUG_OUTPUT)
-  fprintf(stdout, "RINGBUF: Closing rbuf thread\n");
-#endif
+  D("RINGBUF: Closing rbuf thread");
   // Main thread stopped so just write
   /* TODO: On asynch io, this will not check the last writes */
   if(ret >=0){
@@ -629,9 +455,8 @@ void *rbuf_write_loop(void *buffo){
     /* Just use a counter for number of writes 		*/
     while((diff = diff_max(*tail, *head, rbuf->opt->buf_num_elems)) > 0){
       int ret = 0;
-#if(DEBUG_OUTPUT)
-      fprintf(stdout, "RINGBUF: Closing up: diffmax reported: we have %d left in buffer after completion\n", diff);
-#endif
+      D("RINGBUF: Closing up: diffmax reported: we have %d left in buffer "
+        "after completion", diff);
 #ifdef DO_WRITES_IN_FIXED_BLOCKS
       //aio can overload on write requests, so making just one big for it
       //if(!(rbuf->opt->optbits & ASYNC_WRITE)){
@@ -665,9 +490,8 @@ void *rbuf_write_loop(void *buffo){
     }
     if(rbuf->opt->optbits & ASYNC_WRITE){
       while(rbuf->async_writes_submitted >0){
-#if(DEBUG_OUTPUT)
-	fprintf(stdout, "RINGBUF: Sleeping and waiting for async to complete %d writes submitted\n", rbuf->async_writes_submitted);
-#endif
+	D("RINGBUF: Sleeping and waiting for async to complete %d writes "
+          "submitted", rbuf->async_writes_submitted);
 	usleep(1000);
 	rbuf_check(be);
       }
@@ -689,9 +513,7 @@ int rbuf_check(struct buffer_entity *be){
     /* Write done so decrement async_writes_submitted */
     if(rbuf->opt->optbits & ASYNC_WRITE)
       rbuf->async_writes_submitted--;
-#if(DEBUG_OUTPUT)
-    fprintf(stdout, "RINGBUF: %lu Writes complete.\n", ret/rbuf->opt->packet_size);
-#endif
+    D("RINGBUF: %lu Writes complete.", ret/rbuf->opt->packet_size);
     returnable = ret;
     int * to_increment;
     unsigned long num_written;
@@ -727,9 +549,6 @@ int rbuf_check(struct buffer_entity *be){
 }
 /* Not used anymore! Use dummy loop */
 int dummy_write(struct ringbuf *rbuf){
-#if(DEBUG_OUTPUT)
-  //fprintf(stdout, "Using dummy\n");
-#endif
   int writable = diff_max(rbuf->hdwriter_head, rbuf->writer_head, rbuf->opt->buf_num_elems);
   increment_amount(rbuf, &(rbuf->hdwriter_head), writable);
   //Dummy write completes right away

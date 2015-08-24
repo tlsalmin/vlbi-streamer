@@ -152,7 +152,7 @@ void* change_buffer(struct streamer_entity *se, uint64_t ** buf_incrementer)
   struct socketopts * spec_ops = (struct socketopts*)se->opt;
   spec_ops->opt->cumul++;
   spec_ops->opt->total_packets += spec_ops->opt->buf_num_elems;
-  unsigned long n_now = add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
+  unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, spec_ops->opt->buf_num_elems);
   D("A buffer filled for %s. Next file: %ld. Packets now %ld", spec_ops->opt->filename, spec_ops->opt->cumul, n_now);
   free_the_buf(se->be);
   se->be = (struct buffer_entity*)get_free(spec_ops->opt->membranch,spec_ops->opt ,&(spec_ops->opt->cumul), NULL,1);
@@ -205,7 +205,7 @@ int loop_with_splice(struct streamer_entity *se)
     se->be = NULL;
   }
   else{
-    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
     D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     se->be->set_ready_and_signal(se->be,0);
@@ -265,7 +265,7 @@ int loop_with_recv(struct streamer_entity *se)
     D("Writebuf cancelled, since it was empty");
   }
   else{
-    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
     D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
@@ -504,7 +504,7 @@ int loop_with_threaded_multistream_recv(struct streamer_entity *se)
     D("Writebuf cancelled, since it was empty");
   }
   else{
-    unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+    unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
     D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
     spec_ops->opt->cumul++;
     spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;
@@ -581,7 +581,7 @@ offsets_for_multiply[stream_iterator] = 0;
  D("Writebuf cancelled, since it was empty");
  }
  else{
- unsigned long n_now = add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
+ unsigned long n_now = afi_add_to_packets(spec_ops->opt->fi, (*buf_incrementer)/spec_ops->opt->packet_size);
  D("N packets is now %lu and received nu, %lu", n_now, spec_ops->opt->total_packets);
  spec_ops->opt->cumul++;
  spec_ops->opt->total_packets += (*buf_incrementer)/spec_ops->opt->packet_size;

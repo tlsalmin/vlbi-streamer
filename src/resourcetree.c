@@ -50,7 +50,7 @@ static int ret_zero_if_stillshouldrun(void *opti)
 }
 
 
-inline void add_before_ent(struct listed_entity * new, struct listed_entity * old)
+void add_before_ent(struct listed_entity * new, struct listed_entity * old)
 {
   new->child = old;
   new->father = old->father;

@@ -170,14 +170,14 @@ int free_and_close(void *le){
     free(ev->idstring);
   }
   if(ev->opt->optbits & READMODE){
-    err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
+    err = afi_disassociate(ev->opt->fi, AFI_SEND);
     if(err != 0)
-      E("Error in disassociate");
+      E("Error in afi_disassociate");
   }
   else{
-    err = disassociate(ev->opt->fi, FILESTATUS_RECORDING);
+    err = afi_disassociate(ev->opt->fi, AFI_RECORD);
     if(err != 0)
-      E("Error in disassociate");
+      E("Error in afi_disassociate");
   }
   close_opts(ev->opt);
   free(ev);
@@ -637,7 +637,7 @@ int main(int argc, char **argv)
   CHECK_ERR_NONNULL(ibuff, "ibuff malloc");
   memset(ibuff, 0,sizeof(char)*CHAR_BUFF_SIZE);
 
-  err = init_active_file_index();
+  err = afi_init();
   CHECK_ERR("active file index");
 
   schedlockfd = open(SCHEDLOCKFILE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP);
@@ -866,7 +866,7 @@ int main(int argc, char **argv)
   D("Schedule freed");
   close(schedlockfd);
 
-  err = close_active_file_index();
+  err = afi_close();
   CHECK_ERR("Close active file index");
 
   if (file_out != stdout)

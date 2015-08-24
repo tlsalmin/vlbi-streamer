@@ -16,7 +16,9 @@
 
 #include "../src/datatypes_common.h"
 #define BACKLOG 1024
-#define DEBUG_OUTPUT 0
+#ifdef DEBUG_OUTPUT
+#undef DEBUG_OUTPUT
+#endif
 #include "../src/logging_main.h"
 #include "vbs_metadata.h"
 #include "metadata_seqnum.h"

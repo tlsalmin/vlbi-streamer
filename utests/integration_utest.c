@@ -36,18 +36,18 @@ struct stats * stats;
 int prep_dummy_file_index(struct opt_s *opt)
 {
   int j;
-  if((opt->fi = get_fileindex(opt->filename, 1)) != NULL)
+  if((opt->fi = afi_get(opt->filename, true)) != NULL)
   {
     D("filename %s Already exists, so just going along with this..", opt->filename);
-    opt->cumul_found = get_n_files(opt->fi);
+    opt->cumul_found = afi_get_n_files(opt->fi);
     return 0;
   }
   else
     D("filename %s Not found in index. Creating new", opt->filename);
-  opt->fi = add_fileindex(opt->filename, N_FILES_PER_BOM, FILESTATUS_SENDING, 0);
+  opt->fi = afi_add(opt->filename, N_FILES_PER_BOM, AFI_SEND, 0);
   CHECK_ERR_NONNULL(opt->fi, "start file index");
   FI_WRITELOCK(opt->fi);
-  if(!((opt->fi->status) & FILESTATUS_RECORDING))
+  if(!((opt->fi->status) & AFI_RECORD))
     opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
   //opt->fi->n_packets = N_FILES_PER_BOM*NUMBER_OF_PACKETS;
   struct fileholder * fh = opt->fi->files;
@@ -71,7 +71,8 @@ int start_thread(struct scheduled_event * ev)
   if(!(ev->opt->optbits & READMODE)){
     TIMERTYPE now;
     GETTIME(now);
-    ev->opt->fi = add_fileindex(ev->opt->filename, 0, FILESTATUS_RECORDING, ev->opt->packet_size);
+    ev->opt->fi = afi_add(ev->opt->filename, 0, AFI_RECORD,
+                          ev->opt->packet_size);
     ev->opt->time = RUNTIME;
     GETSECONDS(ev->opt->starting_time) = GETSECONDS(now);
     CHECK_ERR_NONNULL(ev->opt->fi, "Add fileindex");
@@ -93,23 +94,23 @@ int close_thread(struct scheduled_event *ev)
 {
   int err;
   if(ev->opt->optbits & READMODE)
-    assert(!(get_status(ev->opt->fi) & FILESTATUS_RECORDING));
+    assert(!(afi_get_status(ev->opt->fi) & AFI_RECORD));
 
   err = pthread_join(ev->pt,NULL);
   CHECK_ERR("pthread join");
   if(ev->opt->optbits & READMODE){
     D("Pthread sender joining on %s", ev->opt->filename);
-    err = disassociate(ev->opt->fi, FILESTATUS_SENDING);
+    err = afi_disassociate(ev->opt->fi, AFI_SEND);
     if(err != 0){
-      E("Error in disassociate");
+      E("Error in afi_disassociate");
       return -1;
     }
   }
   else{
     D("Pthread recorder joining on %s", ev->opt->filename);
-    disassociate(ev->opt->fi, FILESTATUS_RECORDING);
+    afi_disassociate(ev->opt->fi, AFI_RECORD);
     if(err != 0){
-      E("Error in disassociate");
+      E("Error in afi_disassociate");
       return -1;
     }
   }
@@ -182,7 +183,7 @@ int main()
   }
 
   TEST_START(init_resources);
-  err = init_active_file_index();
+  err = afi_init();
   CHECK_ERR("active file index");
 
   err = init_branches(dopt);
@@ -419,7 +420,7 @@ int main()
     free(filenames[i]);
   }
 
-  err = close_active_file_index();
+  err = afi_close();
   CHECK_ERR("Close active file index");
 
   free(filenames);
